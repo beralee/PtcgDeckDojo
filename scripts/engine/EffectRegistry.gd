@@ -303,7 +303,7 @@ static func _register_tools(processor: EffectProcessor) -> void:
 	# 讲究腰带：对V宝可梦伤害+30
 	processor.register_effect("36939b241f51e497487feb52e0ea8994", EffectToolConditionalDamage.new(30, "V"))
 	# 勇气护符：HP+50，不禁用特性
-	processor.register_effect("d1c2f018a644e662f2b6895fdfc29281", EffectToolHPModifier.new(50, false))
+	processor.register_effect("d1c2f018a644e662f2b6895fdfc29281", EffectToolHPModifier.new(50, false, true))
 	# 驱劲能量 未来（道具：给未来宝可梦的招式增益）
 	processor.register_effect("54920a273edba38ce45f3bc8f6e8ff25", EffectToolFutureBoost.new())
 	# 沉重接力棒

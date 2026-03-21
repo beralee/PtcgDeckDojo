@@ -921,6 +921,86 @@ func test_csv8c_203_jamming_tower_disables_tool_effects() -> String:
 	])
 
 
+func test_csv1c_118_bravery_charm_only_boosts_basic_pokemon() -> String:
+	var processor := EffectProcessor.new()
+	var state := _make_state()
+	var basic_slot := _make_slot(_make_basic_pokemon_data("Basic Target", "P", 90), 0)
+	var evolved_slot := _make_slot(_make_basic_pokemon_data("Evolved Target", "P", 140, "Stage 1"), 0)
+	var charm_basic := CardInstance.create(_make_trainer_data("Bravery Charm", "Tool", "d1c2f018a644e662f2b6895fdfc29281"), 0)
+	var charm_evolved := CardInstance.create(_make_trainer_data("Bravery Charm", "Tool", "d1c2f018a644e662f2b6895fdfc29281"), 0)
+	basic_slot.attached_tool = charm_basic
+	evolved_slot.attached_tool = charm_evolved
+
+	return run_checks([
+		assert_eq(processor.get_effective_max_hp(basic_slot, state), 140, "CSV1C_118 should grant +50 HP to Basic Pokemon"),
+		assert_eq(processor.get_effective_max_hp(evolved_slot, state), 140, "CSV1C_118 should not change non-Basic Pokemon HP"),
+	])
+
+
+func test_cs6bc_123_lost_vacuum_removing_bravery_charm_knocks_out_immediately() -> String:
+	var gsm := GameStateMachine.new()
+	gsm.game_state = _make_state()
+	gsm.game_state.current_player_index = 1
+	gsm.game_state.first_player_index = 0
+	gsm.game_state.turn_number = 2
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+
+	var protected_active := _make_slot(_make_basic_pokemon_data("Scream Tail", "P", 90), 0)
+	protected_active.damage_counters = 120
+	protected_active.attached_tool = CardInstance.create(_make_trainer_data("Bravery Charm", "Tool", "d1c2f018a644e662f2b6895fdfc29281"), 0)
+	gsm.game_state.players[0].active_pokemon = protected_active
+	var replacement := _make_slot(_make_basic_pokemon_data("Replacement", "P", 90), 0)
+	gsm.game_state.players[0].bench.clear()
+	gsm.game_state.players[0].bench.append(replacement)
+
+	var player := gsm.game_state.players[1]
+	player.hand.clear()
+	var discard_fodder := CardInstance.create(_make_trainer_data("Fodder", "Item"), 1)
+	var lost_vacuum := CardInstance.create(_make_trainer_data("Lost Vacuum", "Item", "8f655fea1f90164bfbccb7a95c223e17"), 1)
+	player.hand.append(discard_fodder)
+	player.hand.append(lost_vacuum)
+
+	var success := gsm.play_trainer(1, lost_vacuum, [])
+	var send_out_ok := gsm.send_out_pokemon(0, replacement)
+
+	return run_checks([
+		assert_true(success, "CS6bC_123 should resolve successfully when another hand card is available"),
+		assert_true(send_out_ok, "Removing Bravery Charm should immediately KO the damaged Active Pokemon and require a replacement"),
+		assert_eq(gsm.game_state.players[0].active_pokemon, replacement, "The knocked out Basic Pokemon should be replaced immediately"),
+		assert_eq(gsm.game_state.current_player_index, 1, "After the replacement, the Lost Vacuum user's turn should continue"),
+		assert_eq(gsm.game_state.phase, GameState.GamePhase.MAIN, "After resolving the immediate knockout, the game should return to MAIN"),
+	])
+
+
+func test_csv8c_203_jamming_tower_suppressed_bravery_charm_knocks_out_immediately() -> String:
+	var gsm := GameStateMachine.new()
+	gsm.game_state = _make_state()
+	gsm.game_state.current_player_index = 1
+	gsm.game_state.first_player_index = 0
+	gsm.game_state.turn_number = 2
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+
+	var protected_bench := _make_slot(_make_basic_pokemon_data("Scream Tail", "P", 90), 0)
+	protected_bench.damage_counters = 120
+	protected_bench.attached_tool = CardInstance.create(_make_trainer_data("Bravery Charm", "Tool", "d1c2f018a644e662f2b6895fdfc29281"), 0)
+	gsm.game_state.players[0].bench.clear()
+	gsm.game_state.players[0].bench.append(protected_bench)
+
+	var player := gsm.game_state.players[1]
+	player.hand.clear()
+	var stadium := CardInstance.create(_make_trainer_data("Jamming Tower", "Stadium", "4e16157bfa88a41e823d058a732df8e0"), 1)
+	player.hand.append(stadium)
+
+	var success := gsm.play_stadium(1, stadium)
+
+	return run_checks([
+		assert_true(success, "CSV8C_203 should be playable"),
+		assert_false(protected_bench in gsm.game_state.players[0].bench, "Suppressing Bravery Charm should immediately knock out the damaged Benched Basic Pokemon"),
+		assert_eq(gsm.game_state.current_player_index, 1, "After the immediate bench knockout, the Jamming Tower user's turn should continue"),
+		assert_eq(gsm.game_state.phase, GameState.GamePhase.MAIN, "After the immediate bench knockout, the game should return to MAIN"),
+	])
+
+
 func test_csv8c_207_legacy_energy_provides_any_type_and_reduces_prizes_once() -> String:
 	var processor := EffectProcessor.new()
 	var state := _make_state()

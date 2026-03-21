@@ -2,6 +2,8 @@
 class_name TestBattleUIFeatures
 extends TestBase
 
+const BattleSceneScript = preload("res://scenes/battle/BattleScene.gd")
+
 
 ## 构建测试用 CardData（宝可梦）
 func _make_pokemon_cd(pname: String, hp: int, energy: String) -> CardData:
@@ -178,6 +180,45 @@ func test_energy_card_provides() -> String:
 	return run_checks([
 		assert_eq(cd.card_type, "Basic Energy", "类型正确"),
 		assert_eq(cd.energy_provides, "R", "提供火能量"),
+	])
+
+
+func test_battle_scene_uses_effective_hp_for_bravery_charm() -> String:
+	var battle_scene = BattleSceneScript.new()
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+	gsm.game_state.turn_number = 2
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+
+	CardInstance.reset_id_counter()
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+
+	var scream_tail := _make_pokemon_cd("吼叫尾", 90, "P")
+	var slot := PokemonSlot.new()
+	slot.pokemon_stack.append(CardInstance.create(scream_tail, 0))
+	slot.damage_counters = 20
+	var bravery_charm := CardData.new()
+	bravery_charm.name = "勇气护符"
+	bravery_charm.card_type = "Tool"
+	bravery_charm.effect_id = "d1c2f018a644e662f2b6895fdfc29281"
+	slot.attached_tool = CardInstance.create(bravery_charm, 0)
+	gsm.game_state.players[0].active_pokemon = slot
+	battle_scene._gsm = gsm
+
+	var status: Dictionary = battle_scene._build_battle_status(slot)
+	var overlay_text: String = battle_scene._slot_overlay_text(slot)
+	var subtitle: String = battle_scene._dialog_choice_subtitle(slot, "")
+
+	return run_checks([
+		assert_eq(int(status.get("hp_current", 0)), 120, "战斗状态当前HP应显示勇气护符加成后的有效剩余HP"),
+		assert_eq(int(status.get("hp_max", 0)), 140, "战斗状态最大HP应显示勇气护符加成后的有效最大HP"),
+		assert_str_contains(overlay_text, "120/140", "战斗页覆盖文本应显示有效HP"),
+		assert_str_contains(subtitle, "120/140", "选择弹窗副标题也应显示有效HP"),
 	])
 
 

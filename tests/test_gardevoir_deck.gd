@@ -537,9 +537,78 @@ func test_drifloon_balloon_bomb_damage_by_counters() -> String:
 	var effect := AttackSelfDamageCounterMultiplier.new(30)
 	var bonus: int = effect.get_damage_bonus(attacker, state)
 
-	# 4个指示物 x 30 = 120伤害加值
+	# 牌面 "30x" 的首个 30 会由 DamageCalculator 解析，这里只返回剩余增量。
 	return run_checks([
-		assert_eq(bonus, 120, "气球炸弹：4指示物 x 30 = 120伤害加值"),
+		assert_eq(bonus, 90, "气球炸弹：4指示物总伤害120，其中效果层应补足额外90"),
+	])
+
+
+func test_drifloon_balloon_bomb_e2e_deals_180_not_210() -> String:
+	var drifloon_cd: CardData = CardDatabase.get_card("CSV2C", "060")
+	if drifloon_cd == null:
+		return "未找到飘飘球缓存卡牌数据"
+	var regidrago_v_cd: CardData = CardDatabase.get_card("CS6.5C", "054")
+	if regidrago_v_cd == null:
+		return "未找到雷吉铎拉戈V缓存卡牌数据"
+
+	var gsm := _make_main_phase_gsm()
+	gsm.effect_processor.register_pokemon_card(drifloon_cd)
+
+	var attacker := _make_slot(drifloon_cd, 0)
+	attacker.damage_counters = 60
+	for i: int in 3:
+		attacker.attached_energy.append(CardInstance.create(_make_energy_data("超能量%d" % i, "P"), 0))
+	gsm.game_state.players[0].active_pokemon = attacker
+
+	var defender := _make_slot(regidrago_v_cd, 1)
+	gsm.game_state.players[1].active_pokemon = defender
+	gsm.game_state.players[1].bench.clear()
+
+	var used: bool = gsm.use_attack(0, 1)
+
+	return run_checks([
+		assert_true(used, "气球炸弹应能正常发动"),
+		assert_eq(defender.damage_counters, 180, "10/70HP 的飘飘球应只造成 6 x 30 = 180 伤害"),
+		assert_eq(gsm.game_state.players[1].active_pokemon, defender, "180伤害不足以击倒 220HP 的雷吉铎拉戈V"),
+		assert_eq(gsm.game_state.current_player_index, 1, "攻击结算后应正常切到对手回合"),
+		assert_eq(gsm.game_state.phase, GameState.GamePhase.MAIN, "未击倒对手时不应卡在等待状态"),
+	])
+
+
+func test_drifloon_balloon_bomb_knockout_replace_advances_cleanly() -> String:
+	var drifloon_cd: CardData = CardDatabase.get_card("CSV2C", "060")
+	if drifloon_cd == null:
+		return "未找到飘飘球缓存卡牌数据"
+	var regidrago_v_cd: CardData = CardDatabase.get_card("CS6.5C", "054")
+	if regidrago_v_cd == null:
+		return "未找到雷吉铎拉戈V缓存卡牌数据"
+
+	var gsm := _make_main_phase_gsm()
+	gsm.effect_processor.register_pokemon_card(drifloon_cd)
+
+	var attacker := _make_slot(drifloon_cd, 0)
+	attacker.damage_counters = 60
+	for i: int in 3:
+		attacker.attached_energy.append(CardInstance.create(_make_energy_data("超能量%d" % i, "P"), 0))
+	gsm.game_state.players[0].active_pokemon = attacker
+
+	var defender := _make_slot(regidrago_v_cd, 1)
+	defender.damage_counters = 40
+	gsm.game_state.players[1].active_pokemon = defender
+	var replacement := _make_slot(_make_basic_pokemon_data("Replacement", "G", 120), 1)
+	gsm.game_state.players[1].bench.clear()
+	gsm.game_state.players[1].bench.append(replacement)
+
+	var used: bool = gsm.use_attack(0, 1)
+	var send_out_ok: bool = gsm.send_out_pokemon(1, replacement)
+
+	return run_checks([
+		assert_true(used, "气球炸弹应能击倒已受伤的雷吉铎拉戈V"),
+		assert_true(send_out_ok, "对手应能正常派出替换宝可梦"),
+		assert_eq(gsm.game_state.players[1].active_pokemon, replacement, "击倒后应完成替换流程"),
+		assert_eq(gsm.game_state.current_player_index, 1, "替换完成后应轮到对手回合"),
+		assert_eq(gsm.game_state.phase, GameState.GamePhase.MAIN, "击倒并替换后应回到 MAIN"),
+		assert_eq(gsm.game_state.players[0].prizes.size(), 1, "击倒宝可梦V后应拿取2张奖赏卡"),
 	])
 
 
@@ -602,6 +671,70 @@ func test_klefki_mischievous_lock_disables_basic_abilities() -> String:
 	var basic_disabled := AbilityBasicLock.is_basic_abilities_disabled(state, klefki)
 	return run_checks([
 		assert_true(basic_disabled, "恶作剧之锁：钥圈儿在场时基础宝可梦特性应被无效化"),
+	])
+
+
+func test_klefki_lock_is_consumed_by_effect_processor() -> String:
+	var state := _make_state()
+	var processor := EffectProcessor.new()
+
+	var klefki_cd := _make_basic_pokemon_data("钥圈儿", "P", 70)
+	klefki_cd.abilities = [{"name": "恶作剧之锁"}]
+	var klefki := _make_slot(klefki_cd, 0)
+	state.players[0].active_pokemon = klefki
+
+	var own_basic_cd := _make_basic_pokemon_data("OwnBasic", "P", 90)
+	own_basic_cd.abilities = [{"name": "Own Ability"}]
+	var own_basic := _make_slot(own_basic_cd, 0)
+	state.players[0].bench.clear()
+	state.players[0].bench.append(own_basic)
+
+	var opp_basic_cd := _make_basic_pokemon_data("OppBasic", "R", 100)
+	opp_basic_cd.abilities = [{"name": "Opp Ability"}]
+	var opp_basic_active := _make_slot(opp_basic_cd, 1)
+	var opp_basic_bench := _make_slot(opp_basic_cd, 1)
+	var opp_evolved_cd := _make_basic_pokemon_data("OppEvolved", "R", 120, "Stage 1")
+	opp_evolved_cd.abilities = [{"name": "Stage Ability"}]
+	var opp_evolved := _make_slot(opp_evolved_cd, 1)
+	state.players[1].active_pokemon = opp_basic_active
+	state.players[1].bench.clear()
+	state.players[1].bench.append(opp_basic_bench)
+	state.players[1].bench.append(opp_evolved)
+
+	return run_checks([
+		assert_false(processor.is_ability_disabled(klefki, state), "恶作剧之锁：拥有该特性的钥圈儿自身不应被封锁"),
+		assert_true(processor.is_ability_disabled(own_basic, state), "恶作剧之锁：己方备战区基础宝可梦特性应被封锁"),
+		assert_true(processor.is_ability_disabled(opp_basic_active, state), "恶作剧之锁：对手战斗宝可梦特性应被封锁"),
+		assert_true(processor.is_ability_disabled(opp_basic_bench, state), "恶作剧之锁：对手备战区基础宝可梦特性也应被封锁"),
+		assert_false(processor.is_ability_disabled(opp_evolved, state), "恶作剧之锁：进化宝可梦特性不应被封锁"),
+	])
+
+
+func test_flutter_mane_dark_wing_only_disables_opponent_active() -> String:
+	var state := _make_state()
+	var processor := EffectProcessor.new()
+
+	var flutter_cd := _make_basic_pokemon_data("振翼发", "P", 90)
+	flutter_cd.abilities = [{"name": "暗夜振翼"}]
+	var flutter := _make_slot(flutter_cd, 0)
+	state.players[0].active_pokemon = flutter
+
+	var opp_active_cd := _make_basic_pokemon_data("OppActive", "P", 100)
+	opp_active_cd.abilities = [{"name": "Active Ability"}]
+	var opp_active := _make_slot(opp_active_cd, 1)
+
+	var opp_bench_cd := _make_basic_pokemon_data("OppBench", "P", 100)
+	opp_bench_cd.abilities = [{"name": "Bench Ability"}]
+	var opp_bench := _make_slot(opp_bench_cd, 1)
+
+	state.players[1].active_pokemon = opp_active
+	state.players[1].bench.clear()
+	state.players[1].bench.append(opp_bench)
+
+	return run_checks([
+		assert_true(processor.is_ability_disabled(opp_active, state), "暗夜振翼：只要振翼发在战斗场，对手战斗宝可梦特性应被封锁"),
+		assert_false(processor.is_ability_disabled(opp_bench, state), "暗夜振翼：不应封锁对手备战宝可梦特性"),
+		assert_false(processor.is_ability_disabled(flutter, state), "暗夜振翼：振翼发自身特性不应被封锁"),
 	])
 
 

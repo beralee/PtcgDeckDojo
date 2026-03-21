@@ -13,7 +13,10 @@ func _init(per_counter: int = 30) -> void:
 
 func get_damage_bonus(attacker: PokemonSlot, _state: GameState) -> int:
 	var counter_count: int = attacker.damage_counters / 10
-	return counter_count * damage_per_counter
+	# Multiplier attacks such as "30x" already contribute one printed damage unit
+	# through DamageCalculator.parse_damage(), so subtract it here and return the
+	# remaining delta needed to reach the real total damage.
+	return (counter_count * damage_per_counter) - damage_per_counter
 
 
 func get_description() -> String:

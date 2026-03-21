@@ -1,6 +1,6 @@
 ## 对手特性无效化特性 - 振翼发（暗夜振翼）
-## 只要振翼发在战斗位，对手场上所有宝可梦的特性无效化
-## 被动特性，由 EffectProcessor 在尝试触发对手特性前调用 is_opponent_abilities_disabled()
+## 只要振翼发在战斗位，对手战斗宝可梦的特性（除暗夜振翼外）无效化
+## 被动特性，由 EffectProcessor 在尝试触发特性前查询。
 class_name AbilityDisableOpponentAbility
 extends BaseEffect
 
@@ -19,9 +19,7 @@ func execute_ability(
 	pass
 
 
-## 检查指定玩家（checking_player_index）的特性是否被对手的振翼发压制
-## 逻辑：检查对手（1 - checking_player_index）的战斗位是否有拥有"暗夜振翼"的宝可梦
-## 只有对手战斗位的振翼发才能触发此效果，备战区无效
+## 检查指定玩家的战斗宝可梦是否会被对手战斗位的暗夜振翼压制。
 static func is_opponent_abilities_disabled(
 	state: GameState,
 	checking_player_index: int
@@ -38,6 +36,21 @@ static func is_opponent_abilities_disabled(
 	return _has_dark_wing_ability(active)
 
 
+## 检查给定宝可梦是否被暗夜振翼压制。
+## 只有对手的战斗宝可梦会受影响，且自身拥有暗夜振翼时不受压制。
+static func is_locked_by_dark_wing(slot: PokemonSlot, state: GameState) -> bool:
+	if slot == null or state == null:
+		return false
+	var top: CardInstance = slot.get_top_card()
+	if top == null:
+		return false
+	if not is_opponent_abilities_disabled(state, top.owner_index):
+		return false
+	if slot != state.players[top.owner_index].active_pokemon:
+		return false
+	return not _has_dark_wing_ability(slot)
+
+
 ## 检查单个 PokemonSlot 是否拥有"暗夜振翼"特性
 static func _has_dark_wing_ability(slot: PokemonSlot) -> bool:
 	var top: CardInstance = slot.get_top_card()
@@ -52,10 +65,10 @@ static func _has_dark_wing_ability(slot: PokemonSlot) -> bool:
 	for ability: Variant in abilities:
 		if ability is Dictionary:
 			var ab_name: Variant = ability.get("name", "")
-			if ab_name is String and (ab_name as String).contains(ABILITY_NAME):
+			if ab_name is String and (ab_name as String) == ABILITY_NAME:
 				return true
 	return false
 
 
 func get_description() -> String:
-	return "特性【暗夜振翼】：只要此宝可梦在战斗位，对手场上所有宝可梦的特性无效化。"
+	return "特性【暗夜振翼】：只要此宝可梦在战斗位，对手战斗宝可梦的特性全部消除。"

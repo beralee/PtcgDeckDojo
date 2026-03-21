@@ -1412,7 +1412,7 @@ func _setup_dialog_card_view(card_view: BattleCardView, item: Variant, label: St
 func _dialog_choice_subtitle(item: Variant, label: String) -> String:
 	if item is PokemonSlot:
 		var slot: PokemonSlot = item
-		return "HP %d/%d" % [slot.get_remaining_hp(), slot.get_max_hp()]
+		return "HP %d/%d" % [_get_display_remaining_hp(slot), _get_display_max_hp(slot)]
 	if item is CardInstance:
 		var card: CardInstance = item
 		if label != "" and label != card.card_data.name:
@@ -2591,7 +2591,7 @@ func _apply_field_slot_style(panel: PanelContainer, slot_id: String, occupied: b
 
 func _slot_overlay_text(slot: PokemonSlot) -> String:
 	var parts: Array[String] = []
-	parts.append("%d/%d" % [slot.get_remaining_hp(), slot.get_max_hp()])
+	parts.append("%d/%d" % [_get_display_remaining_hp(slot), _get_display_max_hp(slot)])
 	var energy_summary := _slot_energy_summary(slot)
 	if energy_summary != "":
 		parts.append(energy_summary)
@@ -2601,13 +2601,27 @@ func _slot_overlay_text(slot: PokemonSlot) -> String:
 
 
 func _build_battle_status(slot: PokemonSlot) -> Dictionary:
+	var hp_current := _get_display_remaining_hp(slot)
+	var hp_max := maxi(_get_display_max_hp(slot), 1)
 	return {
-		"hp_current": slot.get_remaining_hp(),
-		"hp_max": slot.get_max_hp(),
-		"hp_ratio": float(slot.get_remaining_hp()) / float(maxi(slot.get_max_hp(), 1)),
+		"hp_current": hp_current,
+		"hp_max": hp_max,
+		"hp_ratio": float(hp_current) / float(hp_max),
 		"energy_icons": _slot_energy_icon_codes(slot),
 		"tool_name": slot.attached_tool.card_data.name if slot.attached_tool != null else "",
 	}
+
+
+func _get_display_max_hp(slot: PokemonSlot) -> int:
+	if _gsm != null and _gsm.effect_processor != null and _gsm.game_state != null:
+		return _gsm.effect_processor.get_effective_max_hp(slot, _gsm.game_state)
+	return slot.get_max_hp()
+
+
+func _get_display_remaining_hp(slot: PokemonSlot) -> int:
+	if _gsm != null and _gsm.effect_processor != null and _gsm.game_state != null:
+		return _gsm.effect_processor.get_effective_remaining_hp(slot, _gsm.game_state)
+	return slot.get_remaining_hp()
 
 
 func _battle_card_mode_for_slot(slot: PokemonSlot) -> String:

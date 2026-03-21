@@ -506,9 +506,7 @@ func get_hp_modifier(slot: PokemonSlot, state: GameState = null) -> int:
 	var total: int = 0
 	if slot.attached_tool != null and not is_tool_effect_suppressed(slot, state):
 		var tool_effect: BaseEffect = get_effect(slot.attached_tool.card_data.effect_id)
-		if tool_effect is EffectToolHPModifier:
-			total += (tool_effect as EffectToolHPModifier).hp_modifier
-		elif tool_effect != null and tool_effect.has_method("get_hp_modifier"):
+		if tool_effect != null and tool_effect.has_method("get_hp_modifier"):
 			total += int(tool_effect.call("get_hp_modifier", slot, state))
 	if state != null and state.stadium_card != null:
 		var stadium_effect: BaseEffect = get_effect(state.stadium_card.card_data.effect_id)
@@ -561,10 +559,15 @@ func get_energy_type(energy: CardInstance, state: GameState = null) -> String:
 
 
 func is_ability_disabled(slot: PokemonSlot, state: GameState = null) -> bool:
+	if slot == null:
+		return false
+	if state != null:
+		if AbilityBasicLock.is_locked_by_basic_lock(slot, state):
+			return true
+		if AbilityDisableOpponentAbility.is_locked_by_dark_wing(slot, state):
+			return true
 	if slot.attached_tool != null and not is_tool_effect_suppressed(slot, state):
 		var tool_effect: BaseEffect = get_effect(slot.attached_tool.card_data.effect_id)
-		if tool_effect is EffectToolHPModifier:
-			return (tool_effect as EffectToolHPModifier).disable_ability
 		if tool_effect != null and tool_effect.has_method("disables_ability"):
 			return bool(tool_effect.call("disables_ability", slot, state))
 	return false
