@@ -1895,8 +1895,7 @@ func _try_use_attack_with_interaction(player_index: int, slot: PokemonSlot, atta
 		else:
 			_log(_gsm.get_attack_unusable_reason(player_index, attack_index))
 		return
-	_pending_effect_attack_effects = effects
-	_start_effect_interaction("attack", player_index, steps, card, slot, attack_index)
+	_start_effect_interaction("attack", player_index, steps, card, slot, attack_index, {}, effects)
 
 
 func _try_use_granted_attack_with_interaction(player_index: int, slot: PokemonSlot, granted_attack: Dictionary) -> void:
@@ -2201,7 +2200,8 @@ func _start_effect_interaction(
 	card: CardInstance,
 	slot: PokemonSlot = null,
 	ability_index: int = -1,
-	attack_data: Dictionary = {}
+	attack_data: Dictionary = {},
+	attack_effects: Array[BaseEffect] = []
 ) -> void:
 	# Defensive reset so a previous interactive effect cannot leak state into the next one.
 	_reset_effect_interaction()
@@ -2211,6 +2211,7 @@ func _start_effect_interaction(
 	_pending_effect_slot = slot
 	_pending_effect_ability_index = ability_index
 	_pending_effect_attack_data = attack_data.duplicate(true)
+	_pending_effect_attack_effects = attack_effects.duplicate()
 	_pending_effect_steps = steps
 	_pending_effect_step_index = 0
 	_pending_effect_context = {}
@@ -2370,13 +2371,28 @@ func _inject_followup_steps() -> void:
 		)
 	if followup_steps.is_empty():
 		return
+	var existing_step_ids: Dictionary = {}
+	for i: int in range(_pending_effect_step_index, _pending_effect_steps.size()):
+		var existing_id: String = str(_pending_effect_steps[i].get("id", ""))
+		if existing_id != "":
+			existing_step_ids[existing_id] = true
+	var unique_followup_steps: Array[Dictionary] = []
+	for step: Dictionary in followup_steps:
+		var step_id: String = str(step.get("id", ""))
+		if step_id != "" and (_pending_effect_context.has(step_id) or existing_step_ids.has(step_id)):
+			continue
+		unique_followup_steps.append(step)
+		if step_id != "":
+			existing_step_ids[step_id] = true
+	if unique_followup_steps.is_empty():
+		return
 	# 将后续步骤插入到当前位置之后
 	var insert_pos: int = _pending_effect_step_index
-	for i: int in followup_steps.size():
-		_pending_effect_steps.insert(insert_pos + i, followup_steps[i])
+	for i: int in unique_followup_steps.size():
+		_pending_effect_steps.insert(insert_pos + i, unique_followup_steps[i])
 	_runtime_log(
 		"followup_steps_injected",
-		"count=%d total_steps=%d" % [followup_steps.size(), _pending_effect_steps.size()]
+		"count=%d total_steps=%d" % [unique_followup_steps.size(), _pending_effect_steps.size()]
 	)
 
 

@@ -326,6 +326,61 @@ func test_gardevoir_psychic_embrace_only_psychic_target() -> String:
 	])
 
 
+func test_gardevoir_psychic_embrace_keeps_bravery_charm_target_selectable() -> String:
+	var gsm := _make_main_phase_gsm()
+	var player: PlayerState = gsm.game_state.players[0]
+	player.bench.clear()
+	player.discard_pile.clear()
+
+	var gardevoir_cd: CardData = CardDatabase.get_card("CSV2C", "055")
+	if gardevoir_cd == null:
+		return "未找到沙奈朵ex缓存卡牌数据"
+	gsm.effect_processor.register_pokemon_card(gardevoir_cd)
+	var gardevoir_slot := _make_slot(gardevoir_cd, 0)
+	player.active_pokemon = gardevoir_slot
+
+	var scream_tail_cd: CardData = CardDatabase.get_card("CSV6C", "065")
+	if scream_tail_cd == null:
+		return "未找到吼叫尾缓存卡牌数据"
+	var scream_tail := _make_slot(scream_tail_cd, 0)
+	scream_tail.attached_tool = CardInstance.create(_make_trainer_data("勇气护符", "Tool", "d1c2f018a644e662f2b6895fdfc29281"), 0)
+	scream_tail.damage_counters = 80
+	for i: int in 4:
+		scream_tail.attached_energy.append(CardInstance.create(_make_energy_data("场上超能量%d" % i, "P"), 0))
+	player.bench.append(scream_tail)
+
+	var discard_energy := CardInstance.create(_make_energy_data("弃牌超能量", "P"), 0)
+	player.discard_pile.append(discard_energy)
+	gsm.game_state.turn_number = 4
+
+	var embrace_effect: BaseEffect = gsm.effect_processor.get_ability_effect(gardevoir_slot, 0, gsm.game_state)
+	var steps: Array[Dictionary] = []
+	if embrace_effect != null:
+		steps = embrace_effect.get_interaction_steps(gardevoir_slot.get_top_card(), gsm.game_state)
+	var target_step: Dictionary = {}
+	for step: Dictionary in steps:
+		if step.get("id", "") == "embrace_target":
+			target_step = step
+			break
+	var has_scream_tail := false
+	for item: Variant in target_step.get("items", []):
+		if item is PokemonSlot and item == scream_tail:
+			has_scream_tail = true
+			break
+
+	var used: bool = gsm.use_ability(0, gardevoir_slot, 0, [{
+		"embrace_energy": [discard_energy],
+		"embrace_target": [scream_tail],
+	}])
+
+	return run_checks([
+		assert_true(has_scream_tail, "精神拥抱：带勇气护符且当前为60/140的吼叫尾，下一回合仍应出现在可选目标中"),
+		assert_true(used, "精神拥抱：应能继续把弃牌区的超能量附着到该吼叫尾上"),
+		assert_eq(scream_tail.attached_energy.size(), 5, "精神拥抱：第二回合应能成功附着第5个能量"),
+		assert_eq(scream_tail.damage_counters, 100, "精神拥抱：成功附着后应再放置2个伤害指示物"),
+	])
+
+
 ## ==================== 沙奈朵ex 奇迹之力 ====================
 
 func test_gardevoir_miracle_force_clears_status() -> String:
