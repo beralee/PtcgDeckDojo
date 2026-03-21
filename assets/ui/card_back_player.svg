@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 1000">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#081a2c"/>
+      <stop offset="45%" stop-color="#11365d"/>
+      <stop offset="100%" stop-color="#05101d"/>
+    </linearGradient>
+    <radialGradient id="core" cx="50%" cy="44%" r="50%">
+      <stop offset="0%" stop-color="#ffe77a" stop-opacity="0.95"/>
+      <stop offset="35%" stop-color="#6af6ff" stop-opacity="0.75"/>
+      <stop offset="100%" stop-color="#6af6ff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="frame" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#9ad8ff"/>
+      <stop offset="40%" stop-color="#fff0a7"/>
+      <stop offset="100%" stop-color="#59c0ff"/>
+    </linearGradient>
+    <filter id="softGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="10" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect width="720" height="1000" rx="48" fill="#020812"/>
+  <rect x="18" y="18" width="684" height="964" rx="40" fill="url(#bg)" stroke="url(#frame)" stroke-width="10"/>
+  <rect x="38" y="38" width="644" height="924" rx="34" fill="none" stroke="#5fe5ff" stroke-opacity="0.45" stroke-width="3"/>
+
+  <circle cx="360" cy="440" r="220" fill="url(#core)"/>
+  <circle cx="360" cy="440" r="170" fill="none" stroke="#d2fdff" stroke-opacity="0.8" stroke-width="8"/>
+  <circle cx="360" cy="440" r="128" fill="none" stroke="#ffd95b" stroke-width="12"/>
+  <circle cx="360" cy="440" r="92" fill="none" stroke="#f8fbff" stroke-width="4" stroke-dasharray="12 12"/>
+
+  <g filter="url(#softGlow)" opacity="0.9">
+    <path d="M182 246 L360 118 L538 246" fill="none" stroke="#65f7ff" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M220 670 L360 298 L405 440 L498 330 L440 590 L520 560 L310 810 L350 620 L220 670 Z" fill="#fff2ae" stroke="#8defff" stroke-width="8" stroke-linejoin="round"/>
+  </g>
+
+  <g opacity="0.5">
+    <path d="M120 790 C230 690 490 690 600 790" fill="none" stroke="#67d7ff" stroke-width="16" stroke-linecap="round"/>
+    <path d="M136 830 C244 742 476 742 584 830" fill="none" stroke="#ffe16a" stroke-width="9" stroke-linecap="round"/>
+    <path d="M104 210 C235 320 485 320 616 210" fill="none" stroke="#65f7ff" stroke-width="8" stroke-linecap="round"/>
+  </g>
+
+  <g fill="#d8fbff" opacity="0.9">
+    <circle cx="160" cy="178" r="6"/>
+    <circle cx="564" cy="168" r="5"/>
+    <circle cx="598" cy="724" r="4"/>
+    <circle cx="126" cy="736" r="5"/>
+    <circle cx="208" cy="860" r="3"/>
+    <circle cx="510" cy="876" r="4"/>
+  </g>
+
+  <text x="360" y="128" text-anchor="middle" font-size="42" font-weight="700" font-family="Trebuchet MS, Verdana, sans-serif" fill="#eefbff" letter-spacing="10">PTCG TRAIN</text>
+  <text x="360" y="896" text-anchor="middle" font-size="44" font-weight="700" font-family="Trebuchet MS, Verdana, sans-serif" fill="#ffe885" letter-spacing="8">PLAYER SIDE</text>
+  <text x="360" y="938" text-anchor="middle" font-size="24" font-weight="600" font-family="Trebuchet MS, Verdana, sans-serif" fill="#99f4ff" letter-spacing="6">SPARK ARENA</text>
+</svg>

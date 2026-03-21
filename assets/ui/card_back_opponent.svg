@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 1000">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1b0714"/>
+      <stop offset="45%" stop-color="#45133a"/>
+      <stop offset="100%" stop-color="#0d0610"/>
+    </linearGradient>
+    <radialGradient id="core" cx="50%" cy="42%" r="52%">
+      <stop offset="0%" stop-color="#ffd4ee" stop-opacity="0.95"/>
+      <stop offset="30%" stop-color="#ff4c95" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#ff4c95" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="frame" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff8ecf"/>
+      <stop offset="50%" stop-color="#ffda63"/>
+      <stop offset="100%" stop-color="#9d7bff"/>
+    </linearGradient>
+    <filter id="softGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="10" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect width="720" height="1000" rx="48" fill="#09030b"/>
+  <rect x="18" y="18" width="684" height="964" rx="40" fill="url(#bg)" stroke="url(#frame)" stroke-width="10"/>
+  <rect x="38" y="38" width="644" height="924" rx="34" fill="none" stroke="#ff7ad1" stroke-opacity="0.5" stroke-width="3"/>
+
+  <circle cx="360" cy="420" r="236" fill="url(#core)"/>
+  <ellipse cx="360" cy="420" rx="202" ry="120" fill="none" stroke="#ffd5f1" stroke-width="8"/>
+  <ellipse cx="360" cy="420" rx="150" ry="82" fill="none" stroke="#ffdf71" stroke-width="12"/>
+  <ellipse cx="360" cy="420" rx="96" ry="42" fill="none" stroke="#ffeef7" stroke-width="4" stroke-dasharray="14 12"/>
+
+  <g filter="url(#softGlow)" opacity="0.92">
+    <path d="M166 250 C238 182 290 162 360 162 C430 162 482 182 554 250" fill="none" stroke="#ff72bd" stroke-width="18" stroke-linecap="round"/>
+    <path d="M360 254 C426 254 492 298 524 366 C488 350 444 342 396 342 C322 342 258 364 198 426 C210 326 274 254 360 254 Z" fill="#ff4c95" stroke="#ffd69a" stroke-width="8"/>
+    <path d="M226 596 C278 534 318 510 360 510 C402 510 442 534 494 596 C454 584 408 578 360 578 C312 578 266 584 226 596 Z" fill="#ffdc73" stroke="#ffd9f0" stroke-width="7"/>
+  </g>
+
+  <g opacity="0.48">
+    <path d="M100 770 C208 700 512 700 620 770" fill="none" stroke="#a98dff" stroke-width="15" stroke-linecap="round"/>
+    <path d="M124 810 C230 746 490 746 596 810" fill="none" stroke="#ff7ec0" stroke-width="8" stroke-linecap="round"/>
+    <path d="M142 204 C224 292 496 292 578 204" fill="none" stroke="#ffdf73" stroke-width="7" stroke-linecap="round"/>
+  </g>
+
+  <g fill="#ffe7f5" opacity="0.88">
+    <circle cx="146" cy="170" r="5"/>
+    <circle cx="578" cy="182" r="6"/>
+    <circle cx="106" cy="720" r="4"/>
+    <circle cx="614" cy="736" r="5"/>
+    <circle cx="230" cy="866" r="3"/>
+    <circle cx="494" cy="854" r="4"/>
+  </g>
+
+  <text x="360" y="128" text-anchor="middle" font-size="42" font-weight="700" font-family="Trebuchet MS, Verdana, sans-serif" fill="#fff0f7" letter-spacing="10">PTCG TRAIN</text>
+  <text x="360" y="896" text-anchor="middle" font-size="44" font-weight="700" font-family="Trebuchet MS, Verdana, sans-serif" fill="#ffd969" letter-spacing="8">RIVAL SIDE</text>
+  <text x="360" y="938" text-anchor="middle" font-size="24" font-weight="600" font-family="Trebuchet MS, Verdana, sans-serif" fill="#ff9ed0" letter-spacing="6">PHANTOM ARENA</text>
+</svg>

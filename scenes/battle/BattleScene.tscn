@@ -1,0 +1,753 @@
+[gd_scene load_steps=2 format=3 uid="uid://b1battlescn001"]
+
+[ext_resource type="Script" path="res://scenes/battle/BattleScene.gd" id="1_script"]
+
+[node name="BattleScene" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1_script")
+
+[node name="TopBar" type="HBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 0
+anchor_right = 1.0
+offset_bottom = 26
+theme_override_constants/separation = 8
+
+[node name="LblPhase" type="Label" parent="TopBar"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "准备阶段"
+theme_override_font_sizes/font_size = 12
+
+[node name="LblTurn" type="Label" parent="TopBar"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "第1回合 | 玩家1行动"
+theme_override_font_sizes/font_size = 12
+
+[node name="TopBarSpacer" type="Control" parent="TopBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="BtnBack" type="Button" parent="TopBar"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "退出"
+theme_override_font_sizes/font_size = 11
+
+[node name="TopBarSpacer2" type="Control" parent="TopBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="MainArea" type="HBoxContainer" parent="."]
+layout_mode = 1
+anchor_top = 0.0
+anchor_bottom = 1.0
+anchor_right = 1.0
+offset_top = 28
+offset_bottom = 0
+theme_override_constants/separation = 0
+
+[node name="LeftPanel" type="VBoxContainer" parent="MainArea"]
+layout_mode = 2
+custom_minimum_size = Vector2(72, 0)
+theme_override_constants/separation = 4
+
+[node name="OppPrizesBox" type="VBoxContainer" parent="MainArea/LeftPanel"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 2
+
+[node name="OppPrizesLbl" type="Label" parent="MainArea/LeftPanel/OppPrizesBox"]
+layout_mode = 2
+text = "对方奖赏"
+theme_override_font_sizes/font_size = 10
+horizontal_alignment = 1
+
+[node name="OppPrizesCount" type="Label" parent="MainArea/LeftPanel/OppPrizesBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "×6"
+theme_override_font_sizes/font_size = 13
+horizontal_alignment = 1
+
+[node name="PrizeSep" type="HSeparator" parent="MainArea/LeftPanel"]
+layout_mode = 2
+
+[node name="MyPrizesBox" type="VBoxContainer" parent="MainArea/LeftPanel"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 2
+
+[node name="MyPrizesLbl" type="Label" parent="MainArea/LeftPanel/MyPrizesBox"]
+layout_mode = 2
+text = "己方奖赏"
+theme_override_font_sizes/font_size = 10
+horizontal_alignment = 1
+
+[node name="MyPrizesCount" type="Label" parent="MainArea/LeftPanel/MyPrizesBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "×6"
+theme_override_font_sizes/font_size = 13
+horizontal_alignment = 1
+
+[node name="CenterField" type="VBoxContainer" parent="MainArea"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 0
+
+[node name="OppHandBar" type="HBoxContainer" parent="MainArea/CenterField"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 32)
+theme_override_constants/separation = 4
+
+[node name="OppHandLbl" type="Label" parent="MainArea/CenterField/OppHandBar"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "对方手牌: 0张"
+theme_override_font_sizes/font_size = 11
+horizontal_alignment = 1
+
+[node name="OppHandCount" type="Label" parent="MainArea/CenterField/OppHandBar"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "0张"
+theme_override_font_sizes/font_size = 11
+visible = false
+
+[node name="FieldArea" type="VBoxContainer" parent="MainArea/CenterField"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 0
+
+[node name="OppField" type="PanelContainer" parent="MainArea/CenterField/FieldArea"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="OppFieldInner" type="VBoxContainer" parent="MainArea/CenterField/FieldArea/OppField"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme_override_constants/separation = 4
+
+[node name="OppBench" type="HBoxContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldInner"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+alignment = 1
+theme_override_constants/separation = 6
+
+[node name="OppBench0" type="PanelContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldInner/OppBench"]
+layout_mode = 2
+custom_minimum_size = Vector2(80, 0)
+mouse_filter = 0
+
+[node name="OppBenchLbl0" type="RichTextLabel" parent="MainArea/CenterField/FieldArea/OppField/OppFieldInner/OppBench/OppBench0"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+bbcode_enabled = true
+text = "[空]"
+theme_override_font_sizes/font_size = 9
+fit_content = true
+
+[node name="OppBench1" type="PanelContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldInner/OppBench"]
+layout_mode = 2
+custom_minimum_size = Vector2(80, 0)
+mouse_filter = 0
+
+[node name="OppBenchLbl1" type="RichTextLabel" parent="MainArea/CenterField/FieldArea/OppField/OppFieldInner/OppBench/OppBench1"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+bbcode_enabled = true
+text = "[空]"
+theme_override_font_sizes/font_size = 9
+fit_content = true
+
+[node name="OppBench2" type="PanelContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldInner/OppBench"]
+layout_mode = 2
+custom_minimum_size = Vector2(80, 0)
+mouse_filter = 0
+
+[node name="OppBenchLbl2" type="RichTextLabel" parent="MainArea/CenterField/FieldArea/OppField/OppFieldInner/OppBench/OppBench2"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+bbcode_enabled = true
+text = "[空]"
+theme_override_font_sizes/font_size = 9
+fit_content = true
+
+[node name="OppBench3" type="PanelContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldInner/OppBench"]
+layout_mode = 2
+custom_minimum_size = Vector2(80, 0)
+mouse_filter = 0
+
+[node name="OppBenchLbl3" type="RichTextLabel" parent="MainArea/CenterField/FieldArea/OppField/OppFieldInner/OppBench/OppBench3"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+bbcode_enabled = true
+text = "[空]"
+theme_override_font_sizes/font_size = 9
+fit_content = true
+
+[node name="OppBench4" type="PanelContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldInner/OppBench"]
+layout_mode = 2
+custom_minimum_size = Vector2(80, 0)
+mouse_filter = 0
+
+[node name="OppBenchLbl4" type="RichTextLabel" parent="MainArea/CenterField/FieldArea/OppField/OppFieldInner/OppBench/OppBench4"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+bbcode_enabled = true
+text = "[空]"
+theme_override_font_sizes/font_size = 9
+fit_content = true
+
+[node name="OppActiveRow" type="HBoxContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldInner"]
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 4
+
+[node name="OppActive" type="PanelContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldInner/OppActiveRow"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(120, 90)
+mouse_filter = 0
+
+[node name="OppActiveLbl" type="RichTextLabel" parent="MainArea/CenterField/FieldArea/OppField/OppFieldInner/OppActiveRow/OppActive"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+bbcode_enabled = true
+text = "[空]"
+theme_override_font_sizes/font_size = 10
+
+[node name="StadiumBar" type="PanelContainer" parent="MainArea/CenterField/FieldArea"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 22)
+
+[node name="StadiumLbl" type="Label" parent="MainArea/CenterField/FieldArea/StadiumBar"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+horizontal_alignment = 1
+text = "竞技场: 无"
+theme_override_font_sizes/font_size = 11
+
+[node name="BtnStadiumAction" type="Button" parent="MainArea/CenterField/FieldArea/StadiumBar"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 9
+anchor_left = 1.0
+anchor_top = 0.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -92.0
+offset_top = 1.0
+offset_right = -6.0
+offset_bottom = -1.0
+text = "使用效果"
+theme_override_font_sizes/font_size = 10
+
+[node name="MyField" type="PanelContainer" parent="MainArea/CenterField/FieldArea"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="MyFieldInner" type="VBoxContainer" parent="MainArea/CenterField/FieldArea/MyField"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme_override_constants/separation = 4
+
+[node name="MyActiveRow" type="HBoxContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldInner"]
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 4
+
+[node name="MyActive" type="PanelContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldInner/MyActiveRow"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(120, 90)
+mouse_filter = 0
+
+[node name="MyActiveLbl" type="RichTextLabel" parent="MainArea/CenterField/FieldArea/MyField/MyFieldInner/MyActiveRow/MyActive"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+bbcode_enabled = true
+text = "[空]"
+theme_override_font_sizes/font_size = 10
+
+[node name="MyBench" type="HBoxContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldInner"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+alignment = 1
+theme_override_constants/separation = 6
+
+[node name="MyBench0" type="PanelContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldInner/MyBench"]
+layout_mode = 2
+custom_minimum_size = Vector2(80, 0)
+mouse_filter = 0
+
+[node name="MyBenchLbl0" type="RichTextLabel" parent="MainArea/CenterField/FieldArea/MyField/MyFieldInner/MyBench/MyBench0"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+bbcode_enabled = true
+text = "[空]"
+theme_override_font_sizes/font_size = 9
+fit_content = true
+
+[node name="MyBench1" type="PanelContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldInner/MyBench"]
+layout_mode = 2
+custom_minimum_size = Vector2(80, 0)
+mouse_filter = 0
+
+[node name="MyBenchLbl1" type="RichTextLabel" parent="MainArea/CenterField/FieldArea/MyField/MyFieldInner/MyBench/MyBench1"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+bbcode_enabled = true
+text = "[空]"
+theme_override_font_sizes/font_size = 9
+fit_content = true
+
+[node name="MyBench2" type="PanelContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldInner/MyBench"]
+layout_mode = 2
+custom_minimum_size = Vector2(80, 0)
+mouse_filter = 0
+
+[node name="MyBenchLbl2" type="RichTextLabel" parent="MainArea/CenterField/FieldArea/MyField/MyFieldInner/MyBench/MyBench2"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+bbcode_enabled = true
+text = "[空]"
+theme_override_font_sizes/font_size = 9
+fit_content = true
+
+[node name="MyBench3" type="PanelContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldInner/MyBench"]
+layout_mode = 2
+custom_minimum_size = Vector2(80, 0)
+mouse_filter = 0
+
+[node name="MyBenchLbl3" type="RichTextLabel" parent="MainArea/CenterField/FieldArea/MyField/MyFieldInner/MyBench/MyBench3"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+bbcode_enabled = true
+text = "[空]"
+theme_override_font_sizes/font_size = 9
+fit_content = true
+
+[node name="MyBench4" type="PanelContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldInner/MyBench"]
+layout_mode = 2
+custom_minimum_size = Vector2(80, 0)
+mouse_filter = 0
+
+[node name="MyBenchLbl4" type="RichTextLabel" parent="MainArea/CenterField/FieldArea/MyField/MyFieldInner/MyBench/MyBench4"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+bbcode_enabled = true
+text = "[空]"
+theme_override_font_sizes/font_size = 9
+fit_content = true
+
+[node name="HandArea" type="PanelContainer" parent="MainArea/CenterField"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 110)
+
+[node name="HandVBox" type="VBoxContainer" parent="MainArea/CenterField/HandArea"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme_override_constants/separation = 2
+
+[node name="HandTitle" type="Label" parent="MainArea/CenterField/HandArea/HandVBox"]
+layout_mode = 2
+text = "手牌"
+theme_override_font_sizes/font_size = 10
+
+[node name="HandScroll" type="ScrollContainer" parent="MainArea/CenterField/HandArea/HandVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="HandContainer" type="HBoxContainer" parent="MainArea/CenterField/HandArea/HandVBox/HandScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="RightPanel" type="VBoxContainer" parent="MainArea"]
+layout_mode = 2
+custom_minimum_size = Vector2(80, 0)
+theme_override_constants/separation = 4
+
+[node name="OppDeckBox" type="VBoxContainer" parent="MainArea/RightPanel"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 2
+
+[node name="LblOppDeck" type="Label" parent="MainArea/RightPanel/OppDeckBox"]
+layout_mode = 2
+text = "对方牌库"
+theme_override_font_sizes/font_size = 10
+horizontal_alignment = 1
+
+[node name="OppDeck" type="Label" parent="MainArea/RightPanel/OppDeckBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "47"
+theme_override_font_sizes/font_size = 13
+horizontal_alignment = 1
+
+[node name="LblOppDiscard" type="Label" parent="MainArea/RightPanel/OppDeckBox"]
+layout_mode = 2
+text = "弃牌区"
+theme_override_font_sizes/font_size = 10
+horizontal_alignment = 1
+
+[node name="OppDiscard" type="Label" parent="MainArea/RightPanel/OppDeckBox"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 0
+text = "0"
+theme_override_font_sizes/font_size = 13
+horizontal_alignment = 1
+
+[node name="BtnEndTurn" type="Button" parent="MainArea/RightPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(0, 36)
+text = "结束回合"
+theme_override_font_sizes/font_size = 13
+
+[node name="MyDeckBox" type="VBoxContainer" parent="MainArea/RightPanel"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 2
+
+[node name="LblMyDeck" type="Label" parent="MainArea/RightPanel/MyDeckBox"]
+layout_mode = 2
+text = "己方牌库"
+theme_override_font_sizes/font_size = 10
+horizontal_alignment = 1
+
+[node name="MyDeck" type="Label" parent="MainArea/RightPanel/MyDeckBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "47"
+theme_override_font_sizes/font_size = 13
+horizontal_alignment = 1
+
+[node name="LblMyDiscard" type="Label" parent="MainArea/RightPanel/MyDeckBox"]
+layout_mode = 2
+text = "弃牌区"
+theme_override_font_sizes/font_size = 10
+horizontal_alignment = 1
+
+[node name="MyDiscard" type="Label" parent="MainArea/RightPanel/MyDeckBox"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 0
+text = "0"
+theme_override_font_sizes/font_size = 13
+horizontal_alignment = 1
+
+[node name="LogPanel" type="VBoxContainer" parent="MainArea"]
+layout_mode = 2
+custom_minimum_size = Vector2(180, 0)
+theme_override_constants/separation = 2
+
+[node name="LogTitle" type="Label" parent="MainArea/LogPanel"]
+layout_mode = 2
+text = "操作日志"
+theme_override_font_sizes/font_size = 11
+
+[node name="LogList" type="ItemList" parent="MainArea/LogPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_font_sizes/font_size = 10
+
+[node name="DialogOverlay" type="Panel" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+visible = false
+self_modulate = Color(0, 0, 0, 0.5)
+
+[node name="DialogCenter" type="CenterContainer" parent="DialogOverlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="DialogBox" type="PanelContainer" parent="DialogOverlay/DialogCenter"]
+layout_mode = 2
+custom_minimum_size = Vector2(360, 280)
+
+[node name="DialogVBox" type="VBoxContainer" parent="DialogOverlay/DialogCenter/DialogBox"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 8.0
+offset_top = 8.0
+offset_right = -8.0
+offset_bottom = -8.0
+theme_override_constants/separation = 8
+
+[node name="DialogTitle" type="Label" parent="DialogOverlay/DialogCenter/DialogBox/DialogVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 1
+text = "请选择"
+theme_override_font_sizes/font_size = 14
+
+[node name="DialogList" type="ItemList" parent="DialogOverlay/DialogCenter/DialogBox/DialogVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="DialogButtons" type="HBoxContainer" parent="DialogOverlay/DialogCenter/DialogBox/DialogVBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="DialogCancel" type="Button" parent="DialogOverlay/DialogCenter/DialogBox/DialogVBox/DialogButtons"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "取消"
+
+[node name="DialogConfirm" type="Button" parent="DialogOverlay/DialogCenter/DialogBox/DialogVBox/DialogButtons"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+disabled = true
+text = "确认"
+
+[node name="HandoverPanel" type="Panel" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+visible = false
+self_modulate = Color(0, 0, 0, 0.7)
+
+[node name="HandoverCenter" type="CenterContainer" parent="HandoverPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="HandoverBox" type="PanelContainer" parent="HandoverPanel/HandoverCenter"]
+layout_mode = 2
+custom_minimum_size = Vector2(300, 120)
+
+[node name="HandoverVBox" type="VBoxContainer" parent="HandoverPanel/HandoverCenter/HandoverBox"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = 16.0
+offset_right = -16.0
+offset_bottom = -16.0
+theme_override_constants/separation = 12
+
+[node name="HandoverLbl" type="Label" parent="HandoverPanel/HandoverCenter/HandoverBox/HandoverVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 1
+text = "请将设备交给对方玩家"
+theme_override_font_sizes/font_size = 14
+
+[node name="HandoverBtn" type="Button" parent="HandoverPanel/HandoverCenter/HandoverBox/HandoverVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "已准备好，继续"
+
+[node name="CoinFlipOverlay" type="Panel" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+visible = false
+self_modulate = Color(0, 0, 0, 0.4)
+
+[node name="CoinCenter" type="CenterContainer" parent="CoinFlipOverlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="CoinBox" type="PanelContainer" parent="CoinFlipOverlay/CoinCenter"]
+layout_mode = 2
+custom_minimum_size = Vector2(260, 100)
+
+[node name="CoinVBox" type="VBoxContainer" parent="CoinFlipOverlay/CoinCenter/CoinBox"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 12.0
+offset_top = 12.0
+offset_right = -12.0
+offset_bottom = -12.0
+theme_override_constants/separation = 8
+
+[node name="CoinResultLbl" type="Label" parent="CoinFlipOverlay/CoinCenter/CoinBox/CoinVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 1
+text = "投币结果：正面"
+theme_override_font_sizes/font_size = 16
+
+[node name="CoinOkBtn" type="Button" parent="CoinFlipOverlay/CoinCenter/CoinBox/CoinVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "确定"
+
+[node name="DetailOverlay" type="Panel" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+visible = false
+self_modulate = Color(0, 0, 0, 0.5)
+
+[node name="DetailCenter" type="CenterContainer" parent="DetailOverlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="DetailBox" type="PanelContainer" parent="DetailOverlay/DetailCenter"]
+layout_mode = 2
+custom_minimum_size = Vector2(380, 340)
+
+[node name="DetailVBox" type="VBoxContainer" parent="DetailOverlay/DetailCenter/DetailBox"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = 10.0
+offset_right = -10.0
+offset_bottom = -10.0
+theme_override_constants/separation = 6
+
+[node name="DetailTitle" type="Label" parent="DetailOverlay/DetailCenter/DetailBox/DetailVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 15
+
+[node name="DetailContent" type="RichTextLabel" parent="DetailOverlay/DetailCenter/DetailBox/DetailVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+bbcode_enabled = true
+theme_override_font_sizes/font_size = 11
+
+[node name="DetailCloseBtn" type="Button" parent="DetailOverlay/DetailCenter/DetailBox/DetailVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "关闭"
+
+[node name="DiscardOverlay" type="Panel" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+visible = false
+self_modulate = Color(0, 0, 0, 0.5)
+
+[node name="DiscardCenter" type="CenterContainer" parent="DiscardOverlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="DiscardBox" type="PanelContainer" parent="DiscardOverlay/DiscardCenter"]
+layout_mode = 2
+custom_minimum_size = Vector2(360, 320)
+
+[node name="DiscardVBox" type="VBoxContainer" parent="DiscardOverlay/DiscardCenter/DiscardBox"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 8.0
+offset_top = 8.0
+offset_right = -8.0
+offset_bottom = -8.0
+theme_override_constants/separation = 6
+
+[node name="DiscardTitle" type="Label" parent="DiscardOverlay/DiscardCenter/DiscardBox/DiscardVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 13
+
+[node name="DiscardList" type="ItemList" parent="DiscardOverlay/DiscardCenter/DiscardBox/DiscardVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_font_sizes/font_size = 11
+
+[node name="DiscardCloseBtn" type="Button" parent="DiscardOverlay/DiscardCenter/DiscardBox/DiscardVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "关闭"

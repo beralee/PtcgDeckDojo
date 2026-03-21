@@ -1,0 +1,1048 @@
+﻿## GameStateMachine tests
+class_name TestGameStateMachine
+extends TestBase
+
+const AbilityAttachFromDeckEffect = preload("res://scripts/effects/pokemon_effects/AbilityAttachFromDeck.gd")
+const AttackSearchDeckToTopEffect = preload("res://scripts/effects/pokemon_effects/AttackSearchDeckToTop.gd")
+const AttackBenchCountDamageEffect = preload("res://scripts/effects/pokemon_effects/AttackBenchCountDamage.gd")
+
+
+class ScriptedRuleValidator extends RuleValidator:
+	var scripted_results: Array[bool] = []
+	var call_index: int = 0
+
+	func _init(results: Array[bool] = []) -> void:
+		scripted_results = results.duplicate()
+
+	func has_basic_pokemon_in_hand(_player: PlayerState) -> bool:
+		if call_index < scripted_results.size():
+			var result := scripted_results[call_index]
+			call_index += 1
+			return result
+		call_index += 1
+		return true
+
+## 创建包含 60 张基础宝可梦的测试卡组数据
+func _make_test_deck_data(deck_id: int) -> DeckData:
+	var deck := DeckData.new()
+	deck.id = deck_id
+	deck.deck_name = "测试卡组%d" % deck_id
+	# Build a 60-card test deck without CardDatabase
+	deck.cards = []
+	var pokemon_types := ["R", "W", "G", "L", "P", "F"]
+	for i: int in 60:
+		deck.cards.append({
+			"set_code": "TEST",
+			"card_index": "%03d" % (i + 1),
+			"count": 1,
+			"card_type": "Pokemon",
+			"name": "测试宝可梦%d" % i,
+		})
+	deck.total_cards = 60
+	return deck
+
+
+func _make_gsm_with_decks() -> GameStateMachine:
+	var gsm := GameStateMachine.new()
+	# 直接注入 PlayerState 和牌库，绕过 DeckData -> CardDatabase 流程。
+	gsm.game_state = GameState.new()
+	gsm.game_state.first_player_index = 0
+	gsm.game_state.current_player_index = 0
+
+	CardInstance.reset_id_counter()
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+
+		# 构建 60 张基础宝可梦的牌库。
+		for i: int in 60:
+			var cd := CardData.new()
+			cd.name = "宝可梦%d" % i
+			cd.card_type = "Pokemon"
+			cd.stage = "Basic"
+			cd.hp = 60
+			cd.energy_type = "R"
+			cd.retreat_cost = 1
+			cd.attacks = [{"name": "招式", "cost": "R", "damage": "10", "is_vstar_power": false}]
+			player.deck.append(CardInstance.create(cd, pi))
+
+		player.shuffle_deck()
+		gsm.game_state.players.append(player)
+
+	return gsm
+
+
+func test_gsm_instantiate() -> String:
+	var gsm := GameStateMachine.new()
+	return run_checks([
+		assert_eq(gsm != null, true, "GameStateMachine should instantiate"),
+		assert_eq(gsm.rule_validator != null, true, "RuleValidator should initialize"),
+		assert_eq(gsm.damage_calculator != null, true, "DamageCalculator should initialize"),
+		assert_eq(gsm.effect_processor != null, true, "EffectProcessor should initialize"),
+		assert_eq(gsm.coin_flipper != null, true, "CoinFlipper should initialize"),
+	])
+
+
+func test_draw_cards() -> String:
+	var gsm := _make_gsm_with_decks()
+	var player: PlayerState = gsm.game_state.players[0]
+	var initial_deck_size: int = player.deck.size()
+
+	var drawn: Array[CardInstance] = gsm.draw_card(0, 3)
+	return run_checks([
+		assert_eq(drawn.size(), 3, "Should draw 3 cards"),
+		assert_eq(player.hand.size(), 3, "Hand should increase by 3"),
+		assert_eq(player.deck.size(), initial_deck_size - 3, "Deck should decrease by 3"),
+	])
+
+
+func test_both_players_mulligan_do_not_redraw_initial_hands_twice() -> String:
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.rule_validator = ScriptedRuleValidator.new([false, false, true, true])
+
+	CardInstance.reset_id_counter()
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		for i: int in 7:
+			var hand_cd := CardData.new()
+			hand_cd.name = "Opening%d_%d" % [pi, i]
+			hand_cd.card_type = "Item"
+			player.hand.append(CardInstance.create(hand_cd, pi))
+		for i: int in 7:
+			var deck_cd := CardData.new()
+			deck_cd.name = "Deck%d_%d" % [pi, i]
+			deck_cd.card_type = "Pokemon"
+			deck_cd.stage = "Basic"
+			deck_cd.hp = 60
+			player.deck.append(CardInstance.create(deck_cd, pi))
+		gsm.game_state.players.append(player)
+
+	gsm._check_mulligan()
+
+	return run_checks([
+		assert_eq(gsm.game_state.players[0].hand.size(), 7, "Player 0 should end mulligan with 7 cards"),
+		assert_eq(gsm.game_state.players[1].hand.size(), 7, "Player 1 should end mulligan with 7 cards"),
+		assert_eq(gsm.game_state.players[0].deck.size(), 7, "Player 0 deck should not double-draw"),
+		assert_eq(gsm.game_state.players[1].deck.size(), 7, "Player 1 deck should not double-draw"),
+	])
+
+
+func test_play_basic_to_bench() -> String:
+	var gsm := _make_gsm_with_decks()
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	gsm.game_state.turn_number = 2
+
+	var player: PlayerState = gsm.game_state.players[0]
+	# Give the player one Basic Pokemon from the deck.
+	var card: CardInstance = player.deck.pop_back()
+	player.hand.append(card)
+	# Set up the active Pokemon directly to avoid bench-capacity checks.
+	var active_cd := CardData.new()
+	active_cd.card_type = "Pokemon"
+	active_cd.stage = "Basic"
+	active_cd.hp = 60
+	active_cd.energy_type = "R"
+	var active_slot := PokemonSlot.new()
+	active_slot.pokemon_stack.append(CardInstance.create(active_cd, 0))
+	player.active_pokemon = active_slot
+
+	var result: bool = gsm.play_basic_to_bench(0, card)
+	return run_checks([
+		assert_eq(result, true, "Bench placement should succeed"),
+		assert_eq(player.bench.size(), 1, "Bench should contain 1 Pokemon"),
+		assert_eq(player.hand.size(), 0, "鎵嬬墝鍑忓皯"),
+	])
+
+
+func test_play_basic_to_bench_triggers_bench_enter_ability() -> String:
+	var gsm := _make_gsm_with_decks()
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	gsm.game_state.turn_number = 2
+	gsm.game_state.current_player_index = 0
+
+	var player: PlayerState = gsm.game_state.players[0]
+	player.hand.clear()
+	player.deck.clear()
+
+	var active_cd := CardData.new()
+	active_cd.name = "Active"
+	active_cd.card_type = "Pokemon"
+	active_cd.stage = "Basic"
+	active_cd.hp = 70
+	active_cd.energy_type = "W"
+	var active_slot := PokemonSlot.new()
+	active_slot.pokemon_stack.append(CardInstance.create(active_cd, 0))
+	player.active_pokemon = active_slot
+
+	var supporter_cd := CardData.new()
+	supporter_cd.name = "Supporter"
+	supporter_cd.card_type = "Supporter"
+	player.deck.append(CardInstance.create(supporter_cd, 0))
+	player.deck.append(CardInstance.create(active_cd, 0))
+
+	var lumineon_cd := CardData.new()
+	lumineon_cd.name = "Lumineon"
+	lumineon_cd.card_type = "Pokemon"
+	lumineon_cd.stage = "Basic"
+	lumineon_cd.hp = 120
+	lumineon_cd.energy_type = "W"
+	lumineon_cd.effect_id = "lumineon_test"
+	lumineon_cd.abilities = [{"name": "Luminous Sign", "text": ""}]
+	gsm.effect_processor.register_effect("lumineon_test", AbilityOnBenchEnter.new("search_supporter"))
+	var lumineon := CardInstance.create(lumineon_cd, 0)
+	player.hand.append(lumineon)
+
+	var result: bool = gsm.play_basic_to_bench(0, lumineon)
+	return run_checks([
+		assert_eq(result, true, "Lumineon V should bench successfully"),
+		assert_eq(player.bench.size(), 1, "Lumineon V should enter the bench"),
+		assert_true(player.hand.any(func(card: CardInstance) -> bool: return card.card_data.card_type == "Supporter"), "Luminous Sign should add a Supporter to hand"),
+	])
+
+
+func test_attach_energy() -> String:
+	var gsm := _make_gsm_with_decks()
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	gsm.game_state.turn_number = 2
+
+	var player: PlayerState = gsm.game_state.players[0]
+
+	var poke_cd := CardData.new()
+	poke_cd.card_type = "Pokemon"
+	poke_cd.stage = "Basic"
+	poke_cd.hp = 60
+	poke_cd.energy_type = "R"
+	CardInstance.reset_id_counter()
+	var active_slot := PokemonSlot.new()
+	active_slot.pokemon_stack.append(CardInstance.create(poke_cd, 0))
+	player.active_pokemon = active_slot
+
+	var e_cd := CardData.new()
+	e_cd.card_type = "Basic Energy"
+	e_cd.energy_provides = "R"
+	var energy := CardInstance.create(e_cd, 0)
+	player.hand.append(energy)
+
+	var result: bool = gsm.attach_energy(0, energy, active_slot)
+	return run_checks([
+		assert_eq(result, true, "闄勭潃鑳介噺鎴愬姛"),
+		assert_eq(active_slot.attached_energy.size(), 1, "Pokemon should have one attached Energy"),
+		assert_eq(player.hand.size(), 0, "鎵嬬墝鍑忓皯"),
+		assert_eq(gsm.game_state.energy_attached_this_turn, true, "Energy attachment flag should be set"),
+	])
+
+
+func test_attach_energy_twice_fails() -> String:
+	var gsm := _make_gsm_with_decks()
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	gsm.game_state.turn_number = 2
+	gsm.game_state.energy_attached_this_turn = true  # already attached this turn
+	var player: PlayerState = gsm.game_state.players[0]
+
+	var poke_cd := CardData.new()
+	poke_cd.card_type = "Pokemon"
+	poke_cd.stage = "Basic"
+	poke_cd.hp = 60
+	CardInstance.reset_id_counter()
+	var active_slot := PokemonSlot.new()
+	active_slot.pokemon_stack.append(CardInstance.create(poke_cd, 0))
+	player.active_pokemon = active_slot
+
+	var e_cd := CardData.new()
+	e_cd.card_type = "Basic Energy"
+	e_cd.energy_provides = "R"
+	var energy := CardInstance.create(e_cd, 0)
+	player.hand.append(energy)
+
+	var result: bool = gsm.attach_energy(0, energy, active_slot)
+	return run_checks([
+		assert_eq(result, false, "Second energy attachment should fail"),
+	])
+
+
+func test_retreat() -> String:
+	var gsm := _make_gsm_with_decks()
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	gsm.game_state.turn_number = 2
+
+	var player: PlayerState = gsm.game_state.players[0]
+	CardInstance.reset_id_counter()
+
+	var active_cd := CardData.new()
+	active_cd.card_type = "Pokemon"
+	active_cd.stage = "Basic"
+	active_cd.hp = 60
+	active_cd.energy_type = "R"
+	active_cd.retreat_cost = 1
+	var active_slot := PokemonSlot.new()
+	active_slot.pokemon_stack.append(CardInstance.create(active_cd, 0))
+
+	var e_cd := CardData.new()
+	e_cd.card_type = "Basic Energy"
+	e_cd.energy_provides = "R"
+	var energy := CardInstance.create(e_cd, 0)
+	active_slot.attached_energy.append(energy)
+	player.active_pokemon = active_slot
+
+	# Bench Pokemon
+	var bench_cd := CardData.new()
+	bench_cd.card_type = "Pokemon"
+	bench_cd.stage = "Basic"
+	bench_cd.hp = 80
+	bench_cd.energy_type = "W"
+	var bench_slot := PokemonSlot.new()
+	bench_slot.pokemon_stack.append(CardInstance.create(bench_cd, 0))
+	player.bench.append(bench_slot)
+
+	var energy_to_discard: Array[CardInstance] = [energy]
+	var result: bool = gsm.retreat(0, energy_to_discard, bench_slot)
+	return run_checks([
+		assert_eq(result, true, "Retreat should succeed"),
+		assert_eq(player.active_pokemon == bench_slot, true, "Bench Pokemon should become the active Pokemon"),
+		assert_eq(player.bench.size(), 1, "Former active should move to the bench"),
+		assert_eq(player.discard_pile.size(), 1, "Discarded Energy should enter discard pile"),
+		assert_eq(gsm.game_state.retreat_used_this_turn, true, "Retreat flag should be set"),
+	])
+
+
+func test_retreat_uses_effective_cost_modifier() -> String:
+	var gsm := _make_gsm_with_decks()
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	gsm.game_state.turn_number = 2
+
+	var player: PlayerState = gsm.game_state.players[0]
+	CardInstance.reset_id_counter()
+
+	var active_cd := CardData.new()
+	active_cd.name = "怒鹦哥ex"
+	active_cd.card_type = "Pokemon"
+	active_cd.stage = "Basic"
+	active_cd.hp = 160
+	active_cd.energy_type = "C"
+	active_cd.retreat_cost = 1
+	var active_slot := PokemonSlot.new()
+	active_slot.pokemon_stack.append(CardInstance.create(active_cd, 0))
+
+	var tool_cd := CardData.new()
+	tool_cd.name = "Emergency Board"
+	tool_cd.card_type = "Tool"
+	tool_cd.effect_id = "0b4cc131a19862f92acf71494f29a0ed"
+	active_slot.attached_tool = CardInstance.create(tool_cd, 0)
+	player.active_pokemon = active_slot
+
+	var bench_cd := CardData.new()
+	bench_cd.name = "Bench"
+	bench_cd.card_type = "Pokemon"
+	bench_cd.stage = "Basic"
+	bench_cd.hp = 70
+	bench_cd.energy_type = "W"
+	var bench_slot := PokemonSlot.new()
+	bench_slot.pokemon_stack.append(CardInstance.create(bench_cd, 0))
+	player.bench.append(bench_slot)
+
+	var result: bool = gsm.retreat(0, [], bench_slot)
+	return run_checks([
+		assert_eq(gsm.effect_processor.get_effective_retreat_cost(active_slot, gsm.game_state), 0, "Emergency Board should reduce the retreat cost to 0"),
+		assert_eq(result, true, "Zero-cost retreat should succeed"),
+		assert_eq(player.active_pokemon, bench_slot, "Bench Pokemon should become active"),
+		assert_eq(player.discard_pile.size(), 0, "A retreat with cost 0 should not discard Energy"),
+	])
+
+
+func test_retreat_accepts_double_turbo_as_two_energy_units() -> String:
+	var gsm := _make_gsm_with_decks()
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	gsm.game_state.turn_number = 2
+
+	var player: PlayerState = gsm.game_state.players[0]
+	CardInstance.reset_id_counter()
+
+	var active_cd := CardData.new()
+	active_cd.name = "Double Turbo Runner"
+	active_cd.card_type = "Pokemon"
+	active_cd.stage = "Basic"
+	active_cd.hp = 80
+	active_cd.energy_type = "C"
+	active_cd.retreat_cost = 2
+	var active_slot := PokemonSlot.new()
+	active_slot.pokemon_stack.append(CardInstance.create(active_cd, 0))
+
+	var dte_cd := CardData.new()
+	dte_cd.name = "Double Turbo Energy"
+	dte_cd.card_type = "Special Energy"
+	dte_cd.energy_provides = "C"
+	dte_cd.effect_id = "9c04dd0addf56a7b2c88476bc8e45c0e"
+	var dte := CardInstance.create(dte_cd, 0)
+	active_slot.attached_energy.append(dte)
+	player.active_pokemon = active_slot
+
+	var bench_cd := CardData.new()
+	bench_cd.name = "Bench"
+	bench_cd.card_type = "Pokemon"
+	bench_cd.stage = "Basic"
+	bench_cd.hp = 70
+	bench_cd.energy_type = "W"
+	var bench_slot := PokemonSlot.new()
+	bench_slot.pokemon_stack.append(CardInstance.create(bench_cd, 0))
+	player.bench.append(bench_slot)
+
+	var result: bool = gsm.retreat(0, [dte], bench_slot)
+	return run_checks([
+		assert_eq(result, true, "Double Turbo Energy should pay a retreat cost of 2"),
+		assert_eq(player.active_pokemon, bench_slot, "Retreat should complete successfully"),
+		assert_eq(player.discard_pile.size(), 1, "Only 1 Double Turbo Energy should be discarded"),
+	])
+
+
+func test_forest_seal_stone_grants_search_ability_to_attached_v() -> String:
+	var gsm := _make_gsm_with_decks()
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	gsm.game_state.turn_number = 2
+	gsm.game_state.current_player_index = 0
+
+	var player: PlayerState = gsm.game_state.players[0]
+	player.hand.clear()
+	player.deck.clear()
+
+	var attacker_cd := CardData.new()
+	attacker_cd.name = "Raikou V"
+	attacker_cd.card_type = "Pokemon"
+	attacker_cd.stage = "Basic"
+	attacker_cd.hp = 200
+	attacker_cd.energy_type = "L"
+	attacker_cd.mechanic = "V"
+	var attacker_slot := PokemonSlot.new()
+	attacker_slot.pokemon_stack.append(CardInstance.create(attacker_cd, 0))
+	player.active_pokemon = attacker_slot
+
+	var search_target := CardInstance.create(_make_test_energy("L"), 0)
+	player.deck.append(search_target)
+	player.deck.append(CardInstance.create(_make_test_energy("R"), 0))
+
+	var tool_cd := CardData.new()
+	tool_cd.name = "Forest Seal Stone"
+	tool_cd.card_type = "Tool"
+	tool_cd.effect_id = AbilityVSTARSearch.FOREST_SEAL_EFFECT_ID
+	attacker_slot.attached_tool = CardInstance.create(tool_cd, 0)
+
+	var granted_entries: Array[Dictionary] = gsm.effect_processor.get_granted_abilities(attacker_slot, gsm.game_state)
+	var source_card: CardInstance = gsm.effect_processor.get_ability_source_card(attacker_slot, 0, gsm.game_state)
+	var result: bool = gsm.use_ability(0, attacker_slot, 0, [{
+		"search_cards": [search_target],
+	}])
+
+	return run_checks([
+		assert_eq(granted_entries.size(), 1, "Forest Seal Stone should grant one usable ability"),
+		assert_eq(source_card, attacker_slot.attached_tool, "Granted ability source should be the attached tool"),
+		assert_eq(result, true, "Granted ability should be usable"),
+		assert_true(search_target in player.hand, "Granted ability should add the chosen card to hand"),
+		assert_true(gsm.game_state.vstar_power_used[0], "Forest Seal Stone should consume the player's VSTAR power"),
+	])
+
+
+func test_use_attack_passes_interaction_context_to_attack_effects() -> String:
+	var gsm := _make_gsm_with_decks()
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	gsm.game_state.turn_number = 2
+	gsm.game_state.current_player_index = 0
+
+	var player: PlayerState = gsm.game_state.players[0]
+	player.deck.clear()
+
+	var chosen_top := CardInstance.create(_make_test_energy("M"), 0)
+	var filler_a := CardInstance.create(_make_test_energy("R"), 0)
+	var filler_b := CardInstance.create(_make_test_energy("W"), 0)
+	player.deck.append(filler_a)
+	player.deck.append(chosen_top)
+	player.deck.append(filler_b)
+
+	var attacker_cd := CardData.new()
+	attacker_cd.name = "Beldum"
+	attacker_cd.card_type = "Pokemon"
+	attacker_cd.stage = "Basic"
+	attacker_cd.hp = 70
+	attacker_cd.energy_type = "M"
+	attacker_cd.effect_id = "beldum_test"
+	attacker_cd.attacks = [{"name": "Magnetic Lift", "cost": "C", "damage": "", "is_vstar_power": false}]
+	var attacker_slot := PokemonSlot.new()
+	attacker_slot.pokemon_stack.append(CardInstance.create(attacker_cd, 0))
+	attacker_slot.attached_energy.append(CardInstance.create(_make_test_energy("M"), 0))
+	player.active_pokemon = attacker_slot
+	gsm.effect_processor.register_attack_effect("beldum_test", AttackSearchDeckToTopEffect.new(1))
+
+	var defender_cd := CardData.new()
+	defender_cd.name = "Dummy"
+	defender_cd.card_type = "Pokemon"
+	defender_cd.stage = "Basic"
+	defender_cd.hp = 80
+	defender_cd.energy_type = "C"
+	var defender_slot := PokemonSlot.new()
+	defender_slot.pokemon_stack.append(CardInstance.create(defender_cd, 1))
+	gsm.game_state.players[1].active_pokemon = defender_slot
+
+	var result: bool = gsm.use_attack(0, 0, [{
+		"search_cards": [chosen_top],
+	}])
+	return run_checks([
+		assert_eq(result, true, "Magnetic Lift should execute successfully"),
+		assert_eq(player.deck[0], chosen_top, "Selected card should move to the top of the deck"),
+	])
+
+
+func test_use_attack_deals_damage_and_advances_turn() -> String:
+	var gsm := _make_gsm_with_decks()
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	gsm.game_state.turn_number = 2
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+
+	var attacker_cd := CardData.new()
+	attacker_cd.name = "Attacker"
+	attacker_cd.card_type = "Pokemon"
+	attacker_cd.stage = "Basic"
+	attacker_cd.hp = 110
+	attacker_cd.energy_type = "L"
+	attacker_cd.attacks = [{"name": "Quick Bolt", "cost": "C", "damage": "40", "is_vstar_power": false}]
+	var attacker_slot := PokemonSlot.new()
+	attacker_slot.pokemon_stack.append(CardInstance.create(attacker_cd, 0))
+
+	var lightning_cd := CardData.new()
+	lightning_cd.card_type = "Basic Energy"
+	lightning_cd.energy_provides = "L"
+	attacker_slot.attached_energy.append(CardInstance.create(lightning_cd, 0))
+	gsm.game_state.players[0].active_pokemon = attacker_slot
+
+	var defender_cd := CardData.new()
+	defender_cd.name = "Defender"
+	defender_cd.card_type = "Pokemon"
+	defender_cd.stage = "Basic"
+	defender_cd.hp = 100
+	defender_cd.energy_type = "W"
+	var defender_slot := PokemonSlot.new()
+	defender_slot.pokemon_stack.append(CardInstance.create(defender_cd, 1))
+	gsm.game_state.players[1].active_pokemon = defender_slot
+	gsm.game_state.players[1].deck.append(CardInstance.create(defender_cd, 1))
+	for pi: int in 2:
+		for i: int in 2:
+			gsm.game_state.players[pi].prizes.append(CardInstance.create(defender_cd, pi))
+
+	var result: bool = gsm.use_attack(0, 0)
+	return run_checks([
+		assert_eq(result, true, "Attack should be usable with enough Energy"),
+		assert_eq(defender_slot.damage_counters, 40, "Attack should deal damage to the defender"),
+		assert_eq(gsm.game_state.current_player_index, 1, "Turn should pass to the opponent after attacking"),
+		assert_eq(gsm.game_state.turn_number, 3, "Attack should advance the turn"),
+	])
+
+
+func test_use_ability_end_turn_draw_advances_turn() -> String:
+	var gsm := _make_gsm_with_decks()
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	gsm.game_state.turn_number = 2
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+
+	var player: PlayerState = gsm.game_state.players[0]
+	player.hand.clear()
+	player.deck.clear()
+
+	var rotom_cd := CardData.new()
+	rotom_cd.name = "Rotom V"
+	rotom_cd.card_type = "Pokemon"
+	rotom_cd.stage = "Basic"
+	rotom_cd.hp = 190
+	rotom_cd.energy_type = "L"
+	rotom_cd.mechanic = "V"
+	rotom_cd.effect_id = "rotom_v_end_turn_draw_test"
+	rotom_cd.abilities = [{"name": "Instant Charge", "text": ""}]
+	var rotom_slot := PokemonSlot.new()
+	rotom_slot.pokemon_stack.append(CardInstance.create(rotom_cd, 0))
+	player.active_pokemon = rotom_slot
+	gsm.effect_processor.register_effect(rotom_cd.effect_id, AbilityEndTurnDraw.new(3))
+
+	for i: int in 4:
+		player.deck.append(CardInstance.create(_make_test_energy("L"), 0))
+
+	var opponent_cd := CardData.new()
+	opponent_cd.name = "Opponent"
+	opponent_cd.card_type = "Pokemon"
+	opponent_cd.stage = "Basic"
+	opponent_cd.hp = 80
+	opponent_cd.energy_type = "W"
+	var opponent_slot := PokemonSlot.new()
+	opponent_slot.pokemon_stack.append(CardInstance.create(opponent_cd, 1))
+	gsm.game_state.players[1].active_pokemon = opponent_slot
+	gsm.game_state.players[1].deck.append(CardInstance.create(_make_test_energy("W"), 1))
+	for pi: int in 2:
+		for i: int in 2:
+			gsm.game_state.players[pi].prizes.append(CardInstance.create(opponent_cd, pi))
+
+	var result: bool = gsm.use_ability(0, rotom_slot, 0)
+	return run_checks([
+		assert_eq(result, true, "End-turn draw ability should execute successfully"),
+		assert_eq(player.hand.size(), 3, "End-turn draw ability should draw three cards"),
+		assert_eq(gsm.game_state.current_player_index, 1, "Turn should pass to the opponent after the ability resolves"),
+		assert_eq(gsm.game_state.turn_number, 3, "Using the ability should advance to the next turn"),
+		assert_eq(gsm.game_state.phase, GameState.GamePhase.MAIN, "Opponent turn should enter the main phase"),
+		assert_eq(gsm.game_state.players[1].hand.size(), 1, "Opponent should take the normal start-of-turn draw"),
+	])
+
+
+func test_can_use_attack_counts_special_energy_provided_energy() -> String:
+	var gsm := _make_gsm_with_decks()
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	gsm.game_state.turn_number = 2
+	gsm.game_state.current_player_index = 0
+
+	var attacker_cd := CardData.new()
+	attacker_cd.name = "Special Energy User"
+	attacker_cd.card_type = "Pokemon"
+	attacker_cd.stage = "Basic"
+	attacker_cd.hp = 120
+	attacker_cd.energy_type = "C"
+	attacker_cd.attacks = [{"name": "Twin Cost", "cost": "CC", "damage": "20", "is_vstar_power": false}]
+	var attacker_slot := PokemonSlot.new()
+	attacker_slot.pokemon_stack.append(CardInstance.create(attacker_cd, 0))
+
+	var double_cd := CardData.new()
+	double_cd.name = "Double Turbo Energy"
+	double_cd.card_type = "Special Energy"
+	double_cd.energy_provides = "C"
+	double_cd.effect_id = "9c04dd0addf56a7b2c88476bc8e45c0e"
+	attacker_slot.attached_energy.append(CardInstance.create(double_cd, 0))
+	gsm.game_state.players[0].active_pokemon = attacker_slot
+
+	var defender_cd := CardData.new()
+	defender_cd.name = "Bench Dummy"
+	defender_cd.card_type = "Pokemon"
+	defender_cd.stage = "Basic"
+	defender_cd.hp = 60
+	defender_cd.energy_type = "W"
+	var defender_slot := PokemonSlot.new()
+	defender_slot.pokemon_stack.append(CardInstance.create(defender_cd, 1))
+	gsm.game_state.players[1].active_pokemon = defender_slot
+
+	return run_checks([
+		assert_eq(gsm.can_use_attack(0, 0), true, "Special Energy providing 2 Colorless should satisfy the CC cost"),
+		assert_eq(gsm.get_attack_unusable_reason(0, 0), "", "Satisfied attack costs should not report a reason"),
+	])
+
+
+func test_knockout_replace_advances_after_send_out() -> String:
+	var gsm := _make_gsm_with_decks()
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	gsm.game_state.turn_number = 2
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+
+	var attacker_cd := CardData.new()
+	attacker_cd.name = "Finisher"
+	attacker_cd.card_type = "Pokemon"
+	attacker_cd.stage = "Basic"
+	attacker_cd.hp = 120
+	attacker_cd.energy_type = "R"
+	attacker_cd.attacks = [{"name": "KO", "cost": "C", "damage": "200", "is_vstar_power": false}]
+	var attacker_slot := PokemonSlot.new()
+	attacker_slot.pokemon_stack.append(CardInstance.create(attacker_cd, 0))
+	attacker_slot.attached_energy.append(CardInstance.create(_make_test_energy("R"), 0))
+	gsm.game_state.players[0].active_pokemon = attacker_slot
+
+	var defender_cd := CardData.new()
+	defender_cd.name = "Victim"
+	defender_cd.card_type = "Pokemon"
+	defender_cd.stage = "Basic"
+	defender_cd.hp = 80
+	defender_cd.energy_type = "W"
+	var defender_slot := PokemonSlot.new()
+	defender_slot.pokemon_stack.append(CardInstance.create(defender_cd, 1))
+	gsm.game_state.players[1].active_pokemon = defender_slot
+
+	var bench_slot := PokemonSlot.new()
+	bench_slot.pokemon_stack.append(CardInstance.create(defender_cd, 1))
+	gsm.game_state.players[1].bench.append(bench_slot)
+	gsm.game_state.players[1].deck.append(CardInstance.create(defender_cd, 1))
+	for pi: int in 2:
+		for i: int in 2:
+			gsm.game_state.players[pi].prizes.append(CardInstance.create(defender_cd, pi))
+
+	var attacked: bool = gsm.use_attack(0, 0)
+	var send_out_result: bool = gsm.send_out_pokemon(1, bench_slot)
+	return run_checks([
+		assert_eq(attacked, true, "Knockout attack should resolve successfully"),
+		assert_eq(gsm.game_state.current_player_index, 1, "After replacement, the defending player should take the next turn"),
+		assert_eq(send_out_result, true, "Defending player should be able to send out a replacement"),
+		assert_eq(gsm.game_state.phase, GameState.GamePhase.MAIN, "After replacement the phase should return to MAIN"),
+	])
+
+
+func test_heavy_baton_transfers_basic_energy_before_knockout_discard() -> String:
+	var gsm := _make_gsm_with_decks()
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	gsm.game_state.turn_number = 2
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+	var heavy_baton_choices: Array[Dictionary] = []
+	gsm.player_choice_required.connect(func(choice_type: String, data: Dictionary) -> void:
+		if choice_type == "heavy_baton_target":
+			heavy_baton_choices.append(data)
+	)
+
+	var attacker_cd := CardData.new()
+	attacker_cd.name = "Finisher"
+	attacker_cd.card_type = "Pokemon"
+	attacker_cd.stage = "Basic"
+	attacker_cd.hp = 120
+	attacker_cd.energy_type = "R"
+	attacker_cd.attacks = [{"name": "KO", "cost": "C", "damage": "200", "is_vstar_power": false}]
+	var attacker_slot := PokemonSlot.new()
+	attacker_slot.pokemon_stack.append(CardInstance.create(attacker_cd, 0))
+	attacker_slot.attached_energy.append(CardInstance.create(_make_test_energy("R"), 0))
+	gsm.game_state.players[0].active_pokemon = attacker_slot
+
+	var defender_cd := CardData.new()
+	defender_cd.name = "Heavy Baton Target"
+	defender_cd.card_type = "Pokemon"
+	defender_cd.stage = "Basic"
+	defender_cd.hp = 180
+	defender_cd.energy_type = "F"
+	defender_cd.retreat_cost = 4
+	var defender_slot := PokemonSlot.new()
+	defender_slot.pokemon_stack.append(CardInstance.create(defender_cd, 1))
+
+	var tool_cd := CardData.new()
+	tool_cd.name = "Heavy Baton"
+	tool_cd.card_type = "Tool"
+	tool_cd.effect_id = "heavy_baton_test"
+	defender_slot.attached_tool = CardInstance.create(tool_cd, 1)
+
+	for energy_type: String in ["F", "F", "F", "F"]:
+		defender_slot.attached_energy.append(CardInstance.create(_make_test_energy(energy_type), 1))
+	gsm.effect_processor.register_effect("heavy_baton_test", EffectToolHeavyBaton.new())
+	gsm.game_state.players[1].active_pokemon = defender_slot
+
+	var bench_cd := CardData.new()
+	bench_cd.name = "Bench Receiver"
+	bench_cd.card_type = "Pokemon"
+	bench_cd.stage = "Basic"
+	bench_cd.hp = 90
+	bench_cd.energy_type = "F"
+	var bench_slot := PokemonSlot.new()
+	bench_slot.pokemon_stack.append(CardInstance.create(bench_cd, 1))
+	gsm.game_state.players[1].bench.append(bench_slot)
+
+	var second_bench_slot := PokemonSlot.new()
+	second_bench_slot.pokemon_stack.append(CardInstance.create(bench_cd, 1))
+	gsm.game_state.players[1].bench.append(second_bench_slot)
+	gsm.game_state.players[1].deck.append(CardInstance.create(bench_cd, 1))
+
+	for pi: int in 2:
+		for i: int in 2:
+			gsm.game_state.players[pi].prizes.append(CardInstance.create(bench_cd, pi))
+
+	var attacked: bool = gsm.use_attack(0, 0)
+	var heavy_baton_choice: Dictionary = heavy_baton_choices[0] if not heavy_baton_choices.is_empty() else {}
+	var available_targets_raw: Array = heavy_baton_choice.get("bench", [])
+	var available_targets: Array[PokemonSlot] = []
+	for target: Variant in available_targets_raw:
+		if target is PokemonSlot:
+			available_targets.append(target)
+	var resolved: bool = gsm.resolve_heavy_baton_choice(1, second_bench_slot)
+	return run_checks([
+		assert_eq(attacked, true, "Attack should succeed before knockout"),
+		assert_eq(available_targets.size(), 2, "Heavy Baton should require choosing among multiple bench targets"),
+		assert_eq(heavy_baton_choice.get("player", -1), 1, "Heavy Baton choice should belong to the knocked out player"),
+		assert_eq(resolved, true, "Resolving the Heavy Baton choice should continue the knockout flow"),
+		assert_eq(second_bench_slot.attached_energy.size(), 3, "Heavy Baton should move Energy to the chosen bench Pokemon"),
+		assert_eq(bench_slot.attached_energy.size(), 0, "The unchosen bench Pokemon should not receive Energy"),
+		assert_eq(gsm.game_state.players[1].discard_pile.filter(func(card: CardInstance) -> bool: return card.card_data.card_type == "Basic Energy").size(), 1, "Unmoved Basic Energy should go to the discard pile"),
+	])
+
+
+func test_attack_extra_prize_takes_one_additional_prize_on_knockout() -> String:
+	var gsm := _make_gsm_with_decks()
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	gsm.game_state.turn_number = 2
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+
+	var attacker_cd := CardData.new()
+	attacker_cd.name = "铁臂膀ex"
+	attacker_cd.card_type = "Pokemon"
+	attacker_cd.stage = "Basic"
+	attacker_cd.hp = 230
+	attacker_cd.energy_type = "L"
+	attacker_cd.effect_id = "iron_hands_test"
+	attacker_cd.attacks = [{"name": "澶氳阿娆惧緟", "cost": "LLCC", "damage": "120", "is_vstar_power": false}]
+	var attacker_slot := PokemonSlot.new()
+	attacker_slot.pokemon_stack.append(CardInstance.create(attacker_cd, 0))
+	for energy_type: String in ["L", "L", "C", "C"]:
+		attacker_slot.attached_energy.append(CardInstance.create(_make_test_energy(energy_type), 0))
+	gsm.effect_processor.register_attack_effect("iron_hands_test", AttackExtraPrize.new(1))
+	gsm.game_state.players[0].active_pokemon = attacker_slot
+
+	var defender_cd := CardData.new()
+	defender_cd.name = "Prize Dummy"
+	defender_cd.card_type = "Pokemon"
+	defender_cd.stage = "Basic"
+	defender_cd.hp = 120
+	defender_cd.energy_type = "W"
+	var defender_slot := PokemonSlot.new()
+	defender_slot.pokemon_stack.append(CardInstance.create(defender_cd, 1))
+	gsm.game_state.players[1].active_pokemon = defender_slot
+	gsm.game_state.players[1].deck.append(CardInstance.create(defender_cd, 1))
+	for i: int in 4:
+		gsm.game_state.players[0].prizes.append(CardInstance.create(defender_cd, 0))
+	for i: int in 6:
+		gsm.game_state.players[1].prizes.append(CardInstance.create(defender_cd, 1))
+
+	var attacked: bool = gsm.use_attack(0, 0)
+	return run_checks([
+		assert_eq(attacked, true, "铁臂膀ex should use Amp You Very Much successfully"),
+		assert_eq(gsm.game_state.players[0].hand.size(), 2, "Amp You Very Much should take two prize cards total"),
+		assert_eq(gsm.game_state.players[0].prizes.size(), 2, "Prize pile should shrink by two"),
+	])
+
+
+func test_attack_extra_prize_marker_clears_when_target_survives() -> String:
+	var gsm := _make_gsm_with_decks()
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	gsm.game_state.turn_number = 2
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+
+	var attacker_cd := CardData.new()
+	attacker_cd.name = "铁臂膀ex"
+	attacker_cd.card_type = "Pokemon"
+	attacker_cd.stage = "Basic"
+	attacker_cd.hp = 230
+	attacker_cd.energy_type = "L"
+	attacker_cd.effect_id = "iron_hands_test_survive"
+	attacker_cd.attacks = [{"name": "澶氳阿娆惧緟", "cost": "LLCC", "damage": "40", "is_vstar_power": false}]
+	var attacker_slot := PokemonSlot.new()
+	attacker_slot.pokemon_stack.append(CardInstance.create(attacker_cd, 0))
+	for energy_type: String in ["L", "L", "C", "C"]:
+		attacker_slot.attached_energy.append(CardInstance.create(_make_test_energy(energy_type), 0))
+	gsm.effect_processor.register_attack_effect("iron_hands_test_survive", AttackExtraPrize.new(1))
+	gsm.game_state.players[0].active_pokemon = attacker_slot
+
+	var defender_cd := CardData.new()
+	defender_cd.name = "Survivor"
+	defender_cd.card_type = "Pokemon"
+	defender_cd.stage = "Basic"
+	defender_cd.hp = 120
+	defender_cd.energy_type = "W"
+	var defender_slot := PokemonSlot.new()
+	defender_slot.pokemon_stack.append(CardInstance.create(defender_cd, 1))
+	gsm.game_state.players[1].active_pokemon = defender_slot
+	gsm.game_state.players[1].deck.append(CardInstance.create(defender_cd, 1))
+	for i: int in 4:
+		gsm.game_state.players[0].prizes.append(CardInstance.create(defender_cd, 0))
+	for i: int in 6:
+		gsm.game_state.players[1].prizes.append(CardInstance.create(defender_cd, 1))
+
+	var attacked: bool = gsm.use_attack(0, 0)
+	defender_slot.damage_counters = 120
+	gsm.game_state.phase = GameState.GamePhase.POKEMON_CHECK
+	gsm._check_all_knockouts()
+
+	return run_checks([
+		assert_eq(attacked, true, "Amp You Very Much should still be usable when it does not KO"),
+		assert_eq(defender_slot.effects.filter(func(effect: Dictionary) -> bool: return effect.get("type", "") == "extra_prize").size(), 0, "Extra prize marker should clear if the target survives"),
+		assert_eq(gsm.game_state.players[0].hand.size(), 1, "Later knockouts should not incorrectly draw extra prize cards"),
+	])
+
+
+func test_evolve_charizard_triggers_infernal_reign_and_attaches_fire_energy() -> String:
+	var gsm := _make_gsm_with_decks()
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	gsm.game_state.turn_number = 2
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+
+	var player: PlayerState = gsm.game_state.players[0]
+	player.hand.clear()
+	player.deck.clear()
+
+	var charmeleon_cd := CardData.new()
+	charmeleon_cd.name = "Charmeleon"
+	charmeleon_cd.card_type = "Pokemon"
+	charmeleon_cd.stage = "Stage 1"
+	charmeleon_cd.hp = 100
+	charmeleon_cd.energy_type = "R"
+	var active_slot := PokemonSlot.new()
+	active_slot.pokemon_stack.append(CardInstance.create(charmeleon_cd, 0))
+	active_slot.turn_played = 1
+	player.active_pokemon = active_slot
+
+	var bench_a_cd := CardData.new()
+	bench_a_cd.name = "澶囨垬A"
+	bench_a_cd.card_type = "Pokemon"
+	bench_a_cd.stage = "Basic"
+	bench_a_cd.hp = 90
+	bench_a_cd.energy_type = "R"
+	var bench_a := PokemonSlot.new()
+	bench_a.pokemon_stack.append(CardInstance.create(bench_a_cd, 0))
+	player.bench.append(bench_a)
+	var bench_b_cd := CardData.new()
+	bench_b_cd.name = "澶囨垬B"
+	bench_b_cd.card_type = "Pokemon"
+	bench_b_cd.stage = "Basic"
+	bench_b_cd.hp = 100
+	bench_b_cd.energy_type = "R"
+	var bench_b := PokemonSlot.new()
+	bench_b.pokemon_stack.append(CardInstance.create(bench_b_cd, 0))
+	player.bench.append(bench_b)
+
+	var charizard_cd := CardData.new()
+	charizard_cd.name = "鍠风伀榫檈x"
+	charizard_cd.card_type = "Pokemon"
+	charizard_cd.stage = "Stage 2"
+	charizard_cd.hp = 330
+	charizard_cd.energy_type = "R"
+	charizard_cd.mechanic = "ex"
+	charizard_cd.effect_id = "charizard_infernal_reign_test"
+	charizard_cd.evolves_from = "Charmeleon"
+	charizard_cd.abilities = [{"name": "烈焰支配", "text": ""}]
+	gsm.effect_processor.register_effect(
+		"charizard_infernal_reign_test",
+		AbilityAttachFromDeckEffect.new("R", 3, "own", true, false)
+	)
+	var evolution := CardInstance.create(charizard_cd, 0)
+	player.hand.append(evolution)
+
+	var fire_a := CardInstance.create(_make_test_energy("R"), 0)
+	var fire_b := CardInstance.create(_make_test_energy("R"), 0)
+	var fire_c := CardInstance.create(_make_test_energy("R"), 0)
+	player.deck.append(fire_a)
+	player.deck.append(fire_b)
+	player.deck.append(fire_c)
+	for i: int in 3:
+		player.deck.append(CardInstance.create(_make_test_energy("W"), 0))
+	player.deck.append(CardInstance.create(_make_test_energy("W"), 0))
+
+	var evolved: bool = gsm.evolve_pokemon(0, evolution, active_slot)
+	var steps: Array[Dictionary] = gsm.get_evolve_ability_interaction_steps(active_slot)
+	var ability_used: bool = gsm.use_ability(0, active_slot, 0, [{
+		"energy_assignments": [
+			{"source": fire_a, "target": active_slot},
+			{"source": fire_b, "target": bench_a},
+			{"source": fire_c, "target": bench_b},
+		],
+	}])
+	return run_checks([
+		assert_eq(evolved, true, "Charizard ex should evolve successfully"),
+		assert_eq(active_slot.get_pokemon_name(), "鍠风伀榫檈x", "The evolved Pokemon should be Charizard ex"),
+		assert_eq(steps.size(), 1, "Infernal Reign should use one reusable assignment step"),
+		assert_eq(str(steps[0].get("ui_mode", "")), "card_assignment", "Infernal Reign should use card_assignment UI mode"),
+		assert_eq(active_slot.attached_energy.size(), 1, "One Fire Energy should be assigned to the active Pokemon"),
+		assert_eq(bench_a.attached_energy.size(), 1, "One Fire Energy should be assignable to bench target A"),
+		assert_eq(bench_b.attached_energy.size(), 1, "One Fire Energy should be assignable to bench target B"),
+		assert_eq(ability_used, true, "Infernal Reign should resolve from assignment context"),
+		assert_eq(player.deck.filter(func(card: CardInstance) -> bool: return card.card_data.card_type == "Basic Energy" and card.card_data.energy_provides == "R").size(), 0, "All selected Fire Energy should leave the deck"),
+	])
+
+
+func test_charizard_burning_darkness_does_not_discard_energy_and_only_counts_taken_prizes() -> String:
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	gsm.game_state.turn_number = 2
+
+	CardInstance.reset_id_counter()
+	for pi: int in 2:
+		var player_state := PlayerState.new()
+		player_state.player_index = pi
+		gsm.game_state.players.append(player_state)
+
+	var player: PlayerState = gsm.game_state.players[0]
+	var opponent: PlayerState = gsm.game_state.players[1]
+
+	var charizard_cd := CardData.new()
+	charizard_cd.name = "鍠风伀榫檈x"
+	charizard_cd.card_type = "Pokemon"
+	charizard_cd.stage = "Stage 2"
+	charizard_cd.hp = 330
+	charizard_cd.energy_type = "D"
+	charizard_cd.effect_id = "767b6233bf90b98b7af190ea3b40d7a2"
+	charizard_cd.mechanic = "ex"
+	charizard_cd.abilities = [{"name": "烈焰支配", "text": ""}]
+	charizard_cd.attacks = [{
+		"name": "鐕冪儳榛戞殫",
+		"cost": "RR",
+		"damage": "180+",
+		"text": "This attack does 30 more damage for each Prize card your opponent has taken.",
+		"is_vstar_power": false,
+	}]
+	gsm.effect_processor.register_pokemon_card(charizard_cd)
+
+	var attacker_slot := PokemonSlot.new()
+	attacker_slot.pokemon_stack.append(CardInstance.create(charizard_cd, 0))
+	player.active_pokemon = attacker_slot
+	var fire_1 := CardInstance.create(_make_test_energy("R"), 0)
+	var fire_2 := CardInstance.create(_make_test_energy("R"), 0)
+	attacker_slot.attached_energy.append(fire_1)
+	attacker_slot.attached_energy.append(fire_2)
+
+	var defender_cd := CardData.new()
+	defender_cd.name = "铁臂膀ex"
+	defender_cd.card_type = "Pokemon"
+	defender_cd.stage = "Basic"
+	defender_cd.hp = 230
+	defender_cd.energy_type = "L"
+	defender_cd.mechanic = "ex"
+	var defender_slot := PokemonSlot.new()
+	defender_slot.pokemon_stack.append(CardInstance.create(defender_cd, 1))
+	opponent.active_pokemon = defender_slot
+
+	for i: int in 6:
+		var prize_cd := CardData.new()
+		prize_cd.name = "濂栬祻%d" % i
+		prize_cd.card_type = "Pokemon"
+		prize_cd.stage = "Basic"
+		prize_cd.hp = 60
+		prize_cd.energy_type = "C"
+		opponent.prizes.append(CardInstance.create(prize_cd, 1))
+
+	var attacked: bool = gsm.use_attack(0, 0)
+	return run_checks([
+		assert_eq(attacked, true, "Charizard ex should attack successfully"),
+		assert_eq(defender_slot.damage_counters, 180, "Burning Darkness should deal 180 when the opponent has taken no prizes"),
+		assert_eq(attacker_slot.attached_energy.size(), 2, "Burning Darkness should not discard Energy"),
+		assert_eq(player.discard_pile.size(), 0, "Burning Darkness should not move Energy to discard"),
+		assert_false(defender_slot.is_knocked_out(), "A 230 HP target should survive the first 180 damage attack"),
+	])
+
+
+func _make_test_energy(energy_type: String) -> CardData:
+	var e_cd := CardData.new()
+	e_cd.card_type = "Basic Energy"
+	e_cd.energy_provides = energy_type
+	return e_cd
+
+
+func test_action_log_records_actions() -> String:
+	var gsm := _make_gsm_with_decks()
+	gsm.draw_card(0, 2)
+
+	return run_checks([
+		assert_eq(gsm.action_log.size() > 0, true, "Action log should record entries"),
+	])
+
+
+func test_game_action_create() -> String:
+	var action: GameAction = GameAction.create(
+		GameAction.ActionType.DRAW_CARD, 0, {"count": 1}, 2, "鎶?寮犵墝"
+	)
+	return run_checks([
+		assert_eq(action.action_type, GameAction.ActionType.DRAW_CARD, "Action type"),
+		assert_eq(action.player_index, 0, "Player index"),
+		assert_eq(action.turn_number, 2, "Turn number should be recorded"),
+		assert_eq(action.description, "鎶?寮犵墝", "鎻忚堪"),
+	])
+
+
+

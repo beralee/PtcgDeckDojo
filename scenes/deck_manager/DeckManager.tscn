@@ -1,0 +1,163 @@
+[gd_scene load_steps=2 format=3 uid="uid://b2deckmgr00001"]
+
+[ext_resource type="Script" path="res://scenes/deck_manager/DeckManager.gd" id="1_script"]
+
+[node name="DeckManager" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_script")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.12, 0.14, 0.2, 1)
+
+[node name="MarginContainer" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 40
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 40
+theme_override_constants/margin_bottom = 20
+
+[node name="VBox" type="VBoxContainer" parent="MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Header" type="HBoxContainer" parent="MarginContainer/VBox"]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="MarginContainer/VBox/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "卡组管理"
+
+[node name="BtnImport" type="Button" parent="MarginContainer/VBox/Header"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(120, 35)
+text = "+ 导入卡组"
+
+[node name="BtnSyncImages" type="Button" parent="MarginContainer/VBox/Header"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(120, 35)
+text = "同步卡图"
+
+[node name="ScrollContainer" type="ScrollContainer" parent="MarginContainer/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="DeckList" type="VBoxContainer" parent="MarginContainer/VBox/ScrollContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="EmptyLabel" type="Label" parent="MarginContainer/VBox/ScrollContainer/DeckList"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "暂无卡组，点击右上方「+ 导入卡组」按钮导入"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Footer" type="HBoxContainer" parent="MarginContainer/VBox"]
+layout_mode = 2
+alignment = 1
+
+[node name="BtnBack" type="Button" parent="MarginContainer/VBox/Footer"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(150, 40)
+text = "返回主菜单"
+
+[node name="ImportPanel" type="Panel" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="ImportBg" type="ColorRect" parent="ImportPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.5)
+
+[node name="ImportBox" type="PanelContainer" parent="ImportPanel"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -250.0
+offset_top = -130.0
+offset_right = 250.0
+offset_bottom = 130.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="ImportPanel/ImportBox"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="TitleLabel" type="Label" parent="ImportPanel/ImportBox/VBox"]
+layout_mode = 2
+text = "导入卡组"
+horizontal_alignment = 1
+
+[node name="HintLabel" type="Label" parent="ImportPanel/ImportBox/VBox"]
+layout_mode = 2
+text = "请输入 tcg.mik.moe 卡组链接或卡组ID："
+
+[node name="UrlInput" type="LineEdit" parent="ImportPanel/ImportBox/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "https://tcg.mik.moe/decks/list/574793"
+
+[node name="ProgressLabel" type="Label" parent="ImportPanel/ImportBox/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = ""
+horizontal_alignment = 1
+
+[node name="ProgressBar" type="ProgressBar" parent="ImportPanel/ImportBox/VBox"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+
+[node name="BtnRow" type="HBoxContainer" parent="ImportPanel/ImportBox/VBox"]
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 20
+
+[node name="BtnDoImport" type="Button" parent="ImportPanel/ImportBox/VBox/BtnRow"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(120, 35)
+text = "导入"
+
+[node name="BtnCloseImport" type="Button" parent="ImportPanel/ImportBox/VBox/BtnRow"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(120, 35)
+text = "关闭"

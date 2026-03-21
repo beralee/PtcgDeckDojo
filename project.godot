@@ -1,0 +1,40 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
+[animation]
+
+compatibility/default_parent_skeleton_in_mesh_instance_3d=true
+
+[application]
+
+config/name="PTCG Train"
+config/description="宝可梦集换式卡牌练牌模拟器"
+run/main_scene="res://scenes/main_menu/MainMenu.tscn"
+config/features=PackedStringArray("4.6")
+
+[autoload]
+
+CardDatabase="*res://scripts/autoload/CardDatabase.gd"
+GameManager="*res://scripts/autoload/GameManager.gd"
+
+[display]
+
+window/size/viewport_width=1600
+window/size/viewport_height=900
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+
+[internationalization]
+
+locale/default="zh_CN"
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
