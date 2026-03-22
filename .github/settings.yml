@@ -1,0 +1,15 @@
+repository:
+  name: PtcgDeckDojo
+  description: "Local PTCG practice sandbox built with Godot, focused on deck testing, rules validation, and card-effect implementation."
+  has_issues: true
+  has_projects: false
+  has_wiki: false
+  topics:
+    - ptcg
+    - pokemon-tcg
+    - godot
+    - gdscript
+    - card-game
+    - deck-testing
+    - rules-engine
+    - ai-coding
