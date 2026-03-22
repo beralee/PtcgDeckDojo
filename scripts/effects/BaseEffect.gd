@@ -51,6 +51,10 @@ func get_interaction_steps(_card: CardInstance, _state: GameState) -> Array[Dict
 	return []
 
 
+func get_empty_interaction_message(_card: CardInstance, _state: GameState) -> String:
+	return ""
+
+
 func get_attack_interaction_steps(
 	_card: CardInstance,
 	_attack: Dictionary,

@@ -404,6 +404,38 @@ func attack_ignores_weakness_and_resistance(attacker: PokemonSlot, attack_index:
 	return false
 
 
+func attack_ignores_weakness(attacker: PokemonSlot, attack_index: int, state: GameState) -> bool:
+	if attacker == null or attacker.get_top_card() == null:
+		return false
+	var effect_id: String = attacker.get_card_data().effect_id
+	if not _attack_effect_registry.has(effect_id):
+		return false
+	for effect: BaseEffect in _attack_effect_registry[effect_id]:
+		if effect.has_method("applies_to_attack_index") and not bool(effect.call("applies_to_attack_index", attack_index)):
+			continue
+		if effect.has_method("ignores_weakness") and bool(effect.call("ignores_weakness", attacker, state, attack_index)):
+			return true
+		if effect.has_method("ignores_weakness_and_resistance") and bool(effect.call("ignores_weakness_and_resistance", attacker, state, attack_index)):
+			return true
+	return false
+
+
+func attack_ignores_resistance(attacker: PokemonSlot, attack_index: int, state: GameState) -> bool:
+	if attacker == null or attacker.get_top_card() == null:
+		return false
+	var effect_id: String = attacker.get_card_data().effect_id
+	if not _attack_effect_registry.has(effect_id):
+		return false
+	for effect: BaseEffect in _attack_effect_registry[effect_id]:
+		if effect.has_method("applies_to_attack_index") and not bool(effect.call("applies_to_attack_index", attack_index)):
+			continue
+		if effect.has_method("ignores_resistance") and bool(effect.call("ignores_resistance", attacker, state, attack_index)):
+			return true
+		if effect.has_method("ignores_weakness_and_resistance") and bool(effect.call("ignores_weakness_and_resistance", attacker, state, attack_index)):
+			return true
+	return false
+
+
 func attack_ignores_defender_effects(attacker: PokemonSlot, attack_index: int, state: GameState) -> bool:
 	if attacker == null or attacker.get_top_card() == null:
 		return false
@@ -632,6 +664,8 @@ func has_mist_energy_protection(slot: PokemonSlot, state: GameState) -> bool:
 func is_damage_prevented_by_defender_ability(attacker: PokemonSlot, defender: PokemonSlot, state: GameState) -> bool:
 	if attacker == null or defender == null:
 		return false
+	if AttackCoinFlipPreventDamageAndEffectsNextTurn.prevents_attack_damage(defender, state):
+		return true
 	var effect: BaseEffect = get_effect(defender.get_card_data().effect_id)
 	if effect != null and effect.has_method("prevents_damage_from"):
 		return bool(effect.call("prevents_damage_from", attacker, defender, state))

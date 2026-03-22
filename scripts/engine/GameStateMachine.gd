@@ -662,6 +662,8 @@ func resolve_heavy_baton_choice(player_index: int, bench_slot: PokemonSlot) -> b
 ## 派出替换宝可梦（昏厥后由UI调用）
 func send_out_pokemon(player_index: int, bench_slot: PokemonSlot) -> bool:
 	var player: PlayerState = game_state.players[player_index]
+	if _pending_prize_remaining > 0:
+		return false
 	if not bench_slot in player.bench:
 		return false
 	if player.active_pokemon != null:
@@ -673,6 +675,11 @@ func send_out_pokemon(player_index: int, bench_slot: PokemonSlot) -> bool:
 	_log_action(GameAction.ActionType.SEND_OUT, player_index,
 		{"pokemon_name": bench_slot.get_pokemon_name()},
 		"玩家%d派出 %s" % [player_index, bench_slot.get_pokemon_name()])
+
+	if _has_pending_knockouts():
+		_enter_phase(GameState.GamePhase.POKEMON_CHECK)
+		_check_all_knockouts()
+		return true
 
 	# 特性自爆等回合中间 KO：替换完后回到 MAIN 阶段继续操作
 	if _knockout_return_to_main:
@@ -1121,7 +1128,8 @@ func _calculate_attack_damage(
 	targets: Array = []
 ) -> int:
 	var ignore_defender_effects: bool = effect_processor.attack_ignores_defender_effects(attacker, attack_index, game_state)
-	var ignore_wr: bool = effect_processor.attack_ignores_weakness_and_resistance(attacker, attack_index, game_state)
+	var ignore_weakness: bool = effect_processor.attack_ignores_weakness(attacker, attack_index, game_state)
+	var ignore_resistance: bool = effect_processor.attack_ignores_resistance(attacker, attack_index, game_state)
 	if not ignore_defender_effects and effect_processor.is_damage_prevented_by_defender_ability(attacker, defender, game_state):
 		return 0
 	var atk_mod: int = effect_processor.get_attack_damage_modifier(attacker, defender, attack, game_state, targets)
@@ -1135,7 +1143,8 @@ func _calculate_attack_damage(
 		atk_mod,
 		atk_self_mod,
 		def_mod,
-		ignore_wr
+		ignore_weakness,
+		ignore_resistance
 	)
 
 

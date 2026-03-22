@@ -9,6 +9,7 @@ const BATTLE_RUNTIME_LOG_PATH := "user://logs/battle_runtime.log"
 const BATTLE_BACKDROP_RESOURCE := "res://assets/ui/background.png"
 const PLAYER_CARD_BACK_RESOURCE := "res://assets/ui/card_back_player.svg"
 const OPPONENT_CARD_BACK_RESOURCE := "res://assets/ui/card_back_opponent.svg"
+const USED_ABILITY_TILT_DEGREES := 15.0
 const CoinFlipAnimatorScript := preload("res://scenes/battle/CoinFlipAnimator.gd")
 
 # ===================== State =====================
@@ -45,6 +46,27 @@ var _my_discard_preview: BattleCardView = null
 var _pending_prize_player_index: int = -1
 var _pending_prize_remaining: int = 0
 var _pending_prize_animating: bool = false
+
+var _field_interaction_overlay: Control = null
+var _field_interaction_layout: VBoxContainer = null
+var _field_interaction_top_spacer: Control = null
+var _field_interaction_bottom_spacer: Control = null
+var _field_interaction_panel: PanelContainer = null
+var _field_interaction_title_lbl: Label = null
+var _field_interaction_status_lbl: Label = null
+var _field_interaction_scroll: ScrollContainer = null
+var _field_interaction_row: HBoxContainer = null
+var _field_interaction_buttons: HBoxContainer = null
+var _field_interaction_clear_btn: Button = null
+var _field_interaction_cancel_btn: Button = null
+var _field_interaction_confirm_btn: Button = null
+var _field_interaction_mode: String = ""
+var _field_interaction_data: Dictionary = {}
+var _field_interaction_slot_index_by_id: Dictionary = {}
+var _field_interaction_selected_indices: Array[int] = []
+var _field_interaction_assignment_selected_source_index: int = -1
+var _field_interaction_assignment_entries: Array[Dictionary] = []
+var _field_interaction_position: String = "center"
 
 var _player_card_back_texture: Texture2D = null
 var _opponent_card_back_texture: Texture2D = null
@@ -203,6 +225,7 @@ func _ready() -> void:
 	_setup_dialog_gallery()
 	_setup_discard_gallery()
 	_setup_prize_viewer()
+	_setup_field_interaction_panel()
 	_setup_battle_layout()
 	if not get_viewport().size_changed.is_connected(_on_viewport_size_changed):
 		get_viewport().size_changed.connect(_on_viewport_size_changed)
@@ -443,18 +466,18 @@ func _apply_responsive_layout() -> void:
 	_opp_active.custom_minimum_size = _play_card_size
 	_my_active.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_opp_active.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	_my_active.clip_contents = true
-	_opp_active.clip_contents = true
+	_my_active.clip_contents = false
+	_opp_active.clip_contents = false
 	_my_bench.custom_minimum_size = Vector2(0, _play_card_size.y)
 	_opp_bench.custom_minimum_size = Vector2(0, _play_card_size.y)
 	for panel: PanelContainer in _my_bench.get_children():
 		panel.custom_minimum_size = _play_card_size
 		panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		panel.clip_contents = true
+		panel.clip_contents = false
 	for panel: PanelContainer in _opp_bench.get_children():
 		panel.custom_minimum_size = _play_card_size
 		panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		panel.clip_contents = true
+		panel.clip_contents = false
 	for prize_view: BattleCardView in _opp_prize_slots:
 		if prize_view == null:
 			continue
@@ -512,6 +535,8 @@ func _apply_responsive_layout() -> void:
 		for child: Node in _discard_card_row.get_children():
 			if child is BattleCardView:
 				(child as BattleCardView).custom_minimum_size = _dialog_card_size
+
+	_update_field_interaction_panel_metrics(viewport_size)
 
 	if _gsm != null:
 		_refresh_hand()
@@ -1096,7 +1121,7 @@ func _after_setup_bench(pi: int) -> void:
 # ===================== Field Interactions =====================
 
 func _on_end_turn() -> void:
-	if _gsm == null:
+	if _gsm == null or _is_field_interaction_active():
 		return
 	_selected_hand_card = null
 	_refresh_hand()
@@ -1105,7 +1130,7 @@ func _on_end_turn() -> void:
 
 
 func _on_stadium_action_pressed() -> void:
-	if _gsm == null:
+	if _gsm == null or _is_field_interaction_active():
 		return
 	_try_use_stadium_with_interaction(_gsm.game_state.current_player_index)
 
@@ -1122,13 +1147,15 @@ func _on_stadium_area_input(event: InputEvent) -> void:
 
 
 func _on_back_pressed() -> void:
+	if _is_field_interaction_active():
+		return
 	_pending_choice = "confirm_exit"
 	_show_dialog("确认退出对战？当前进度不会保存。", ["确认退出", "取消"], {})
 	_dialog_cancel.visible = false
 
 
 func _on_zeus_help_pressed() -> void:
-	if _gsm == null or _gsm.game_state == null:
+	if _gsm == null or _gsm.game_state == null or _is_field_interaction_active():
 		return
 	if _view_player < 0 or _view_player >= _gsm.game_state.players.size():
 		return
@@ -1188,6 +1215,9 @@ func _on_slot_input(event: InputEvent, slot_id: String) -> void:
 		return
 
 	var target_slot: PokemonSlot = _slot_from_id(slot_id, gs)
+	if _is_field_interaction_active():
+		_try_handle_field_interaction_slot_click(slot_id, target_slot)
+		return
 	if target_slot == null and not slot_id.begins_with("opp"):
 		if _selected_hand_card != null and _selected_hand_card.card_data.is_basic_pokemon():
 			_try_play_to_bench(cp, _selected_hand_card, slot_id)
@@ -1379,6 +1409,478 @@ func _setup_discard_gallery() -> void:
 	_discard_card_row.add_theme_constant_override("separation", 14)
 	_discard_card_scroll.add_child(_discard_card_row)
 
+
+func _setup_field_interaction_panel() -> void:
+	_ensure_field_interaction_panel()
+	_update_field_interaction_panel_metrics()
+	_hide_field_interaction()
+
+
+func _ensure_field_interaction_panel() -> void:
+	if _field_interaction_overlay != null:
+		return
+
+	_field_interaction_overlay = Control.new()
+	_field_interaction_overlay.name = "FieldInteractionOverlay"
+	_field_interaction_overlay.set_anchors_preset(PRESET_FULL_RECT)
+	_field_interaction_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_field_interaction_overlay.z_index = 80
+	add_child(_field_interaction_overlay)
+
+	_field_interaction_layout = VBoxContainer.new()
+	_field_interaction_layout.set_anchors_preset(PRESET_FULL_RECT)
+	_field_interaction_layout.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_field_interaction_overlay.add_child(_field_interaction_layout)
+
+	_field_interaction_top_spacer = Control.new()
+	_field_interaction_top_spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_field_interaction_top_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_field_interaction_layout.add_child(_field_interaction_top_spacer)
+
+	var row := HBoxContainer.new()
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_field_interaction_layout.add_child(row)
+
+	_field_interaction_panel = PanelContainer.new()
+	_field_interaction_panel.name = "FieldInteractionPanel"
+	_field_interaction_panel.custom_minimum_size = Vector2(760, 136)
+	_field_interaction_panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_field_interaction_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(_field_interaction_panel)
+
+	_field_interaction_bottom_spacer = Control.new()
+	_field_interaction_bottom_spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_field_interaction_bottom_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_field_interaction_layout.add_child(_field_interaction_bottom_spacer)
+	_apply_field_interaction_position("center")
+
+	var panel_style := StyleBoxFlat.new()
+	panel_style.bg_color = Color(0.03, 0.06, 0.1, 0.92)
+	panel_style.border_color = Color(0.28, 0.82, 0.92, 0.88)
+	panel_style.set_border_width_all(2)
+	panel_style.set_corner_radius_all(18)
+	panel_style.shadow_color = Color(0.02, 0.04, 0.08, 0.42)
+	panel_style.shadow_size = 10
+	_field_interaction_panel.add_theme_stylebox_override("panel", panel_style)
+
+	var margin := MarginContainer.new()
+	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	margin.add_theme_constant_override("margin_left", 18)
+	margin.add_theme_constant_override("margin_top", 12)
+	margin.add_theme_constant_override("margin_right", 18)
+	margin.add_theme_constant_override("margin_bottom", 12)
+	_field_interaction_panel.add_child(margin)
+
+	var vbox := VBoxContainer.new()
+	vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vbox.add_theme_constant_override("separation", 8)
+	margin.add_child(vbox)
+
+	_field_interaction_title_lbl = Label.new()
+	_field_interaction_title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_field_interaction_title_lbl.add_theme_font_size_override("font_size", 16)
+	_field_interaction_title_lbl.add_theme_color_override("font_color", Color(0.95, 0.98, 1.0))
+	vbox.add_child(_field_interaction_title_lbl)
+
+	_field_interaction_status_lbl = Label.new()
+	_field_interaction_status_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_field_interaction_status_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_field_interaction_status_lbl.add_theme_font_size_override("font_size", 12)
+	_field_interaction_status_lbl.add_theme_color_override("font_color", Color(0.65, 0.9, 0.96))
+	vbox.add_child(_field_interaction_status_lbl)
+
+	_field_interaction_scroll = ScrollContainer.new()
+	_field_interaction_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	_field_interaction_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_field_interaction_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_field_interaction_scroll.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_field_interaction_scroll.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vbox.add_child(_field_interaction_scroll)
+
+	_field_interaction_row = HBoxContainer.new()
+	_field_interaction_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	_field_interaction_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_field_interaction_row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_field_interaction_row.add_theme_constant_override("separation", 14)
+	_field_interaction_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_field_interaction_scroll.add_child(_field_interaction_row)
+
+	_field_interaction_buttons = HBoxContainer.new()
+	_field_interaction_buttons.alignment = BoxContainer.ALIGNMENT_CENTER
+	_field_interaction_buttons.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_field_interaction_buttons.add_theme_constant_override("separation", 10)
+	_field_interaction_buttons.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vbox.add_child(_field_interaction_buttons)
+
+	_field_interaction_clear_btn = Button.new()
+	_field_interaction_clear_btn.text = "清空"
+	_field_interaction_clear_btn.custom_minimum_size = Vector2(110, 34)
+	_field_interaction_clear_btn.pressed.connect(_on_field_interaction_clear_pressed)
+	_field_interaction_buttons.add_child(_field_interaction_clear_btn)
+
+	_field_interaction_cancel_btn = Button.new()
+	_field_interaction_cancel_btn.text = "取消"
+	_field_interaction_cancel_btn.custom_minimum_size = Vector2(110, 34)
+	_field_interaction_cancel_btn.pressed.connect(_on_field_interaction_cancel_pressed)
+	_field_interaction_buttons.add_child(_field_interaction_cancel_btn)
+
+	_field_interaction_confirm_btn = Button.new()
+	_field_interaction_confirm_btn.text = "确认"
+	_field_interaction_confirm_btn.custom_minimum_size = Vector2(140, 34)
+	_field_interaction_confirm_btn.pressed.connect(_on_field_interaction_confirm_pressed)
+	_field_interaction_buttons.add_child(_field_interaction_confirm_btn)
+
+
+func _hide_field_interaction() -> void:
+	_field_interaction_mode = ""
+	_field_interaction_data.clear()
+	_field_interaction_slot_index_by_id.clear()
+	_field_interaction_selected_indices.clear()
+	_field_interaction_assignment_selected_source_index = -1
+	_field_interaction_assignment_entries.clear()
+	_apply_field_interaction_position("center")
+	if _field_interaction_title_lbl != null:
+		_field_interaction_title_lbl.text = ""
+	if _field_interaction_status_lbl != null:
+		_field_interaction_status_lbl.text = ""
+	if _field_interaction_row != null:
+		_clear_container_children(_field_interaction_row)
+	if _field_interaction_overlay != null:
+		_field_interaction_overlay.visible = false
+
+
+func _update_field_interaction_panel_metrics(viewport_size: Vector2 = Vector2.ZERO) -> void:
+	if _field_interaction_panel == null or _field_interaction_scroll == null or _field_interaction_row == null:
+		return
+	var effective_viewport: Vector2 = viewport_size
+	if effective_viewport == Vector2.ZERO and is_inside_tree():
+		effective_viewport = get_viewport().get_visible_rect().size
+	if effective_viewport == Vector2.ZERO:
+		effective_viewport = Vector2(1366, 768)
+	var card_height: float = _play_card_size.y if _play_card_size.y > 0.0 else 152.0
+	var strip_height: float = card_height + 8.0
+	var panel_width: float = clampf(effective_viewport.x * 0.54, 680.0, 980.0)
+	_field_interaction_panel.custom_minimum_size = Vector2(
+		panel_width,
+		maxf(strip_height + 86.0, 136.0)
+	)
+	_field_interaction_panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_field_interaction_scroll.custom_minimum_size = Vector2(0.0, strip_height)
+	_field_interaction_scroll.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_field_interaction_row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_apply_field_interaction_position(_field_interaction_position)
+
+
+func _is_field_interaction_active() -> bool:
+	return _field_interaction_mode != ""
+
+
+func _field_interaction_target_owner(slot: PokemonSlot) -> int:
+	if slot == null:
+		return -1
+	var top_card: CardInstance = slot.get_top_card()
+	return top_card.owner_index if top_card != null else -1
+
+
+func _resolve_field_interaction_position(slots: Array) -> String:
+	var own_targets: int = 0
+	var opponent_targets: int = 0
+	for item: Variant in slots:
+		if not (item is PokemonSlot):
+			continue
+		var owner_index: int = _field_interaction_target_owner(item as PokemonSlot)
+		if owner_index == _view_player:
+			own_targets += 1
+		elif owner_index >= 0:
+			opponent_targets += 1
+	if own_targets > 0 and opponent_targets == 0:
+		return "top"
+	if opponent_targets > 0 and own_targets == 0:
+		return "bottom"
+	return "center"
+
+
+func _apply_field_interaction_position(position: String) -> void:
+	_field_interaction_position = position
+	if _field_interaction_top_spacer == null or _field_interaction_bottom_spacer == null:
+		return
+	match position:
+		"top":
+			_field_interaction_top_spacer.size_flags_stretch_ratio = 0.22
+			_field_interaction_bottom_spacer.size_flags_stretch_ratio = 6.45
+		"bottom":
+			_field_interaction_top_spacer.size_flags_stretch_ratio = 6.45
+			_field_interaction_bottom_spacer.size_flags_stretch_ratio = 0.22
+		_:
+			_field_interaction_top_spacer.size_flags_stretch_ratio = 1.0
+			_field_interaction_bottom_spacer.size_flags_stretch_ratio = 1.0
+
+
+func _show_field_slot_choice(title: String, items: Array, data: Dictionary = {}) -> void:
+	_ensure_field_interaction_panel()
+	_update_field_interaction_panel_metrics()
+	_hide_field_interaction()
+	_field_interaction_mode = "slot_select"
+	_field_interaction_data = data.duplicate(true)
+	_field_interaction_data["title"] = title
+	_field_interaction_data["items"] = items.duplicate()
+	_apply_field_interaction_position(_resolve_field_interaction_position(items))
+	_rebuild_field_slot_index_map(items)
+	_field_interaction_overlay.visible = true
+	_refresh_field_interaction_status()
+
+
+func _show_field_assignment_interaction(step: Dictionary) -> void:
+	_ensure_field_interaction_panel()
+	_update_field_interaction_panel_metrics()
+	_hide_field_interaction()
+	_field_interaction_mode = "assignment"
+	_field_interaction_data = step.duplicate(true)
+	_apply_field_interaction_position(_resolve_field_interaction_position(step.get("target_items", [])))
+	_rebuild_field_slot_index_map(step.get("target_items", []))
+	_build_field_assignment_source_cards()
+	_field_interaction_overlay.visible = true
+	_refresh_field_interaction_status()
+
+
+func _rebuild_field_slot_index_map(items: Array) -> void:
+	_field_interaction_slot_index_by_id.clear()
+	for i: int in items.size():
+		var slot_variant: Variant = items[i]
+		if not (slot_variant is PokemonSlot):
+			continue
+		var slot_id := _slot_id_from_slot(slot_variant as PokemonSlot)
+		if slot_id != "":
+			_field_interaction_slot_index_by_id[slot_id] = i
+
+
+func _build_field_assignment_source_cards() -> void:
+	if _field_interaction_row == null:
+		return
+	_clear_container_children(_field_interaction_row)
+
+	var source_items: Array = _field_interaction_data.get("source_items", [])
+	var source_labels: Array = _field_interaction_data.get("source_labels", [])
+	var source_groups: Array = _field_interaction_data.get("source_groups", [])
+	if source_groups.is_empty():
+		for i: int in source_items.size():
+			_add_field_assignment_source_card(source_items, source_labels, i)
+		return
+
+	for group_index: int in source_groups.size():
+		var group: Dictionary = source_groups[group_index]
+		var slot_variant: Variant = group.get("slot")
+		var energy_indices: Array = group.get("energy_indices", [])
+		if group_index > 0:
+			var separator := VSeparator.new()
+			separator.custom_minimum_size = Vector2(2, 0)
+			separator.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			separator.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			_field_interaction_row.add_child(separator)
+		if slot_variant is PokemonSlot:
+			var header_view := BATTLE_CARD_VIEW.new()
+			header_view.custom_minimum_size = _play_card_size
+			header_view.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			header_view.set_clickable(false)
+			var slot: PokemonSlot = slot_variant as PokemonSlot
+			header_view.setup_from_card_data(slot.get_card_data(), _battle_card_mode_for_slot(slot))
+			header_view.set_badges()
+			header_view.set_battle_status(_build_battle_status(slot))
+			_field_interaction_row.add_child(header_view)
+		for energy_index_variant: Variant in energy_indices:
+			_add_field_assignment_source_card(source_items, source_labels, int(energy_index_variant))
+
+
+func _add_field_assignment_source_card(source_items: Array, source_labels: Array, source_index: int) -> void:
+	if source_index < 0 or source_index >= source_items.size():
+		return
+	var source_view := BATTLE_CARD_VIEW.new()
+	source_view.custom_minimum_size = _play_card_size
+	source_view.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	source_view.set_clickable(true)
+	_setup_dialog_card_view(
+		source_view,
+		source_items[source_index],
+		str(source_labels[source_index]) if source_index < source_labels.size() else ""
+	)
+	source_view.left_clicked.connect(func(_ci: CardInstance, _cd: CardData) -> void:
+		_on_field_assignment_source_chosen(source_index)
+	)
+	source_view.right_clicked.connect(func(_ci: CardInstance, cd: CardData) -> void:
+		if cd != null:
+			_show_card_detail(cd)
+	)
+	source_view.set_meta("field_assignment_source_index", source_index)
+	_field_interaction_row.add_child(source_view)
+
+
+func _on_field_assignment_source_chosen(source_index: int) -> void:
+	var source_items: Array = _field_interaction_data.get("source_items", [])
+	if source_index < 0 or source_index >= source_items.size():
+		return
+	var assigned_index := _find_field_assignment_index_for_source(source_index)
+	if assigned_index >= 0:
+		_field_interaction_assignment_entries.remove_at(assigned_index)
+		if _field_interaction_assignment_selected_source_index == source_index:
+			_field_interaction_assignment_selected_source_index = -1
+		_refresh_field_interaction_status()
+		_refresh_ui()
+		return
+
+	var max_assignments: int = int(_field_interaction_data.get("max_select", source_items.size()))
+	if max_assignments > 0 and _field_interaction_assignment_entries.size() >= max_assignments:
+		_log("已达到最多可分配数量。")
+		return
+
+	if _field_interaction_assignment_selected_source_index == source_index:
+		_field_interaction_assignment_selected_source_index = -1
+	else:
+		_field_interaction_assignment_selected_source_index = source_index
+	_refresh_field_interaction_status()
+	_refresh_ui()
+
+
+func _find_field_assignment_index_for_source(source_index: int) -> int:
+	for i: int in _field_interaction_assignment_entries.size():
+		if int(_field_interaction_assignment_entries[i].get("source_index", -1)) == source_index:
+			return i
+	return -1
+
+
+func _field_interaction_selected_slot_ids() -> Array[String]:
+	var result: Array[String] = []
+	if _field_interaction_mode == "slot_select":
+		var items: Array = _field_interaction_data.get("items", [])
+		for selected_index: int in _field_interaction_selected_indices:
+			if selected_index < 0 or selected_index >= items.size():
+				continue
+			var slot_variant: Variant = items[selected_index]
+			if slot_variant is PokemonSlot:
+				var slot_id := _slot_id_from_slot(slot_variant as PokemonSlot)
+				if slot_id != "":
+					result.append(slot_id)
+	elif _field_interaction_mode == "assignment":
+		for entry: Dictionary in _field_interaction_assignment_entries:
+			var target_variant: Variant = entry.get("target")
+			if target_variant is PokemonSlot:
+				var target_slot_id := _slot_id_from_slot(target_variant as PokemonSlot)
+				if target_slot_id != "":
+					result.append(target_slot_id)
+	return result
+
+
+func _refresh_field_interaction_status() -> void:
+	_ensure_field_interaction_panel()
+	if not _is_field_interaction_active():
+		_hide_field_interaction()
+		return
+	_field_interaction_overlay.visible = true
+	_field_interaction_title_lbl.text = str(_field_interaction_data.get("title", "请选择"))
+	var show_cards: bool = _field_interaction_mode == "assignment"
+	_field_interaction_scroll.visible = show_cards
+	if _field_interaction_buttons != null:
+		_field_interaction_buttons.visible = true
+
+	if _field_interaction_mode == "slot_select":
+		var min_select: int = int(_field_interaction_data.get("min_select", 1))
+		var max_select: int = int(_field_interaction_data.get("max_select", 1))
+		var selected_count := _field_interaction_selected_indices.size()
+		var status := "请直接点击战场上的高亮宝可梦。"
+		if max_select > 1 or min_select > 1:
+			status = "已选择 %d / %d" % [selected_count, min_select]
+			if max_select > 1:
+				status += "（最多 %d）" % max_select
+		_field_interaction_status_lbl.text = status
+		_field_interaction_clear_btn.visible = selected_count > 0 and max_select > 1
+		_field_interaction_cancel_btn.visible = bool(_field_interaction_data.get("allow_cancel", true))
+		_field_interaction_confirm_btn.visible = max_select > 1 or min_select > 1
+		_field_interaction_confirm_btn.disabled = selected_count < min_select
+	else:
+		_refresh_field_assignment_source_views()
+		var min_assignments: int = int(_field_interaction_data.get("min_select", 0))
+		var max_assignments: int = int(_field_interaction_data.get("max_select", 0))
+		var summary := "先选择中间卡牌，再点击战场上的目标宝可梦。"
+		if _field_interaction_assignment_selected_source_index >= 0:
+			var source_items: Array = _field_interaction_data.get("source_items", [])
+			if _field_interaction_assignment_selected_source_index < source_items.size():
+				var selected_source: Variant = source_items[_field_interaction_assignment_selected_source_index]
+				if selected_source is CardInstance:
+					summary = "当前选择：%s。请点击场上目标。" % (selected_source as CardInstance).card_data.name
+		if not _field_interaction_assignment_entries.is_empty():
+			summary += " 已完成 %d" % _field_interaction_assignment_entries.size()
+			if max_assignments > 0:
+				summary += " / %d" % max_assignments
+		_field_interaction_status_lbl.text = summary
+		_field_interaction_clear_btn.visible = not _field_interaction_assignment_entries.is_empty()
+		_field_interaction_cancel_btn.visible = bool(_field_interaction_data.get("allow_cancel", true))
+		_field_interaction_confirm_btn.visible = true
+		_field_interaction_confirm_btn.disabled = _field_interaction_assignment_entries.size() < min_assignments
+
+
+func _refresh_field_assignment_source_views() -> void:
+	if _field_interaction_row == null:
+		return
+	for child: Node in _field_interaction_row.get_children():
+		if not (child is BattleCardView):
+			continue
+		var card_view := child as BattleCardView
+		var idx: int = int(card_view.get_meta("field_assignment_source_index", -1))
+		card_view.set_selected(idx == _field_interaction_assignment_selected_source_index)
+		card_view.set_disabled(_find_field_assignment_index_for_source(idx) >= 0)
+
+
+func _on_field_interaction_clear_pressed() -> void:
+	if _field_interaction_mode == "slot_select":
+		_field_interaction_selected_indices.clear()
+	else:
+		_field_interaction_assignment_selected_source_index = -1
+		_field_interaction_assignment_entries.clear()
+	_refresh_field_interaction_status()
+	_refresh_ui()
+
+
+func _on_field_interaction_cancel_pressed() -> void:
+	_cancel_field_interaction()
+
+
+func _on_field_interaction_confirm_pressed() -> void:
+	if _field_interaction_mode == "slot_select":
+		_finalize_field_slot_selection()
+	else:
+		_finalize_field_assignment_selection()
+
+
+func _cancel_field_interaction() -> void:
+	var handled_choice := _pending_choice
+	_hide_field_interaction()
+	if handled_choice == "effect_interaction":
+		_reset_effect_interaction()
+		return
+	_pending_choice = ""
+	_dialog_data.clear()
+	_dialog_items_data.clear()
+
+
+func _slot_id_from_slot(slot: PokemonSlot) -> String:
+	if slot == null or _gsm == null or _gsm.game_state == null:
+		return ""
+	var gs: GameState = _gsm.game_state
+	if gs.players.size() < 2:
+		return ""
+	var vp: int = _view_player
+	var op: int = 1 - vp
+	if gs.players[vp].active_pokemon == slot:
+		return "my_active"
+	if gs.players[op].active_pokemon == slot:
+		return "opp_active"
+	for i: int in BENCH_SIZE:
+		if i < gs.players[vp].bench.size() and gs.players[vp].bench[i] == slot:
+			return "my_bench_%d" % i
+		if i < gs.players[op].bench.size() and gs.players[op].bench[i] == slot:
+			return "opp_bench_%d" % i
+	return ""
 
 func _setup_prize_viewer() -> void:
 	for i: int in _opp_prize_slots.size():
@@ -2003,19 +2505,23 @@ func _confirm_assignment_dialog() -> void:
 		return
 	if _pending_effect_step_index < 0 or _pending_effect_step_index >= _pending_effect_steps.size():
 		return
-
-	var step: Dictionary = _pending_effect_steps[_pending_effect_step_index]
 	var stored_assignments: Array[Dictionary] = []
 	for assignment: Dictionary in _dialog_assignment_assignments:
 		stored_assignments.append(assignment.duplicate())
+	_dialog_overlay.visible = false
+	_reset_dialog_assignment_state()
+	_commit_effect_assignment_selection(stored_assignments)
 
+
+func _commit_effect_assignment_selection(stored_assignments: Array[Dictionary]) -> void:
+	if _pending_effect_step_index < 0 or _pending_effect_step_index >= _pending_effect_steps.size():
+		return
+	var step: Dictionary = _pending_effect_steps[_pending_effect_step_index]
 	_pending_effect_context[step.get("id", "step_%d" % _pending_effect_step_index)] = stored_assignments
 	_runtime_log(
 		"effect_assignment_choice",
 		"step=%s assignments=%d" % [str(step.get("id", "step_%d" % _pending_effect_step_index)), stored_assignments.size()]
 	)
-	_dialog_overlay.visible = false
-	_reset_dialog_assignment_state()
 	_pending_effect_step_index += 1
 	_inject_followup_steps()
 	_show_next_effect_interaction_step()
@@ -2183,16 +2689,15 @@ func _prompt_send_out_dialog(pi: int) -> void:
 
 func _show_send_out_dialog(pi: int) -> void:
 	var player: PlayerState = _gsm.game_state.players[pi]
-	var items: Array[String] = []
-	for s: PokemonSlot in player.bench:
-		items.append("%s (HP %d/%d)" % [s.get_pokemon_name(), s.get_remaining_hp(), s.get_max_hp()])
-	_show_dialog("玩家 %d：选择要派出的宝可梦" % (pi + 1), items, {
+	_pending_choice = "send_out"
+	_dialog_data = {
 		"player": pi,
 		"bench": player.bench,
-		"presentation": "cards",
-		"card_items": player.bench,
-		"choice_labels": items,
-	})
+		"allow_cancel": false,
+		"min_select": 1,
+		"max_select": 1,
+	}
+	_show_field_slot_choice("玩家 %d：选择要派出的宝可梦" % (pi + 1), player.bench, _dialog_data)
 
 
 func _prompt_heavy_baton_dialog(
@@ -2221,24 +2726,111 @@ func _show_heavy_baton_dialog(
 	energy_count: int,
 	source_name: String
 ) -> void:
-	var items: Array[String] = []
-	for slot: PokemonSlot in bench_targets:
-		items.append("%s (HP %d/%d)" % [slot.get_pokemon_name(), slot.get_remaining_hp(), slot.get_max_hp()])
-	_show_dialog(
+	_pending_choice = "heavy_baton_target"
+	_dialog_data = {
+		"player": pi,
+		"bench": bench_targets.duplicate(),
+		"min_select": 1,
+		"max_select": 1,
+		"allow_cancel": false,
+	}
+	_show_field_slot_choice(
 		"%s：选择接收 %d 个能量的备战宝可梦" % [source_name, energy_count],
-		items,
-		{
-			"player": pi,
-			"bench": bench_targets.duplicate(),
-			"min_select": 1,
-			"max_select": 1,
-			"allow_cancel": false,
-			"presentation": "cards",
-			"card_items": bench_targets,
-			"choice_labels": items,
-		}
+		bench_targets,
+		_dialog_data
 	)
-	_dialog_cancel.visible = false
+
+
+func _try_handle_field_interaction_slot_click(slot_id: String, target_slot: PokemonSlot) -> void:
+	if not _is_field_interaction_active():
+		return
+	if not _field_interaction_slot_index_by_id.has(slot_id):
+		return
+	var target_index: int = int(_field_interaction_slot_index_by_id.get(slot_id, -1))
+	if target_index < 0:
+		return
+	match _field_interaction_mode:
+		"slot_select":
+			_handle_field_slot_select_index(target_index)
+		"assignment":
+			_handle_field_assignment_target_index(target_index)
+
+
+func _handle_field_slot_select_index(target_index: int) -> void:
+	var min_select: int = int(_field_interaction_data.get("min_select", 1))
+	var max_select: int = int(_field_interaction_data.get("max_select", 1))
+	if max_select <= 1 and min_select <= 1:
+		_field_interaction_selected_indices = [target_index]
+		_finalize_field_slot_selection()
+		return
+	if target_index in _field_interaction_selected_indices:
+		_field_interaction_selected_indices.erase(target_index)
+	else:
+		if max_select > 0 and _field_interaction_selected_indices.size() >= max_select:
+			return
+		_field_interaction_selected_indices.append(target_index)
+	_refresh_field_interaction_status()
+	_refresh_ui()
+	if min_select == max_select and max_select > 1 and _field_interaction_selected_indices.size() == max_select:
+		_finalize_field_slot_selection()
+
+
+func _handle_field_assignment_target_index(target_index: int) -> void:
+	if _field_interaction_assignment_selected_source_index < 0:
+		_log("请先在中间面板选择1张卡。")
+		return
+	var source_items: Array = _field_interaction_data.get("source_items", [])
+	var target_items: Array = _field_interaction_data.get("target_items", [])
+	if _field_interaction_assignment_selected_source_index >= source_items.size():
+		return
+	if target_index < 0 or target_index >= target_items.size():
+		return
+	var exclude_map: Dictionary = _field_interaction_data.get("source_exclude_targets", {})
+	var excluded: Array = exclude_map.get(_field_interaction_assignment_selected_source_index, [])
+	if target_index in excluded:
+		_log("当前选择不能分配到该目标。")
+		return
+	_field_interaction_assignment_entries.append({
+		"source_index": _field_interaction_assignment_selected_source_index,
+		"source": source_items[_field_interaction_assignment_selected_source_index],
+		"target_index": target_index,
+		"target": target_items[target_index],
+	})
+	_field_interaction_assignment_selected_source_index = -1
+	_refresh_field_interaction_status()
+	_refresh_ui()
+	var min_assignments: int = int(_field_interaction_data.get("min_select", 0))
+	var max_assignments: int = int(_field_interaction_data.get("max_select", 0))
+	if min_assignments == max_assignments and max_assignments > 0 and _field_interaction_assignment_entries.size() == max_assignments:
+		_finalize_field_assignment_selection()
+
+
+func _finalize_field_slot_selection() -> void:
+	var min_select: int = int(_field_interaction_data.get("min_select", 1))
+	if _field_interaction_selected_indices.size() < min_select:
+		_log("至少选择 %d 项。" % min_select)
+		return
+	var selected := PackedInt32Array(_field_interaction_selected_indices)
+	_hide_field_interaction()
+	if _pending_choice == "effect_interaction":
+		_handle_effect_interaction_choice(selected)
+	else:
+		_handle_dialog_choice(selected)
+
+
+func _finalize_field_assignment_selection() -> void:
+	var min_select: int = int(_field_interaction_data.get("min_select", 0))
+	if _field_interaction_assignment_entries.size() < min_select:
+		_log("至少完成 %d 次分配。" % min_select)
+		return
+	if _pending_choice != "effect_interaction":
+		_hide_field_interaction()
+		return
+	var stored_assignments: Array[Dictionary] = []
+	for assignment: Dictionary in _field_interaction_assignment_entries:
+		stored_assignments.append(assignment.duplicate())
+	_hide_field_interaction()
+	_commit_effect_assignment_selection(stored_assignments)
 
 
 func _resolve_zeus_help_selected_cards(
@@ -2488,19 +3080,20 @@ func _show_retreat_dialog(cp: int) -> void:
 		energy_discard.append(energy)
 		paid_units += _gsm.effect_processor.get_energy_colorless_count(energy)
 
-	var items: Array[String] = []
-	for s: PokemonSlot in player.bench:
-		items.append("%s (HP %d/%d)" % [s.get_pokemon_name(), s.get_remaining_hp(), s.get_max_hp()])
 	_pending_choice = "retreat_bench"
-	_show_dialog("选择要换上的备战宝可梦（弃掉 %d 个能量）" % cost, items, {
+	_dialog_data = {
 		"player": cp,
 		"bench": player.bench,
 		"energy_discard": energy_discard,
-		"presentation": "cards",
-		"card_items": player.bench,
-		"choice_labels": items,
 		"allow_cancel": true,
-	})
+		"min_select": 1,
+		"max_select": 1,
+	}
+	_show_field_slot_choice(
+		"选择要换上的备战宝可梦（弃掉 %d 个能量）" % cost,
+		player.bench,
+		_dialog_data
+	)
 
 
 func _show_handover_prompt(target_player: int, follow_up: Callable = Callable()) -> void:
@@ -2564,6 +3157,8 @@ func _on_hand_card_clicked(inst: CardInstance, _panel: PanelContainer) -> void:
 			_state_snapshot()
 		]
 	)
+	if _is_field_interaction_active():
+		return
 	if _selected_hand_card == inst:
 		_selected_hand_card = null
 		_refresh_hand()
@@ -2622,6 +3217,10 @@ func _try_play_trainer_with_interaction(player_index: int, card: CardInstance) -
 	if steps.is_empty():
 		if not _gsm.play_trainer(player_index, card, []):
 			_log("无法使用 %s" % card.card_data.name)
+		else:
+			var empty_message: String = effect.get_empty_interaction_message(card, _gsm.game_state)
+			if empty_message != "":
+				_log(empty_message)
 		_refresh_ui()
 		return
 
@@ -2744,6 +3343,40 @@ func _start_effect_interaction(
 	_show_next_effect_interaction_step()
 
 
+func _effect_step_uses_field_slot_ui(step: Dictionary) -> bool:
+	if str(step.get("ui_mode", "")) == "card_assignment":
+		return false
+	var items: Array = step.get("items", [])
+	if items.is_empty():
+		return false
+	for item: Variant in items:
+		if not (item is PokemonSlot):
+			return false
+	return true
+
+
+func _effect_step_uses_field_assignment_ui(step: Dictionary) -> bool:
+	if str(step.get("ui_mode", "")) != "card_assignment":
+		return false
+	var target_items: Array = step.get("target_items", [])
+	if target_items.is_empty():
+		return false
+	for item: Variant in target_items:
+		if not (item is PokemonSlot):
+			return false
+	return true
+
+
+func _resolve_effect_step_chooser_player(step: Dictionary) -> int:
+	if step.has("chooser_player_index"):
+		var chooser_index: int = int(step.get("chooser_player_index", -1))
+		if chooser_index >= 0:
+			return chooser_index
+	if bool(step.get("opponent_chooses", false)) and _pending_effect_player_index >= 0:
+		return 1 - _pending_effect_player_index
+	return _pending_effect_player_index
+
+
 func _show_next_effect_interaction_step() -> void:
 	if _pending_effect_card == null:
 		_runtime_log("effect_step_skipped", "pending card missing")
@@ -2807,6 +3440,46 @@ func _show_next_effect_interaction_step() -> void:
 		return
 
 	var step: Dictionary = _pending_effect_steps[_pending_effect_step_index]
+	var chooser_player: int = _resolve_effect_step_chooser_player(step)
+	if (
+		GameManager.current_mode == GameManager.GameMode.TWO_PLAYER
+		and chooser_player >= 0
+		and chooser_player != _view_player
+	):
+		_pending_choice = "effect_interaction"
+		_show_handover_prompt(chooser_player, func() -> void:
+			_set_handover_panel_visible(false, "effect_step_handover_%d" % _pending_effect_step_index)
+			_view_player = chooser_player
+			_refresh_ui()
+			_show_next_effect_interaction_step()
+		)
+		return
+	if _effect_step_uses_field_assignment_ui(step):
+		_pending_choice = "effect_interaction"
+		_runtime_log(
+			"effect_step",
+			"step=%d/%d title=%s options=%d mode=field_assignment" % [
+				_pending_effect_step_index + 1,
+				_pending_effect_steps.size(),
+				str(step.get("title", "请选择")),
+				int(step.get("source_items", []).size())
+			]
+		)
+		_show_field_assignment_interaction(step)
+		return
+	if _effect_step_uses_field_slot_ui(step):
+		_pending_choice = "effect_interaction"
+		_runtime_log(
+			"effect_step",
+			"step=%d/%d title=%s options=%d mode=field_slots" % [
+				_pending_effect_step_index + 1,
+				_pending_effect_steps.size(),
+				str(step.get("title", "请选择")),
+				int(step.get("items", []).size())
+			]
+		)
+		_show_field_slot_choice(str(step.get("title", "请选择")), step.get("items", []), step)
+		return
 	if str(step.get("ui_mode", "")) == "card_assignment":
 		_pending_choice = "effect_interaction"
 		_runtime_log(
@@ -2922,6 +3595,7 @@ func _inject_followup_steps() -> void:
 func _reset_effect_interaction() -> void:
 	_runtime_log("reset_effect_interaction", _effect_state_snapshot())
 	var clearing_effect_dialog: bool = _pending_choice == "effect_interaction"
+	var clearing_field_interaction: bool = _is_field_interaction_active()
 	_pending_effect_kind = ""
 	_pending_effect_player_index = -1
 	_pending_effect_card = null
@@ -2932,6 +3606,8 @@ func _reset_effect_interaction() -> void:
 	_pending_effect_steps.clear()
 	_pending_effect_step_index = -1
 	_pending_effect_context.clear()
+	if clearing_field_interaction:
+		_hide_field_interaction()
 	if clearing_effect_dialog:
 		_pending_choice = ""
 		_dialog_data.clear()
@@ -3024,6 +3700,8 @@ func _refresh_ui() -> void:
 	_refresh_info_hud(gs, vp, op)
 
 	_refresh_hand()
+	if _is_field_interaction_active():
+		_refresh_field_interaction_status()
 	_runtime_log_ui_state_if_changed()
 
 
@@ -3153,27 +3831,37 @@ func _refresh_slot_card_view(slot_id: String, slot: PokemonSlot, is_active: bool
 	if card_view == null:
 		return
 	var slot_panel := card_view.get_parent() as PanelContainer
+	var is_selectable := _field_interaction_slot_index_by_id.has(slot_id)
+	var selected_slot_ids: Array[String] = _field_interaction_selected_slot_ids()
+	var is_selected := slot_id in selected_slot_ids
+	var should_disable := _is_field_interaction_active() and not is_selectable
 
 	if slot == null or slot.pokemon_stack.is_empty():
 		card_view.setup_from_instance(null, BATTLE_CARD_VIEW.MODE_SLOT_ACTIVE if is_active else BATTLE_CARD_VIEW.MODE_SLOT_BENCH)
 		card_view.set_badges()
 		card_view.clear_battle_status()
 		card_view.set_info("", "")
+		card_view.set_tilt_degrees(0.0)
 		card_view.set_disabled(false)
+		card_view.set_selected(false)
 		_apply_field_slot_style(slot_panel, slot_id, false, is_active)
 		return
 
 	var top_card: CardInstance = slot.get_top_card()
 	card_view.setup_from_instance(top_card, BATTLE_CARD_VIEW.MODE_SLOT_ACTIVE if is_active else BATTLE_CARD_VIEW.MODE_SLOT_BENCH)
-	card_view.set_disabled(false)
+	card_view.set_disabled(should_disable)
+	card_view.set_selected(is_selected or is_selectable)
 	card_view.set_badges()
 	card_view.set_battle_status(_build_battle_status(slot))
+	card_view.set_tilt_degrees(USED_ABILITY_TILT_DEGREES if _slot_used_ability_this_turn(slot) else 0.0)
 	_apply_field_slot_style(slot_panel, slot_id, true, is_active)
 
 func _apply_field_slot_style(panel: PanelContainer, slot_id: String, occupied: bool, is_active: bool) -> void:
 	if panel == null:
 		return
 	var is_player_slot := slot_id.begins_with("my_")
+	var is_selectable := _field_interaction_slot_index_by_id.has(slot_id)
+	var is_selected := slot_id in _field_interaction_selected_slot_ids()
 	var border_color := Color(0.52, 0.72, 0.58) if is_player_slot else Color(0.63, 0.68, 0.79)
 	if not is_active:
 		border_color = Color(0.32, 0.5, 0.44) if is_player_slot else Color(0.33, 0.39, 0.5)
@@ -3181,8 +3869,16 @@ func _apply_field_slot_style(panel: PanelContainer, slot_id: String, occupied: b
 	style.set_corner_radius_all(18 if is_active else 16)
 	style.set_border_width_all(2)
 	if occupied:
-		style.bg_color = Color(0, 0, 0, 0)
-		style.border_color = Color(0, 0, 0, 0)
+		if is_selected:
+			style.bg_color = Color(0.95, 0.75, 0.14, 0.12)
+			style.border_color = Color(0.98, 0.82, 0.22, 0.98)
+			style.set_border_width_all(3)
+		elif is_selectable:
+			style.bg_color = Color(0.14, 0.72, 0.84, 0.10)
+			style.border_color = Color(0.38, 0.88, 0.98, 0.94)
+		else:
+			style.bg_color = Color(0, 0, 0, 0)
+			style.border_color = Color(0, 0, 0, 0)
 	else:
 		style.bg_color = Color(0.04, 0.07, 0.1, 0.18)
 		style.border_color = Color(border_color.r, border_color.g, border_color.b, 0.65)
@@ -3208,7 +3904,21 @@ func _build_battle_status(slot: PokemonSlot) -> Dictionary:
 		"hp_ratio": float(hp_current) / float(hp_max),
 		"energy_icons": _slot_energy_icon_codes(slot),
 		"tool_name": slot.attached_tool.card_data.name if slot.attached_tool != null else "",
+		"ability_used_this_turn": _slot_used_ability_this_turn(slot),
 	}
+
+
+func _slot_used_ability_this_turn(slot: PokemonSlot) -> bool:
+	if slot == null or _gsm == null or _gsm.game_state == null:
+		return false
+	var current_turn: int = _gsm.game_state.turn_number
+	for effect_data: Dictionary in slot.effects:
+		if int(effect_data.get("turn", -999)) != current_turn:
+			continue
+		var effect_type: String = str(effect_data.get("type", ""))
+		if effect_type.contains("ability"):
+			return true
+	return false
 
 
 func _get_display_max_hp(slot: PokemonSlot) -> int:

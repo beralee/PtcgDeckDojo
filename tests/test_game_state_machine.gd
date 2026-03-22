@@ -728,9 +728,11 @@ func test_knockout_replace_advances_after_send_out() -> String:
 			gsm.game_state.players[pi].prizes.append(CardInstance.create(defender_cd, pi))
 
 	var attacked: bool = gsm.use_attack(0, 0)
+	var take_prize_result: bool = gsm.resolve_take_prize(0, 0)
 	var send_out_result: bool = gsm.send_out_pokemon(1, bench_slot)
 	return run_checks([
 		assert_eq(attacked, true, "Knockout attack should resolve successfully"),
+		assert_eq(take_prize_result, true, "Knockout flow should pause for manual prize selection before replacement"),
 		assert_eq(gsm.game_state.current_player_index, 1, "After replacement, the defending player should take the next turn"),
 		assert_eq(send_out_result, true, "Defending player should be able to send out a replacement"),
 		assert_eq(gsm.game_state.phase, GameState.GamePhase.MAIN, "After replacement the phase should return to MAIN"),
@@ -975,6 +977,219 @@ func test_attack_extra_prize_marker_clears_when_target_survives() -> String:
 		assert_true(took_prize, "Later knockout should still require a manual prize selection"),
 		assert_eq(defender_slot.effects.filter(func(effect: Dictionary) -> bool: return effect.get("type", "") == "extra_prize").size(), 0, "Extra prize marker should clear if the target survives"),
 		assert_eq(gsm.game_state.players[0].hand.size(), 1, "Later knockouts should not incorrectly draw extra prize cards"),
+	])
+
+
+func test_iron_hands_amp_you_very_much_turn_advances_and_attack_is_usable_next_turn() -> String:
+	var gsm := _make_gsm_with_decks()
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	gsm.game_state.turn_number = 2
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+
+	var iron_hands_cd: CardData = CardDatabase.get_card("CSV6C", "051")
+	var attacker_slot := PokemonSlot.new()
+	attacker_slot.pokemon_stack.append(CardInstance.create(iron_hands_cd, 0))
+	for energy_type: String in ["L", "L", "C", "C"]:
+		attacker_slot.attached_energy.append(CardInstance.create(_make_test_energy(energy_type), 0))
+	gsm.effect_processor.register_pokemon_card(iron_hands_cd)
+	gsm.game_state.players[0].active_pokemon = attacker_slot
+
+	var defender_cd := CardData.new()
+	defender_cd.name = "Amp Target"
+	defender_cd.card_type = "Pokemon"
+	defender_cd.stage = "Basic"
+	defender_cd.hp = 120
+	defender_cd.energy_type = "W"
+	var defender_slot := PokemonSlot.new()
+	defender_slot.pokemon_stack.append(CardInstance.create(defender_cd, 1))
+	gsm.game_state.players[1].active_pokemon = defender_slot
+	var replacement_slot := PokemonSlot.new()
+	replacement_slot.pokemon_stack.append(CardInstance.create(defender_cd, 1))
+	gsm.game_state.players[1].bench.append(replacement_slot)
+	for i: int in 6:
+		gsm.game_state.players[0].prizes.append(CardInstance.create(defender_cd, 0))
+		gsm.game_state.players[1].prizes.append(CardInstance.create(defender_cd, 1))
+
+	var attacked: bool = gsm.use_attack(0, 1)
+	var took_first: bool = gsm.resolve_take_prize(0, 0)
+	var took_second: bool = gsm.resolve_take_prize(0, 1)
+	var sent_out: bool = gsm.send_out_pokemon(1, replacement_slot)
+	var advanced_to_opponent: bool = gsm.game_state.current_player_index == 1 and gsm.game_state.phase == GameState.GamePhase.MAIN
+	var hand_after_prizes: int = gsm.game_state.players[0].hand.size()
+	gsm.end_turn(1)
+	var next_turn_attack_usable: bool = gsm.can_use_attack(0, 1)
+	var unusable_reason: String = gsm.get_attack_unusable_reason(0, 1)
+
+	return run_checks([
+		assert_not_null(iron_hands_cd, "CSV6C_051 should exist in the card database"),
+		assert_true(attacked, "CSV6C_051 Amp You Very Much should resolve successfully"),
+		assert_true(took_first, "CSV6C_051 should let the player take the first prize manually"),
+		assert_true(took_second, "CSV6C_051 should let the player take the second prize manually"),
+		assert_true(sent_out, "The defending player should be able to send out a replacement after Amp You Very Much"),
+		assert_true(advanced_to_opponent, "After replacement, the turn should pass to the opponent"),
+		assert_eq(hand_after_prizes, 2, "CSV6C_051 should take exactly 2 prize cards after a knockout"),
+		assert_true(next_turn_attack_usable, "CSV6C_051 should still be able to use Amp You Very Much on its next turn"),
+		assert_eq(unusable_reason, "", "CSV6C_051 should not carry a stale unusable reason into the next turn"),
+	])
+
+
+func test_iron_hands_arm_press_knockout_advances_turn_after_prize_and_replacement() -> String:
+	var gsm := _make_gsm_with_decks()
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	gsm.game_state.turn_number = 2
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+
+	var iron_hands_cd: CardData = CardDatabase.get_card("CSV6C", "051")
+	var attacker_slot := PokemonSlot.new()
+	attacker_slot.pokemon_stack.append(CardInstance.create(iron_hands_cd, 0))
+	for energy_type: String in ["L", "L", "C"]:
+		attacker_slot.attached_energy.append(CardInstance.create(_make_test_energy(energy_type), 0))
+	gsm.effect_processor.register_pokemon_card(iron_hands_cd)
+	gsm.game_state.players[0].active_pokemon = attacker_slot
+
+	var defender_cd := CardData.new()
+	defender_cd.name = "Arm Press Target"
+	defender_cd.card_type = "Pokemon"
+	defender_cd.stage = "Basic"
+	defender_cd.hp = 160
+	defender_cd.energy_type = "W"
+	var defender_slot := PokemonSlot.new()
+	defender_slot.pokemon_stack.append(CardInstance.create(defender_cd, 1))
+	gsm.game_state.players[1].active_pokemon = defender_slot
+	var replacement_slot := PokemonSlot.new()
+	replacement_slot.pokemon_stack.append(CardInstance.create(defender_cd, 1))
+	gsm.game_state.players[1].bench.append(replacement_slot)
+	for i: int in 6:
+		gsm.game_state.players[0].prizes.append(CardInstance.create(defender_cd, 0))
+		gsm.game_state.players[1].prizes.append(CardInstance.create(defender_cd, 1))
+
+	var attacked: bool = gsm.use_attack(0, 0)
+	var took_prize: bool = gsm.resolve_take_prize(0, 0)
+	var hand_after_first_prize: int = gsm.game_state.players[0].hand.size()
+	var pending_after_first_prize: int = gsm.get("_pending_prize_remaining")
+	var sent_out: bool = gsm.send_out_pokemon(1, replacement_slot)
+
+	return run_checks([
+		assert_not_null(iron_hands_cd, "CSV6C_051 should exist in the card database"),
+		assert_true(attacked, "CSV6C_051 Arm Press should resolve successfully"),
+		assert_true(took_prize, "CSV6C_051 Arm Press knockout should still wait for manual prize selection"),
+		assert_eq(hand_after_first_prize, 1, "CSV6C_051 Arm Press should only award 1 prize on a normal knockout"),
+		assert_eq(pending_after_first_prize, 0, "CSV6C_051 Arm Press should not leave a second prize pending"),
+		assert_true(sent_out, "The defending player should be able to send out a replacement after Arm Press"),
+		assert_eq(gsm.game_state.players[0].hand.size(), 1, "CSV6C_051 Arm Press should take only 1 prize card"),
+		assert_eq(gsm.game_state.current_player_index, 1, "After Arm Press knockout and replacement, the turn should pass to the opponent"),
+		assert_eq(gsm.game_state.phase, GameState.GamePhase.MAIN, "The opponent should start their turn in MAIN after drawing"),
+	])
+
+
+func test_send_out_pokemon_rejects_replacement_while_prizes_are_still_pending() -> String:
+	var gsm := _make_gsm_with_decks()
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	gsm.game_state.turn_number = 2
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+
+	var iron_hands_cd: CardData = CardDatabase.get_card("CSV6C", "051")
+	var attacker_slot := PokemonSlot.new()
+	attacker_slot.pokemon_stack.append(CardInstance.create(iron_hands_cd, 0))
+	for energy_type: String in ["L", "L", "C", "C"]:
+		attacker_slot.attached_energy.append(CardInstance.create(_make_test_energy(energy_type), 0))
+	gsm.effect_processor.register_pokemon_card(iron_hands_cd)
+	gsm.game_state.players[0].active_pokemon = attacker_slot
+
+	var defender_cd := CardData.new()
+	defender_cd.name = "Pending Prize Target"
+	defender_cd.card_type = "Pokemon"
+	defender_cd.stage = "Basic"
+	defender_cd.hp = 120
+	defender_cd.energy_type = "W"
+	var defender_slot := PokemonSlot.new()
+	defender_slot.pokemon_stack.append(CardInstance.create(defender_cd, 1))
+	gsm.game_state.players[1].active_pokemon = defender_slot
+	var replacement_slot := PokemonSlot.new()
+	replacement_slot.pokemon_stack.append(CardInstance.create(defender_cd, 1))
+	gsm.game_state.players[1].bench.append(replacement_slot)
+	for i: int in 6:
+		gsm.game_state.players[0].prizes.append(CardInstance.create(defender_cd, 0))
+		gsm.game_state.players[1].prizes.append(CardInstance.create(defender_cd, 1))
+
+	var attacked: bool = gsm.use_attack(0, 1)
+	var took_first: bool = gsm.resolve_take_prize(0, 0)
+	var sent_out_early: bool = gsm.send_out_pokemon(1, replacement_slot)
+
+	return run_checks([
+		assert_true(attacked, "CSV6C_051 Amp You Very Much should create a multi-prize knockout fixture"),
+		assert_true(took_first, "CSV6C_051 should still allow the first prize to be taken"),
+		assert_eq(int(gsm.get("_pending_prize_remaining")), 1, "After the first prize, one more prize should still be pending"),
+		assert_false(sent_out_early, "The defending player should not be able to send out before all pending prizes are taken"),
+		assert_eq(gsm.game_state.current_player_index, 0, "The turn should not advance while prize selection is still pending"),
+	])
+
+
+func test_dragapult_phantom_dive_awards_prizes_for_active_and_bench_knockouts() -> String:
+	var gsm := _make_gsm_with_decks()
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	gsm.game_state.turn_number = 2
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+
+	var dragapult_cd: CardData = CardDatabase.get_card("CSV8C", "159")
+	var attacker_slot := PokemonSlot.new()
+	attacker_slot.pokemon_stack.append(CardInstance.create(dragapult_cd, 0))
+	for energy_type: String in ["R", "P"]:
+		attacker_slot.attached_energy.append(CardInstance.create(_make_test_energy(energy_type), 0))
+	gsm.effect_processor.register_pokemon_card(dragapult_cd)
+	gsm.game_state.players[0].active_pokemon = attacker_slot
+
+	var active_target_cd := CardData.new()
+	active_target_cd.name = "Active Prize Target"
+	active_target_cd.card_type = "Pokemon"
+	active_target_cd.stage = "Basic"
+	active_target_cd.hp = 200
+	active_target_cd.energy_type = "W"
+	var active_target := PokemonSlot.new()
+	active_target.pokemon_stack.append(CardInstance.create(active_target_cd, 1))
+	gsm.game_state.players[1].active_pokemon = active_target
+
+	var bench_target_cd := CardData.new()
+	bench_target_cd.name = "Bench Prize Target"
+	bench_target_cd.card_type = "Pokemon"
+	bench_target_cd.stage = "Basic"
+	bench_target_cd.hp = 60
+	bench_target_cd.energy_type = "W"
+	var bench_target := PokemonSlot.new()
+	bench_target.pokemon_stack.append(CardInstance.create(bench_target_cd, 1))
+	var replacement := PokemonSlot.new()
+	replacement.pokemon_stack.append(CardInstance.create(active_target_cd, 1))
+	gsm.game_state.players[1].bench = [bench_target, replacement]
+	for i: int in 6:
+		gsm.game_state.players[0].prizes.append(CardInstance.create(active_target_cd, 0))
+		gsm.game_state.players[1].prizes.append(CardInstance.create(active_target_cd, 1))
+
+	var attacked: bool = gsm.use_attack(0, 1, [{
+		"bench_damage_counters": [
+			{"target": bench_target, "amount": 60},
+		],
+	}])
+	var took_first_prize: bool = gsm.resolve_take_prize(0, 0)
+	var send_out_ok: bool = gsm.send_out_pokemon(1, replacement)
+	var second_prize_pending: int = int(gsm.get("_pending_prize_remaining"))
+	var bench_removed_after_replacement: bool = bench_target not in gsm.game_state.players[1].bench
+	var took_second_prize: bool = gsm.resolve_take_prize(0, 1)
+
+	return run_checks([
+		assert_not_null(dragapult_cd, "CSV8C_159 should exist in the card database"),
+		assert_true(attacked, "CSV8C_159 Phantom Dive should resolve successfully"),
+		assert_true(took_first_prize, "CSV8C_159 should allow the first prize from the Active knockout"),
+		assert_true(send_out_ok, "CSV8C_159 should still let the defending player send out a replacement"),
+		assert_eq(second_prize_pending, 1, "CSV8C_159 should queue the Bench knockout prize after replacement"),
+		assert_true(bench_removed_after_replacement, "CSV8C_159 should remove the knocked-out Benched Pokemon from play"),
+		assert_true(took_second_prize, "CSV8C_159 should allow the second prize from the Bench knockout"),
+		assert_eq(gsm.game_state.players[0].hand.size(), 2, "CSV8C_159 should award 2 prizes total for simultaneous 1-prize knockouts"),
+		assert_eq(gsm.game_state.current_player_index, 1, "After both CSV8C_159 knockouts finish resolving, the turn should pass to the opponent"),
+		assert_eq(gsm.game_state.phase, GameState.GamePhase.MAIN, "After both CSV8C_159 knockouts, the opponent should begin their turn in MAIN"),
 	])
 
 

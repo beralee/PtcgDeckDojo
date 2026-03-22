@@ -5,8 +5,8 @@
 这个仓库的目标不是做官方替代品，也不是做商业化产品，而是尽可能把 PTCG 的练牌、规则验证、卡牌效果实现和测试流程做成一个可持续演进的开源项目。
 
 <p align="center">
-  <img src="assets/demo.png" alt="PtcgDeckDojo battle demo 1" width="49%" />
-  <img src="assets/demo2.png" alt="PtcgDeckDojo battle demo 2" width="49%" />
+  <img src="assets/demo1.png" alt="PtcgDeckDojo battle demo 1" width="49%" />
+  <img src="assets/demo3.png" alt="PtcgDeckDojo battle demo 2" width="49%" />
 </p>
 
 ## 项目一句话

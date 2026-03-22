@@ -46,6 +46,8 @@ func execute_attack(
 		target = selected_raw[0]
 	if target == null:
 		target = defender
+	if AttackCoinFlipPreventDamageAndEffectsNextTurn.prevents_attack_damage(target, state):
+		return
 	# 直接放置伤害指示物（不计弱点抗性），无论目标是战斗还是备战宝可梦
 	target.damage_counters += damage_amount
 

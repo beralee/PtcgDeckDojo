@@ -74,6 +74,15 @@ const EffectSecretBoxEffect = preload("res://scripts/effects/trainer_effects/Eff
 const EffectArtazonEffect = preload("res://scripts/effects/stadium_effects/EffectArtazon.gd")
 const AttackTMEvolutionEffect = preload("res://scripts/effects/pokemon_effects/AttackTMEvolution.gd")
 const AttackSearchEnergyFromDeckToSelfEffect = preload("res://scripts/effects/pokemon_effects/AttackSearchEnergyFromDeckToSelf.gd")
+const AbilityLostZoneAttackCostReductionEffect = preload("res://scripts/effects/pokemon_effects/AbilityLostZoneAttackCostReduction.gd")
+const AbilityFlowerSelectingEffect = preload("res://scripts/effects/pokemon_effects/AbilityFlowerSelecting.gd")
+const AbilityRunAwayDrawEffect = preload("res://scripts/effects/pokemon_effects/AbilityRunAwayDraw.gd")
+const AttackIgnoreWeaknessEffect = preload("res://scripts/effects/pokemon_effects/AttackIgnoreWeakness.gd")
+const AttackCoinFlipPreventDamageAndEffectsNextTurnEffect = preload("res://scripts/effects/pokemon_effects/AttackCoinFlipPreventDamageAndEffectsNextTurn.gd")
+const AttackKnockoutDefenderThenSelfDamageEffect = preload("res://scripts/effects/pokemon_effects/AttackKnockoutDefenderThenSelfDamage.gd")
+const AttackDiscardStadiumBonusDamageEffect = preload("res://scripts/effects/pokemon_effects/AttackDiscardStadiumBonusDamage.gd")
+const EffectMirageGateEffect = preload("res://scripts/effects/trainer_effects/EffectMirageGate.gd")
+const EffectColressExperimentEffect = preload("res://scripts/effects/trainer_effects/EffectColressExperiment.gd")
 
 
 ## ==================== 主入口 ====================
@@ -105,21 +114,38 @@ static func register_pokemon_card(processor: EffectProcessor, card: CardData) ->
 			processor.register_effect(eid, ability_effect)
 
 	# 注册招式附加效果
-	for attack: Dictionary in card.attacks:
+	for attack_index: int in card.attacks.size():
+		var attack: Dictionary = card.attacks[attack_index]
 		var attack_name: String = attack.get("name", "")
 		if attack_name == "":
 			continue
 		var attack_effects: Array = _get_attack_effects(processor, attack_name)
 		for fx: BaseEffect in attack_effects:
+			_bind_attack_index_if_supported(fx, attack_index)
 			processor.register_attack_effect(eid, fx)
 
 	_register_pokemon_effect_overrides(processor, eid)
+
+
+static func _bind_attack_index_if_supported(effect: BaseEffect, attack_index: int) -> void:
+	if effect == null:
+		return
+	for property_info: Dictionary in effect.get_property_list():
+		if str(property_info.get("name", "")) != "attack_index_to_match":
+			continue
+		effect.set("attack_index_to_match", attack_index)
+		return
 
 
 static func _register_pokemon_effect_overrides(processor: EffectProcessor, effect_id: String) -> void:
 	match effect_id:
 		"9d268c8f6262a80a57c6e645d7c9a18f":
 			processor.register_attack_effect(effect_id, EffectSelfDamage.new(10))
+		"4e07b2880d96deaa7a9afef69575d6c8":
+			processor.register_effect(effect_id, AbilityLostZoneAttackCostReductionEffect.new(4))
+			processor.register_attack_effect(effect_id, AttackIgnoreWeaknessEffect.new(0))
+		"9561f33b1bcf22820a53bf2de8ba6e35":
+			processor.register_effect(effect_id, AbilityFlowerSelectingEffect.new())
 		"47676dfc37415cfdf3b3992b1de64141":
 			processor.register_attack_effect(effect_id, AttackDefenderAttackLockNextTurnEffect.new("evolved_only"))
 		"720fd5ca597f96db0f5f00d3ac16febb":
@@ -138,6 +164,8 @@ static func _register_pokemon_effect_overrides(processor: EffectProcessor, effec
 		"f2afef80b13b8f6a071facbcade0251c":
 			processor.register_effect(effect_id, AbilityPrizeCountColorlessReductionEffect.new())
 			processor.register_attack_effect(effect_id, AttackSelfLockNextTurn.new())
+		"f822c0b2e4cb2865a8ac7af9d3018969":
+			processor.register_effect(effect_id, AbilityRunAwayDrawEffect.new(3))
 		"8c23889e3e58324f3d58029f72379fac":
 			processor.register_attack_effect(effect_id, AttackCoinFlipApplyStatusEffect.new("confused"))
 		"c3ada06b5a60fb63228d9f704109718b":
@@ -161,6 +189,11 @@ static func _register_pokemon_effect_overrides(processor: EffectProcessor, effec
 		"e96bb407c5f18bb9eec55487e70395fd":
 			processor.register_attack_effect(effect_id, AttackDiscardHandDrawCardsEffect.new(6, 0))
 			processor.register_attack_effect(effect_id, AttackDiscardBasicEnergyFromFieldDamageEffect.new(70, 1))
+		"90b0d1f117df6523fd92b9f3168d7f7e":
+			processor.register_attack_effect(effect_id, AttackKnockoutDefenderThenSelfDamageEffect.new(200, 0))
+			processor.register_attack_effect(effect_id, AttackDiscardStadiumBonusDamageEffect.new(120, 1))
+		"3b9d970012f38e8fc348c5dbaf172802":
+			processor.register_attack_effect(effect_id, AttackCoinFlipPreventDamageAndEffectsNextTurnEffect.new(processor.coin_flipper, 1))
 		"4e13cd08de3b6d141ce8e2f09d17a3a4":
 			processor.register_effect(effect_id, AbilityLookTopToHandEffect.new(2, "", false, false, true))
 		"1ceeba6dac51ccc19833c5a513fe3fc6":
@@ -207,6 +240,7 @@ static func _register_items(processor: EffectProcessor) -> void:
 	processor.register_effect("a337ed34a45e63c6d21d98c3d8e0cb6e", EffectUltraBall.new())
 	# 朋友手册
 	processor.register_effect("a47d5a8ed00e14a2146fc511745d23b5", EffectPalPad.new())
+	processor.register_effect("15b5bf0cc2edae9b9cd0bc24389ad355", EffectMirageGateEffect.new())
 	# 厉害钓竿
 	processor.register_effect("c9c948169525fbb3dce70c477ec7a90a", EffectSuperRod.new())
 	# 神奇糖果
@@ -253,6 +287,8 @@ static func _register_items(processor: EffectProcessor) -> void:
 	processor.register_effect("3a6d419769778b40091e69fbd76737ec", EffectPokemonCatcherEffect.new(processor.coin_flipper))
 	# Energy Switch
 	processor.register_effect("294212d9c02dc0acb886a7ef01ebeac4", EffectEnergySwitchEffect.new())
+	# Mirage Gate
+	processor.register_effect("15b5bf0cc2edae9b9cd0bc24389ad355", EffectMirageGateEffect.new())
 
 
 ## ==================== 支援者卡注册（register_effect）====================
@@ -290,6 +326,8 @@ static func _register_supporters(processor: EffectProcessor) -> void:
 	processor.register_effect("651276c51911345aa091c1c7b87f3f4f", EffectSadasVitalityEffect.new())
 	# Carmine
 	processor.register_effect("8150af4062192998497e376ad931bea4", EffectCarmineEffect.new())
+	# Colress's Experiment
+	processor.register_effect("9c6f696e9eb8f0c53b5f1057141a1227", EffectColressExperimentEffect.new())
 
 
 ## ==================== 道具卡注册（register_effect）====================

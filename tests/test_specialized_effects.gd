@@ -577,6 +577,7 @@ func test_gust_ability_uses_selected_target() -> String:
 	var bench_count_before: int = player.bench.size()
 	var chosen_target: PokemonSlot = opponent.bench[1]
 	var old_active: PokemonSlot = opponent.active_pokemon
+	var player_old_active: PokemonSlot = player.active_pokemon
 	var ability := AbilityGustFromBench.new()
 
 	# 验证在战斗位不能发动
@@ -584,6 +585,7 @@ func test_gust_ability_uses_selected_target() -> String:
 	gust_on_active.pokemon_stack.append(CardInstance.create(gust_cd, 0))
 	player.active_pokemon = gust_on_active
 	var cannot_use_from_active: bool = not ability.can_use_ability(gust_on_active, state)
+	player.active_pokemon = player_old_active
 
 	# 验证在备战区可以发动
 	var can_use_from_bench: bool = ability.can_use_ability(gust_pokemon, state)

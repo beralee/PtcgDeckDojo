@@ -32,6 +32,7 @@ func get_on_play_interaction_steps(_card: CardInstance, state: GameState) -> Arr
 			"min_select": excess,
 			"max_select": excess,
 			"allow_cancel": true,
+			"chooser_player_index": pi,
 		})
 	return steps
 

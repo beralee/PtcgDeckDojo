@@ -36,6 +36,7 @@ var _back_texture: Texture2D = null
 var _battle_status_active: bool = false
 var _battle_status: Dictionary = {}
 var _compact_preview: bool = false
+var _tilt_degrees: float = 0.0
 
 var _outer_margin: MarginContainer
 var _art_frame: PanelContainer
@@ -49,6 +50,8 @@ var _info_panel: PanelContainer
 var _title_label: Label
 var _subtitle_label: Label
 var _status_hud: VBoxContainer
+var _status_used_panel: PanelContainer
+var _status_used_label: Label
 var _status_hp_value_label: Label
 var _status_hp_bar_panel: PanelContainer
 var _status_hp_bar: ProgressBar
@@ -62,6 +65,12 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP if _clickable else Control.MOUSE_FILTER_IGNORE
 	_ensure_ui()
 	_refresh()
+	_apply_tilt()
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_RESIZED:
+		_apply_tilt()
 
 
 func setup_from_instance(inst: CardInstance = null, mode: String = MODE_HAND) -> void:
@@ -116,6 +125,11 @@ func set_compact_preview(compact: bool) -> void:
 	_ensure_ui()
 	_update_layout()
 	_update_style()
+
+
+func set_tilt_degrees(degrees: float) -> void:
+	_tilt_degrees = degrees
+	_apply_tilt()
 
 
 func set_badges(left_text: String = "", right_text: String = "") -> void:
@@ -247,6 +261,21 @@ func _build_ui() -> void:
 	_make_passthrough(_status_hud)
 	_status_hud.add_theme_constant_override("separation", 3)
 	overlay_vbox.add_child(_status_hud)
+
+	_status_used_panel = _make_status_panel()
+	_status_hud.add_child(_status_used_panel)
+	var used_margin := _make_status_margin(6, 2, 6, 2)
+	_status_used_panel.add_child(used_margin)
+	_status_used_label = Label.new()
+	_make_passthrough(_status_used_label)
+	_status_used_label.text = "USED"
+	_status_used_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_status_used_label.add_theme_font_size_override("font_size", 10)
+	var used_font := FontVariation.new()
+	used_font.base_font = ThemeDB.fallback_font
+	used_font.variation_embolden = 1.1
+	_status_used_label.add_theme_font_override("font", used_font)
+	used_margin.add_child(_status_used_label)
 
 	_status_hp_bar_panel = _make_status_panel()
 	_status_hud.add_child(_status_hp_bar_panel)
@@ -404,6 +433,7 @@ func _refresh() -> void:
 		_update_overlay_visibility()
 
 	_update_style()
+	_apply_tilt()
 
 
 func _placeholder_text() -> String:
@@ -512,6 +542,7 @@ func _update_battle_status_ui() -> void:
 	var hp_current := int(_battle_status.get("hp_current", 0))
 	var hp_max := maxi(int(_battle_status.get("hp_max", 0)), 1)
 	var hp_ratio := clampf(float(_battle_status.get("hp_ratio", float(hp_current) / float(hp_max))), 0.0, 1.0)
+	_status_used_panel.visible = bool(_battle_status.get("ability_used_this_turn", false))
 	_status_hp_value_label.text = "%d/%d" % [hp_current, hp_max]
 	_status_hp_bar.value = hp_ratio * 100.0
 
@@ -603,6 +634,17 @@ func _apply_status_styles() -> void:
 	if _status_hp_bar_panel == null:
 		return
 
+	var used_style := StyleBoxFlat.new()
+	used_style.bg_color = Color(0.05, 0.11, 0.18, 0.9)
+	used_style.set_corner_radius_all(8)
+	used_style.set_border_width_all(2)
+	used_style.border_color = Color(0.2, 0.78, 0.96, 0.85)
+	_status_used_panel.add_theme_stylebox_override("panel", used_style)
+	_status_used_label.modulate = Color(0.82, 0.97, 1.0, 1.0)
+	_status_used_label.add_theme_color_override("font_color", Color(0.82, 0.97, 1.0, 1.0))
+	_status_used_label.add_theme_constant_override("outline_size", 1)
+	_status_used_label.add_theme_color_override("font_outline_color", Color(0.03, 0.08, 0.14, 0.95))
+
 	var strip_style := StyleBoxFlat.new()
 	strip_style.bg_color = Color(0.04, 0.06, 0.1, 0.8)
 	strip_style.set_corner_radius_all(8)
@@ -638,6 +680,14 @@ func _apply_status_styles() -> void:
 	bar_fill.bg_color = fill_color
 	bar_fill.set_corner_radius_all(4)
 	_status_hp_bar.add_theme_stylebox_override("fill", bar_fill)
+
+
+func _apply_tilt() -> void:
+	rotation_degrees = 0.0
+	z_index = 0
+	if _art_frame == null:
+		return
+	_art_frame.rotation_degrees = 0.0
 
 
 func _gui_input(event: InputEvent) -> void:

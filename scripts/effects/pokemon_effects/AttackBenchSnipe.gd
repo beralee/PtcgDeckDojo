@@ -34,6 +34,8 @@ func execute_attack(
 			break
 		if AbilityBenchImmune.has_bench_immune(slot):
 			continue
+		if AttackCoinFlipPreventDamageAndEffectsNextTurn.prevents_attack_damage(slot, state):
+			continue
 		slot.damage_counters += snipe_damage
 		targets_hit += 1
 	if also_self_damage > 0:

@@ -2,6 +2,8 @@
 class_name TestEffectInteractionFlow
 extends TestBase
 
+const AbilityGustFromBenchEffect = preload("res://scripts/effects/pokemon_effects/AbilityGustFromBench.gd")
+
 
 func _make_basic_pokemon_data(
 	name: String,
@@ -285,6 +287,88 @@ func test_use_ability_executes_active_ability() -> String:
 		assert_true(result, "Active ability should execute"),
 		assert_eq(player.hand.size(), 1, "Ability should draw one card"),
 		assert_true(active_slot.effects.any(func(e: Dictionary) -> bool: return e.get("type", "") == AbilityThunderousCharge.USED_FLAG_TYPE), "Ability use should leave a once-per-turn flag"),
+	])
+
+
+func test_iron_bundle_gust_from_bench_keeps_current_turn_after_opponent_choice() -> String:
+	var gsm := _make_manual_gsm()
+	var player: PlayerState = gsm.game_state.players[0]
+	var opponent: PlayerState = gsm.game_state.players[1]
+
+	var gust_cd := _make_basic_pokemon_data("铁包袱", "W", 120, "Basic", "test_iron_bundle_gust")
+	gust_cd.abilities = [{"name": "强力吹风机", "text": ""}]
+	gsm.effect_processor.register_effect("test_iron_bundle_gust", AbilityGustFromBenchEffect.new())
+
+	var player_active := PokemonSlot.new()
+	player_active.pokemon_stack.append(CardInstance.create(_make_basic_pokemon_data("Player Active", "C", 120), 0))
+	player.active_pokemon = player_active
+
+	var gust_slot := PokemonSlot.new()
+	gust_slot.pokemon_stack.append(CardInstance.create(gust_cd, 0))
+	player.bench.append(gust_slot)
+
+	var opponent_active := PokemonSlot.new()
+	opponent_active.pokemon_stack.append(CardInstance.create(_make_basic_pokemon_data("Opponent Active", "R", 110), 1))
+	opponent.active_pokemon = opponent_active
+
+	var chosen_bench := PokemonSlot.new()
+	chosen_bench.pokemon_stack.append(CardInstance.create(_make_basic_pokemon_data("Chosen Bench", "G", 90), 1))
+	opponent.bench.append(chosen_bench)
+
+	var other_bench := PokemonSlot.new()
+	other_bench.pokemon_stack.append(CardInstance.create(_make_basic_pokemon_data("Other Bench", "L", 90), 1))
+	opponent.bench.append(other_bench)
+
+	var used: bool = gsm.use_ability(0, gust_slot, 0, [{
+		"opponent_bench_target": [chosen_bench],
+	}])
+
+	return run_checks([
+		assert_true(used, "强力吹风机应能正常结算"),
+		assert_eq(gsm.game_state.current_player_index, 0, "对手选择换上的宝可梦后仍应是我方回合"),
+		assert_eq(gsm.game_state.phase, GameState.GamePhase.MAIN, "强力吹风机结算后应回到我方主阶段"),
+		assert_eq(opponent.active_pokemon, chosen_bench, "应由对手选中的备战宝可梦上到战斗场"),
+		assert_true(opponent_active in opponent.bench, "对手原战斗宝可梦应回到备战区"),
+		assert_false(gust_slot in player.bench, "铁包袱结算后应离开备战区"),
+		assert_true(player.discard_pile.any(func(c: CardInstance) -> bool: return c.card_data.name == "铁包袱"), "铁包袱应进入弃牌区"),
+	])
+
+
+func test_iron_bundle_gust_from_bench_cannot_be_used_on_opponent_turn() -> String:
+	var gsm := _make_manual_gsm()
+	gsm.game_state.current_player_index = 1
+	var player: PlayerState = gsm.game_state.players[0]
+	var opponent: PlayerState = gsm.game_state.players[1]
+
+	var gust_cd := _make_basic_pokemon_data("铁包袱", "W", 120, "Basic", "test_iron_bundle_gust_turn_gate")
+	gust_cd.abilities = [{"name": "强力吹风机", "text": ""}]
+	gsm.effect_processor.register_effect("test_iron_bundle_gust_turn_gate", AbilityGustFromBenchEffect.new())
+
+	var player_active := PokemonSlot.new()
+	player_active.pokemon_stack.append(CardInstance.create(_make_basic_pokemon_data("Player Active", "C", 120), 0))
+	player.active_pokemon = player_active
+
+	var gust_slot := PokemonSlot.new()
+	gust_slot.pokemon_stack.append(CardInstance.create(gust_cd, 0))
+	player.bench.append(gust_slot)
+
+	var opponent_active := PokemonSlot.new()
+	opponent_active.pokemon_stack.append(CardInstance.create(_make_basic_pokemon_data("Opponent Active", "R", 110), 1))
+	opponent.active_pokemon = opponent_active
+
+	var opponent_bench := PokemonSlot.new()
+	opponent_bench.pokemon_stack.append(CardInstance.create(_make_basic_pokemon_data("Opponent Bench", "G", 90), 1))
+	opponent.bench.append(opponent_bench)
+
+	var used: bool = gsm.use_ability(0, gust_slot, 0, [{
+		"opponent_bench_target": [opponent_bench],
+	}])
+
+	return run_checks([
+		assert_false(used, "强力吹风机不应能在对手回合发动"),
+		assert_eq(gsm.game_state.current_player_index, 1, "失败后当前回合归属不应改变"),
+		assert_eq(opponent.active_pokemon, opponent_active, "失败后对手战斗宝可梦不应被替换"),
+		assert_true(gust_slot in player.bench, "失败后铁包袱应仍在备战区"),
 	])
 
 

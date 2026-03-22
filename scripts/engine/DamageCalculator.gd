@@ -10,7 +10,8 @@ func calculate_damage(
 	attack_modifier: int = 0,
 	attacker_modifier: int = 0,
 	defender_modifier: int = 0,
-	ignore_weakness_and_resistance: bool = false
+	ignore_weakness: bool = false,
+	ignore_resistance: bool = false
 ) -> int:
 	var damage_str: String = str(attack.get("damage", ""))
 	var base_damage: int = parse_damage(damage_str) if damage_str != "" else 0
@@ -23,13 +24,13 @@ func calculate_damage(
 	base_damage += attacker_modifier
 
 	var attacker_type: String = attacker.get_energy_type()
-	if not ignore_weakness_and_resistance:
+	if not ignore_weakness:
 		var weakness_energy: String = defender.get_card_data().weakness_energy
 		var weakness_value: String = defender.get_card_data().weakness_value
 		if weakness_energy != "" and weakness_energy == attacker_type:
 			base_damage = apply_weakness(base_damage, weakness_value)
 
-	if not ignore_weakness_and_resistance:
+	if not ignore_resistance:
 		var resistance_energy: String = defender.get_card_data().resistance_energy
 		var resistance_value: String = defender.get_card_data().resistance_value
 		if resistance_energy != "" and resistance_energy == attacker_type:

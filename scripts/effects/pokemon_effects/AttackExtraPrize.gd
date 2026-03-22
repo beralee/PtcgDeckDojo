@@ -1,27 +1,28 @@
-## 击倒多拿奖赏卡效果 - 多谢款待（铁臂膀ex）
-## 若此攻击将防守方击倒，则额外多拿指定数量的奖赏卡
-## 通过在防守方 effects 中添加标记，由 GameStateMachine 在判断击倒时处理
-## 参数:
-##   extra_prizes  额外多拿的奖赏卡数量（默认1）
+## Knockout bonus prize effect for a specific attack.
 class_name AttackExtraPrize
 extends BaseEffect
 
-## 额外多拿的奖赏卡数量
 var extra_prizes: int = 1
+var attack_index_to_match: int = -1
 
 
-func _init(extra: int = 1) -> void:
+func _init(extra: int = 1, match_attack_index: int = -1) -> void:
 	extra_prizes = extra
+	attack_index_to_match = match_attack_index
+
+
+func applies_to_attack_index(attack_index: int) -> bool:
+	return attack_index_to_match == -1 or attack_index == attack_index_to_match
 
 
 func execute_attack(
 	_attacker: PokemonSlot,
 	defender: PokemonSlot,
-	_attack_index: int,
+	attack_index: int,
 	_state: GameState
 ) -> void:
-	# 在防守方身上标记：若被击倒，攻击方额外多拿奖赏卡
-	# GameStateMachine 在判定击倒时需检查此标记
+	if defender == null or not applies_to_attack_index(attack_index):
+		return
 	defender.effects.append({
 		"type": "extra_prize",
 		"count": extra_prizes,
@@ -30,4 +31,4 @@ func execute_attack(
 
 
 func get_description() -> String:
-	return "多谢款待：若此招式击倒对手宝可梦，额外多拿%d张奖赏卡。" % extra_prizes
+	return "If this attack Knocks Out the opponent's Pokemon, take %d extra Prize card(s)." % extra_prizes
