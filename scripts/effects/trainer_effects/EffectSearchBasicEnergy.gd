@@ -58,7 +58,7 @@ func get_interaction_steps(card: CardInstance, state: GameState) -> Array[Dictio
 		"title": "Choose up to %d Basic Energy cards" % search_count,
 		"items": deck_items,
 		"labels": deck_labels,
-		"min_select": 1,
+		"min_select": 0,
 		"max_select": mini(search_count, deck_items.size()),
 		"allow_cancel": true,
 	})
@@ -88,12 +88,13 @@ func execute(card: CardInstance, targets: Array, state: GameState) -> void:
 
 	var selected_energy: Array[CardInstance] = []
 	var selected_raw: Array = ctx.get("search_energy", [])
+	var has_explicit_selection: bool = ctx.has("search_energy")
 	for entry: Variant in selected_raw:
 		if entry is CardInstance and entry in player.deck and _is_basic_energy(entry):
 			selected_energy.append(entry)
 			if selected_energy.size() >= search_count:
 				break
-	if selected_energy.is_empty():
+	if selected_energy.is_empty() and not has_explicit_selection:
 		for deck_card: CardInstance in player.deck:
 			if _is_basic_energy(deck_card):
 				selected_energy.append(deck_card)

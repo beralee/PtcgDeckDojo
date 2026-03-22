@@ -126,8 +126,13 @@ func execute(_card: CardInstance, _targets: Array, _state: GameState) -> void:
 	pass
 
 
+## 使出到场上前需要的交互步骤（如崩塌的竞技场要求选择要弃掉的备战宝可梦）
+func get_on_play_interaction_steps(_card: CardInstance, _state: GameState) -> Array[Dictionary]:
+	return []
+
+
 ## 使出到场上时执行的效果（如竞技场进场触发）
-func execute_on_play(_card: CardInstance, _state: GameState) -> void:
+func execute_on_play(_card: CardInstance, _state: GameState, _targets: Array = []) -> void:
 	pass
 
 

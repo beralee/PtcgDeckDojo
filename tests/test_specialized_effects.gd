@@ -13,6 +13,18 @@ const AttackDiscardBasicEnergyFromHandDamageEffect = preload("res://scripts/effe
 const AttackSearchEnergyFromDeckToSelfEffect = preload("res://scripts/effects/pokemon_effects/AttackSearchEnergyFromDeckToSelf.gd")
 
 
+class RiggedCoinFlipper extends CoinFlipper:
+	var _results: Array[bool] = []
+
+	func _init(results: Array[bool]) -> void:
+		_results = results.duplicate()
+
+	func flip() -> bool:
+		var result: bool = _results.pop_front() if not _results.is_empty() else false
+		coin_flipped.emit(result)
+		return result
+
+
 func _make_basic_pokemon_data(
 	name: String,
 	energy_type: String,
@@ -206,6 +218,119 @@ func test_search_deck_uses_selected_target() -> String:
 
 	return run_checks([
 		assert_true(selected in player.hand, "应按选择加入指定检索目标"),
+	])
+
+
+func test_capturing_aroma_heads_uses_shared_flipper_and_requires_evolution_pick() -> String:
+	var state := _make_state()
+	var player: PlayerState = state.players[0]
+	player.deck.clear()
+	player.hand.clear()
+	var basic := CardInstance.create(_make_basic_pokemon_data("基础宝可梦", "C", 70, "Basic"), 0)
+	var evolution := _make_stage_one_reference("进化宝可梦", "基础宝可梦", 0)
+	player.deck.append(basic)
+	player.deck.append(evolution)
+
+	var flipper := RiggedCoinFlipper.new([true])
+	var emitted: Array[bool] = []
+	flipper.coin_flipped.connect(func(result: bool) -> void: emitted.append(result))
+	var processor := EffectProcessor.new(flipper)
+	var effect := processor.get_effect("7cd68d9e286b78a7f9c799fce24a7d6c")
+	var card := CardInstance.create(_make_trainer_data("捕获香氛", "Item", "7cd68d9e286b78a7f9c799fce24a7d6c"), 0)
+
+	var steps: Array[Dictionary] = effect.get_interaction_steps(card, state)
+	effect.execute(card, [{
+		"searched_pokemon": [evolution],
+	}], state)
+
+	var items: Array = steps[0].get("items", [])
+	return run_checks([
+		assert_eq(emitted.size(), 1, "捕获香氛应通过共享 CoinFlipper 发出一次投币信号"),
+		assert_eq(emitted[0], true, "正面结果应被共享投币器消费"),
+		assert_eq(steps.size(), 1, "捕获香氛应生成一条交互步骤"),
+		assert_eq(str(steps[0].get("id", "")), "searched_pokemon", "正面时应进入检索步骤"),
+		assert_eq(bool(steps[0].get("allow_cancel", true)), false, "投币后不应允许取消来保留手牌"),
+		assert_eq(items.size(), 1, "正面时只应展示进化宝可梦"),
+		assert_true(items[0] == evolution, "正面时应只允许选择进化宝可梦"),
+		assert_true(evolution in player.hand, "选择的进化宝可梦应加入手牌"),
+		assert_true(basic in player.deck, "基础宝可梦不应被错误检索"),
+	])
+
+
+func test_capturing_aroma_tails_only_offers_basic_pokemon() -> String:
+	var state := _make_state()
+	var player: PlayerState = state.players[0]
+	player.deck.clear()
+	player.hand.clear()
+	var basic := CardInstance.create(_make_basic_pokemon_data("基础宝可梦", "C", 70, "Basic"), 0)
+	var evolution := _make_stage_one_reference("进化宝可梦", "基础宝可梦", 0)
+	player.deck.append(evolution)
+	player.deck.append(basic)
+
+	var effect := EffectCapturingAroma.new(RiggedCoinFlipper.new([false]))
+	var card := CardInstance.create(_make_trainer_data("捕获香氛", "Item", "7cd68d9e286b78a7f9c799fce24a7d6c"), 0)
+
+	var steps: Array[Dictionary] = effect.get_interaction_steps(card, state)
+	effect.execute(card, [{
+		"searched_pokemon": [basic],
+	}], state)
+
+	var items: Array = steps[0].get("items", [])
+	return run_checks([
+		assert_eq(steps.size(), 1, "反面时应生成一条检索步骤"),
+		assert_eq(str(steps[0].get("id", "")), "searched_pokemon", "反面时仍应进入检索步骤"),
+		assert_eq(bool(steps[0].get("allow_cancel", true)), false, "反面检索也不应允许取消"),
+		assert_eq(items.size(), 1, "反面时只应展示基础宝可梦"),
+		assert_true(items[0] == basic, "反面时应只允许选择基础宝可梦"),
+		assert_true(basic in player.hand, "选择的基础宝可梦应加入手牌"),
+		assert_true(evolution in player.deck, "进化宝可梦不应被错误检索"),
+	])
+
+
+func test_capturing_aroma_without_matching_target_returns_acknowledge_step() -> String:
+	var state := _make_state()
+	var player: PlayerState = state.players[0]
+	player.deck.clear()
+	player.deck.append(_make_stage_one_reference("进化宝可梦", "基础宝可梦", 0))
+	var effect := EffectCapturingAroma.new(RiggedCoinFlipper.new([false]))
+	var card := CardInstance.create(_make_trainer_data("捕获香氛", "Item", "7cd68d9e286b78a7f9c799fce24a7d6c"), 0)
+
+	var steps: Array[Dictionary] = effect.get_interaction_steps(card, state)
+
+	return run_checks([
+		assert_eq(steps.size(), 1, "没有匹配目标时仍应提供一条确认步骤"),
+		assert_eq(str(steps[0].get("id", "")), "flip_result", "无匹配目标时应显示投币结果确认"),
+		assert_eq(bool(steps[0].get("allow_cancel", true)), false, "无匹配目标时也不应允许取消"),
+		assert_eq(Array(steps[0].get("items", [])).size(), 1, "确认步骤应只提供继续按钮"),
+	])
+
+
+func test_pokemon_catcher_uses_shared_flipper_and_requires_target_on_heads() -> String:
+	var state := _make_state()
+	var opponent: PlayerState = state.players[1]
+	var chosen: PokemonSlot = opponent.bench[1]
+
+	var flipper := RiggedCoinFlipper.new([true])
+	var emitted: Array[bool] = []
+	flipper.coin_flipped.connect(func(result: bool) -> void: emitted.append(result))
+	var processor := EffectProcessor.new(flipper)
+	var effect := processor.get_effect("3a6d419769778b40091e69fbd76737ec")
+	var card := CardInstance.create(_make_trainer_data("宝可梦捕捉器", "Item", "3a6d419769778b40091e69fbd76737ec"), 0)
+
+	var steps: Array[Dictionary] = effect.get_interaction_steps(card, state)
+	effect.execute(card, [{
+		"opponent_bench_target": [chosen],
+	}], state)
+
+	var items: Array = steps[0].get("items", [])
+	return run_checks([
+		assert_eq(emitted.size(), 1, "宝可梦捕捉器应通过共享 CoinFlipper 发出一次投币信号"),
+		assert_eq(emitted[0], true, "正面结果应被共享投币器消费"),
+		assert_eq(steps.size(), 1, "正面时应生成一条目标选择步骤"),
+		assert_eq(str(steps[0].get("id", "")), "opponent_bench_target", "正面时应选择对手备战宝可梦"),
+		assert_eq(bool(steps[0].get("allow_cancel", true)), false, "正面后必须完成选择，不能取消"),
+		assert_eq(items.size(), opponent.bench.size(), "正面时应列出全部对手备战宝可梦"),
+		assert_true(opponent.active_pokemon == chosen, "选择的对手备战宝可梦应被换到战斗场"),
 	])
 
 
@@ -755,6 +880,86 @@ func test_basic_energy_recovery_and_search_effects() -> String:
 	])
 
 
+func test_up_to_effects_allow_zero_selection_without_fallback() -> String:
+	var state := _make_state()
+	var player: PlayerState = state.players[0]
+	player.hand.clear()
+	player.deck.clear()
+	player.discard_pile.clear()
+
+	var superior_cost_a := CardInstance.create(_make_trainer_data("Superior Cost A"), 0)
+	var superior_cost_b := CardInstance.create(_make_trainer_data("Superior Cost B"), 0)
+	var discard_energy := CardInstance.create(_make_energy_data("Discard Grass", "G"), 0)
+	player.hand.append_array([superior_cost_a, superior_cost_b])
+	player.discard_pile.append(discard_energy)
+
+	var superior := EffectRecoverBasicEnergyEffect.new(4, 2)
+	var superior_steps: Array[Dictionary] = superior.get_interaction_steps(CardInstance.create(_make_trainer_data("超级能量回收"), 0), state)
+	superior.execute(CardInstance.create(_make_trainer_data("超级能量回收"), 0), [{
+		"discard_cards": [superior_cost_a, superior_cost_b],
+		"recover_energy": [],
+	}], state)
+
+	var earthen_cost := CardInstance.create(_make_trainer_data("Earthen Cost"), 0)
+	var deck_energy_a := CardInstance.create(_make_energy_data("Deck Fire", "R"), 0)
+	var deck_energy_b := CardInstance.create(_make_energy_data("Deck Grass", "G"), 0)
+	player.hand.append(earthen_cost)
+	player.deck.append_array([deck_energy_a, deck_energy_b])
+
+	var earthen := EffectSearchBasicEnergyEffect.new(2, 1)
+	var earthen_steps: Array[Dictionary] = earthen.get_interaction_steps(CardInstance.create(_make_trainer_data("大地容器"), 0), state)
+	earthen.execute(CardInstance.create(_make_trainer_data("大地容器"), 0), [{
+		"discard_cards": [earthen_cost],
+		"search_energy": [],
+	}], state)
+
+	var rod_pokemon := CardInstance.create(_make_basic_pokemon_data("Rod Pokemon", "C"), 0)
+	var rod_energy := CardInstance.create(_make_energy_data("Rod Energy", "W"), 0)
+	player.discard_pile.append_array([rod_pokemon, rod_energy])
+	var deck_size_before_rod: int = player.deck.size()
+	var super_rod := EffectSuperRod.new()
+	var rod_steps: Array[Dictionary] = super_rod.get_interaction_steps(CardInstance.create(_make_trainer_data("厉害钓竿"), 0), state)
+	super_rod.execute(CardInstance.create(_make_trainer_data("厉害钓竿"), 0), [{
+		"cards_to_return": [],
+	}], state)
+
+	return run_checks([
+		assert_eq(int(superior_steps[1].get("min_select", -1)), 0, "超级能量回收应允许选择0张基本能量"),
+		assert_eq(int(earthen_steps[1].get("min_select", -1)), 0, "大地容器应允许选择0张基本能量"),
+		assert_eq(int(rod_steps[0].get("min_select", -1)), 0, "厉害钓竿应允许选择0张卡牌"),
+		assert_true(superior_cost_a in player.discard_pile and superior_cost_b in player.discard_pile, "超级能量回收仍应支付2张手牌的代价"),
+		assert_false(discard_energy in player.hand, "显式选择0张时，超级能量回收不应自动回收能量"),
+		assert_false(deck_energy_a in player.hand or deck_energy_b in player.hand, "显式选择0张时，大地容器不应自动检索能量"),
+		assert_true(rod_pokemon in player.discard_pile and rod_energy in player.discard_pile, "显式选择0张时，厉害钓竿不应自动回收卡牌"),
+		assert_eq(player.deck.size(), deck_size_before_rod, "显式选择0张时，厉害钓竿不应改变牌库数量"),
+	])
+
+
+func test_superior_energy_retrieval_cannot_recover_cost_energy() -> String:
+	var state := _make_state()
+	var player: PlayerState = state.players[0]
+	player.hand.clear()
+	player.deck.clear()
+	player.discard_pile.clear()
+
+	var cost_energy_a := CardInstance.create(_make_energy_data("Cost Lightning A", "L"), 0)
+	var cost_energy_b := CardInstance.create(_make_energy_data("Cost Lightning B", "L"), 0)
+	var existing_energy := CardInstance.create(_make_energy_data("Existing Grass", "G"), 0)
+	player.hand.append_array([cost_energy_a, cost_energy_b])
+	player.discard_pile.append(existing_energy)
+
+	var superior := EffectRecoverBasicEnergyEffect.new(4, 2)
+	superior.execute(CardInstance.create(_make_trainer_data("超级能量回收"), 0), [{
+		"discard_cards": [cost_energy_a, cost_energy_b],
+		"recover_energy": [existing_energy, cost_energy_a, cost_energy_b],
+	}], state)
+
+	return run_checks([
+		assert_true(existing_energy in player.hand, "超级能量回收应能回收原本就在弃牌区中的基本能量"),
+		assert_true(cost_energy_a in player.discard_pile and cost_energy_b in player.discard_pile, "超级能量回收不应回收作为代价刚弃掉的基本能量"),
+	])
+
+
 func test_hisuian_heavy_ball_takes_basic_from_prizes() -> String:
 	var state := _make_state()
 	var player: PlayerState = state.players[0]
@@ -846,6 +1051,9 @@ func test_star_portal_attaches_water_energy_from_discard() -> String:
 	player.discard_pile.append_array([water_a, water_b, water_c])
 
 	var ability := AbilityStarPortalEffect.new()
+	state.current_player_index = 1
+	var can_use_on_opponent_turn: bool = ability.can_use_ability(palkia, state)
+	state.current_player_index = 0
 	ability.execute_ability(palkia, 0, [{
 		"star_portal_assignments": [
 			{"source": water_a, "target": player.active_pokemon},
@@ -855,6 +1063,7 @@ func test_star_portal_attaches_water_energy_from_discard() -> String:
 	}], state)
 
 	return run_checks([
+		assert_false(can_use_on_opponent_turn, "星耀传送门应只能在自己的回合使用"),
 		assert_eq(player.active_pokemon.attached_energy.size(), 1, "星耀传送门应能附着到战斗宝可梦"),
 		assert_eq(player.bench[0].attached_energy.size(), 2, "星耀传送门应允许同一目标获得多张能量"),
 		assert_true(state.vstar_power_used[0], "VSTAR 力量使用后应被标记"),
@@ -1260,3 +1469,52 @@ func test_specialized_effect_descriptions_and_smoke() -> String:
 			return "效果描述不应为空: %s" % effect.get_class()
 
 	return ""
+
+
+func test_prime_catcher_requires_own_bench_target() -> String:
+	var state := _make_state()
+	var player: PlayerState = state.players[0]
+	var effect := EffectPrimeCatcher.new()
+	var card := CardInstance.create(_make_trainer_data("顶尖捕捉器"), 0)
+
+	player.bench.clear()
+	var cannot_use_without_own_bench: bool = not effect.can_execute(card, state)
+
+	var bench_cd := _make_basic_pokemon_data("Own Bench", "C", 100)
+	var bench_slot := PokemonSlot.new()
+	bench_slot.pokemon_stack.append(CardInstance.create(bench_cd, 0))
+	player.bench.append(bench_slot)
+
+	var can_use_with_both_benches: bool = effect.can_execute(card, state)
+	var steps: Array[Dictionary] = effect.get_interaction_steps(card, state)
+
+	return run_checks([
+		assert_true(cannot_use_without_own_bench, "顶尖捕捉器在己方没有备战宝可梦时不应可用"),
+		assert_true(can_use_with_both_benches, "顶尖捕捉器在双方都有备战宝可梦时应可用"),
+		assert_eq(steps.size(), 2, "顶尖捕捉器应提供对手和己方两步选择"),
+		assert_eq(int(steps[1].get("items", []).size()), player.bench.size(), "顶尖捕捉器第二步应只列出己方备战宝可梦"),
+	])
+
+
+func test_buddy_poffin_allows_zero_selection_without_fallback() -> String:
+	var state := _make_state()
+	var player: PlayerState = state.players[0]
+	player.bench.clear()
+	player.deck.clear()
+
+	var poffin_a := CardInstance.create(_make_basic_pokemon_data("Poffin A", "C", 60), 0)
+	var poffin_b := CardInstance.create(_make_basic_pokemon_data("Poffin B", "W", 70), 0)
+	player.deck.append_array([poffin_a, poffin_b])
+
+	var effect := EffectBuddyPoffin.new()
+	var card := CardInstance.create(_make_trainer_data("友好宝芬"), 0)
+	var steps: Array[Dictionary] = effect.get_interaction_steps(card, state)
+	effect.execute(card, [{
+		"buddy_poffin_pokemon": [],
+	}], state)
+
+	return run_checks([
+		assert_eq(int(steps[0].get("min_select", -1)), 0, "友好宝芬应允许选择0张基础宝可梦"),
+		assert_true(player.bench.is_empty(), "显式选择0张时，友好宝芬不应自动放置宝可梦"),
+		assert_true(poffin_a in player.deck and poffin_b in player.deck, "显式选择0张时，友好宝芬不应从牌库移除宝可梦"),
+	])

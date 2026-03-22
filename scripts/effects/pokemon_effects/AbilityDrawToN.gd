@@ -22,6 +22,12 @@ func _init(draw_to: int = 3, once: bool = true) -> void:
 
 ## 检查特性是否可以使用
 func can_use_ability(pokemon: PokemonSlot, state: GameState) -> bool:
+	var top: CardInstance = pokemon.get_top_card()
+	if top == null:
+		return false
+	if state.current_player_index != top.owner_index:
+		return false
+
 	# 若每回合限用1次，检查本回合是否已用过
 	if once_per_turn:
 		for eff: Dictionary in pokemon.effects:
@@ -29,9 +35,6 @@ func can_use_ability(pokemon: PokemonSlot, state: GameState) -> bool:
 				return false
 
 	# 检查当前手牌是否已达到或超过目标数量
-	var top: CardInstance = pokemon.get_top_card()
-	if top == null:
-		return false
 	var player: PlayerState = state.players[top.owner_index]
 	return player.hand.size() < draw_to_count
 
@@ -42,6 +45,8 @@ func execute_ability(
 	_targets: Array,
 	state: GameState
 ) -> void:
+	if not can_use_ability(pokemon, state):
+		return
 	var top: CardInstance = pokemon.get_top_card()
 	if top == null:
 		return

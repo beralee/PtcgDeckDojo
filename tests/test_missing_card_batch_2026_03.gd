@@ -374,12 +374,16 @@ func test_csv1c_079_hawlucha_places_counters_on_two_bench_targets() -> String:
 	var hawlucha_slot := _make_slot(_make_basic_pokemon_data("CSV1C_079 Hawlucha", "F"), 0)
 	hawlucha_slot.turn_played = state.turn_number
 	player.bench.append(hawlucha_slot)
+	state.current_player_index = 1
+	var cannot_use_on_opponent_turn: bool = not ability.can_use_ability(hawlucha_slot, state)
+	state.current_player_index = 0
 
 	ability.execute_ability(hawlucha_slot, 0, [{
 		"opponent_bench_targets": [opponent.bench[0], opponent.bench[1]],
 	}], state)
 
 	return run_checks([
+		assert_true(cannot_use_on_opponent_turn, "CSV1C_079 should only be usable during its controller's turn"),
 		assert_eq(opponent.bench[0].damage_counters, 10, "CSV1C_079 should place 1 counter on the first chosen bench target"),
 		assert_eq(opponent.bench[1].damage_counters, 10, "CSV1C_079 should place 1 counter on the second chosen bench target"),
 	])
@@ -449,17 +453,24 @@ func test_cs6_5c_055_regidrago_vstar_mills_and_recovers() -> String:
 	player.deck.clear()
 	player.discard_pile.clear()
 	player.hand.clear()
+	var existing_discard := CardInstance.create(_make_basic_pokemon_data("Existing Recover", "C"), 0)
 	var deck_a := CardInstance.create(_make_basic_pokemon_data("Recover A", "C"), 0)
 	var deck_b := CardInstance.create(_make_basic_pokemon_data("Recover B", "C"), 0)
+	player.discard_pile.append(existing_discard)
 	player.deck.append(deck_a)
 	player.deck.append(deck_b)
 	var ability := AbilityMillDeckRecoverToHand.new(2, 2, true)
 	var slot := player.active_pokemon
+	state.current_player_index = 1
+	var cannot_use_on_opponent_turn: bool = not ability.can_use_ability(slot, state)
+	state.current_player_index = 0
 
-	ability.execute_ability(slot, 0, [{"recover_cards": [deck_a, deck_b]}], state)
+	ability.execute_ability(slot, 0, [{"recover_cards": [existing_discard, deck_a]}], state)
 
 	return run_checks([
-		assert_true(deck_a in player.hand and deck_b in player.hand, "CS6.5C_055 should recover chosen milled cards"),
+		assert_true(cannot_use_on_opponent_turn, "CS6.5C_055 should only be usable during its controller's turn"),
+		assert_true(existing_discard in player.hand and deck_a in player.hand, "CS6.5C_055 should recover cards from the full discard pile after milling"),
+		assert_true(deck_b in player.discard_pile, "CS6.5C_055 should leave unchosen milled cards in the discard pile"),
 		assert_true(state.vstar_power_used[0], "CS6.5C_055 should consume the player's VSTAR power"),
 	])
 
@@ -491,10 +502,14 @@ func test_csv8c_028_teal_mask_ogerpon_attaches_grass_from_hand_and_draws() -> St
 	player.hand.append(grass)
 	player.deck.append(CardInstance.create(_make_basic_pokemon_data("Drawn", "C"), 0))
 	var ability := AbilityAttachBasicEnergyFromHandDraw.new("G", 1)
+	state.current_player_index = 1
+	var cannot_use_on_opponent_turn: bool = not ability.can_use_ability(slot, state)
+	state.current_player_index = 0
 
 	ability.execute_ability(slot, 0, [{"basic_energy_from_hand": [grass]}], state)
 
 	return run_checks([
+		assert_true(cannot_use_on_opponent_turn, "CSV8C_028 should only be usable during its controller's turn"),
 		assert_true(grass in slot.attached_energy, "CSV8C_028 should attach a Basic Grass Energy from hand"),
 		assert_eq(player.hand.size(), 1, "CSV8C_028 should draw 1 after attaching"),
 	])
@@ -537,10 +552,14 @@ func test_csv8c_135_fezandipiti_draws_after_knockout_last_turn() -> String:
 		player.deck.append(CardInstance.create(_make_basic_pokemon_data("Draw_%d" % i, "C"), 0))
 	state.last_knockout_turn_against[0] = state.turn_number - 1
 	var ability := AbilityDrawIfKnockoutLastTurn.new(3, "fezandipiti")
+	state.current_player_index = 1
+	var cannot_use_on_opponent_turn: bool = not ability.can_use_ability(player.active_pokemon, state)
+	state.current_player_index = 0
 
 	ability.execute_ability(player.active_pokemon, 0, [], state)
 
 	return run_checks([
+		assert_true(cannot_use_on_opponent_turn, "CSV8C_135 should only be usable during its controller's turn"),
 		assert_eq(player.hand.size(), 3, "CSV8C_135 should draw 3 when your Pokemon was KO'd during the opponent's last turn"),
 	])
 

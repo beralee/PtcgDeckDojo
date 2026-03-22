@@ -194,6 +194,52 @@ func test_battle_setup_lists_background_assets() -> String:
 	])
 
 
+func test_battle_scene_includes_zeus_help_button() -> String:
+	var scene: Control = load("res://scenes/battle/BattleScene.tscn").instantiate()
+	var zeus_button := scene.find_child("BtnZeusHelp", true, false)
+	var back_button := scene.find_child("BtnBack", true, false)
+
+	return run_checks([
+		assert_true(zeus_button is Button, "BattleScene 顶栏应包含宙斯帮我按钮"),
+		assert_true(back_button is Button, "BattleScene 顶栏应保留退出游戏按钮"),
+	])
+
+
+func test_battle_scene_zeus_help_moves_selected_cards_without_consuming_vstar() -> String:
+	var scene := BattleSceneScript.new()
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+	gsm.game_state.turn_number = 2
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	gsm.game_state.vstar_power_used = [false, false]
+	scene._gsm = gsm
+	scene._view_player = 0
+
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+
+	CardInstance.reset_id_counter()
+	var deck_a := CardInstance.create(_make_trainer_cd("DeckA", "Item", ""), 0)
+	var deck_b := CardInstance.create(_make_trainer_cd("DeckB", "Supporter", ""), 0)
+	var deck_c := CardInstance.create(_make_pokemon_cd("DeckC", 70, "C"), 0)
+	gsm.game_state.players[0].deck = [deck_a, deck_b, deck_c]
+	var dialog_cards: Array = gsm.game_state.players[0].deck.duplicate()
+
+	var chosen: Array[CardInstance] = scene._resolve_zeus_help_selected_cards(0, dialog_cards, PackedInt32Array([1, 2]))
+	scene._apply_zeus_help(0, chosen)
+
+	return run_checks([
+		assert_eq(chosen.size(), 2, "宙斯帮我应解析出两张被选中的牌"),
+		assert_true(deck_b in gsm.game_state.players[0].hand and deck_c in gsm.game_state.players[0].hand, "宙斯帮我应将选中的牌加入手牌"),
+		assert_true(deck_a in gsm.game_state.players[0].deck, "未选中的牌应留在牌库"),
+		assert_false(gsm.game_state.vstar_power_used[0], "宙斯帮我不应消耗 VSTAR 次数"),
+	])
+
+
 func test_battle_scene_loads_selected_background_texture() -> String:
 	var previous_background := GameManager.selected_battle_background
 	GameManager.selected_battle_background = "res://assets/ui/background1.png"

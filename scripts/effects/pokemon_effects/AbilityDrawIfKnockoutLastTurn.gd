@@ -15,6 +15,8 @@ func can_use_ability(pokemon: PokemonSlot, state: GameState) -> bool:
 	if top == null:
 		return false
 	var pi: int = top.owner_index
+	if state.current_player_index != pi:
+		return false
 	if state.last_knockout_turn_against[pi] != state.turn_number - 1:
 		return false
 	var shared_key := "%s_%d" % [shared_flag_key, pi]
@@ -29,6 +31,8 @@ func execute_ability(
 	_targets: Array,
 	state: GameState
 ) -> void:
+	if not can_use_ability(pokemon, state):
+		return
 	var top: CardInstance = pokemon.get_top_card()
 	if top == null:
 		return

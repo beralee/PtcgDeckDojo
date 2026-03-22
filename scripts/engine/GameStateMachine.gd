@@ -877,7 +877,7 @@ func play_trainer(player_index: int, card: CardInstance, targets: Array) -> bool
 
 
 ## 使出竞技场卡
-func play_stadium(player_index: int, card: CardInstance) -> bool:
+func play_stadium(player_index: int, card: CardInstance, targets: Array = []) -> bool:
 	if not rule_validator.can_play_stadium(game_state, player_index, card):
 		return false
 
@@ -897,7 +897,7 @@ func play_stadium(player_index: int, card: CardInstance) -> bool:
 
 	var stadium_effect: BaseEffect = effect_processor.get_effect(card.card_data.effect_id)
 	if stadium_effect != null:
-		stadium_effect.execute_on_play(card, game_state)
+		stadium_effect.execute_on_play(card, game_state, targets)
 
 	_log_action(GameAction.ActionType.PLAY_STADIUM, player_index,
 		{"card_name": card.card_data.name}, "玩家%d使出竞技场 %s" % [player_index, card.card_data.name])

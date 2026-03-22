@@ -10,6 +10,18 @@ const USED_FLAG_TYPE: String = "ability_used_thunderous"
 
 ## 检查此回合是否已使用过瞬步特性
 func can_use_ability(pokemon: PokemonSlot, state: GameState) -> bool:
+	var top: CardInstance = pokemon.get_top_card()
+	if top == null:
+		return false
+	var owner_index: int = top.owner_index
+	if state.current_player_index != owner_index:
+		return false
+	var player: PlayerState = state.players[owner_index]
+	if player.active_pokemon != pokemon:
+		return false
+	if player.deck.is_empty():
+		return false
+
 	# 遍历 pokemon.effects，查找本回合的使用记录
 	for eff: Dictionary in pokemon.effects:
 		var eff_type: Variant = eff.get("type", "")
@@ -26,19 +38,12 @@ func execute_ability(
 	_targets: Array,
 	state: GameState
 ) -> void:
-	var top: CardInstance = pokemon.get_top_card()
-	if top == null:
-		return
-	var pi: int = top.owner_index
-	var player: PlayerState = state.players[pi]
-
 	# 检查本回合是否已使用
 	if not can_use_ability(pokemon, state):
 		return
-
-	# 牌库为空则无法抽卡
-	if player.deck.is_empty():
-		return
+	var top: CardInstance = pokemon.get_top_card()
+	var pi: int = top.owner_index
+	var player: PlayerState = state.players[pi]
 
 	# 抽1张卡
 	player.draw_card()

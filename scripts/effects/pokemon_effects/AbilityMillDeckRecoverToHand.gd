@@ -16,6 +16,8 @@ func can_use_ability(pokemon: PokemonSlot, state: GameState) -> bool:
 	var top: CardInstance = pokemon.get_top_card()
 	if top == null:
 		return false
+	if state.current_player_index != top.owner_index:
+		return false
 	if is_vstar_power and state.vstar_power_used[top.owner_index]:
 		return false
 	return not state.players[top.owner_index].deck.is_empty()
@@ -23,12 +25,15 @@ func can_use_ability(pokemon: PokemonSlot, state: GameState) -> bool:
 
 func get_interaction_steps(card: CardInstance, state: GameState) -> Array[Dictionary]:
 	var player: PlayerState = state.players[card.owner_index]
+	var items: Array = player.discard_pile.duplicate()
+	var labels: Array[String] = []
+	for discard_card: CardInstance in items:
+		labels.append(discard_card.card_data.name)
 	var preview: Array[CardInstance] = []
 	for idx: int in mini(mill_count, player.deck.size()):
 		preview.append(player.deck[idx])
-	var items: Array = preview.duplicate()
-	var labels: Array[String] = []
-	for entry: CardInstance in items:
+	for entry: CardInstance in preview:
+		items.append(entry)
 		labels.append(entry.card_data.name)
 	return [{
 		"id": "recover_cards",
@@ -47,6 +52,8 @@ func execute_ability(
 	targets: Array,
 	state: GameState
 ) -> void:
+	if not can_use_ability(pokemon, state):
+		return
 	var top: CardInstance = pokemon.get_top_card()
 	if top == null:
 		return
@@ -64,7 +71,7 @@ func execute_ability(
 	var selected_raw: Array = ctx.get("recover_cards", [])
 	var selected_cards: Array[CardInstance] = []
 	for entry: Variant in selected_raw:
-		if entry is CardInstance and entry in player.discard_pile and entry in milled:
+		if entry is CardInstance and entry in player.discard_pile:
 			selected_cards.append(entry)
 			if selected_cards.size() >= recover_count:
 				break

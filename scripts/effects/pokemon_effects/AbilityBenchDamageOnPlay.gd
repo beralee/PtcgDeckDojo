@@ -16,6 +16,8 @@ func can_use_ability(pokemon: PokemonSlot, state: GameState) -> bool:
 	var top: CardInstance = pokemon.get_top_card()
 	if top == null:
 		return false
+	if state.current_player_index != top.owner_index:
+		return false
 	if pokemon.turn_played != state.turn_number:
 		return false
 	if not state.players[top.owner_index].bench.has(pokemon):
@@ -45,6 +47,8 @@ func get_interaction_steps(card: CardInstance, state: GameState) -> Array[Dictio
 
 
 func execute_ability(pokemon: PokemonSlot, _ability_index: int, targets: Array, state: GameState) -> void:
+	if not can_use_ability(pokemon, state):
+		return
 	var top: CardInstance = pokemon.get_top_card()
 	if top == null:
 		return

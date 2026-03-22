@@ -15,6 +15,8 @@ func can_use_ability(pokemon: PokemonSlot, state: GameState) -> bool:
 	var top: CardInstance = pokemon.get_top_card()
 	if top == null:
 		return false
+	if state.current_player_index != top.owner_index:
+		return false
 
 	for eff: Dictionary in pokemon.effects:
 		if eff.get("type") == USED_KEY and eff.get("turn") == state.turn_number:
@@ -51,6 +53,8 @@ func execute_ability(
 	targets: Array,
 	state: GameState
 ) -> void:
+	if not can_use_ability(pokemon, state):
+		return
 	var top: CardInstance = pokemon.get_top_card()
 	if top == null:
 		return

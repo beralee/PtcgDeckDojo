@@ -10,6 +10,8 @@ func can_use_ability(pokemon: PokemonSlot, state: GameState) -> bool:
 	if top == null:
 		return false
 	var pi: int = top.owner_index
+	if state.current_player_index != pi:
+		return false
 	if state.vstar_power_used[pi]:
 		return false
 	var player: PlayerState = state.players[pi]

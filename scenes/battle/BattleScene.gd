@@ -61,6 +61,7 @@ var _opponent_card_back_texture: Texture2D = null
 # Top actions
 @onready var _btn_end_turn: Button = %BtnEndTurn
 @onready var _btn_back: Button = %BtnBack
+@onready var _btn_zeus_help: Button = %BtnZeusHelp
 @onready var _hud_end_turn_btn: Button = %HudEndTurnBtn
 @onready var _opp_hand_bar: PanelContainer = $MainArea/CenterField/OppHandBar
 @onready var _left_panel: VBoxContainer = $MainArea/LeftPanel
@@ -165,6 +166,7 @@ func _ready() -> void:
 	_btn_end_turn.pressed.connect(_on_end_turn)
 	_hud_end_turn_btn.pressed.connect(_on_end_turn)
 	_btn_stadium_action.pressed.connect(_on_stadium_action_pressed)
+	_btn_zeus_help.pressed.connect(_on_zeus_help_pressed)
 	_btn_back.pressed.connect(_on_back_pressed)
 	_dialog_confirm.pressed.connect(_on_dialog_confirm)
 	_dialog_cancel.pressed.connect(_on_dialog_cancel)
@@ -650,6 +652,7 @@ func _apply_battle_surface_styles() -> void:
 	_btn_stadium_action.add_theme_color_override("font_disabled_color", Color(0.5, 0.53, 0.49))
 	_btn_stadium_action.add_theme_font_size_override("font_size", 12)
 	_style_hud_button(_hud_end_turn_btn)
+	_style_hud_button(_btn_zeus_help)
 	_style_hud_button(_btn_back)
 	for label: Label in [_lbl_phase, _lbl_turn]:
 		if label != null:
@@ -1122,6 +1125,32 @@ func _on_back_pressed() -> void:
 	_pending_choice = "confirm_exit"
 	_show_dialog("确认退出对战？当前进度不会保存。", ["确认退出", "取消"], {})
 	_dialog_cancel.visible = false
+
+
+func _on_zeus_help_pressed() -> void:
+	if _gsm == null or _gsm.game_state == null:
+		return
+	if _view_player < 0 or _view_player >= _gsm.game_state.players.size():
+		return
+	var player: PlayerState = _gsm.game_state.players[_view_player]
+	var deck_cards: Array = player.deck.duplicate()
+	if deck_cards.is_empty():
+		_log("当前牌库为空。")
+		return
+	var labels: Array[String] = []
+	for card: CardInstance in deck_cards:
+		labels.append(card.card_data.name if card != null and card.card_data != null else "未知卡牌")
+	_pending_choice = "zeus_help"
+	_show_dialog("宙斯帮我：从牌库中选择任意张牌加入手牌", labels, {
+		"player": _view_player,
+		"min_select": 0,
+		"max_select": deck_cards.size(),
+		"allow_cancel": true,
+		"presentation": "cards",
+		"card_items": deck_cards,
+		"deck_cards": deck_cards,
+		"choice_labels": labels,
+	})
 
 
 func _on_slot_input(event: InputEvent, slot_id: String) -> void:
@@ -2092,6 +2121,15 @@ func _handle_dialog_choice(selected_indices: PackedInt32Array) -> void:
 		"confirm_exit":
 			if idx == 0:
 				GameManager.goto_battle_setup()
+		"zeus_help":
+			var zeus_player_index: int = int(_dialog_data.get("player", _view_player))
+			var zeus_dialog_cards: Array = _dialog_data.get("deck_cards", [])
+			var selected_cards: Array[CardInstance] = _resolve_zeus_help_selected_cards(
+				zeus_player_index,
+				zeus_dialog_cards,
+				selected_indices
+			)
+			_apply_zeus_help(zeus_player_index, selected_cards)
 		"game_over":
 			if idx == 1:
 				GameManager.goto_battle_setup()
@@ -2201,6 +2239,49 @@ func _show_heavy_baton_dialog(
 		}
 	)
 	_dialog_cancel.visible = false
+
+
+func _resolve_zeus_help_selected_cards(
+	player_index: int,
+	dialog_cards: Array,
+	selected_indices: PackedInt32Array
+) -> Array[CardInstance]:
+	var selected_cards: Array[CardInstance] = []
+	if _gsm == null or _gsm.game_state == null:
+		return selected_cards
+	if player_index < 0 or player_index >= _gsm.game_state.players.size():
+		return selected_cards
+	var player: PlayerState = _gsm.game_state.players[player_index]
+	for selected_idx: int in selected_indices:
+		if selected_idx < 0 or selected_idx >= dialog_cards.size():
+			continue
+		var candidate: Variant = dialog_cards[selected_idx]
+		if candidate is CardInstance and candidate in player.deck and candidate not in selected_cards:
+			selected_cards.append(candidate)
+	return selected_cards
+
+
+func _apply_zeus_help(player_index: int, selected_cards: Array[CardInstance]) -> void:
+	if _gsm == null or _gsm.game_state == null:
+		return
+	if player_index < 0 or player_index >= _gsm.game_state.players.size():
+		return
+	var player: PlayerState = _gsm.game_state.players[player_index]
+	var added_count: int = 0
+	for card: CardInstance in selected_cards:
+		if card in player.deck:
+			player.deck.erase(card)
+			card.face_up = true
+			player.hand.append(card)
+			added_count += 1
+	player.shuffle_deck()
+	if is_inside_tree():
+		if added_count > 0:
+			_log("宙斯帮我：加入了 %d 张牌到手牌。" % added_count)
+		else:
+			_log("宙斯帮我：未选择卡牌。")
+		_refresh_ui()
+
 
 func _show_pokemon_action_dialog(cp: int, slot: PokemonSlot, include_attacks: bool) -> void:
 	var cd: CardData = slot.get_card_data()
@@ -2501,10 +2582,7 @@ func _on_hand_card_clicked(inst: CardInstance, _panel: PanelContainer) -> void:
 		_try_play_trainer_with_interaction(cp, inst)
 		return
 	if cd.card_type == "Stadium":
-		if _gsm.play_stadium(cp, inst):
-			_refresh_ui()
-		else:
-			_log("无法打出这张竞技场卡")
+		_try_play_stadium_with_interaction(cp, inst)
 		return
 	if cd.is_basic_pokemon():
 		_selected_hand_card = inst
@@ -2548,6 +2626,24 @@ func _try_play_trainer_with_interaction(player_index: int, card: CardInstance) -
 		return
 
 	_start_effect_interaction("trainer", player_index, steps, card)
+
+
+func _try_play_stadium_with_interaction(player_index: int, card: CardInstance) -> void:
+	var effect: BaseEffect = _gsm.effect_processor.get_effect(card.card_data.effect_id)
+	if effect == null:
+		if not _gsm.play_stadium(player_index, card):
+			_log("无法打出这张竞技场卡")
+		_refresh_ui()
+		return
+
+	var steps: Array[Dictionary] = effect.get_on_play_interaction_steps(card, _gsm.game_state)
+	if steps.is_empty():
+		if not _gsm.play_stadium(player_index, card):
+			_log("无法打出这张竞技场卡")
+		_refresh_ui()
+		return
+
+	_start_effect_interaction("play_stadium", player_index, steps, card)
 
 
 func _try_use_ability_with_interaction(player_index: int, slot: PokemonSlot, ability_index: int) -> void:
@@ -2666,6 +2762,12 @@ func _show_next_effect_interaction_step() -> void:
 				)
 				if success:
 					followup_evolve_slot = _get_trainer_followup_evolve_slot()
+			"play_stadium":
+				success = _gsm.play_stadium(
+					_pending_effect_player_index,
+					_pending_effect_card,
+					[_pending_effect_context]
+				)
 			"ability":
 				success = _gsm.use_ability(
 					_pending_effect_player_index,

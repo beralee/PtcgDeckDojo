@@ -114,6 +114,7 @@ func test_attach_jet_energy_switches_benched_pokemon_active() -> String:
 func test_play_stadium_triggers_on_play_effect() -> String:
 	var gsm := _make_manual_gsm()
 	var player: PlayerState = gsm.game_state.players[0]
+	var opponent: PlayerState = gsm.game_state.players[1]
 
 	var active_slot := PokemonSlot.new()
 	active_slot.pokemon_stack.append(CardInstance.create(_make_basic_pokemon_data("Active", "R", 80), 0))
@@ -123,15 +124,27 @@ func test_play_stadium_triggers_on_play_effect() -> String:
 		var bench_slot := PokemonSlot.new()
 		bench_slot.pokemon_stack.append(CardInstance.create(_make_basic_pokemon_data("Bench%d" % i, "W", 70), 0))
 		player.bench.append(bench_slot)
+		var opponent_bench_slot := PokemonSlot.new()
+		opponent_bench_slot.pokemon_stack.append(CardInstance.create(_make_basic_pokemon_data("OppBench%d" % i, "W", 70), 1))
+		opponent.bench.append(opponent_bench_slot)
 
 	var stadium := CardInstance.create(_make_trainer_data("Collapsed Stadium", "Stadium", "fb3628071280487676f79281696ffbd9"), 0)
 	player.hand.append(stadium)
+	var chosen_player_slot: PokemonSlot = player.bench[1]
+	var chosen_opponent_slot: PokemonSlot = opponent.bench[3]
+	var chosen_player_card: CardInstance = chosen_player_slot.get_top_card()
+	var chosen_opponent_card: CardInstance = chosen_opponent_slot.get_top_card()
 
-	var result: bool = gsm.play_stadium(0, stadium)
+	var result: bool = gsm.play_stadium(0, stadium, [{
+		"collapsed_stadium_discard_p0": [chosen_player_slot],
+		"collapsed_stadium_discard_p1": [chosen_opponent_slot],
+	}])
 	return run_checks([
 		assert_true(result, "Stadium play should succeed"),
-		assert_eq(player.bench.size(), 4, "Collapsed Stadium should trim bench to four"),
-		assert_eq(player.discard_pile.size(), 1, "Collapsed Stadium should discard excess bench Pokemon"),
+		assert_eq(player.bench.size(), 4, "Collapsed Stadium should trim the current player's bench to four"),
+		assert_eq(opponent.bench.size(), 4, "Collapsed Stadium should trim the opponent's bench to four"),
+		assert_true(chosen_player_card in player.discard_pile, "Collapsed Stadium should discard the chosen bench Pokemon for the current player"),
+		assert_true(chosen_opponent_card in opponent.discard_pile, "Collapsed Stadium should discard the chosen bench Pokemon for the opponent"),
 		assert_eq(gsm.game_state.stadium_card, stadium, "Stadium should remain in play"),
 	])
 

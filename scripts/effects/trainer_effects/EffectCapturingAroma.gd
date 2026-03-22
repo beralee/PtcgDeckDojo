@@ -2,7 +2,13 @@
 class_name EffectCapturingAroma
 extends BaseEffect
 
+var coin_flipper: CoinFlipper
 var _pending_flip_heads: bool = true
+var _has_pending_flip: bool = false
+
+
+func _init(flipper: CoinFlipper = null) -> void:
+	coin_flipper = flipper if flipper != null else CoinFlipper.new()
 
 
 func can_execute(card: CardInstance, state: GameState) -> bool:
@@ -15,7 +21,8 @@ func can_execute(card: CardInstance, state: GameState) -> bool:
 
 func get_interaction_steps(card: CardInstance, state: GameState) -> Array[Dictionary]:
 	var player: PlayerState = state.players[card.owner_index]
-	_pending_flip_heads = CoinFlipper.new().flip()
+	_pending_flip_heads = coin_flipper.flip()
+	_has_pending_flip = true
 
 	var items: Array = []
 	var labels: Array[String] = []
@@ -37,7 +44,7 @@ func get_interaction_steps(card: CardInstance, state: GameState) -> Array[Dictio
 			"labels": ["继续"],
 			"min_select": 1,
 			"max_select": 1,
-			"allow_cancel": true,
+			"allow_cancel": false,
 		}]
 
 	return [{
@@ -47,34 +54,42 @@ func get_interaction_steps(card: CardInstance, state: GameState) -> Array[Dictio
 		"labels": labels,
 		"min_select": 1,
 		"max_select": 1,
-		"allow_cancel": true,
+		"allow_cancel": false,
 	}]
 
 
 func execute(card: CardInstance, targets: Array, state: GameState) -> void:
 	var player: PlayerState = state.players[card.owner_index]
+	if not _has_pending_flip:
+		_pending_flip_heads = coin_flipper.flip()
+		_has_pending_flip = true
+
 	var ctx: Dictionary = get_interaction_context(targets)
 	var selected_raw: Array = ctx.get("searched_pokemon", [])
 	if selected_raw.is_empty() or not selected_raw[0] is CardInstance:
+		_has_pending_flip = false
 		player.shuffle_deck()
 		return
 
 	var found: CardInstance = selected_raw[0]
 	if found not in player.deck:
+		_has_pending_flip = false
 		player.shuffle_deck()
 		return
 
 	var cd: CardData = found.card_data
 	var valid: bool = (_pending_flip_heads and cd.is_evolution_pokemon()) or (not _pending_flip_heads and cd.is_basic_pokemon())
 	if not valid:
+		_has_pending_flip = false
 		player.shuffle_deck()
 		return
 
 	player.deck.erase(found)
 	found.face_up = true
 	player.hand.append(found)
+	_has_pending_flip = false
 	player.shuffle_deck()
 
 
 func get_description() -> String:
-	return "投币：正面检索进化宝可梦，反面检索基础宝可梦。"
+	return "抛掷1次硬币。如果为正面则从自己牌库中选择1张进化宝可梦，如果为反面则从自己牌库中选择1张基础宝可梦，在给对手看过之后，加入手牌。并重洗牌库。"

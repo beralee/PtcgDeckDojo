@@ -17,7 +17,7 @@ func get_interaction_steps(card: CardInstance, state: GameState) -> Array[Dictio
 		"title": "选择最多2张HP不高于70的基础宝可梦放入备战区",
 		"items": items,
 		"labels": labels,
-		"min_select": 1,
+		"min_select": 0,
 		"max_select": mini(2, bench_space),
 		"allow_cancel": true,
 	}]
@@ -41,13 +41,14 @@ func execute(card: CardInstance, _targets: Array, state: GameState) -> void:
 	var bench_space: int = 5 - player.bench.size()
 	var to_place: Array[CardInstance] = []
 	var selected_raw: Array = ctx.get("buddy_poffin_pokemon", [])
+	var has_explicit_selection: bool = ctx.has("buddy_poffin_pokemon")
 	for c: Variant in selected_raw:
 		if c is CardInstance and c in player.deck and c.card_data.is_basic_pokemon() and c.card_data.hp <= 70:
 			to_place.append(c)
 			if to_place.size() >= bench_space or to_place.size() >= 2:
 				break
 
-	if to_place.is_empty():
+	if to_place.is_empty() and not has_explicit_selection:
 		for deck_card: CardInstance in player.deck:
 			var cd: CardData = deck_card.card_data
 			if cd.is_basic_pokemon() and cd.hp <= 70:

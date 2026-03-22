@@ -9,6 +9,8 @@ func can_use_ability(pokemon: PokemonSlot, state: GameState) -> bool:
 	var top: CardInstance = pokemon.get_top_card()
 	if top == null:
 		return false
+	if state.current_player_index != top.owner_index:
+		return false
 	if state.players[top.owner_index].deck.is_empty():
 		return false
 	for eff: Dictionary in pokemon.effects:

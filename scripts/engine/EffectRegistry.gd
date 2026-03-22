@@ -218,7 +218,7 @@ static func _register_items(processor: EffectProcessor) -> void:
 	# 超级球：查看顶部7张，选1张宝可梦加入手牌
 	processor.register_effect("1838e8afe529b519a57dd8bbd307905a", EffectLookTopCards.new(7, "Pokemon"))
 	# 捕获香氛
-	processor.register_effect("7cd68d9e286b78a7f9c799fce24a7d6c", EffectCapturingAroma.new())
+	processor.register_effect("7cd68d9e286b78a7f9c799fce24a7d6c", EffectCapturingAroma.new(processor.coin_flipper))
 	# 宝可梦交替：切换己方战斗宝可梦
 	processor.register_effect("7c0b20e121c9d0e0d2d8a43524f7494e", EffectSwitchPokemon.new("self"))
 	# 顶尖捕捉器
@@ -250,7 +250,7 @@ static func _register_items(processor: EffectProcessor) -> void:
 	# Night Stretcher
 	processor.register_effect("3e6f1daf545dfed48d0588dd50792a2e", EffectNightStretcherEffect.new())
 	# Pokemon Catcher
-	processor.register_effect("3a6d419769778b40091e69fbd76737ec", EffectPokemonCatcherEffect.new())
+	processor.register_effect("3a6d419769778b40091e69fbd76737ec", EffectPokemonCatcherEffect.new(processor.coin_flipper))
 	# Energy Switch
 	processor.register_effect("294212d9c02dc0acb886a7ef01ebeac4", EffectEnergySwitchEffect.new())
 

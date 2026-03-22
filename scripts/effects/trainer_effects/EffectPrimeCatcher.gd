@@ -36,8 +36,9 @@ func get_interaction_steps(card: CardInstance, state: GameState) -> Array[Dictio
 
 
 func can_execute(card: CardInstance, state: GameState) -> bool:
+	var player: PlayerState = state.players[card.owner_index]
 	var opp: PlayerState = state.players[1 - card.owner_index]
-	return not opp.bench.is_empty()
+	return not opp.bench.is_empty() and not player.bench.is_empty()
 
 
 func execute(card: CardInstance, _targets: Array, state: GameState) -> void:

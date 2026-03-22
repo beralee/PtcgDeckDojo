@@ -58,7 +58,7 @@ func get_interaction_steps(card: CardInstance, state: GameState) -> Array[Dictio
 		"title": "Choose up to %d Basic Energy cards" % recover_count,
 		"items": discard_items,
 		"labels": discard_labels,
-		"min_select": 1,
+		"min_select": 0,
 		"max_select": mini(recover_count, discard_items.size()),
 		"allow_cancel": true,
 	})
@@ -75,6 +75,7 @@ func execute(card: CardInstance, targets: Array, state: GameState) -> void:
 		player.discard_pile.append(discarded)
 
 	var selected_raw: Array = ctx.get("recover_energy", [])
+	var has_explicit_selection: bool = ctx.has("recover_energy")
 	var selected_energy: Array[CardInstance] = []
 	for entry: Variant in selected_raw:
 		if entry is CardInstance and entry in player.discard_pile and _is_basic_energy(entry) and entry not in discarded_cost_cards:
@@ -82,7 +83,7 @@ func execute(card: CardInstance, targets: Array, state: GameState) -> void:
 			if selected_energy.size() >= recover_count:
 				break
 
-	if selected_energy.is_empty():
+	if selected_energy.is_empty() and not has_explicit_selection:
 		for discard_card: CardInstance in player.discard_pile:
 			if discard_card in discarded_cost_cards:
 				continue

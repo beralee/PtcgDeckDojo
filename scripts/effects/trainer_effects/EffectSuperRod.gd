@@ -16,7 +16,7 @@ func get_interaction_steps(card: CardInstance, state: GameState) -> Array[Dictio
 		"title": "选择最多3张宝可梦或基本能量放回牌库",
 		"items": items,
 		"labels": labels,
-		"min_select": 1,
+		"min_select": 0,
 		"max_select": mini(3, items.size()),
 		"allow_cancel": true,
 	}]
@@ -37,6 +37,7 @@ func execute(card: CardInstance, _targets: Array, state: GameState) -> void:
 
 	var to_return: Array[CardInstance] = []
 	var selected_raw: Array = ctx.get("cards_to_return", [])
+	var has_explicit_selection: bool = ctx.has("cards_to_return")
 	for c: Variant in selected_raw:
 		if c is CardInstance and c in player.discard_pile:
 			if c.card_data.is_pokemon() or c.card_data.card_type == "Basic Energy":
@@ -44,7 +45,7 @@ func execute(card: CardInstance, _targets: Array, state: GameState) -> void:
 				if to_return.size() >= 3:
 					break
 
-	if to_return.is_empty():
+	if to_return.is_empty() and not has_explicit_selection:
 		for c: CardInstance in player.discard_pile:
 			if to_return.size() >= 3:
 				break

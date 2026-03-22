@@ -140,6 +140,9 @@ func test_draw_to_n_family_behaviour() -> String:
 
 	var effect_three := AbilityDrawToN.new(3, true)
 	var slot := player.active_pokemon
+	state.current_player_index = 1
+	var can_use_on_opponent_turn: bool = effect_three.can_use_ability(slot, state)
+	state.current_player_index = 0
 	effect_three.execute_ability(slot, 0, [], state)
 
 	var state_five := _make_state()
@@ -153,6 +156,7 @@ func test_draw_to_n_family_behaviour() -> String:
 	effect_five.execute_ability(player_five.active_pokemon, 0, [], state_five)
 
 	return run_checks([
+		assert_false(can_use_on_opponent_turn, "AbilityDrawToN should only be usable during its controller's turn"),
 		assert_eq(player.hand.size(), 3, "AbilityDrawToN should draw up to three cards"),
 		assert_false(effect_three.can_use_ability(slot, state), "AbilityDrawToN should mark once-per-turn usage"),
 		assert_eq(player_five.hand.size(), 5, "AbilityDrawToN should also support draw-to-five variants"),
@@ -173,6 +177,13 @@ func test_thunderous_charge_and_bench_count_family_behaviour() -> String:
 
 	var draw_effect := AbilityThunderousCharge.new()
 	draw_effect.execute_ability(active_slot, 0, [], state)
+	var bench_slot := player.bench[0]
+	bench_slot.pokemon_stack.clear()
+	bench_slot.pokemon_stack.append(CardInstance.create(active_cd, 0))
+	var can_use_from_bench: bool = draw_effect.can_use_ability(bench_slot, state)
+	state.current_player_index = 1
+	var can_use_on_opponent_turn: bool = draw_effect.can_use_ability(active_slot, state)
+	state.current_player_index = 0
 
 	var damage_effect := AttackBenchCountDamage.new(20, "both")
 	var bonus_damage: int = damage_effect.get_damage_bonus(active_slot, state)
@@ -180,6 +191,8 @@ func test_thunderous_charge_and_bench_count_family_behaviour() -> String:
 	return run_checks([
 		assert_eq(player.hand.size(), 1, "AbilityThunderousCharge should draw one card"),
 		assert_true(active_slot.effects.any(func(e: Dictionary) -> bool: return e.get("type", "") == AbilityThunderousCharge.USED_FLAG_TYPE), "AbilityThunderousCharge should leave a once-per-turn flag"),
+		assert_false(can_use_from_bench, "AbilityThunderousCharge should require the Pokemon to be Active"),
+		assert_false(can_use_on_opponent_turn, "AbilityThunderousCharge should only be usable during its controller's turn"),
 		assert_eq(bonus_damage, 80, "AttackBenchCountDamage should count both benches"),
 	])
 
@@ -388,12 +401,32 @@ func test_draw_utility_families() -> String:
 		player.deck.append(CardInstance.create(_make_basic_pokemon_data("DrawUtil_%d" % i, "C"), 0))
 
 	var discard_draw := AbilityDiscardDraw.new(2)
+	state.current_player_index = 1
+	var discard_draw_on_opponent_turn: bool = discard_draw.can_use_ability(player.active_pokemon, state)
+	state.current_player_index = 0
 	discard_draw.execute_ability(player.active_pokemon, 0, [{
 		"discard_energy": [player.hand[0]],
 	}], state)
 
 	var end_turn_draw := AbilityEndTurnDraw.new(2)
 	end_turn_draw.execute_ability(player.active_pokemon, 0, [], state)
+
+	var bonus_state := _make_state()
+	var bonus_player: PlayerState = bonus_state.players[0]
+	bonus_player.hand.clear()
+	bonus_player.deck.clear()
+	bonus_player.deck.append(CardInstance.create(_make_basic_pokemon_data("BonusDrawActiveA", "C"), 0))
+	bonus_player.deck.append(CardInstance.create(_make_basic_pokemon_data("BonusDrawActiveB", "C"), 0))
+	bonus_player.deck.append(CardInstance.create(_make_basic_pokemon_data("BonusDrawBench", "C"), 0))
+	var bonus_effect := AbilityBonusDrawIfActive.new()
+	bonus_state.current_player_index = 1
+	var bonus_on_opponent_turn: bool = bonus_effect.can_use_ability(bonus_player.active_pokemon, bonus_state)
+	bonus_state.current_player_index = 0
+	bonus_effect.execute_ability(bonus_player.active_pokemon, 0, [], bonus_state)
+	var active_bonus_hand_size: int = bonus_player.hand.size()
+	var bench_slot := bonus_player.bench[0]
+	bench_slot.effects.clear()
+	bonus_effect.execute_ability(bench_slot, 0, [], bonus_state)
 
 	var shuffle_state := _make_state()
 	var shuffle_player: PlayerState = shuffle_state.players[0]
@@ -408,8 +441,12 @@ func test_draw_utility_families() -> String:
 	var blocks_bench := AbilityBenchProtect.new()
 
 	return run_checks([
+		assert_false(discard_draw_on_opponent_turn, "AbilityDiscardDraw should only be usable during its controller's turn"),
 		assert_eq(player.discard_pile.size(), 1, "AbilityDiscardDraw should discard one energy"),
 		assert_eq(player.hand.size(), 4, "AbilityDiscardDraw and AbilityEndTurnDraw should both increase hand size"),
+		assert_false(bonus_on_opponent_turn, "AbilityBonusDrawIfActive should only be usable during its controller's turn"),
+		assert_eq(active_bonus_hand_size, 2, "AbilityBonusDrawIfActive should draw 2 cards while Active"),
+		assert_eq(bonus_player.hand.size(), 3, "AbilityBonusDrawIfActive should draw 1 card while Benched"),
 		assert_true(end_turn_draw.has_end_turn_triggered(player.active_pokemon, state), "AbilityEndTurnDraw should leave an end-turn marker"),
 		assert_eq(shuffle_player.hand.size(), 1, "AbilityShuffleHandDraw should redraw to its configured count"),
 		assert_true(blocks_bench.blocks_bench_damage(), "AbilityBenchProtect should advertise bench protection"),
