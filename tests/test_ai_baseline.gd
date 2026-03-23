@@ -2,6 +2,7 @@ class_name TestAIBaseline
 extends TestBase
 
 const AIOpponentScript = preload("res://scripts/ai/AIOpponent.gd")
+const AISetupPlannerScript = preload("res://scripts/ai/AISetupPlanner.gd")
 const BattleSceneScript = preload("res://scenes/battle/BattleScene.gd")
 
 
@@ -40,16 +41,61 @@ class FollowupSchedulingSpyAIOpponent extends RefCounted:
 class SpyGameStateMachine extends GameStateMachine:
 	var retreat_calls: int = 0
 	var retreat_result: bool = true
+	var mulligan_resolve_calls: int = 0
+	var resolved_beneficiary: int = -1
+	var resolved_draw_extra: bool = false
 
 	func retreat(_player_index: int, _energy_to_discard: Array[CardInstance], _bench_target: PokemonSlot) -> bool:
 		retreat_calls += 1
 		return retreat_result
+
+	func resolve_mulligan_choice(beneficiary: int, draw_extra: bool) -> void:
+		mulligan_resolve_calls += 1
+		resolved_beneficiary = beneficiary
+		resolved_draw_extra = draw_extra
+
+
+class SpySetupBattleScene extends Control:
+	var _pending_choice: String = ""
+	var _dialog_data: Dictionary = {}
+	var after_setup_active_calls: Array[int] = []
+	var after_setup_bench_calls: Array[int] = []
+	var show_setup_bench_dialog_calls: Array[int] = []
+	var refresh_ui_calls: int = 0
+
+	func _after_setup_active(pi: int) -> void:
+		after_setup_active_calls.append(pi)
+
+	func _after_setup_bench(pi: int) -> void:
+		after_setup_bench_calls.append(pi)
+
+	func _show_setup_bench_dialog(pi: int) -> void:
+		show_setup_bench_dialog_calls.append(pi)
+
+	func _refresh_ui() -> void:
+		refresh_ui_calls += 1
 
 
 func _make_player_state(player_index: int) -> PlayerState:
 	var player := PlayerState.new()
 	player.player_index = player_index
 	return player
+
+
+func _make_basic(name: String) -> CardInstance:
+	var card := CardData.new()
+	card.name = name
+	card.card_type = "Pokemon"
+	card.stage = "Basic"
+	card.hp = 60
+	return CardInstance.create(card, 1)
+
+
+func _make_item(name: String) -> CardInstance:
+	var card := CardData.new()
+	card.name = name
+	card.card_type = "Item"
+	return CardInstance.create(card, 1)
 
 
 func _make_battle_scene_refresh_stub() -> Control:
@@ -126,6 +172,107 @@ func test_ai_opponent_instantiates() -> String:
 		assert_false(ai.should_control_turn(mismatched_state, false), "AI should not control the wrong player's turn"),
 		assert_true(ai.should_control_turn(matching_state, false), "AI should control the configured player's turn"),
 		assert_false(ai.run_single_step(null, null), "run_single_step() should remain a safe no-op"),
+	])
+
+
+func test_setup_planner_prefers_basic_active_and_fills_bench() -> String:
+	var planner := AISetupPlannerScript.new()
+	var player := PlayerState.new()
+	player.hand = [_make_basic("A"), _make_basic("B"), _make_item("Ball")]
+	var choice: Dictionary = planner.plan_opening_setup(player)
+	return run_checks([
+		assert_eq(choice.get("active_hand_index", -1), 0, "Should choose a Basic for active"),
+		assert_eq(choice.get("bench_hand_indices", []).size(), 1, "Should place extra Basic to bench"),
+	])
+
+
+func test_setup_planner_always_accepts_mulligan_bonus_draw() -> String:
+	var planner := AISetupPlannerScript.new()
+	return run_checks([
+		assert_true(planner.choose_mulligan_bonus_draw(), "Baseline AI should always take the draw"),
+	])
+
+
+func test_ai_opponent_routes_setup_active_prompt_through_setup_planner() -> String:
+	var ai := AIOpponentScript.new()
+	ai.configure(1, 1)
+	var scene := SpySetupBattleScene.new()
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.phase = GameState.GamePhase.SETUP
+	gsm.game_state.current_player_index = 1
+	gsm.game_state.players = [_make_player_state(0), _make_player_state(1)]
+	var player: PlayerState = gsm.game_state.players[1]
+	player.hand = [_make_basic("A"), _make_basic("B"), _make_item("Ball")]
+	scene.set("_gsm", gsm)
+	scene.set("_setup_done", [false, false])
+	scene.set("_view_player", 1)
+	scene.set("_pending_choice", "setup_active_1")
+	scene.set("_dialog_data", {
+		"basics": [player.hand[0], player.hand[1]],
+		"player": 1,
+	})
+
+	var handled := ai.run_single_step(scene, gsm)
+	return run_checks([
+		assert_true(handled, "AI should handle setup active prompts"),
+		assert_not_null(player.active_pokemon, "AI should place an active Pokemon during setup"),
+		assert_eq(player.active_pokemon.get_pokemon_name(), "A", "AI should choose the first available Basic as active"),
+		assert_eq(scene.after_setup_active_calls.size(), 1, "AI should advance the setup flow after placing the active Pokemon"),
+	])
+
+
+func test_ai_opponent_routes_setup_bench_prompt_through_setup_planner() -> String:
+	var ai := AIOpponentScript.new()
+	ai.configure(1, 1)
+	var scene := SpySetupBattleScene.new()
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.phase = GameState.GamePhase.SETUP
+	gsm.game_state.current_player_index = 1
+	gsm.game_state.players = [_make_player_state(0), _make_player_state(1)]
+	var player: PlayerState = gsm.game_state.players[1]
+	player.active_pokemon = PokemonSlot.new()
+	player.active_pokemon.pokemon_stack.append(_make_basic("Lead"))
+	player.hand = [_make_basic("Bench A"), _make_item("Ball")]
+	scene.set("_gsm", gsm)
+	scene.set("_setup_done", [false, false])
+	scene.set("_view_player", 1)
+	scene.set("_pending_choice", "setup_bench_1")
+	scene.set("_dialog_data", {
+		"cards": [player.hand[0]],
+		"player": 1,
+	})
+
+	var handled := ai.run_single_step(scene, gsm)
+	return run_checks([
+		assert_true(handled, "AI should handle setup bench prompts"),
+		assert_eq(player.bench.size(), 1, "AI should bench an extra Basic during setup"),
+		assert_eq(player.bench[0].get_pokemon_name(), "Bench A", "AI should choose the available Basic for bench"),
+		assert_eq(scene.refresh_ui_calls, 1, "AI should request a refresh after benching a Basic"),
+		assert_eq(scene.show_setup_bench_dialog_calls.size(), 1, "AI should continue the bench setup flow after a successful bench placement"),
+	])
+
+
+func test_ai_opponent_accepts_mulligan_bonus_draw_prompt() -> String:
+	var ai := AIOpponentScript.new()
+	ai.configure(1, 1)
+	var scene := BattleSceneScript.new()
+	var gsm := SpyGameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.phase = GameState.GamePhase.SETUP
+	gsm.game_state.current_player_index = 1
+	gsm.game_state.players = [_make_player_state(0), _make_player_state(1)]
+	scene.set("_gsm", gsm)
+	scene.set("_pending_choice", "mulligan_extra_draw")
+	scene.set("_dialog_data", {"beneficiary": 1})
+
+	var handled := ai.run_single_step(scene, gsm)
+	return run_checks([
+		assert_true(handled, "AI should handle mulligan bonus-draw prompts"),
+		assert_eq(gsm.mulligan_resolve_calls, 1, "AI should resolve mulligan choice exactly once"),
+		assert_eq(gsm.resolved_beneficiary, 1, "AI should resolve the configured mulligan beneficiary"),
+		assert_eq(gsm.resolved_draw_extra, true, "Baseline AI should always accept the extra draw"),
 	])
 
 
