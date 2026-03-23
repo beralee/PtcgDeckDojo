@@ -28,6 +28,7 @@ func test_ai_opponent_instantiates() -> String:
 	return run_checks([
 		assert_eq(ai.player_index, 0, "configure() should update player_index"),
 		assert_eq(ai.difficulty, 3, "configure() should update difficulty"),
+		assert_false(ai.should_control_turn(null, false), "null game_state should prevent AI turn control"),
 		assert_false(ai.should_control_turn(blocked_state, true), "ui_blocked should prevent AI turn control"),
 		assert_false(ai.should_control_turn(mismatched_state, false), "AI should not control the wrong player's turn"),
 		assert_true(ai.should_control_turn(matching_state, false), "AI should control the configured player's turn"),
