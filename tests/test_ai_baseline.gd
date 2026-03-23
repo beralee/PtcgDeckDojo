@@ -305,6 +305,30 @@ func test_battle_scene_failed_retreat_does_not_schedule_ai() -> String:
 	])
 
 
+func test_battle_scene_take_prize_prompt_blocks_ai_scheduling() -> String:
+	var previous_mode: int = GameManager.current_mode
+	var scene := _make_battle_scene_refresh_stub()
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 1
+	gsm.game_state.turn_number = 2
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	gsm.game_state.players = [_make_player_state(0), _make_player_state(1)]
+	var spy_ai := SpyAIOpponent.new()
+	GameManager.current_mode = GameManager.GameMode.VS_AI
+	scene.set("_gsm", gsm)
+	scene._setup_ai_for_tests()
+	scene.set("_ai_opponent", spy_ai)
+	scene._on_player_choice_required("take_prize", {"player": 1, "count": 1})
+	var scheduled_during_prize_choice: bool = scene.get("_ai_step_scheduled")
+	GameManager.current_mode = previous_mode
+	return run_checks([
+		assert_eq(str(scene.get("_pending_choice")), "take_prize", "Prize prompt should leave take_prize pending"),
+		assert_false(scheduled_during_prize_choice, "AI should not schedule while prize selection is pending"),
+		assert_eq(spy_ai.run_count, 0, "Prize prompt should not run the AI"),
+	])
+
+
 func test_battle_scene_does_not_schedule_ai_when_mode_turn_or_ui_block_it() -> String:
 	var previous_mode: int = GameManager.current_mode
 	var scene := BattleSceneScript.new()

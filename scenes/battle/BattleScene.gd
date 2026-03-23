@@ -3216,6 +3216,7 @@ func _is_ui_blocking_ai() -> bool:
 	return (
 		(_dialog_overlay != null and _dialog_overlay.visible)
 		or (_handover_panel != null and _handover_panel.visible)
+		or _pending_choice == "take_prize"
 		or _pending_prize_animating
 		or (_field_interaction_overlay != null and _field_interaction_overlay.visible)
 	)
