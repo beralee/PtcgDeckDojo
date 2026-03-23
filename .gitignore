@@ -4,6 +4,7 @@
 
 .claude/
 .codex/
+.worktrees/
 
 *.log
 *.tmp
