@@ -50,6 +50,7 @@ var _pending_prize_animating: bool = false
 var _ai_opponent = null
 var _ai_running: bool = false
 var _ai_step_scheduled: bool = false
+var _ai_followup_requested: bool = false
 
 var _field_interaction_overlay: Control = null
 var _field_interaction_layout: VBoxContainer = null
@@ -2659,8 +2660,8 @@ func _handle_dialog_choice(selected_indices: PackedInt32Array) -> void:
 				if e is CardInstance:
 					energy_discard.append(e)
 			if idx < bench_rb.size():
-				_gsm.retreat(cp, energy_discard, bench_rb[idx])
-				_refresh_ui_after_successful_action()
+				if _gsm.retreat(cp, energy_discard, bench_rb[idx]):
+					_refresh_ui_after_successful_action()
 		"confirm_exit":
 			if idx == 0:
 				GameManager.goto_battle_setup()
@@ -3201,6 +3202,7 @@ func _setup_ai_for_tests() -> void:
 	_pending_prize_animating = false
 	_ai_running = false
 	_ai_step_scheduled = false
+	_ai_followup_requested = false
 	_ai_opponent = null
 
 
@@ -3229,7 +3231,11 @@ func _is_ai_turn_ready() -> bool:
 
 
 func _maybe_run_ai() -> void:
-	if _ai_running or _ai_step_scheduled or not _is_ai_turn_ready():
+	if _ai_running:
+		if _is_ai_turn_ready():
+			_ai_followup_requested = true
+		return
+	if _ai_step_scheduled or not _is_ai_turn_ready():
 		return
 	_ai_step_scheduled = true
 	call_deferred("_run_ai_step")
@@ -3242,9 +3248,14 @@ func _run_ai_step() -> void:
 	if not _is_ai_turn_ready():
 		return
 	_ai_running = true
+	_ai_followup_requested = false
 	_ensure_ai_opponent()
 	_ai_opponent.run_single_step(self, _gsm)
 	_ai_running = false
+	if _ai_followup_requested and not _ai_step_scheduled and _is_ai_turn_ready():
+		_ai_step_scheduled = true
+		call_deferred("_run_ai_step")
+	_ai_followup_requested = false
 
 
 func _on_hand_card_clicked(inst: CardInstance, _panel: PanelContainer) -> void:

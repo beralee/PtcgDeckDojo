@@ -20,12 +20,30 @@ class SpyAIOpponent extends RefCounted:
 		return true
 
 
+class FollowupSchedulingSpyAIOpponent extends RefCounted:
+	var player_index: int = 1
+	var difficulty: int = 1
+	var run_count: int = 0
+
+	func should_control_turn(game_state: GameState, ui_blocked: bool) -> bool:
+		if game_state == null or ui_blocked:
+			return false
+		return game_state.current_player_index == player_index
+
+	func run_single_step(battle_scene: Control, _gsm: GameStateMachine) -> bool:
+		run_count += 1
+		if run_count == 1:
+			battle_scene._refresh_ui_after_successful_action()
+		return true
+
+
 class SpyGameStateMachine extends GameStateMachine:
 	var retreat_calls: int = 0
+	var retreat_result: bool = true
 
 	func retreat(_player_index: int, _energy_to_discard: Array[CardInstance], _bench_target: PokemonSlot) -> bool:
 		retreat_calls += 1
-		return true
+		return retreat_result
 
 
 func _make_player_state(player_index: int) -> PlayerState:
@@ -227,6 +245,63 @@ func test_battle_scene_retreat_action_path_schedules_ai_after_success() -> Strin
 	return run_checks([
 		assert_eq(gsm.retreat_calls, 1, "Retreat action path should call GameStateMachine.retreat"),
 		assert_true(scheduled_after_retreat, "Successful retreat action path should schedule the AI"),
+	])
+
+
+func test_battle_scene_running_ai_can_queue_followup_step_from_success_hook() -> String:
+	var previous_mode: int = GameManager.current_mode
+	var scene := _make_battle_scene_refresh_stub()
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 1
+	gsm.game_state.turn_number = 2
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	gsm.game_state.players = [_make_player_state(0), _make_player_state(1)]
+	var spy_ai := FollowupSchedulingSpyAIOpponent.new()
+	GameManager.current_mode = GameManager.GameMode.VS_AI
+	scene.set("_gsm", gsm)
+	scene._setup_ai_for_tests()
+	scene.set("_ai_opponent", spy_ai)
+	scene._maybe_run_ai()
+	scene._run_ai_step()
+	var scheduled_followup: bool = scene.get("_ai_step_scheduled")
+	GameManager.current_mode = previous_mode
+	return run_checks([
+		assert_eq(spy_ai.run_count, 1, "The first AI step should run"),
+		assert_true(scheduled_followup, "A success hook during AI execution should queue one follow-up step"),
+	])
+
+
+func test_battle_scene_failed_retreat_does_not_schedule_ai() -> String:
+	var previous_mode: int = GameManager.current_mode
+	var scene := _make_battle_scene_refresh_stub()
+	var gsm := SpyGameStateMachine.new()
+	gsm.retreat_result = false
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 1
+	gsm.game_state.turn_number = 2
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	gsm.game_state.players = [_make_player_state(0), _make_player_state(1)]
+	var bench_target := PokemonSlot.new()
+	bench_target.pokemon_stack.append(CardInstance.create(CardData.new(), 1))
+	var spy_ai := SpyAIOpponent.new()
+	GameManager.current_mode = GameManager.GameMode.VS_AI
+	scene.set("_gsm", gsm)
+	scene._setup_ai_for_tests()
+	scene.set("_ai_opponent", spy_ai)
+	scene.set("_pending_choice", "retreat_bench")
+	scene.set("_dialog_data", {
+		"player": 1,
+		"bench": [bench_target],
+		"energy_discard": [],
+	})
+	scene._handle_dialog_choice(PackedInt32Array([0]))
+	var scheduled_after_retreat: bool = scene.get("_ai_step_scheduled")
+	GameManager.current_mode = previous_mode
+	return run_checks([
+		assert_eq(gsm.retreat_calls, 1, "Failed retreat path should still call GameStateMachine.retreat"),
+		assert_false(scheduled_after_retreat, "Failed retreat should not schedule the AI"),
+		assert_eq(spy_ai.run_count, 0, "Failed retreat should not run the AI"),
 	])
 
 
