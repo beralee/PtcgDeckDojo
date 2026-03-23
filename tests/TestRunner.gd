@@ -10,6 +10,7 @@ const TestMissingCardBatch202603 = preload("res://tests/test_missing_card_batch_
 const TestBattleUIHandoverRegression = preload("res://tests/test_battle_ui_handover_regression.gd")
 const TestAttackSearchAndAttachRegression = preload("res://tests/test_attack_search_and_attach_regression.gd")
 const TestGardevoirDeck = preload("res://tests/test_gardevoir_deck.gd")
+const TestAIBaseline = preload("res://tests/test_ai_baseline.gd")
 
 @onready var result_label: RichTextLabel = %ResultLabel
 @onready var summary_label: Label = %SummaryLabel
@@ -45,6 +46,7 @@ func _ready() -> void:
 	_run_test_suite("BattleUIHandoverRegression", TestBattleUIHandoverRegression.new())
 	_run_test_suite("AttackSearchAndAttachRegression", TestAttackSearchAndAttachRegression.new())
 	_run_test_suite("GardevoirDeck", TestGardevoirDeck.new())
+	_run_test_suite("AIBaseline", TestAIBaseline.new())
 	_run_test_suite("CardCatalogAudit", TestCardCatalogAudit.new())
 	_run_test_suite("SourceEncodingAudit", TestSourceEncodingAudit.new())
 
