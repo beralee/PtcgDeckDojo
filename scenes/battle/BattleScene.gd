@@ -1107,6 +1107,7 @@ func _show_setup_active_dialog(pi: int) -> void:
 		"choice_labels": items,
 	})
 	_dialog_cancel.visible = false
+	_maybe_run_ai()
 
 
 func _after_setup_active(pi: int) -> void:
@@ -1140,6 +1141,7 @@ func _show_setup_bench_dialog(pi: int) -> void:
 		"utility_actions": [{"label": "完成", "index": 0}],
 	})
 	_dialog_cancel.visible = false
+	_maybe_run_ai()
 
 
 func _after_setup_bench(pi: int) -> void:
@@ -3212,9 +3214,26 @@ func _ensure_ai_opponent() -> void:
 		_ai_opponent.configure(1, GameManager.ai_difficulty)
 
 
-func _is_ui_blocking_ai() -> bool:
+func _is_ai_setup_prompt(pending_choice: String = _pending_choice) -> bool:
 	return (
-		(_dialog_overlay != null and _dialog_overlay.visible)
+		pending_choice == "mulligan_extra_draw"
+		or pending_choice.begins_with("setup_active_")
+		or pending_choice.begins_with("setup_bench_")
+	)
+
+
+func _get_ai_prompt_player_index() -> int:
+	if _pending_choice == "mulligan_extra_draw":
+		return int(_dialog_data.get("beneficiary", -1))
+	if _pending_choice.begins_with("setup_active_") or _pending_choice.begins_with("setup_bench_"):
+		return int(_pending_choice.split("_")[-1])
+	return -1
+
+
+func _is_ui_blocking_ai() -> bool:
+	var dialog_blocks_ai := _dialog_overlay != null and _dialog_overlay.visible and not _is_ai_setup_prompt()
+	return (
+		dialog_blocks_ai
 		or (_handover_panel != null and _handover_panel.visible)
 		or _pending_choice == "take_prize"
 		or _pending_prize_animating
@@ -3228,6 +3247,10 @@ func _is_ai_turn_ready() -> bool:
 	if _gsm == null:
 		return false
 	_ensure_ai_opponent()
+	if _is_ai_setup_prompt():
+		if _is_ui_blocking_ai():
+			return false
+		return _get_ai_prompt_player_index() == _ai_opponent.player_index
 	return _ai_opponent.should_control_turn(_gsm.game_state, _is_ui_blocking_ai())
 
 

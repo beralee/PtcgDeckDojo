@@ -127,6 +127,20 @@ func _make_battle_scene_refresh_stub() -> Control:
 	battle_scene.set("_my_lost_value", Label.new())
 	battle_scene.set("_hand_container", HBoxContainer.new())
 	battle_scene.set("_dialog_overlay", Panel.new())
+	battle_scene.set("_dialog_title", Label.new())
+	battle_scene.set("_dialog_list", ItemList.new())
+	battle_scene.set("_dialog_card_scroll", ScrollContainer.new())
+	battle_scene.set("_dialog_card_row", HBoxContainer.new())
+	battle_scene.set("_dialog_assignment_panel", VBoxContainer.new())
+	battle_scene.set("_dialog_assignment_summary_lbl", Label.new())
+	battle_scene.set("_dialog_assignment_source_scroll", ScrollContainer.new())
+	battle_scene.set("_dialog_assignment_target_scroll", ScrollContainer.new())
+	battle_scene.set("_dialog_assignment_source_row", HBoxContainer.new())
+	battle_scene.set("_dialog_assignment_target_row", HBoxContainer.new())
+	battle_scene.set("_dialog_status_lbl", Label.new())
+	battle_scene.set("_dialog_utility_row", HBoxContainer.new())
+	battle_scene.set("_dialog_confirm", Button.new())
+	battle_scene.set("_dialog_cancel", Button.new())
 	battle_scene.set("_handover_panel", Panel.new())
 	battle_scene.set("_coin_overlay", Panel.new())
 	battle_scene.set("_detail_overlay", Panel.new())
@@ -140,6 +154,12 @@ func _make_battle_scene_refresh_stub() -> Control:
 	battle_scene.set("_opp_prize_slots", [])
 	battle_scene.set("_my_prize_slots", [])
 	return battle_scene
+
+
+func _make_setup_ready_battle_scene() -> Control:
+	var scene := _make_battle_scene_refresh_stub()
+	scene._setup_ai_for_tests()
+	return scene
 
 
 func test_ai_opponent_instantiates() -> String:
@@ -273,6 +293,79 @@ func test_ai_opponent_accepts_mulligan_bonus_draw_prompt() -> String:
 		assert_eq(gsm.mulligan_resolve_calls, 1, "AI should resolve mulligan choice exactly once"),
 		assert_eq(gsm.resolved_beneficiary, 1, "AI should resolve the configured mulligan beneficiary"),
 		assert_eq(gsm.resolved_draw_extra, true, "Baseline AI should always accept the extra draw"),
+	])
+
+
+func test_battle_scene_schedules_ai_for_mulligan_setup_prompt() -> String:
+	var previous_mode: int = GameManager.current_mode
+	var scene := _make_setup_ready_battle_scene()
+	var gsm := SpyGameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.phase = GameState.GamePhase.SETUP
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.players = [_make_player_state(0), _make_player_state(1)]
+	GameManager.current_mode = GameManager.GameMode.VS_AI
+	scene.set("_gsm", gsm)
+	scene._on_player_choice_required("mulligan_extra_draw", {"beneficiary": 1, "mulligan_count": 1})
+	var scheduled_after_prompt: bool = scene.get("_ai_step_scheduled")
+	scene._run_ai_step()
+	GameManager.current_mode = previous_mode
+	return run_checks([
+		assert_true(scene.get("_dialog_overlay").visible, "Mulligan prompt should show the dialog overlay"),
+		assert_true(scheduled_after_prompt, "BattleScene should schedule AI for its mulligan setup prompt"),
+		assert_eq(gsm.mulligan_resolve_calls, 1, "BattleScene should drive the AI mulligan choice through the real scheduling path"),
+		assert_eq(gsm.resolved_beneficiary, 1, "BattleScene should pass the mulligan beneficiary through unchanged"),
+		assert_true(gsm.resolved_draw_extra, "Baseline AI should still accept the mulligan bonus draw"),
+	])
+
+
+func test_battle_scene_schedules_ai_for_setup_active_prompt_target_player() -> String:
+	var previous_mode: int = GameManager.current_mode
+	var scene := _make_setup_ready_battle_scene()
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.phase = GameState.GamePhase.SETUP
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.players = [_make_player_state(0), _make_player_state(1)]
+	var player: PlayerState = gsm.game_state.players[1]
+	player.hand = [_make_basic("A"), _make_basic("B"), _make_item("Ball")]
+	GameManager.current_mode = GameManager.GameMode.VS_AI
+	scene.set("_gsm", gsm)
+	scene._show_setup_active_dialog(1)
+	var scheduled_after_prompt: bool = scene.get("_ai_step_scheduled")
+	scene._run_ai_step()
+	GameManager.current_mode = previous_mode
+	return run_checks([
+		assert_true(scene.get("_dialog_overlay").visible, "Setup active prompt should show the dialog overlay"),
+		assert_true(scheduled_after_prompt, "BattleScene should schedule AI for setup_active prompts owned by the AI"),
+		assert_not_null(player.active_pokemon, "AI should place its active Pokemon through BattleScene scheduling"),
+		assert_eq(player.active_pokemon.get_pokemon_name(), "A", "AI should still choose the first available Basic as active"),
+	])
+
+
+func test_battle_scene_schedules_ai_for_setup_bench_prompt_target_player() -> String:
+	var previous_mode: int = GameManager.current_mode
+	var scene := _make_setup_ready_battle_scene()
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.phase = GameState.GamePhase.SETUP
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.players = [_make_player_state(0), _make_player_state(1)]
+	var player: PlayerState = gsm.game_state.players[1]
+	player.active_pokemon = PokemonSlot.new()
+	player.active_pokemon.pokemon_stack.append(_make_basic("Lead"))
+	player.hand = [_make_basic("Bench A"), _make_item("Ball")]
+	GameManager.current_mode = GameManager.GameMode.VS_AI
+	scene.set("_gsm", gsm)
+	scene._show_setup_bench_dialog(1)
+	var scheduled_after_prompt: bool = scene.get("_ai_step_scheduled")
+	scene._run_ai_step()
+	GameManager.current_mode = previous_mode
+	return run_checks([
+		assert_true(scene.get("_dialog_overlay").visible, "Setup bench prompt should show the dialog overlay"),
+		assert_true(scheduled_after_prompt, "BattleScene should schedule AI for setup_bench prompts owned by the AI"),
+		assert_eq(player.bench.size(), 1, "AI should place a bench Pokemon through BattleScene scheduling"),
+		assert_eq(player.bench[0].get_pokemon_name(), "Bench A", "AI should choose the available Basic for bench"),
 	])
 
 
