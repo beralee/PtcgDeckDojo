@@ -41,6 +41,14 @@ Phase 2 的目标分为两层。
 
 该 runner 不依赖 `BattleScene` 的可视 UI，不通过 UI 点击驱动决策，而是复用现有规则接口和 interaction-step 协议推进对局。
 
+对 planner 而言，Phase 2 的 runner 目标还应明确到“谁来推进哪个阶段”：
+
+1. `start_game / mulligan / setup / take_prize / send_out` 由 headless bridge 消费规则层 prompt 并推进
+2. `DRAW / MAIN` 阶段由共享 AI 选择动作并执行
+3. `attack` 的发起由共享 AI 决定，后续 interaction step 仍由现有 `AIStepResolver` 处理
+4. `pokemon check` 和 KO 结算仍由 `GameStateMachine` 负责，runner 只负责消费其后续 prompt
+5. runner 必须能区分“规则层自然推进”与“等待 AI / bridge 继续推进”的边界，不允许靠 action cap 硬兜底代替正确推进
+
 ### 2.2 Benchmark 目标
 
 在稳定 runner 之上，建立固定 benchmark 套件，先锁定三套牌组：
@@ -152,6 +160,46 @@ Phase 2 顺序：
 
 这里的目标是“体现 deck identity”，不是“每局都打得像高手”。
 
+为避免 Phase 2 的 benchmark 实现口径漂移，deck identity 在第一版必须落成明确的布尔事件和通过阈值。
+
+建议规则：
+
+1. 每局记录一组 `identity_hits`
+2. 每个 `identity_hit` 都是布尔值，不做主观评分
+3. 每个 pairing summary 聚合出对应 hit rate
+4. Phase 2 的验收阈值统一为：
+   - 单套牌组在固定 seed benchmark 中，至少有 30% 的对局命中每个“核心 identity event”
+   - 如果某个事件命中率低于 30%，视为该牌组 identity 未稳定体现
+
+第一版 identity event 定义如下。
+
+密勒顿：
+
+1. `miraidon_bench_developed`
+   - 定义：在某个时点，己方场上存在至少 3 只宝可梦，且其中至少 2 只是雷属性基础宝可梦
+2. `electric_generator_resolved`
+   - 定义：本局内至少成功结算过 1 次 `电气发生器`
+3. `miraidon_attack_ready`
+   - 定义：本局内至少有 1 次由密勒顿系主攻手成功发起攻击
+
+沙奈朵：
+
+1. `gardevoir_stage2_online`
+   - 定义：本局内至少有 1 次场上成功出现 `沙奈朵 ex`
+2. `psychic_embrace_resolved`
+   - 定义：本局内至少成功结算过 1 次 `精神拥抱`
+3. `gardevoir_energy_loop_online`
+   - 定义：本局内至少出现过一次“从弃牌区附能到场上宝可梦后，该宝可梦在同局后续成功发起攻击”
+
+喷火龙 ex：
+
+1. `charizard_stage2_online`
+   - 定义：本局内至少有 1 次场上成功出现 `喷火龙 ex`
+2. `charizard_evolution_support_used`
+   - 定义：本局内至少成功结算过 1 次关键演化支撑资源，第一版限定为 `神奇糖果` 或直接进化到 `火恐龙 / 喷火龙 ex`
+3. `charizard_attack_ready`
+   - 定义：本局内至少有 1 次由喷火龙 ex 成功发起攻击
+
 ## 6. 系统拆分
 
 Phase 2 建议拆成四个子系统。
@@ -164,12 +212,23 @@ Phase 2 建议拆成四个子系统。
 2. 消费 `player_choice_required`
 3. 驱动 `mulligan / setup / take_prize / send_out`
 4. 在没有 `BattleScene` 可视 UI 的情况下继续推进对局
+5. 提供一个明确的 headless step loop，决定当前是由 bridge 推进 prompt、由 AI 决策动作，还是等待规则层自然结算
 
 约束：
 
 1. 不引入 AI 专用规则
 2. 不把决策逻辑塞进 bridge
 3. 只处理对局推进和 prompt 接线
+
+Phase 2 中，planner 必须将 headless step loop 写清楚，推荐推进顺序如下：
+
+1. 若当前存在 pending prompt：
+   - 若是 `mulligan / setup / take_prize / send_out` 这类 bridge-owned prompt，则由 bridge 直接处理
+   - 若是 interaction-step prompt，则交给当前 prompt owner 对应的 AI 通过 `AIStepResolver` 处理
+2. 若当前无 pending prompt：
+   - 若 phase 为 `DRAW / MAIN`，则由当前行动方 AI 执行一步
+   - 若 phase 由规则层自动推进，则等待 `GameStateMachine` 继续结算，不另造 runner 规则
+3. 每个 step 必须产出“是否取得进展”的判定，供 stalled 检测使用
 
 说明：
 
@@ -287,6 +346,18 @@ Phase 2 的推荐数据流：
 
 JSON 是主产物，文本摘要是辅助手段。
 
+`identity_hits` 的结构在 Phase 2 第一版中必须是稳定的键值表，不允许每个 benchmark case 临时自定义格式。推荐为：
+
+```json
+{
+  "miraidon_bench_developed": true,
+  "electric_generator_resolved": false,
+  "miraidon_attack_ready": true
+}
+```
+
+若某局不适用某牌组事件，则该键不出现；聚合层只统计适用键。
+
 ## 9. 失败分类
 
 Phase 2 必须区分“AI 决策弱”和“runner / 交互层坏了”。
@@ -345,6 +416,24 @@ Phase 2 测试分三层。
 3. JSON 输出结构稳定
 4. 文本摘要可生成
 5. 同一 benchmark 配置可用于新旧 AI 版本回归比较
+
+Phase 2 第一版的最小回归契约必须明确为：
+
+1. 固定 seed 集：`[11, 29, 47, 83]`
+2. 固定 pairing：
+   - `Miraidon vs Gardevoir`
+   - `Miraidon vs Charizard ex`
+   - `Gardevoir vs Charizard ex`
+3. 每个 pairing 至少运行：
+   - 双方交换先手各 2 局
+   - 合计每个 pairing 最少 8 局
+4. 以下任一条件触发即视为 regression failure：
+   - 任一 pairing 出现 `stalled_no_progress`
+   - 任一 pairing 的 `action_cap_reached` 占比大于 0
+   - 任一 pairing 无法产出合法 JSON summary
+   - 任一牌组的任一核心 identity event 命中率为 0
+
+这里的回归门槛故意偏保守，目标是 Phase 2 先锁 runner 和 benchmark 可用性，而不是过早对胜率数值本身设硬门槛。
 
 ## 11. Phase 2 初始 Benchmark 套件
 
