@@ -245,11 +245,22 @@ Phase 1 的 `AIBenchmarkRunner.HeadlessBattleBridge` 可以作为起点，但 Ph
 
 1. `deck_a`
 2. `deck_b`
-3. `shared_agent_config`
-4. `seed_set`
-5. `match_count`
-6. `identity_checks`
-7. `expected_stability`
+3. `comparison_mode`
+4. `agent_a_config`
+5. `agent_b_config`
+6. `seed_set`
+7. `match_count`
+8. `identity_checks`
+9. `expected_stability`
+
+约束：
+
+1. Phase 2 默认 `comparison_mode = shared_agent_mirror`
+   - 表示同一个共享 AI 配置驾驶双方不同牌组
+2. 必须保留 `comparison_mode = version_regression`
+   - 表示 `agent_a_config` 与 `agent_b_config` 可以指向不同 AI 版本
+3. 即使在共享 AI 模式下，也推荐显式保留 `agent_a_config / agent_b_config` 字段
+   - 这样结果 schema 与 runner API 不需要在 Phase 3 再改一次
 
 ### 6.3 BenchmarkEvaluator
 
@@ -331,6 +342,7 @@ Phase 2 的推荐数据流：
 9. `cap_termination_rate`
 10. `failure_breakdown`
 11. `identity_check_pass_rate`
+12. `identity_event_breakdown`
 
 ### 8.3 文本摘要
 
@@ -357,6 +369,20 @@ JSON 是主产物，文本摘要是辅助手段。
 ```
 
 若某局不适用某牌组事件，则该键不出现；聚合层只统计适用键。
+
+`identity_event_breakdown` 的聚合结构在 pairing summary 中也必须固定，推荐至少包含：
+
+```json
+{
+  "electric_generator_resolved": {
+    "applicable_matches": 8,
+    "hit_matches": 5,
+    "hit_rate": 0.625
+  }
+}
+```
+
+`identity_check_pass_rate` 只作为总览字段，真正用于回归门槛判断的是 `identity_event_breakdown` 中每个事件自己的 `hit_rate`。
 
 ## 9. 失败分类
 
@@ -431,7 +457,16 @@ Phase 2 第一版的最小回归契约必须明确为：
    - 任一 pairing 出现 `stalled_no_progress`
    - 任一 pairing 的 `action_cap_reached` 占比大于 0
    - 任一 pairing 无法产出合法 JSON summary
-   - 任一牌组的任一核心 identity event 命中率为 0
+   - 任一牌组的任一核心 identity event 在 `identity_event_breakdown` 中的 `hit_rate` 低于 0.30
+
+此外，Phase 2 的回归套件必须至少包含两类运行模式：
+
+1. `shared_agent_mirror`
+   - 同一个共享 AI 驾驶双方不同牌组
+2. `version_regression`
+   - `agent_a_config` 与 `agent_b_config` 可指向新旧不同 AI 版本
+
+第二类在 Phase 2 中不要求大规模铺开，但结果契约和 runner API 必须从一开始能表达它。
 
 这里的回归门槛故意偏保守，目标是 Phase 2 先锁 runner 和 benchmark 可用性，而不是过早对胜率数值本身设硬门槛。
 
