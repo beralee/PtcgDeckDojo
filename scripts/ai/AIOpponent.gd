@@ -7,6 +7,7 @@ const AIFeatureExtractorScript = preload("res://scripts/ai/AIFeatureExtractor.gd
 const AIStepResolverScript = preload("res://scripts/ai/AIStepResolver.gd")
 const AIHeuristicsScript = preload("res://scripts/ai/AIHeuristics.gd")
 const AIDecisionTraceScript = preload("res://scripts/ai/AIDecisionTrace.gd")
+const MCTSPlannerScript = preload("res://scripts/ai/MCTSPlanner.gd")
 
 var player_index: int = 1
 var difficulty: int = 1
@@ -18,6 +19,11 @@ var _heuristics = AIHeuristicsScript.new()
 var _planned_setup_bench_ids: Array[int] = []
 var _last_legal_actions: Array[Dictionary] = []
 var _last_decision_trace = null
+var use_mcts: bool = false
+var mcts_config: Dictionary = {}
+var _mcts_planner = MCTSPlannerScript.new()
+var _mcts_planned_sequence: Array = []
+var _mcts_sequence_index: int = 0
 
 
 func configure(next_player_index: int, next_difficulty: int) -> void:
@@ -164,6 +170,10 @@ func _find_next_planned_bench_card(player: PlayerState, available_cards: Array[C
 
 
 func _choose_best_action(gsm: GameStateMachine) -> Dictionary:
+	## MCTS 模式：使用预规划序列
+	if use_mcts:
+		return _choose_mcts_action(gsm)
+	## 原有 heuristic 逻辑
 	var actions: Array[Dictionary] = get_legal_actions(gsm)
 	var trace = AIDecisionTraceScript.new()
 	trace.turn_number = int(gsm.game_state.turn_number) if gsm != null and gsm.game_state != null else -1
@@ -373,3 +383,145 @@ func _clear_consumed_prompt(battle_scene: Control) -> void:
 		return
 	battle_scene.set("_pending_choice", "")
 	battle_scene.set("_dialog_data", {})
+
+
+func _choose_mcts_action(gsm: GameStateMachine) -> Dictionary:
+	## 如果还有预规划的序列动作，继续执行
+	if _mcts_sequence_index < _mcts_planned_sequence.size():
+		var planned_action: Dictionary = _mcts_planned_sequence[_mcts_sequence_index]
+		_mcts_sequence_index += 1
+		var resolved := _resolve_mcts_action(gsm, planned_action)
+		if not resolved.is_empty():
+			return resolved
+		## 解析失败，清空序列并回退到 heuristic
+		_mcts_planned_sequence.clear()
+		_mcts_sequence_index = 0
+		return _choose_heuristic_action(gsm)
+	## 否则规划新序列
+	_mcts_planned_sequence = _mcts_planner.plan_turn(gsm, player_index, mcts_config)
+	_mcts_sequence_index = 0
+	if _mcts_planned_sequence.is_empty():
+		return {"kind": "end_turn"}
+	var planned_action: Dictionary = _mcts_planned_sequence[_mcts_sequence_index]
+	_mcts_sequence_index += 1
+	var resolved := _resolve_mcts_action(gsm, planned_action)
+	if not resolved.is_empty():
+		return resolved
+	## 解析失败，清空序列并回退到 heuristic
+	_mcts_planned_sequence.clear()
+	_mcts_sequence_index = 0
+	return _choose_heuristic_action(gsm)
+
+
+func _choose_heuristic_action(gsm: GameStateMachine) -> Dictionary:
+	## 与原 _choose_best_action 中的 heuristic 分支相同的逻辑
+	var actions: Array[Dictionary] = get_legal_actions(gsm)
+	var trace = AIDecisionTraceScript.new()
+	trace.turn_number = int(gsm.game_state.turn_number) if gsm != null and gsm.game_state != null else -1
+	trace.player_index = player_index
+	trace.legal_actions = actions.duplicate(true)
+	if actions.is_empty():
+		_last_decision_trace = trace
+		return {}
+	var best_action: Dictionary = {}
+	var best_score := -INF
+	var best_scored_action: Dictionary = {}
+	for action: Dictionary in actions:
+		var scored_action: Dictionary = _augment_action_for_scoring(gsm, action)
+		var score_context := {
+			"gsm": gsm,
+			"game_state": gsm.game_state,
+			"player_index": player_index,
+			"action": scored_action,
+			"features": _feature_extractor.build_context(gsm, player_index, scored_action),
+		}
+		var score: float = _heuristics.score_action(scored_action, score_context)
+		var trace_scored_action: Dictionary = scored_action.duplicate(true)
+		trace_scored_action["score"] = score
+		trace.scored_actions.append(trace_scored_action)
+		if best_action.is_empty() or score > best_score:
+			best_action = action
+			best_score = score
+			best_scored_action = trace_scored_action
+	trace.chosen_action = best_scored_action.duplicate(true)
+	if best_scored_action.has("reason_tags") and best_scored_action.get("reason_tags") is Array:
+		for tag_variant: Variant in best_scored_action.get("reason_tags", []):
+			trace.reason_tags.append(str(tag_variant))
+	if trace.reason_tags.is_empty() and trace.chosen_action.has("reason_tags") and trace.chosen_action.get("reason_tags") is Array:
+		for tag_variant: Variant in trace.chosen_action.get("reason_tags", []):
+			trace.reason_tags.append(str(tag_variant))
+	_last_decision_trace = trace
+	return best_action
+
+
+func _resolve_mcts_action(gsm: GameStateMachine, planned_action: Dictionary) -> Dictionary:
+	## 将 MCTS 序列中的序列化动作解析到当前真实 gsm 的对象上。
+	## 策略：在当前合法动作中按 kind + 关键字段匹配。
+	var kind: String = str(planned_action.get("kind", ""))
+
+	## end_turn 不需要解析
+	if kind == "end_turn":
+		return {"kind": "end_turn"}
+
+	## 获取当前合法动作
+	var legal_actions: Array[Dictionary] = get_legal_actions(gsm)
+
+	## 从序列化动作中提取匹配关键信息
+	var card_id: int = int(planned_action.get("card_instance_id", -1))
+	var target_slot_card_id: int = int(planned_action.get("target_slot_card_id", -1))
+	var source_slot_card_id: int = int(planned_action.get("source_slot_card_id", -1))
+	var bench_target_card_id: int = int(planned_action.get("bench_target_card_id", -1))
+	var attack_index: int = int(planned_action.get("attack_index", -1))
+	var ability_index: int = int(planned_action.get("ability_index", -1))
+
+	for action: Dictionary in legal_actions:
+		if str(action.get("kind", "")) != kind:
+			continue
+		## 按 kind 分别匹配关键字段
+		match kind:
+			"play_basic_to_bench":
+				if _match_card_id(action, card_id):
+					return action
+			"attach_energy":
+				if _match_card_id(action, card_id) and _match_slot_card_id(action, "target_slot", target_slot_card_id):
+					return action
+			"evolve":
+				if _match_card_id(action, card_id) and _match_slot_card_id(action, "target_slot", target_slot_card_id):
+					return action
+			"attack":
+				if int(action.get("attack_index", -1)) == attack_index:
+					return action
+			"use_ability":
+				if _match_slot_card_id(action, "source_slot", source_slot_card_id) and int(action.get("ability_index", -1)) == ability_index:
+					return action
+			"play_trainer":
+				if _match_card_id(action, card_id):
+					return action
+			"play_stadium":
+				if _match_card_id(action, card_id):
+					return action
+			"retreat":
+				if _match_slot_card_id(action, "bench_target", bench_target_card_id):
+					return action
+	## 无法匹配到合法动作
+	return {}
+
+
+func _match_card_id(action: Dictionary, expected_id: int) -> bool:
+	if expected_id < 0:
+		return true
+	var card: Variant = action.get("card")
+	if card is CardInstance:
+		return card.instance_id == expected_id
+	return false
+
+
+func _match_slot_card_id(action: Dictionary, slot_key: String, expected_id: int) -> bool:
+	if expected_id < 0:
+		return true
+	var slot: Variant = action.get(slot_key)
+	if slot is PokemonSlot:
+		var top_card: CardInstance = slot.get_top_card()
+		if top_card != null:
+			return top_card.instance_id == expected_id
+	return false

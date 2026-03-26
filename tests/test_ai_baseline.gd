@@ -2254,3 +2254,59 @@ func test_deck_bias_tags_are_recorded_in_reason_tags() -> String:
 			"Deck bias adjustments should record a 'deck_bias' reason tag (got tags=%s)" % [str(tags)]
 		),
 	])
+
+
+# -- MCTS 集成测试 --
+
+
+func test_ai_opponent_mcts_mode_disabled_by_default() -> String:
+	var ai := AIOpponentScript.new()
+	return run_checks([
+		assert_false(ai.use_mcts, "MCTS 模式默认应关闭"),
+	])
+
+
+func test_ai_opponent_mcts_mode_executes_multi_step_sequence() -> String:
+	var ai := AIOpponentScript.new()
+	ai.configure(1, 1)
+	ai.use_mcts = true
+	ai.mcts_config = {
+		"branch_factor": 2,
+		"rollouts_per_sequence": 3,
+		"rollout_max_steps": 20,
+	}
+	var scene := SpyInteractiveActionBattleScene.new()
+	var gsm := _make_ai_manual_gsm()
+	gsm.game_state.current_player_index = 1
+	var player: PlayerState = gsm.game_state.players[1]
+	var opponent: PlayerState = gsm.game_state.players[0]
+
+	var attacker_cd := _make_ai_pokemon_card_data(
+		"Attacker", "Basic", "", "", [],
+		[{"name": "Zap", "cost": "C", "damage": "40", "text": "", "is_vstar_power": false}]
+	)
+	player.active_pokemon = _make_ai_slot(CardInstance.create(attacker_cd, 1))
+	player.active_pokemon.attached_energy.append(CardInstance.create(_make_ai_energy_card_data("Energy"), 1))
+	var bench_basic := CardInstance.create(_make_ai_pokemon_card_data("Bench Mon"), 1)
+	player.hand = [bench_basic]
+	opponent.active_pokemon = _make_ai_slot(CardInstance.create(_make_ai_pokemon_card_data("Defender"), 0))
+
+	for _i in 6:
+		player.prizes.append(CardInstance.create(_make_ai_pokemon_card_data("Prize"), 1))
+		opponent.prizes.append(CardInstance.create(_make_ai_pokemon_card_data("Prize"), 0))
+	for _i in 10:
+		player.deck.append(CardInstance.create(_make_ai_pokemon_card_data("Deck"), 1))
+		opponent.deck.append(CardInstance.create(_make_ai_pokemon_card_data("Deck"), 0))
+
+	var step_count: int = 0
+	while step_count < 10:
+		var handled := ai.run_single_step(scene, gsm)
+		if not handled:
+			break
+		step_count += 1
+		if gsm.game_state.phase != GameState.GamePhase.MAIN or gsm.game_state.current_player_index != 1:
+			break
+
+	return run_checks([
+		assert_true(step_count >= 2, "MCTS 模式应执行多步动作序列（铺场+攻击），实际执行了 %d 步" % step_count),
+	])
