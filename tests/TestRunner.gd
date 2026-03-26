@@ -21,6 +21,7 @@ const TestBenchmarkEvaluator = preload("res://tests/test_benchmark_evaluator.gd"
 const TestDeckManager = preload("res://tests/test_deck_manager.gd")
 const TestAIPhase3Regression = preload("res://tests/test_ai_phase3_regression.gd")
 const TestGameStateCloner = preload("res://tests/test_game_state_cloner.gd")
+const TestRolloutSimulator = preload("res://tests/test_rollout_simulator.gd")
 
 @onready var result_label: RichTextLabel = %ResultLabel
 @onready var summary_label: Label = %SummaryLabel
@@ -67,6 +68,7 @@ func _ready() -> void:
 	_run_test_suite("DeckManager", TestDeckManager.new())
 	_run_test_suite("AIPhase3Regression", TestAIPhase3Regression.new())
 	_run_test_suite("GameStateCloner", TestGameStateCloner.new())
+	_run_test_suite("RolloutSimulator", TestRolloutSimulator.new())
 	_run_test_suite("CardCatalogAudit", TestCardCatalogAudit.new())
 	_run_test_suite("SourceEncodingAudit", TestSourceEncodingAudit.new())
 
