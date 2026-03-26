@@ -1,6 +1,7 @@
 class_name RuleValidator
 extends RefCounted
 
+const ITEM_LOCK_PREFIX := "item_lock_"
 
 func can_attach_energy(state: GameState, player_index: int) -> bool:
 	if state.current_player_index != player_index:
@@ -20,6 +21,14 @@ func can_play_supporter(state: GameState, player_index: int) -> bool:
 	if state.turn_number == 1 and player_index == state.first_player_index:
 		return false
 	return true
+
+
+func can_play_item(state: GameState, player_index: int) -> bool:
+	if state.current_player_index != player_index:
+		return false
+	if state.phase != GameState.GamePhase.MAIN:
+		return false
+	return int(state.shared_turn_flags.get("%s%d" % [ITEM_LOCK_PREFIX, player_index], -1)) != state.turn_number
 
 
 func can_play_stadium(state: GameState, player_index: int, card: CardInstance) -> bool:

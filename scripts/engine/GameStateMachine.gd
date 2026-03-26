@@ -857,6 +857,8 @@ func attach_tool(player_index: int, tool_card: CardInstance, target_slot: Pokemo
 ## 使用训练家卡（物品卡/支援者卡）
 func play_trainer(player_index: int, card: CardInstance, targets: Array) -> bool:
 	var card_type: String = card.card_data.card_type
+	if card_type == "Item" and not rule_validator.can_play_item(game_state, player_index):
+		return false
 	# 支援者卡检查
 	if card_type == "Supporter":
 		if not rule_validator.can_play_supporter(game_state, player_index) and not _can_play_supporter_exception(player_index, card):

@@ -7,6 +7,12 @@ var _importer: DeckImporter = null
 var _image_syncer = null
 var _current_operation: String = ""
 var _panel_mode: String = "import"
+var _pending_import_deck: DeckData = null
+var _pending_import_errors: PackedStringArray = PackedStringArray()
+var _rename_dialog: AcceptDialog = null
+var _rename_input: LineEdit = null
+var _rename_error_label: Label = null
+var _rename_confirm_button: Button = null
 
 
 func _ready() -> void:
@@ -145,6 +151,15 @@ func _on_import_progress(current: int, total: int, message: String) -> void:
 
 
 func _on_import_completed(deck: DeckData, errors: PackedStringArray) -> void:
+	if _has_duplicate_import_deck_name(deck.deck_name):
+		_pending_import_deck = deck
+		_pending_import_errors = PackedStringArray(errors)
+		_show_import_rename_dialog(deck.deck_name)
+		return
+	_finalize_import_save(deck, errors)
+
+
+func _finalize_import_save(deck: DeckData, errors: PackedStringArray) -> void:
 	CardDatabase.save_deck(deck)
 	%ProgressBar.visible = false
 	_current_operation = ""
@@ -157,6 +172,104 @@ func _on_import_completed(deck: DeckData, errors: PackedStringArray) -> void:
 		%ProgressLabel.text = "导入完成（有 %d 个警告）" % errors.size()
 		for err: String in errors:
 			push_warning("导入警告: %s" % err)
+
+
+func _has_duplicate_import_deck_name(deck_name: String) -> bool:
+	var normalized_name: String = deck_name.strip_edges()
+	if normalized_name == "":
+		return false
+	for deck: DeckData in CardDatabase.get_all_decks():
+		if deck.deck_name.strip_edges() == normalized_name:
+			return true
+	return false
+
+
+func _validate_import_deck_name(deck_name: String) -> String:
+	var normalized_name: String = deck_name.strip_edges()
+	if normalized_name == "":
+		return "请输入新的卡组名称"
+	if _has_duplicate_import_deck_name(normalized_name):
+		return "卡组名称已存在，请输入其他名称"
+	return ""
+
+
+func _show_import_rename_dialog(initial_name: String) -> void:
+	_close_import_rename_dialog()
+
+	_rename_dialog = AcceptDialog.new()
+	_rename_dialog.title = "卡组名称已存在"
+	_rename_dialog.ok_button_text = "确认"
+	_rename_dialog.dialog_hide_on_ok = false
+	_rename_dialog.close_requested.connect(_on_import_rename_close_requested)
+	_rename_dialog.confirmed.connect(_on_confirm_import_rename)
+
+	var content := VBoxContainer.new()
+	content.custom_minimum_size = Vector2(360, 0)
+	content.add_theme_constant_override("separation", 8)
+	_rename_dialog.add_child(content)
+
+	var message := Label.new()
+	message.text = "导入的卡组名称与现有卡组重复，请输入一个新的唯一名称："
+	message.autowrap_mode = TextServer.AUTOWRAP_WORD
+	content.add_child(message)
+
+	_rename_input = LineEdit.new()
+	_rename_input.text = initial_name
+	_rename_input.text_changed.connect(_on_import_rename_text_changed)
+	content.add_child(_rename_input)
+
+	_rename_error_label = Label.new()
+	_rename_error_label.autowrap_mode = TextServer.AUTOWRAP_WORD
+	_rename_error_label.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
+	content.add_child(_rename_error_label)
+
+	add_child(_rename_dialog)
+	_rename_confirm_button = _rename_dialog.get_ok_button()
+	_on_import_rename_text_changed(initial_name)
+
+	if is_inside_tree():
+		_rename_dialog.popup_centered()
+
+
+func _on_import_rename_text_changed(new_text: String) -> void:
+	var validation_error: String = _validate_import_deck_name(new_text)
+	if _rename_error_label != null:
+		_rename_error_label.text = validation_error
+	if _rename_confirm_button != null:
+		_rename_confirm_button.disabled = validation_error != ""
+
+
+func _on_confirm_import_rename() -> void:
+	if _pending_import_deck == null or _rename_input == null:
+		return
+
+	var new_name: String = _rename_input.text.strip_edges()
+	var validation_error: String = _validate_import_deck_name(new_name)
+	if validation_error != "":
+		_on_import_rename_text_changed(new_name)
+		return
+
+	var deck := _pending_import_deck
+	var errors := PackedStringArray(_pending_import_errors)
+	deck.deck_name = new_name
+	_pending_import_deck = null
+	_pending_import_errors = PackedStringArray()
+	_close_import_rename_dialog()
+	_finalize_import_save(deck, errors)
+
+
+func _on_import_rename_close_requested() -> void:
+	if _rename_dialog != null and is_instance_valid(_rename_dialog) and is_inside_tree():
+		_rename_dialog.popup_centered()
+
+
+func _close_import_rename_dialog() -> void:
+	if _rename_dialog != null and is_instance_valid(_rename_dialog):
+		_rename_dialog.queue_free()
+	_rename_dialog = null
+	_rename_input = null
+	_rename_error_label = null
+	_rename_confirm_button = null
 
 
 func _on_import_failed(error_message: String) -> void:

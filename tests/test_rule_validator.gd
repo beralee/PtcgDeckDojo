@@ -91,6 +91,25 @@ func test_cannot_play_supporter_already_used() -> String:
 	])
 
 
+func test_cannot_play_item_when_item_locked_for_turn() -> String:
+	var state := _make_state(3, 0, 1)
+	state.shared_turn_flags["item_lock_1"] = 3
+	var v := RuleValidator.new()
+	return run_checks([
+		assert_eq(v.can_play_item(state, 1), false, "Locked player cannot play Items this turn"),
+		assert_eq(v.can_play_item(state, 0), false, "Non-current player still cannot play Items"),
+	])
+
+
+func test_can_play_item_after_item_lock_turn_expires() -> String:
+	var state := _make_state(4, 0, 1)
+	state.shared_turn_flags["item_lock_1"] = 3
+	var v := RuleValidator.new()
+	return run_checks([
+		assert_eq(v.can_play_item(state, 1), true, "Expired item lock should no longer block play"),
+	])
+
+
 func test_can_evolve_normal() -> String:
 	var state := _make_state(2, 0, 0)
 	var v := RuleValidator.new()

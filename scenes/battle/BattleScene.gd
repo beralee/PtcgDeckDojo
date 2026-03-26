@@ -91,6 +91,7 @@ var _opponent_card_back_texture: Texture2D = null
 # Top actions
 @onready var _btn_end_turn: Button = %BtnEndTurn
 @onready var _btn_back: Button = %BtnBack
+@onready var _btn_opponent_hand: Button = %BtnOpponentHand
 @onready var _btn_zeus_help: Button = %BtnZeusHelp
 @onready var _hud_end_turn_btn: Button = %HudEndTurnBtn
 @onready var _opp_hand_bar: PanelContainer = $MainArea/CenterField/OppHandBar
@@ -200,6 +201,7 @@ func _ready() -> void:
 	_btn_end_turn.pressed.connect(_on_end_turn)
 	_hud_end_turn_btn.pressed.connect(_on_end_turn)
 	_btn_stadium_action.pressed.connect(_on_stadium_action_pressed)
+	_btn_opponent_hand.pressed.connect(_on_opponent_hand_pressed)
 	_btn_zeus_help.pressed.connect(_on_zeus_help_pressed)
 	_btn_back.pressed.connect(_on_back_pressed)
 	_dialog_confirm.pressed.connect(_on_dialog_confirm)
@@ -216,6 +218,7 @@ func _ready() -> void:
 	_hand_title.visible = false
 	_left_panel.visible = false
 	_right_panel.visible = false
+	_btn_opponent_hand.visible = false
 	_opp_prize_hud_count.visible = false
 	_my_prize_hud_count.visible = false
 	for caption_path: String in [
@@ -690,6 +693,7 @@ func _apply_battle_surface_styles() -> void:
 	_btn_stadium_action.add_theme_color_override("font_disabled_color", Color(0.5, 0.53, 0.49))
 	_btn_stadium_action.add_theme_font_size_override("font_size", 12)
 	_style_hud_button(_hud_end_turn_btn)
+	_style_hud_button(_btn_opponent_hand)
 	_style_hud_button(_btn_zeus_help)
 	_style_hud_button(_btn_back)
 	for label: Label in [_lbl_phase, _lbl_turn]:
@@ -1102,14 +1106,25 @@ func _show_setup_active_dialog(pi: int) -> void:
 	for c: CardInstance in basics:
 		items.append("%s (HP %d)" % [c.card_data.name, c.card_data.hp])
 	_pending_choice = "setup_active_%d" % pi
-	_show_dialog("玩家 %d：选择战斗宝可梦" % (pi + 1), items, {
+	var dialog_data := {
 		"basics": basics,
 		"player": pi,
 		"presentation": "cards",
 		"card_items": basics,
 		"choice_labels": items,
-	})
-	_dialog_cancel.visible = false
+	}
+	_ensure_ai_opponent()
+	var is_ai_prompt: bool = GameManager.current_mode == GameManager.GameMode.VS_AI and _ai_opponent != null and pi == _ai_opponent.player_index
+	if is_ai_prompt:
+		_dialog_data = dialog_data
+		_dialog_items_data = items
+		if _dialog_overlay != null:
+			_dialog_overlay.visible = false
+		if _dialog_cancel != null:
+			_dialog_cancel.visible = false
+	else:
+		_show_dialog("玩家 %d：选择战斗宝可梦" % (pi + 1), items, dialog_data)
+		_dialog_cancel.visible = false
 	_maybe_run_ai()
 
 
@@ -1134,7 +1149,7 @@ func _show_setup_bench_dialog(pi: int) -> void:
 	for card_idx: int in basics.size():
 		choice_indices.append(card_idx + 1)
 	_pending_choice = "setup_bench_%d" % pi
-	_show_dialog("玩家 %d：选择备战宝可梦（可选，最多 5 只）" % (pi + 1), items, {
+	var dialog_data := {
 		"cards": basics,
 		"player": pi,
 		"presentation": "cards",
@@ -1142,8 +1157,19 @@ func _show_setup_bench_dialog(pi: int) -> void:
 		"card_indices": choice_indices,
 		"choice_labels": items.slice(1),
 		"utility_actions": [{"label": "完成", "index": 0}],
-	})
-	_dialog_cancel.visible = false
+	}
+	_ensure_ai_opponent()
+	var is_ai_prompt: bool = GameManager.current_mode == GameManager.GameMode.VS_AI and _ai_opponent != null and pi == _ai_opponent.player_index
+	if is_ai_prompt:
+		_dialog_data = dialog_data
+		_dialog_items_data = items
+		if _dialog_overlay != null:
+			_dialog_overlay.visible = false
+		if _dialog_cancel != null:
+			_dialog_cancel.visible = false
+	else:
+		_show_dialog("玩家 %d：选择备战宝可梦（可选，最多 5 只）" % (pi + 1), items, dialog_data)
+		_dialog_cancel.visible = false
 	_maybe_run_ai()
 
 
@@ -1220,6 +1246,57 @@ func _on_zeus_help_pressed() -> void:
 		"deck_cards": deck_cards,
 		"choice_labels": labels,
 	})
+
+
+func _on_opponent_hand_pressed() -> void:
+	if _gsm == null or _gsm.game_state == null:
+		return
+	if GameManager.current_mode != GameManager.GameMode.VS_AI:
+		return
+	_show_opponent_hand_cards()
+
+
+func _show_opponent_hand_cards() -> void:
+	if _gsm == null or _gsm.game_state == null:
+		return
+	var opponent_index: int = 1 - _view_player
+	if opponent_index < 0 or opponent_index >= _gsm.game_state.players.size():
+		return
+	var player: PlayerState = _gsm.game_state.players[opponent_index]
+	_discard_title.text = "对手手牌（%d 张）" % player.hand.size()
+	_discard_list.clear()
+	if _discard_card_row != null:
+		_clear_container_children(_discard_card_row)
+		if player.hand.is_empty():
+			var empty_label := Label.new()
+			empty_label.text = "（空）"
+			_discard_card_row.add_child(empty_label)
+		else:
+			for hand_card: CardInstance in player.hand:
+				var card_view := BATTLE_CARD_VIEW.new()
+				card_view.custom_minimum_size = _dialog_card_size
+				card_view.set_clickable(true)
+				card_view.setup_from_instance(hand_card, BATTLE_CARD_VIEW.MODE_PREVIEW)
+				card_view.set_badges("", "")
+				card_view.set_info("", "")
+				card_view.left_clicked.connect(func(_ci: CardInstance, cd: CardData) -> void:
+					if cd != null:
+						_show_card_detail(cd)
+				)
+				card_view.right_clicked.connect(func(_ci: CardInstance, cd: CardData) -> void:
+					if cd != null:
+						_show_card_detail(cd)
+				)
+				_discard_card_row.add_child(card_view)
+	else:
+		if player.hand.is_empty():
+			_discard_list.add_item("（空）")
+		else:
+			for hand_card: CardInstance in player.hand:
+				var cd: CardData = hand_card.card_data
+				_discard_list.add_item("%s [%s]" % [cd.name, _card_type_cn(cd)])
+	_discard_overlay.visible = true
+	_runtime_log("show_opponent_hand", "player=%d count=%d" % [opponent_index, player.hand.size()])
 
 
 func _on_slot_input(event: InputEvent, slot_id: String) -> void:
@@ -2715,6 +2792,27 @@ func _handle_dialog_choice(selected_indices: PackedInt32Array) -> void:
 
 func _prompt_send_out_dialog(pi: int) -> void:
 	_pending_choice = "send_out"
+	var player: PlayerState = _gsm.game_state.players[pi]
+	var dialog_data := {
+		"player": pi,
+		"bench": player.bench,
+		"allow_cancel": false,
+		"min_select": 1,
+		"max_select": 1,
+	}
+	_ensure_ai_opponent()
+	var is_ai_prompt: bool = GameManager.current_mode == GameManager.GameMode.VS_AI and _ai_opponent != null and pi == _ai_opponent.player_index
+	if is_ai_prompt:
+		_dialog_data = dialog_data
+		_dialog_items_data = player.bench.duplicate()
+		_hide_field_interaction()
+		if _dialog_overlay != null:
+			_dialog_overlay.visible = false
+		if _dialog_cancel != null:
+			_dialog_cancel.visible = false
+		_refresh_ui()
+		_maybe_run_ai()
+		return
 	if GameManager.current_mode == GameManager.GameMode.TWO_PLAYER and pi != _view_player:
 		_show_handover_prompt(pi, func() -> void:
 			_set_handover_panel_visible(false, "send_out_follow_up")
@@ -3266,6 +3364,15 @@ func _is_ai_prize_prompt() -> bool:
 	)
 
 
+func _is_ai_send_out_prompt() -> bool:
+	if _ai_opponent == null:
+		return false
+	return (
+		_pending_choice == "send_out"
+		and int(_dialog_data.get("player", -1)) == _ai_opponent.player_index
+	)
+
+
 func _is_ai_effect_prompt() -> bool:
 	if _ai_opponent == null:
 		return false
@@ -3297,6 +3404,10 @@ func _is_ai_turn_ready() -> bool:
 		if _is_ui_blocking_ai():
 			return false
 		return _is_ai_prize_prompt()
+	if _pending_choice == "send_out":
+		if _is_ui_blocking_ai():
+			return false
+		return _is_ai_send_out_prompt()
 	if _pending_choice == "effect_interaction":
 		if _is_ui_blocking_ai():
 			return false
@@ -3573,6 +3684,20 @@ func _resolve_effect_step_chooser_player(step: Dictionary) -> int:
 	return _pending_effect_player_index
 
 
+func _hide_ai_owned_effect_step_ui(chooser_player: int) -> void:
+	if GameManager.current_mode != GameManager.GameMode.VS_AI:
+		return
+	_ensure_ai_opponent()
+	if _ai_opponent == null or chooser_player != _ai_opponent.player_index:
+		return
+	if _dialog_overlay != null:
+		_dialog_overlay.visible = false
+	if _dialog_cancel != null:
+		_dialog_cancel.visible = false
+	if _field_interaction_overlay != null:
+		_field_interaction_overlay.visible = false
+
+
 func _show_next_effect_interaction_step() -> void:
 	if _pending_effect_card == null:
 		_runtime_log("effect_step_skipped", "pending card missing")
@@ -3665,6 +3790,7 @@ func _show_next_effect_interaction_step() -> void:
 			]
 		)
 		_show_field_assignment_interaction(step)
+		_hide_ai_owned_effect_step_ui(chooser_player)
 		return
 	if _effect_step_uses_field_slot_ui(step):
 		_pending_choice = "effect_interaction"
@@ -3678,6 +3804,7 @@ func _show_next_effect_interaction_step() -> void:
 			]
 		)
 		_show_field_slot_choice(str(step.get("title", "请选择")), step.get("items", []), step)
+		_hide_ai_owned_effect_step_ui(chooser_player)
 		return
 	if str(step.get("ui_mode", "")) == "card_assignment":
 		_pending_choice = "effect_interaction"
@@ -3691,6 +3818,7 @@ func _show_next_effect_interaction_step() -> void:
 			]
 		)
 		_show_dialog(str(step.get("title", "请选择")), [], step)
+		_hide_ai_owned_effect_step_ui(chooser_player)
 		return
 
 	var labels_raw: Array = step.get("labels", [])
@@ -3722,6 +3850,7 @@ func _show_next_effect_interaction_step() -> void:
 		"card_items": items_raw,
 		"choice_labels": labels,
 	})
+	_hide_ai_owned_effect_step_ui(chooser_player)
 
 
 func _handle_effect_interaction_choice(selected_indices: PackedInt32Array) -> void:
@@ -3873,6 +4002,8 @@ func _refresh_ui() -> void:
 
 	_lbl_phase.text = "当前回合：%s | 对方手牌：%d" % [_get_selected_deck_name(cp), opp.hand.size()]
 	_lbl_turn.text = "第 %d 回合 | 玩家 %d 行动" % [gs.turn_number, cp + 1]
+	if _btn_opponent_hand != null:
+		_btn_opponent_hand.visible = GameManager.current_mode == GameManager.GameMode.VS_AI
 
 	_opp_prizes.text = "x%d" % opp.prizes.size()
 	_opp_deck.text = "%d" % opp.deck.size()

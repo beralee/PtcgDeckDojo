@@ -131,6 +131,7 @@ func _make_battle_scene_stub() -> Control:
 	battle_scene.set("_my_deck_hud_value", Label.new())
 	battle_scene.set("_my_discard_hud_value", Label.new())
 	battle_scene.set("_btn_end_turn", Button.new())
+	battle_scene.set("_btn_opponent_hand", Button.new())
 	battle_scene.set("_hud_end_turn_btn", Button.new())
 	battle_scene.set("_stadium_lbl", Label.new())
 	battle_scene.set("_btn_stadium_action", Button.new())
@@ -273,6 +274,71 @@ func test_battle_scene_includes_zeus_help_button() -> String:
 	return run_checks([
 		assert_true(zeus_button is Button, "BattleScene 顶栏应包含宙斯帮我按钮"),
 		assert_true(back_button is Button, "BattleScene 顶栏应保留退出游戏按钮"),
+	])
+
+
+func test_battle_scene_opponent_hand_button_only_visible_in_vs_ai() -> String:
+	var scene := _make_battle_scene_stub()
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.turn_number = 1
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+	scene._gsm = gsm
+	scene._view_player = 0
+	var opponent_hand_button := scene.get("_btn_opponent_hand") as Button
+
+	GameManager.current_mode = GameManager.GameMode.TWO_PLAYER
+	scene.call("_refresh_ui")
+	var hidden_in_two_player := not opponent_hand_button.visible
+
+	GameManager.current_mode = GameManager.GameMode.VS_AI
+	scene.call("_refresh_ui")
+	var visible_in_vs_ai := opponent_hand_button.visible
+
+	return run_checks([
+		assert_true(hidden_in_two_player, "对手手牌按钮在双人模式下应隐藏"),
+		assert_true(visible_in_vs_ai, "对手手牌按钮在 VS_AI 模式下应显示"),
+	])
+
+
+func test_battle_scene_opponent_hand_viewer_shows_card_previews() -> String:
+	var scene := _make_battle_scene_stub()
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.turn_number = 2
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	scene._gsm = gsm
+	scene._view_player = 0
+	var discard_title := Label.new()
+	var discard_overlay := Panel.new()
+	var discard_list := ItemList.new()
+	var discard_card_row := HBoxContainer.new()
+	scene.set("_discard_title", discard_title)
+	scene.set("_discard_overlay", discard_overlay)
+	scene.set("_discard_list", discard_list)
+	scene.set("_discard_card_row", discard_card_row)
+
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+
+	var opp_hand_a := CardInstance.create(_make_pokemon_cd("AI 手牌A", 70, "L"), 1)
+	var opp_hand_b := CardInstance.create(_make_trainer_cd("AI 手牌B", "Item", "debug"), 1)
+	gsm.game_state.players[1].hand = [opp_hand_a, opp_hand_b]
+
+	scene.call("_show_opponent_hand_cards")
+
+	return run_checks([
+		assert_true(discard_overlay.visible, "点击对手手牌后应打开只读预览层"),
+		assert_eq(discard_title.text, "对手手牌（2 张）", "预览层标题应显示对手手牌数量"),
+		assert_eq(discard_card_row.get_child_count(), 2, "预览层应按缩略卡图显示对手当前手牌"),
 	])
 
 

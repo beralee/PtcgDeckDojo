@@ -288,16 +288,43 @@ func _inspect_interaction_status(card_data: CardData) -> String:
 	var card := CardInstance.create(card_data, 0)
 
 	if card_data.is_pokemon():
+		if card_data.abilities.is_empty() and not _has_scripted_attack(card_data):
+			return "n/a"
 		fixture.effect_processor.register_pokemon_card(card_data)
 		var pokemon_effect: BaseEffect = fixture.effect_processor.get_effect(card_data.effect_id)
-		if pokemon_effect == null:
-			return "n/a"
-		return "present" if not pokemon_effect.get_interaction_steps(card, fixture.game_state).is_empty() else "none"
+		if pokemon_effect != null and not pokemon_effect.get_interaction_steps(card, fixture.game_state).is_empty():
+			return "present"
+		if _pokemon_has_attack_interaction(card_data, card, fixture):
+			return "present"
+		return "none"
 
 	var effect: BaseEffect = fixture.effect_processor.get_effect(card_data.effect_id)
 	if effect == null:
 		return "n/a"
 	return "present" if not effect.get_interaction_steps(card, fixture.game_state).is_empty() else "none"
+
+
+func _pokemon_has_attack_interaction(
+	card_data: CardData,
+	card: CardInstance,
+	fixture: GameStateMachine
+) -> bool:
+	if not fixture.effect_processor.has_attack_effect(card_data.effect_id):
+		return false
+
+	for attack_index: int in card_data.attacks.size():
+		var attack: Dictionary = card_data.attacks[attack_index]
+		var steps := fixture.effect_processor.get_attack_interaction_steps_by_id(
+			card_data.effect_id,
+			attack_index,
+			card,
+			attack,
+			fixture.game_state
+		)
+		if not steps.is_empty():
+			return true
+
+	return false
 
 
 func _has_verification_coverage(card_data: CardData) -> bool:

@@ -2,71 +2,131 @@
 class_name EffectProfTuro
 extends BaseEffect
 
+const TARGET_STEP_ID := "prof_turo_target"
+const REPLACEMENT_STEP_ID := "prof_turo_replacement"
+
 
 func can_execute(card: CardInstance, state: GameState) -> bool:
-	## 己方至少有一只宝可梦在场（战斗区或备战区）
+	return not _get_valid_targets(state.players[card.owner_index]).is_empty()
+
+
+func get_interaction_steps(card: CardInstance, state: GameState) -> Array[Dictionary]:
 	var player: PlayerState = state.players[card.owner_index]
-	if player.active_pokemon != null:
-		return true
-	for slot: PokemonSlot in player.bench:
-		if not slot.pokemon_stack.is_empty():
-			return true
-	return false
+	var targets: Array[PokemonSlot] = _get_valid_targets(player)
+	if targets.is_empty():
+		return []
+
+	var target_items: Array = []
+	var target_labels: Array[String] = []
+	for slot: PokemonSlot in targets:
+		target_items.append(slot)
+		target_labels.append(_build_slot_label(slot))
+
+	var steps: Array[Dictionary] = [{
+		"id": TARGET_STEP_ID,
+		"title": "选择1只要回手牌的己方宝可梦",
+		"items": target_items,
+		"labels": target_labels,
+		"min_select": 1,
+		"max_select": 1,
+		"allow_cancel": true,
+	}]
+
+	if player.active_pokemon != null and player.active_pokemon in targets and not player.bench.is_empty():
+		var replacement_items: Array = []
+		var replacement_labels: Array[String] = []
+		for slot: PokemonSlot in player.bench:
+			replacement_items.append(slot)
+			replacement_labels.append(_build_slot_label(slot))
+		steps.append({
+			"id": REPLACEMENT_STEP_ID,
+			"title": "选择新的战斗宝可梦",
+			"items": replacement_items,
+			"labels": replacement_labels,
+			"min_select": 1,
+			"max_select": 1,
+			"allow_cancel": true,
+		})
+
+	return steps
 
 
-func execute(card: CardInstance, _targets: Array, state: GameState) -> void:
-	var pi: int = card.owner_index
-	var player: PlayerState = state.players[pi]
-
-	## TODO: 需要UI交互让玩家选择要回手牌的己方宝可梦
-	## 简化：优先选备战区第一只，若备战区为空则选战斗宝可梦
-	var target_slot: PokemonSlot = null
-
-	if not player.bench.is_empty():
-		target_slot = player.bench[0]
-	elif player.active_pokemon != null:
-		target_slot = player.active_pokemon
-
+func execute(card: CardInstance, targets: Array, state: GameState) -> void:
+	var player: PlayerState = state.players[card.owner_index]
+	var ctx: Dictionary = get_interaction_context(targets)
+	var target_slot: PokemonSlot = _get_selected_target(ctx, player)
 	if target_slot == null:
 		return
 
-	## 判断目标是否为战斗宝可梦
+	var replacement: PokemonSlot = null
 	var is_active: bool = target_slot == player.active_pokemon
-
-	## 将宝可梦进化链的最顶层（当前形态）卡牌放回手牌
-	## 附着的能量卡、道具卡全部放入弃牌区
-	## 进化链下方的卡牌也一并弃置
-	var all_cards: Array[CardInstance] = target_slot.collect_all_cards()
-
-	## 进化链最顶层卡牌回手牌
-	var top_card: CardInstance = target_slot.get_top_card()
-	if top_card == null:
-		return
-
-	## 将除顶层宝可梦以外的所有卡（进化来源、能量、道具）放入弃牌区
-	for c: CardInstance in all_cards:
-		if c == top_card:
-			continue
-		c.face_up = true
-		player.discard_pile.append(c)
-
-	## 顶层宝可梦回手牌
-	top_card.face_up = true
-	player.hand.append(top_card)
-
-	## 从场上移除该槽位
 	if is_active:
-		## 战斗宝可梦撤退：需要将备战区宝可梦顶上
-		## 简化处理：若备战区有宝可梦则自动换上第一只，否则战斗区置空
-		player.active_pokemon = null
-		if not player.bench.is_empty():
-			## TODO: 需要UI交互让玩家选择哪只备战宝可梦顶上
-			var new_active: PokemonSlot = player.bench[0]
-			player.bench.erase(new_active)
-			player.active_pokemon = new_active
+		replacement = _get_selected_replacement(ctx, player)
+		if replacement == null:
+			return
+
+	for pokemon_card: CardInstance in target_slot.pokemon_stack:
+		pokemon_card.face_up = true
+		player.hand.append(pokemon_card)
+	for energy_card: CardInstance in target_slot.attached_energy:
+		player.discard_card(energy_card)
+	if target_slot.attached_tool != null:
+		player.discard_card(target_slot.attached_tool)
+
+	target_slot.pokemon_stack.clear()
+	target_slot.attached_energy.clear()
+	target_slot.attached_tool = null
+	target_slot.effects.clear()
+	target_slot.clear_all_status()
+	target_slot.damage_counters = 0
+
+	if is_active:
+		player.active_pokemon = replacement
+		player.bench.erase(replacement)
 	else:
 		player.bench.erase(target_slot)
 
 
 func get_description() -> String:
 	return "选择己方场上1只宝可梦回手牌，身上附属的所有卡弃牌"
+
+
+func _get_valid_targets(player: PlayerState) -> Array[PokemonSlot]:
+	var targets: Array[PokemonSlot] = []
+	if player.active_pokemon != null and not player.bench.is_empty():
+		targets.append(player.active_pokemon)
+	for slot: PokemonSlot in player.bench:
+		if slot != null and not slot.pokemon_stack.is_empty():
+			targets.append(slot)
+	return targets
+
+
+func _build_slot_label(slot: PokemonSlot) -> String:
+	return "%s (HP %d/%d)" % [
+		slot.get_pokemon_name(),
+		slot.get_remaining_hp(),
+		slot.get_max_hp(),
+	]
+
+
+func _get_selected_target(ctx: Dictionary, player: PlayerState) -> PokemonSlot:
+	var valid_targets: Array[PokemonSlot] = _get_valid_targets(player)
+	var selected_raw: Array = ctx.get(TARGET_STEP_ID, [])
+	if not selected_raw.is_empty() and selected_raw[0] is PokemonSlot:
+		var candidate: PokemonSlot = selected_raw[0]
+		if candidate in valid_targets:
+			return candidate
+	if not valid_targets.is_empty():
+		return valid_targets[0]
+	return null
+
+
+func _get_selected_replacement(ctx: Dictionary, player: PlayerState) -> PokemonSlot:
+	if player.bench.is_empty():
+		return null
+	var selected_raw: Array = ctx.get(REPLACEMENT_STEP_ID, [])
+	if not selected_raw.is_empty() and selected_raw[0] is PokemonSlot:
+		var candidate: PokemonSlot = selected_raw[0]
+		if candidate in player.bench:
+			return candidate
+	return player.bench[0]

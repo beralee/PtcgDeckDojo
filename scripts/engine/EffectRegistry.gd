@@ -6,6 +6,8 @@ class_name EffectRegistry
 extends RefCounted
 
 const AttackDefenderAttackLockNextTurnEffect = preload("res://scripts/effects/pokemon_effects/AttackDefenderAttackLockNextTurn.gd")
+const AttackGreninjaExShinobiBladeEffect = preload("res://scripts/effects/pokemon_effects/AttackGreninjaExShinobiBlade.gd")
+const AttackGreninjaExMirageBarrageEffect = preload("res://scripts/effects/pokemon_effects/AttackGreninjaExMirageBarrage.gd")
 const EffectHisuianHeavyBallEffect = preload("res://scripts/effects/trainer_effects/EffectHisuianHeavyBall.gd")
 const EffectRecoverBasicEnergyEffect = preload("res://scripts/effects/trainer_effects/EffectRecoverBasicEnergy.gd")
 const EffectSearchBasicEnergyEffect = preload("res://scripts/effects/trainer_effects/EffectSearchBasicEnergy.gd")
@@ -81,6 +83,7 @@ const AttackIgnoreWeaknessEffect = preload("res://scripts/effects/pokemon_effect
 const AttackCoinFlipPreventDamageAndEffectsNextTurnEffect = preload("res://scripts/effects/pokemon_effects/AttackCoinFlipPreventDamageAndEffectsNextTurn.gd")
 const AttackKnockoutDefenderThenSelfDamageEffect = preload("res://scripts/effects/pokemon_effects/AttackKnockoutDefenderThenSelfDamage.gd")
 const AttackDiscardStadiumBonusDamageEffect = preload("res://scripts/effects/pokemon_effects/AttackDiscardStadiumBonusDamage.gd")
+const AttackItemLockNextTurnEffect = preload("res://scripts/effects/pokemon_effects/AttackItemLockNextTurn.gd")
 const EffectMirageGateEffect = preload("res://scripts/effects/trainer_effects/EffectMirageGate.gd")
 const EffectColressExperimentEffect = preload("res://scripts/effects/trainer_effects/EffectColressExperiment.gd")
 
@@ -557,6 +560,12 @@ static func _get_attack_effects(processor: EffectProcessor, attack_name: String)
 		"握握抽取":
 			# 摸牌至手牌7张
 			return [AttackDrawTo7.new()]
+		"阴影包围":
+			return [AttackItemLockNextTurnEffect.new(true, processor.coin_flipper)]
+		"暗夜难明":
+			return [AttackItemLockNextTurnEffect.new()]
+		"灵骚":
+			return [AttackOpponentHandCountDamageEffect.new(60, true, 60)]
 		"月光手里剑":
 			# 对备战区2只宝可梦各90伤害，战斗宝可梦0伤害
 			return [AttackBenchSnipe.new(90, 2, 0), EffectDiscardEnergy.new(2)]
@@ -587,6 +596,9 @@ static func _get_attack_effects(processor: EffectProcessor, attack_name: String)
 		"烧光":
 			# 弃掉竞技场
 			return [AttackDiscardStadium.new()]
+		"跳一下":
+			# 呱呱泡蛙：投币反面则招式失败
+			return [AttackCoinFlipOrFail.new(30, "no_damage")]
 		"终结门牙":
 			# 投币背面则此招式无效果
 			return [AttackCoinFlipOrFail.new(30, "no_damage")]
@@ -611,6 +623,10 @@ static func _get_attack_effects(processor: EffectProcessor, attack_name: String)
 		"报仇":
 			# 己方有宝可梦昏厥时额外+120伤害
 			return [AttackRevengeBonus.new(120)]
+		"忍刃":
+			return [AttackGreninjaExShinobiBladeEffect.new()]
+		"分身连打":
+			return [AttackGreninjaExMirageBarrageEffect.new()]
 		"三重新星":
 			# 从牌库搜索能量附加到V宝可梦
 			return [AttackSearchAttachToV.new()]

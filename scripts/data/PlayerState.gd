@@ -2,6 +2,9 @@
 class_name PlayerState
 extends RefCounted
 
+static var _forced_shuffle_seed: int = -1
+static var _forced_shuffle_counter: int = 0
+
 ## 玩家索引 (0 或 1)
 var player_index: int = 0
 ## 牌库（顶部为 index 0）
@@ -160,9 +163,23 @@ func all_prizes_taken() -> bool:
 
 
 ## 洗牌
+func set_forced_shuffle_seed(seed: int) -> void:
+	PlayerState._forced_shuffle_seed = seed
+	PlayerState._forced_shuffle_counter = 0
+
+
+func clear_forced_shuffle_seed() -> void:
+	PlayerState._forced_shuffle_seed = -1
+	PlayerState._forced_shuffle_counter = 0
+
+
 func shuffle_deck() -> void:
 	var rng := RandomNumberGenerator.new()
-	rng.randomize()
+	if PlayerState._forced_shuffle_seed >= 0:
+		rng.seed = PlayerState._forced_shuffle_seed + PlayerState._forced_shuffle_counter
+		PlayerState._forced_shuffle_counter += 1
+	else:
+		rng.randomize()
 	# Fisher-Yates 洗牌
 	for i in range(deck.size() - 1, 0, -1):
 		var j := rng.randi_range(0, i)
