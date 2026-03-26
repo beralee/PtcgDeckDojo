@@ -58,6 +58,26 @@ func _make_match(
 	}
 
 
+## 构造带版本回归元数据的比赛结果
+func _make_version_regression_match(
+	seed: int,
+	winner_index: int,
+	turn_count: int,
+	failure_reason: String,
+	identity_hits: Dictionary,
+	version_a_player_index: int,
+	player_0_deck_id: int = 575720,
+	player_1_deck_id: int = 578647
+) -> Dictionary:
+	var base := _make_match(seed, winner_index, turn_count, failure_reason, false, false, identity_hits, player_0_deck_id, player_1_deck_id)
+	base["comparison_mode"] = "version_regression"
+	base["version_a_player_index"] = version_a_player_index
+	base["version_b_player_index"] = 1 - version_a_player_index
+	base["version_a_agent_config"] = {"agent_id": "shared-heuristic", "version_tag": "baseline-v1"}
+	base["version_b_agent_config"] = {"agent_id": "shared-heuristic", "version_tag": "candidate-v2"}
+	return base
+
+
 func _make_sample_matches() -> Array[Dictionary]:
 	return [
 		_make_match(11, 0, 10, "normal_game_end", false, false, _make_identity_hits(true, true, false, true, true, false)),
@@ -195,4 +215,82 @@ func test_benchmark_runner_surfaces_errors_without_fake_empty_summary() -> Strin
 		assert_false(errors.is_empty(), "Structured benchmark runs should surface raw benchmark errors"),
 		assert_eq(result.get("summary", {}), {}, "Structured benchmark runs should not emit a normal-looking empty summary when the raw run fails"),
 		assert_eq(str(result.get("text_summary", "")), "", "Structured benchmark runs should not emit a text summary when the raw run fails"),
+	])
+
+
+## 版本回归汇总应拆分版本A和版本B的胜场
+func test_version_regression_summary_splits_wins_by_version() -> String:
+	var evaluator := BenchmarkEvaluatorScript.new()
+	var hits := _make_identity_hits(true, true, false, true, true, false)
+	# 4场比赛: version_a(baseline)在player_index=0赢2场, version_b(candidate)在player_index=1赢1场, 1场平局
+	var matches: Array[Dictionary] = [
+		_make_version_regression_match(11, 0, 10, "normal_game_end", hits, 0),  # version_a赢
+		_make_version_regression_match(29, 0, 12, "normal_game_end", hits, 0),  # version_a赢
+		_make_version_regression_match(47, 1, 14, "normal_game_end", hits, 0),  # version_b赢
+		_make_version_regression_match(83, -1, 16, "stalled_no_progress", hits, 1), # 无胜者
+	]
+	var summary: Dictionary = evaluator.summarize_pairing(matches, "miraidon_vs_gardevoir")
+	return run_checks([
+		assert_true(summary.has("version_a_wins"), "版本回归汇总应包含 version_a_wins 字段"),
+		assert_true(summary.has("version_b_wins"), "版本回归汇总应包含 version_b_wins 字段"),
+		assert_eq(summary.get("version_a_wins", -1), 2, "version_a 应赢 2 场"),
+		assert_eq(summary.get("version_b_wins", -1), 1, "version_b 应赢 1 场"),
+		assert_true(summary.has("version_a_win_rate"), "版本回归汇总应包含 version_a_win_rate 字段"),
+		assert_true(summary.has("version_b_win_rate"), "版本回归汇总应包含 version_b_win_rate 字段"),
+		assert_eq(summary.get("version_a_win_rate", -1.0), 0.5, "version_a 胜率应为 50%"),
+		assert_eq(summary.get("version_b_win_rate", -1.0), 0.25, "version_b 胜率应为 25%"),
+		assert_true(summary.has("version_a_label"), "版本回归汇总应包含 version_a_label"),
+		assert_true(summary.has("version_b_label"), "版本回归汇总应包含 version_b_label"),
+		assert_eq(summary.get("version_a_label", ""), "baseline-v1", "version_a_label 应为 baseline-v1"),
+		assert_eq(summary.get("version_b_label", ""), "candidate-v2", "version_b_label 应为 candidate-v2"),
+	])
+
+
+## 版本回归汇总在座位翻转时应正确归属胜场
+func test_version_regression_summary_attributes_wins_across_flipped_seats() -> String:
+	var evaluator := BenchmarkEvaluatorScript.new()
+	var hits := _make_identity_hits(true, true, true, true, true, true)
+	# version_a 在 player_index=0 时赢, version_a 在 player_index=1 时也赢
+	var matches: Array[Dictionary] = [
+		_make_version_regression_match(11, 0, 10, "normal_game_end", hits, 0),  # version_a at seat 0 赢
+		_make_version_regression_match(29, 1, 12, "normal_game_end", hits, 1),  # version_a at seat 1 赢
+		_make_version_regression_match(47, 1, 14, "normal_game_end", hits, 0),  # version_b at seat 1 赢
+		_make_version_regression_match(83, 0, 16, "normal_game_end", hits, 1),  # version_b at seat 0 赢
+	]
+	var summary: Dictionary = evaluator.summarize_pairing(matches, "miraidon_vs_gardevoir")
+	return run_checks([
+		assert_eq(summary.get("version_a_wins", -1), 2, "version_a 应在不同座位赢 2 场"),
+		assert_eq(summary.get("version_b_wins", -1), 2, "version_b 应在不同座位赢 2 场"),
+		assert_eq(summary.get("version_a_win_rate", -1.0), 0.5, "version_a 在座位翻转后胜率应为 50%"),
+		assert_eq(summary.get("version_b_win_rate", -1.0), 0.5, "version_b 在座位翻转后胜率应为 50%"),
+	])
+
+
+## 非版本回归模式的汇总不应包含版本字段
+func test_shared_agent_mirror_summary_omits_version_fields() -> String:
+	var evaluator := BenchmarkEvaluatorScript.new()
+	var summary: Dictionary = evaluator.summarize_pairing(_make_sample_matches(), "miraidon_vs_gardevoir")
+	return run_checks([
+		assert_false(summary.has("version_a_wins"), "shared_agent_mirror 汇总不应包含 version_a_wins"),
+		assert_false(summary.has("version_b_wins"), "shared_agent_mirror 汇总不应包含 version_b_wins"),
+		assert_false(summary.has("version_a_win_rate"), "shared_agent_mirror 汇总不应包含 version_a_win_rate"),
+		assert_false(summary.has("version_b_win_rate"), "shared_agent_mirror 汇总不应包含 version_b_win_rate"),
+	])
+
+
+## 版本回归文本汇总应显示版本对比信息
+func test_version_regression_text_summary_shows_version_comparison() -> String:
+	var evaluator := BenchmarkEvaluatorScript.new()
+	var hits := _make_identity_hits(true, true, true, true, true, true)
+	var matches: Array[Dictionary] = [
+		_make_version_regression_match(11, 0, 10, "normal_game_end", hits, 0),
+		_make_version_regression_match(29, 1, 12, "normal_game_end", hits, 0),
+	]
+	var summary: Dictionary = evaluator.summarize_pairing(matches, "miraidon_vs_gardevoir")
+	var text_summary := evaluator.build_text_summary(summary)
+	return run_checks([
+		assert_str_contains(text_summary, "baseline-v1", "版本回归文本汇总应包含版本A标签"),
+		assert_str_contains(text_summary, "candidate-v2", "版本回归文本汇总应包含版本B标签"),
+		assert_str_contains(text_summary, "version_a_win_rate=", "版本回归文本汇总应包含版本A胜率"),
+		assert_str_contains(text_summary, "version_b_win_rate=", "版本回归文本汇总应包含版本B胜率"),
 	])

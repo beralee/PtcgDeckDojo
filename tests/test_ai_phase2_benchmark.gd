@@ -478,3 +478,85 @@ func test_run_smoke_match_normalizes_identity_hits_schema() -> String:
 		assert_true(bool(identity_hits.get("miraidon_attack_ready", false)), "Smoke results should retain valid flat identity keys"),
 		assert_false(bool(identity_hits.get("electric_generator_resolved", false)), "Smoke results should ignore malformed nested identity keys instead of nesting them"),
 	])
+
+
+## 版本回归原始结果应保留版本元数据和 comparison_mode
+func test_version_regression_raw_results_preserve_version_metadata() -> String:
+	var runner := AIBenchmarkRunnerScript.new()
+	var case_script = load("res://scripts/ai/DeckBenchmarkCase.gd")
+	var benchmark_case = case_script.new()
+	benchmark_case.deck_a_id = 575720
+	benchmark_case.deck_b_id = 578647
+	benchmark_case.comparison_mode = "version_regression"
+	benchmark_case.agent_a_config = {"agent_id": "shared-heuristic", "version_tag": "baseline-v1"}
+	benchmark_case.agent_b_config = {"agent_id": "shared-heuristic", "version_tag": "candidate-v2"}
+	benchmark_case.seed_set = [11, 29]
+	benchmark_case.resolve_decks()
+	var result: Dictionary = runner.run_benchmark_case(benchmark_case)
+	var matches: Array = result.get("matches", [])
+	var all_have_comparison_mode := true
+	var all_have_version_a_config := true
+	var all_have_version_b_config := true
+	var all_have_version_a_player_index := true
+	var version_a_tags: Array[String] = []
+	var version_b_tags: Array[String] = []
+	for match_result: Variant in matches:
+		if not match_result is Dictionary:
+			continue
+		var m: Dictionary = match_result
+		if str(m.get("comparison_mode", "")) != "version_regression":
+			all_have_comparison_mode = false
+		var va_config: Variant = m.get("version_a_agent_config", {})
+		var vb_config: Variant = m.get("version_b_agent_config", {})
+		if not va_config is Dictionary or str((va_config as Dictionary).get("version_tag", "")) == "":
+			all_have_version_a_config = false
+		else:
+			version_a_tags.append(str((va_config as Dictionary).get("version_tag", "")))
+		if not vb_config is Dictionary or str((vb_config as Dictionary).get("version_tag", "")) == "":
+			all_have_version_b_config = false
+		else:
+			version_b_tags.append(str((vb_config as Dictionary).get("version_tag", "")))
+		if not m.has("version_a_player_index"):
+			all_have_version_a_player_index = false
+	var all_va_baseline := true
+	for tag: String in version_a_tags:
+		if tag != "baseline-v1":
+			all_va_baseline = false
+	var all_vb_candidate := true
+	for tag: String in version_b_tags:
+		if tag != "candidate-v2":
+			all_vb_candidate = false
+	return run_checks([
+		assert_eq(matches.size(), 4, "2 seeds should produce 4 matches"),
+		assert_true(all_have_comparison_mode, "所有原始结果应包含 comparison_mode=version_regression"),
+		assert_true(all_have_version_a_config, "所有原始结果应包含 version_a_agent_config"),
+		assert_true(all_have_version_b_config, "所有原始结果应包含 version_b_agent_config"),
+		assert_true(all_have_version_a_player_index, "所有原始结果应包含 version_a_player_index"),
+		assert_true(all_va_baseline, "version_a 标签应始终为 baseline-v1"),
+		assert_true(all_vb_candidate, "version_b 标签应始终为 candidate-v2"),
+	])
+
+
+## run_and_summarize_case 应为版本回归模式提供版本汇总
+func test_run_and_summarize_version_regression_includes_version_summary() -> String:
+	var runner := AIBenchmarkRunnerScript.new()
+	var case_script = load("res://scripts/ai/DeckBenchmarkCase.gd")
+	var benchmark_case = case_script.new()
+	benchmark_case.deck_a_id = 575720
+	benchmark_case.deck_b_id = 578647
+	benchmark_case.comparison_mode = "version_regression"
+	benchmark_case.agent_a_config = {"agent_id": "shared-heuristic", "version_tag": "baseline-v1"}
+	benchmark_case.agent_b_config = {"agent_id": "shared-heuristic", "version_tag": "candidate-v2"}
+	benchmark_case.seed_set = [11, 29]
+	benchmark_case.resolve_decks()
+	var result: Dictionary = runner.run_and_summarize_case(benchmark_case)
+	var summary: Dictionary = result.get("summary", {})
+	var text_summary: String = str(result.get("text_summary", ""))
+	return run_checks([
+		assert_true(summary.has("version_a_wins"), "run_and_summarize 的版本回归汇总应包含 version_a_wins"),
+		assert_true(summary.has("version_b_wins"), "run_and_summarize 的版本回归汇总应包含 version_b_wins"),
+		assert_true(summary.has("version_a_win_rate"), "run_and_summarize 的版本回归汇总应包含 version_a_win_rate"),
+		assert_true(summary.has("version_b_win_rate"), "run_and_summarize 的版本回归汇总应包含 version_b_win_rate"),
+		assert_str_contains(text_summary, "baseline-v1", "版本回归文本汇总应包含 baseline-v1"),
+		assert_str_contains(text_summary, "candidate-v2", "版本回归文本汇总应包含 candidate-v2"),
+	])

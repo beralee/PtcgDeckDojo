@@ -121,6 +121,10 @@ func summarize_pairing(matches: Array[Dictionary], pairing_name: String) -> Dict
 	summary["failure_breakdown"] = failure_breakdown
 	summary["identity_event_breakdown"] = identity_breakdown
 	summary["identity_check_pass_rate"] = 0.0 if applicable_event_count <= 0 else float(passed_event_count) / float(applicable_event_count)
+
+	# 版本回归模式: 按 version_a / version_b 拆分胜场
+	_apply_version_regression_fields(summary, matches, total_matches)
+
 	return summary
 
 
@@ -135,7 +139,7 @@ func build_text_summary(summary: Dictionary) -> String:
 	var stall_count: int = _rate_to_count(float(summary.get("stall_rate", 0.0)), total_matches)
 	var cap_count: int = _rate_to_count(float(summary.get("cap_termination_rate", 0.0)), total_matches)
 	var pass_rate: float = float(summary.get("identity_check_pass_rate", 0.0))
-	return "%s | matches=%d | wins_a=%d (win_rate_a=%.1f%%) | wins_b=%d (win_rate_b=%.1f%%) | average_turn_count=%.2f | stalls=%d | caps=%d | identity_check_pass_rate=%.1f%%" % [
+	var base_line := "%s | matches=%d | wins_a=%d (win_rate_a=%.1f%%) | wins_b=%d (win_rate_b=%.1f%%) | average_turn_count=%.2f | stalls=%d | caps=%d | identity_check_pass_rate=%.1f%%" % [
 		pairing,
 		total_matches,
 		wins_a,
@@ -147,6 +151,72 @@ func build_text_summary(summary: Dictionary) -> String:
 		cap_count,
 		pass_rate * 100.0,
 	]
+
+	# 版本回归模式追加版本对比行
+	if summary.has("version_a_label"):
+		var va_label := str(summary.get("version_a_label", ""))
+		var vb_label := str(summary.get("version_b_label", ""))
+		var va_wins: int = int(summary.get("version_a_wins", 0))
+		var vb_wins: int = int(summary.get("version_b_wins", 0))
+		var va_rate: float = float(summary.get("version_a_win_rate", 0.0))
+		var vb_rate: float = float(summary.get("version_b_win_rate", 0.0))
+		base_line += " | version_a=%s wins=%d (version_a_win_rate=%.1f%%) | version_b=%s wins=%d (version_b_win_rate=%.1f%%)" % [
+			va_label, va_wins, va_rate * 100.0,
+			vb_label, vb_wins, vb_rate * 100.0,
+		]
+
+	return base_line
+
+
+## 检测版本回归模式并附加 version_a / version_b 胜场字段
+func _apply_version_regression_fields(summary: Dictionary, matches: Array[Dictionary], total_matches: int) -> void:
+	var is_version_regression := false
+	for match_variant: Variant in matches:
+		if not match_variant is Dictionary:
+			continue
+		if str((match_variant as Dictionary).get("comparison_mode", "")) == "version_regression":
+			is_version_regression = true
+			break
+
+	if not is_version_regression:
+		return
+
+	var version_a_wins: int = 0
+	var version_b_wins: int = 0
+	var version_a_label: String = ""
+	var version_b_label: String = ""
+
+	for match_variant: Variant in matches:
+		if not match_variant is Dictionary:
+			continue
+		var m: Dictionary = match_variant
+
+		# 从第一条有效记录提取版本标签（不依赖胜者）
+		if version_a_label == "":
+			var va_config: Variant = m.get("version_a_agent_config", {})
+			if va_config is Dictionary:
+				version_a_label = str((va_config as Dictionary).get("version_tag", ""))
+		if version_b_label == "":
+			var vb_config: Variant = m.get("version_b_agent_config", {})
+			if vb_config is Dictionary:
+				version_b_label = str((vb_config as Dictionary).get("version_tag", ""))
+
+		var winner_index: int = int(m.get("winner_index", -1))
+		if winner_index < 0:
+			continue
+		var va_player_index: int = int(m.get("version_a_player_index", -1))
+		var vb_player_index: int = int(m.get("version_b_player_index", -1))
+		if winner_index == va_player_index:
+			version_a_wins += 1
+		elif winner_index == vb_player_index:
+			version_b_wins += 1
+
+	summary["version_a_wins"] = version_a_wins
+	summary["version_b_wins"] = version_b_wins
+	summary["version_a_win_rate"] = 0.0 if total_matches <= 0 else float(version_a_wins) / float(total_matches)
+	summary["version_b_win_rate"] = 0.0 if total_matches <= 0 else float(version_b_wins) / float(total_matches)
+	summary["version_a_label"] = version_a_label
+	summary["version_b_label"] = version_b_label
 
 
 func _make_empty_summary(pairing_name: String) -> Dictionary:
