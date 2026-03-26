@@ -19,6 +19,7 @@ const TestAIPhase2Benchmark = preload("res://tests/test_ai_phase2_benchmark.gd")
 const TestDeckIdentityTracker = preload("res://tests/test_deck_identity_tracker.gd")
 const TestBenchmarkEvaluator = preload("res://tests/test_benchmark_evaluator.gd")
 const TestDeckManager = preload("res://tests/test_deck_manager.gd")
+const TestAIPhase3Regression = preload("res://tests/test_ai_phase3_regression.gd")
 
 @onready var result_label: RichTextLabel = %ResultLabel
 @onready var summary_label: Label = %SummaryLabel
@@ -63,6 +64,7 @@ func _ready() -> void:
 	_run_test_suite("DeckIdentityTracker", TestDeckIdentityTracker.new())
 	_run_test_suite("BenchmarkEvaluator", TestBenchmarkEvaluator.new())
 	_run_test_suite("DeckManager", TestDeckManager.new())
+	_run_test_suite("AIPhase3Regression", TestAIPhase3Regression.new())
 	_run_test_suite("CardCatalogAudit", TestCardCatalogAudit.new())
 	_run_test_suite("SourceEncodingAudit", TestSourceEncodingAudit.new())
 

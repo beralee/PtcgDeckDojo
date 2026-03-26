@@ -296,3 +296,70 @@ func _rate_to_count(rate: float, total_matches: int) -> int:
 	if total_matches <= 0:
 		return 0
 	return int(round(rate * float(total_matches)))
+
+
+## Phase 3 回归门: 对比基线汇总与候选汇总，返回 { "passed": bool, "reasons": Array[String] }
+## 规则:
+##   - 候选停滞率不得高于基线
+##   - 候选上限终止率不得高于基线
+##   - 至少有一个配对的胜率不低于基线
+##   - 身份事件命中率不得崩溃（可适用事件的命中率不得低于基线超过容差）
+static func compare_summaries(baseline: Dictionary, candidate: Dictionary, identity_collapse_tolerance: float = 0.10) -> Dictionary:
+	var reasons: Array[String] = []
+
+	# 空汇总检查
+	if baseline.is_empty():
+		reasons.append("基线汇总为空")
+	if candidate.is_empty():
+		reasons.append("候选汇总为空")
+	if not reasons.is_empty():
+		return {"passed": false, "reasons": reasons}
+
+	# 停滞率对比
+	var baseline_stall_rate: float = float(baseline.get("stall_rate", 0.0))
+	var candidate_stall_rate: float = float(candidate.get("stall_rate", 0.0))
+	if candidate_stall_rate > baseline_stall_rate:
+		reasons.append("候选停滞率 (%.2f) 高于基线 (%.2f)" % [candidate_stall_rate, baseline_stall_rate])
+
+	# 上限终止率对比
+	var baseline_cap_rate: float = float(baseline.get("cap_termination_rate", 0.0))
+	var candidate_cap_rate: float = float(candidate.get("cap_termination_rate", 0.0))
+	if candidate_cap_rate > baseline_cap_rate:
+		reasons.append("候选上限终止率 (%.2f) 高于基线 (%.2f)" % [candidate_cap_rate, baseline_cap_rate])
+
+	# 胜率对比: 候选至少有一个配对胜率 >= 基线
+	var baseline_win_rate_a: float = float(baseline.get("win_rate_a", 0.0))
+	var candidate_win_rate_a: float = float(candidate.get("win_rate_a", 0.0))
+	var baseline_win_rate_b: float = float(baseline.get("win_rate_b", 0.0))
+	var candidate_win_rate_b: float = float(candidate.get("win_rate_b", 0.0))
+	var any_improved_or_equal := false
+	if candidate_win_rate_a >= baseline_win_rate_a:
+		any_improved_or_equal = true
+	if candidate_win_rate_b >= baseline_win_rate_b:
+		any_improved_or_equal = true
+	if not any_improved_or_equal:
+		reasons.append("候选胜率全面下降: win_rate_a %.2f->%.2f, win_rate_b %.2f->%.2f" % [
+			baseline_win_rate_a, candidate_win_rate_a,
+			baseline_win_rate_b, candidate_win_rate_b,
+		])
+
+	# 身份事件命中率崩溃检查
+	var baseline_identity: Dictionary = baseline.get("identity_event_breakdown", {}) if baseline.get("identity_event_breakdown", {}) is Dictionary else {}
+	var candidate_identity: Dictionary = candidate.get("identity_event_breakdown", {}) if candidate.get("identity_event_breakdown", {}) is Dictionary else {}
+	for event_key: String in EVENT_ORDER:
+		var b_event: Variant = baseline_identity.get(event_key, {})
+		var c_event: Variant = candidate_identity.get(event_key, {})
+		if not b_event is Dictionary or not c_event is Dictionary:
+			continue
+		var b_applicable: int = int((b_event as Dictionary).get("applicable_matches", 0))
+		var c_applicable: int = int((c_event as Dictionary).get("applicable_matches", 0))
+		if b_applicable <= 0 or c_applicable <= 0:
+			continue
+		var b_hit_rate: float = float((b_event as Dictionary).get("hit_rate", 0.0))
+		var c_hit_rate: float = float((c_event as Dictionary).get("hit_rate", 0.0))
+		if c_hit_rate < b_hit_rate - identity_collapse_tolerance:
+			reasons.append("身份事件 %s 命中率崩溃: %.2f -> %.2f (容差 %.2f)" % [
+				event_key, b_hit_rate, c_hit_rate, identity_collapse_tolerance,
+			])
+
+	return {"passed": reasons.is_empty(), "reasons": reasons}
