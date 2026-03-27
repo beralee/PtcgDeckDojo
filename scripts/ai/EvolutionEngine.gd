@@ -19,6 +19,8 @@ var deck_pairings: Array[Array] = [
 	[575720, 575716],   # miraidon vs charizard_ex
 	[578647, 575716],   # gardevoir vs charizard_ex
 ]
+var value_net_path: String = ""
+var export_training_data: bool = false
 
 ## 自适应 sigma 参数
 const SIGMA_MIN: float = 0.05
@@ -54,6 +56,7 @@ static func get_default_config() -> Dictionary:
 			"rollout_max_steps": 80,
 			"time_budget_ms": 3000,
 		},
+		"value_net_path": "",
 	}
 
 
@@ -83,12 +86,16 @@ func run(initial_config: Dictionary = {}) -> Dictionary:
 
 	for gen: int in generations:
 		var mutant_config: Dictionary = mutate(current_best)
+		if value_net_path != "":
+			mutant_config["value_net_path"] = value_net_path
+			current_best["value_net_path"] = value_net_path
 		var result: Dictionary = _runner.run_batch(
 			mutant_config,
 			current_best,
 			deck_pairings,
 			seed_set,
 			max_steps_per_match,
+			export_training_data,
 		)
 		var mutant_wr: float = float(result.get("agent_a_win_rate", 0.0))
 		var accepted: bool = mutant_wr > 0.5

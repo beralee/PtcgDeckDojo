@@ -8,9 +8,14 @@ const AIStepResolverScript = preload("res://scripts/ai/AIStepResolver.gd")
 const AIHeuristicsScript = preload("res://scripts/ai/AIHeuristics.gd")
 const AIDecisionTraceScript = preload("res://scripts/ai/AIDecisionTrace.gd")
 const MCTSPlannerScript = preload("res://scripts/ai/MCTSPlanner.gd")
+const NeuralNetInferenceScript = preload("res://scripts/ai/NeuralNetInference.gd")
+const StateEncoderScript = preload("res://scripts/ai/StateEncoder.gd")
 
 var player_index: int = 1
 var difficulty: int = 1
+var heuristic_weights: Dictionary = {}
+var value_net_path: String = ""
+var _value_net: RefCounted = null
 var _setup_planner = AISetupPlannerScript.new()
 var _legal_action_builder = AILegalActionBuilderScript.new()
 var _feature_extractor = AIFeatureExtractorScript.new()
@@ -173,6 +178,8 @@ func _choose_best_action(gsm: GameStateMachine) -> Dictionary:
 	## MCTS 模式：使用预规划序列
 	if use_mcts:
 		return _choose_mcts_action(gsm)
+	## 同步权重到 heuristics
+	_heuristics.weights = heuristic_weights
 	## 原有 heuristic 逻辑
 	var actions: Array[Dictionary] = get_legal_actions(gsm)
 	var trace = AIDecisionTraceScript.new()
@@ -386,6 +393,15 @@ func _clear_consumed_prompt(battle_scene: Control) -> void:
 
 
 func _choose_mcts_action(gsm: GameStateMachine) -> Dictionary:
+	## 加载价值网络（懒加载，只加载一次）
+	if _value_net == null and value_net_path != "":
+		_value_net = NeuralNetInferenceScript.new()
+		if not _value_net.load_weights(value_net_path):
+			push_warning("[AIOpponent] 无法加载价值网络: %s" % value_net_path)
+			_value_net = null
+	if _mcts_planner != null:
+		_mcts_planner.value_net = _value_net
+		_mcts_planner.state_encoder_class = StateEncoderScript
 	## 如果还有预规划的序列动作，继续执行
 	if _mcts_sequence_index < _mcts_planned_sequence.size():
 		var planned_action: Dictionary = _mcts_planned_sequence[_mcts_sequence_index]
@@ -458,6 +474,7 @@ func _choose_mcts_action(gsm: GameStateMachine) -> Dictionary:
 
 func _choose_heuristic_action(gsm: GameStateMachine) -> Dictionary:
 	## 与原 _choose_best_action 中的 heuristic 分支相同的逻辑
+	_heuristics.weights = heuristic_weights
 	var actions: Array[Dictionary] = get_legal_actions(gsm)
 	var trace = AIDecisionTraceScript.new()
 	trace.turn_number = int(gsm.game_state.turn_number) if gsm != null and gsm.game_state != null else -1

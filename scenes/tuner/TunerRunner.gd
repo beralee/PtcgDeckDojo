@@ -9,6 +9,8 @@
 ##   --sigma-m=0.10            MCTS 参数扰动幅度（默认 0.10）
 ##   --max-steps=200           单局最大步数（默认 200）
 ##   --from-latest             从 AgentVersionStore 加载最新版本作为起点
+##   --value-net=path          价值网络权重路径（user:// 格式）
+##   --export-data             导出训练数据
 extends Control
 
 const EvolutionEngineScript = preload("res://scripts/ai/EvolutionEngine.gd")
@@ -20,6 +22,7 @@ func _ready() -> void:
 	var engine := EvolutionEngineScript.new()
 	var from_latest: bool = false
 
+	var export_data: bool = false
 	var cmdline_args: PackedStringArray = OS.get_cmdline_args()
 	for arg: String in cmdline_args:
 		if arg.begins_with("--generations="):
@@ -32,7 +35,12 @@ func _ready() -> void:
 			engine.max_steps_per_match = int(arg.split("=")[1])
 		elif arg == "--from-latest":
 			from_latest = true
+		elif arg.begins_with("--value-net="):
+			engine.value_net_path = arg.split("=")[1]
+		elif arg == "--export-data":
+			export_data = true
 
+	engine.export_training_data = export_data
 	print("[TunerRunner] 配置: 代数=%d, sigma_w=%.3f, sigma_m=%.3f" % [
 		engine.generations, engine.sigma_weights, engine.sigma_mcts
 	])

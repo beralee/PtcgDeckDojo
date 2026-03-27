@@ -130,6 +130,9 @@ func _make_agent(player_index: int, config: Dictionary) -> AIOpponent:
 	if mcts is Dictionary and not (mcts as Dictionary).is_empty():
 		agent.use_mcts = true
 		agent.mcts_config = (mcts as Dictionary).duplicate(true)
+	var vn_path: Variant = config.get("value_net_path", "")
+	if vn_path is String and (vn_path as String) != "":
+		agent.value_net_path = vn_path as String
 	return agent
 
 
