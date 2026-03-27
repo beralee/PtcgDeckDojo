@@ -23,6 +23,7 @@ const TestAIPhase3Regression = preload("res://tests/test_ai_phase3_regression.gd
 const TestGameStateCloner = preload("res://tests/test_game_state_cloner.gd")
 const TestRolloutSimulator = preload("res://tests/test_rollout_simulator.gd")
 const TestMCTSPlanner = preload("res://tests/test_mcts_planner.gd")
+const TestAgentVersionStore = preload("res://tests/test_agent_version_store.gd")
 
 @onready var result_label: RichTextLabel = %ResultLabel
 @onready var summary_label: Label = %SummaryLabel
@@ -71,6 +72,7 @@ func _ready() -> void:
 	_run_test_suite("GameStateCloner", TestGameStateCloner.new())
 	_run_test_suite("RolloutSimulator", TestRolloutSimulator.new())
 	_run_test_suite("MCTSPlanner", TestMCTSPlanner.new())
+	_run_test_suite("AgentVersionStore", TestAgentVersionStore.new())
 	_run_test_suite("CardCatalogAudit", TestCardCatalogAudit.new())
 	_run_test_suite("SourceEncodingAudit", TestSourceEncodingAudit.new())
 
