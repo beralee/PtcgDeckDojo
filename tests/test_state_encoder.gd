@@ -59,11 +59,11 @@ func _make_game_state() -> GameState:
 	return gs
 
 
-func test_encode_returns_30_floats() -> String:
+func test_encode_returns_correct_dimension() -> String:
 	var gs := _make_game_state()
 	var features: Array[float] = StateEncoderScript.encode(gs, 0)
 	return run_checks([
-		assert_eq(features.size(), 30, "特征向量维度应为 30"),
+		assert_eq(features.size(), 44, "特征向量维度应为 44"),
 	])
 
 
@@ -89,8 +89,8 @@ func test_encode_symmetry() -> String:
 	var f0: Array[float] = StateEncoderScript.encode(gs, 0)
 	var f1: Array[float] = StateEncoderScript.encode(gs, 1)
 	var symmetric: bool = true
-	for i in 14:
-		if absf(f0[i] - f1[14 + i]) > 0.001:
+	for i in 20:
+		if absf(f0[i] - f1[20 + i]) > 0.001:
 			symmetric = false
 			break
 	return run_checks([
@@ -105,9 +105,9 @@ func test_encode_turn_and_first_player() -> String:
 	var f0: Array[float] = StateEncoderScript.encode(gs, 0)
 	var f1: Array[float] = StateEncoderScript.encode(gs, 1)
 	return run_checks([
-		assert_true(absf(f0[28] - 0.5) < 0.01, "回合数归一化应为 0.5"),
-		assert_true(f0[29] == 1.0, "玩家 0 是先手"),
-		assert_true(f1[29] == 0.0, "玩家 1 不是先手"),
+		assert_true(absf(f0[40] - 0.5) < 0.01, "回合数归一化应为 0.5"),
+		assert_true(f0[41] == 1.0, "玩家 0 是先手"),
+		assert_true(f1[41] == 0.0, "玩家 1 不是先手"),
 	])
 
 
@@ -130,4 +130,20 @@ func test_encode_no_active_pokemon() -> String:
 		assert_true(f[0] == 0.0, "无前场 active_hp_ratio 应为 0"),
 		assert_true(f[1] == 0.0, "无前场 active_damage_ratio 应为 0"),
 		assert_true(f[2] == 0.0, "无前场 active_energy_count 应为 0"),
+	])
+
+
+func test_encode_new_features() -> String:
+	var gs := _make_game_state()
+	## 给 player 0 的前场加状态异常
+	gs.players[0].active_pokemon.status_conditions["poisoned"] = true
+	## 给 player 0 添加弃牌区
+	for _i in 10:
+		gs.players[0].discard_pile.append(CardInstance.create(CardData.new(), 0))
+	var f: Array[float] = StateEncoderScript.encode(gs, 0)
+	return run_checks([
+		assert_true(f[14] == 1.0, "中毒时 poisoned_or_burned 应为 1.0"),
+		assert_true(f[15] == 0.0, "无特殊状态时 status_locked 应为 0.0"),
+		assert_true(absf(f[19] - 0.25) < 0.01, "10 张弃牌 / 40 = 0.25"),
+		assert_true(f[42] == 0.0, "无竞技场卡时 stadium_in_play 应为 0.0"),
 	])

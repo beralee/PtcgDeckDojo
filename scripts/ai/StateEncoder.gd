@@ -4,7 +4,7 @@ extends RefCounted
 ## 局面编码为固定长度特征向量。
 ## 对称编码：以 perspective_player 为视角。
 
-const FEATURE_DIM: int = 30
+const FEATURE_DIM: int = 44
 
 
 static func encode(game_state: GameState, perspective_player: int) -> Array[float]:
@@ -19,10 +19,15 @@ static func encode(game_state: GameState, perspective_player: int) -> Array[floa
 	var opp_player: PlayerState = game_state.players[1 - perspective_player]
 
 	var my_is_current: bool = game_state.current_player_index == perspective_player
+	## 索引 0-19: 自己的特征
 	_encode_player(my_player, features, 0, my_is_current, game_state)
-	_encode_player(opp_player, features, 14, not my_is_current, game_state)
-	features[28] = clampf(float(game_state.turn_number) / 30.0, 0.0, 1.0)
-	features[29] = 1.0 if game_state.first_player_index == perspective_player else 0.0
+	## 索引 20-39: 对手的特征
+	_encode_player(opp_player, features, 20, not my_is_current, game_state)
+	## 索引 40-43: 全局特征
+	features[40] = clampf(float(game_state.turn_number) / 30.0, 0.0, 1.0)
+	features[41] = 1.0 if game_state.first_player_index == perspective_player else 0.0
+	features[42] = 1.0 if game_state.stadium_card != null else 0.0
+	features[43] = 1.0 if game_state.phase == GameState.GamePhase.MAIN else 0.0
 
 	return features
 
@@ -67,6 +72,28 @@ static func _encode_player(player: PlayerState, features: Array[float], offset: 
 	else:
 		features[offset + 12] = 1.0
 		features[offset + 13] = 1.0
+
+	## 状态异常
+	if slot != null:
+		var sc: Dictionary = slot.status_conditions
+		features[offset + 14] = 1.0 if (bool(sc.get("poisoned", false)) or bool(sc.get("burned", false))) else 0.0
+		features[offset + 15] = 1.0 if (bool(sc.get("asleep", false)) or bool(sc.get("paralyzed", false)) or bool(sc.get("confused", false))) else 0.0
+		var cd2: CardData = slot.get_card_data()
+		features[offset + 16] = float(cd2.retreat_cost) / 4.0 if cd2 != null else 0.0
+		features[offset + 17] = 1.0 if slot.attached_tool != null else 0.0
+
+	## 后备区进化数
+	var evolved_count: int = 0
+	for bs: PokemonSlot in player.bench:
+		if bs == null:
+			continue
+		var bcd2: CardData = bs.get_card_data()
+		if bcd2 != null and bcd2.stage != "Basic":
+			evolved_count += 1
+	features[offset + 18] = float(evolved_count) / 5.0
+
+	## 弃牌区大小
+	features[offset + 19] = float(player.discard_pile.size()) / 40.0
 
 
 static func _is_ex(slot: PokemonSlot) -> bool:
