@@ -38,13 +38,13 @@ Phase 5.1 建立了 self-play pipeline（EvolutionEngine + SelfPlayRunner + Agen
 
 ```
 Godot (GDScript)                         Python
-├── StateEncoder.gd                      ├── train_value_net.py
-│   GameState → float[30]                │   PyTorch 训练
-├── SelfPlayDataExporter.gd              │   导出权重 JSON
-│   对局数据 → JSON 文件                  └──────────┐
-├── NeuralNetInference.gd                           │
-│   加载 JSON 权重, 前馈推理              <── 权重 JSON ──┘
-└── MCTSPlanner.gd (修改)
++-- StateEncoder.gd                      +-- train_value_net.py
+|   GameState -> float[30]               |   PyTorch 训练
++-- SelfPlayDataExporter.gd              |   导出权重 JSON
+|   对局数据 -> JSON 文件                 +----------+
++-- NeuralNetInference.gd                           |
+|   加载 JSON 权重, 前馈推理              <-- 权重 JSON --+
++-- MCTSPlanner.gd (修改)
     用 NeuralNetInference 替代 rollout
 ```
 
