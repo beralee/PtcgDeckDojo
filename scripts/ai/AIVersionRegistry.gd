@@ -19,6 +19,7 @@ func save_version(record: Dictionary) -> bool:
 	var version_record := record.duplicate(true)
 	if str(version_record.get("created_at", "")).is_empty():
 		version_record["created_at"] = Time.get_datetime_string_from_system()
+	version_record["save_order"] = _next_save_order(index)
 
 	index[version_id] = version_record
 	return _save_index(index)
@@ -45,6 +46,10 @@ func list_playable_versions() -> Array[Dictionary]:
 		var a_created_at := str(a.get("created_at", ""))
 		var b_created_at := str(b.get("created_at", ""))
 		if a_created_at == b_created_at:
+			var a_save_order := int(a.get("save_order", 0))
+			var b_save_order := int(b.get("save_order", 0))
+			if a_save_order != b_save_order:
+				return a_save_order < b_save_order
 			return str(a.get("version_id", "")) < str(b.get("version_id", ""))
 		return a_created_at < b_created_at
 	)
@@ -94,3 +99,11 @@ func _ensure_dir_exists() -> void:
 
 func _index_path() -> String:
 	return base_dir.path_join(INDEX_FILE)
+
+
+func _next_save_order(index: Dictionary) -> int:
+	var next_order := 0
+	for value: Variant in index.values():
+		if value is Dictionary:
+			next_order = maxi(next_order, int((value as Dictionary).get("save_order", 0)))
+	return next_order + 1

@@ -42,7 +42,9 @@ func test_list_playable_versions_filters_trainable() -> String:
 	registry.save_version({"version_id": "AI-2", "display_name": "two", "status": "playable"})
 	var versions: Array[Dictionary] = registry.list_playable_versions()
 	_cleanup()
-	var first_version_id := versions[0].get("version_id", "") if not versions.is_empty() else ""
+	var first_version_id: String = ""
+	if not versions.is_empty():
+		first_version_id = str(versions[0].get("version_id", ""))
 	return run_checks([
 		assert_eq(versions.size(), 1, "只应返回 playable 版本"),
 		assert_eq(first_version_id, "AI-2", "应返回 playable 版本"),
@@ -60,4 +62,17 @@ func test_get_latest_playable_version_ignores_non_playable() -> String:
 	_cleanup()
 	return run_checks([
 		assert_eq(latest.get("version_id", ""), "AI-3", "latest playable 应忽略 trainable 记录"),
+	])
+
+
+func test_get_latest_playable_version_uses_save_order_for_same_second_records() -> String:
+	_cleanup()
+	var registry := RegistryScript.new()
+	registry.base_dir = "user://ai_versions_test"
+	registry.save_version({"version_id": "AI-1", "display_name": "one", "status": "playable", "created_at": "2026-03-28T12:00:00"})
+	registry.save_version({"version_id": "AI-2", "display_name": "two", "status": "playable", "created_at": "2026-03-28T12:00:00"})
+	var latest: Dictionary = registry.get_latest_playable_version()
+	_cleanup()
+	return run_checks([
+		assert_eq(latest.get("version_id", ""), "AI-2", "相同 created_at 时应按保存顺序选择最新版本"),
 	])
