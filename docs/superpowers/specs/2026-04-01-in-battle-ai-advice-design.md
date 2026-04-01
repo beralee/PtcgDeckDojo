@@ -141,6 +141,7 @@ The session should survive repeated button presses during the same match and mai
 
 - a stable `session_id`
 - how many requests have already been sent
+- a 1-based `request_index` for each generated request
 - which detailed events have already been synchronized
 - the most recent advice summary
 - the most recent player-view context marker
@@ -352,6 +353,13 @@ Concurrency rule for the first release:
 
 This keeps `request_count`, sync cursors, and network behavior deterministic.
 
+Advice generation is strictly asynchronous:
+
+- the overlay shows loading state while ZenMux is in flight
+- the battle scene remains responsive for viewing and reading
+- the service must not block the main UI thread while waiting for ZenMux
+- timeout handling follows the configured ZenMux client timeout and resolves into a failed attempt envelope
+
 #### Docked side panel
 
 If the player selects the pin action, show a dockable advice panel beside the existing right-side information area.
@@ -400,13 +408,14 @@ To keep planning and testing unambiguous, the first implementation plan should t
   "created_at": "string",
   "updated_at": "string",
   "request_count": 0,
+  "next_request_index": 1,
   "last_synced_event_index": 0,
   "last_synced_turn_number": 0,
   "last_advice_summary": "string",
   "last_player_view_index": 0,
   "latest_attempt_status": "idle|running|completed|failed",
-  "latest_attempt_request_index": 0,
-  "latest_success_request_index": 0
+  "latest_attempt_request_index": 1,
+  "latest_success_request_index": 1
 }
 ```
 
@@ -416,7 +425,7 @@ To keep planning and testing unambiguous, the first implementation plan should t
 {
   "status": "completed|failed",
   "session_id": "string",
-  "request_index": 0,
+  "request_index": 1,
   "turn_number": 0,
   "player_index": 0,
   "generated_at": "string",
@@ -436,7 +445,7 @@ Same shape as `latest_advice.json`, but only written after successful requests.
   "schema_version": "battle_advice_v1",
   "session": {
     "session_id": "string",
-    "request_index": 0,
+    "request_index": 1,
     "last_advice_summary": "string",
     "current_player_index": 0
   },
@@ -484,7 +493,7 @@ For failed requests, `latest_advice.json` should use this normalized structure:
 {
   "status": "failed",
   "session_id": "string",
-  "request_index": 0,
+  "request_index": 1,
   "turn_number": 0,
   "player_index": 0,
   "generated_at": "string",
