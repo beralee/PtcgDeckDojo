@@ -28,14 +28,14 @@ Use ASCII identifiers for planning, persistence, and tests. UI copy can be local
 - overlay title id: `ai_advice_overlay`
 - docked panel id: `ai_advice_panel`
 
-Exact localized UI strings for the first release:
+Exact localized UI strings for the first release, stored as escaped Unicode literals to keep the spec unambiguous in ASCII-only tooling:
 
-- advice button text: `AI建议`
-- overlay title: `AI建议`
-- overlay action: `重新分析`
-- overlay action: `固定到侧边`
-- overlay action: `关闭`
-- docked panel title: `AI建议`
+- advice button text: `"\u0041\u0049\u5efa\u8bae"` (localized AI Advice button)
+- overlay title: `"\u0041\u0049\u5efa\u8bae"` (localized AI Advice title)
+- overlay action rerun: `"\u91cd\u65b0\u5206\u6790"` (localized rerun action)
+- overlay action pin: `"\u56fa\u5b9a\u5230\u4fa7\u8fb9"` (localized pin action)
+- overlay action close: `"\u5173\u95ed"` (localized close action)
+- docked panel title: `"\u0041\u0049\u5efa\u8bae"` (localized AI Advice panel title)
 
 ## Scope
 
@@ -301,12 +301,12 @@ The most important design rule is that the model must not blend future speculati
 
 First-release localized section headings in the UI:
 
-- `current_turn_main_line` -> `本回合主线`
-- `conditional_branches` -> `条件分支`
-- `prize_plan` -> `拿奖节奏判断`
-- `why_this_line` -> `原因说明`
-- `risk_watchouts` -> `风险提醒`
-- `confidence` -> `置信度`
+- `current_turn_main_line` -> `"\u672c\u56de\u5408\u4e3b\u7ebf"` (localized current-turn heading)
+- `conditional_branches` -> `"\u6761\u4ef6\u5206\u652f"` (localized branches heading)
+- `prize_plan` -> `"\u62ff\u5956\u8282\u594f\u5224\u65ad"` (localized prize-plan heading)
+- `why_this_line` -> `"\u539f\u56e0\u8bf4\u660e"` (localized explanation heading)
+- `risk_watchouts` -> `"\u98ce\u9669\u63d0\u9192"` (localized risk heading)
+- `confidence` -> `"\u7f6e\u4fe1\u5ea6"` (localized confidence heading)
 
 ### 6. UI flow
 
@@ -409,6 +409,7 @@ Same shape as `latest_advice.json`, but only written after successful requests.
 
 ```json
 {
+  "schema_version": "battle_advice_v1",
   "session": {
     "session_id": "string",
     "request_index": 0,
@@ -431,6 +432,7 @@ Same shape as `latest_advice.json`, but only written after successful requests.
 
 ```json
 {
+  "schema_version": "battle_advice_v1",
   "strategic_thesis": "string",
   "current_turn_main_line": [],
   "conditional_branches": [],
@@ -445,6 +447,12 @@ Same shape as `latest_advice.json`, but only written after successful requests.
 ### 9. Prompting and model guidance
 
 Prompting should live only in `BattleAdvicePromptBuilder`.
+
+The first release should define:
+
+- request schema version: `battle_advice_v1`
+- response schema version: `battle_advice_v1`
+- prompt builder constant: `BATTLE_ADVICE_SCHEMA_VERSION = "battle_advice_v1"`
 
 The prompt must explicitly instruct the model to:
 
@@ -462,10 +470,10 @@ The response schema should be strict enough that the UI never needs to parse fre
 
 #### UI coverage
 
-- the top bar includes `AI建议` immediately left of `宙斯帮我`
+- the top bar includes `BtnAiAdvice` immediately left of `BtnZeusHelp`
 - pressing the button opens the advice overlay
 - loading, success, failure, and retry states render correctly
-- `固定到侧边` shows and updates the docked panel
+- the localized pin action shows and updates the docked panel
 
 #### Session coverage
 
@@ -484,7 +492,7 @@ The response schema should be strict enough that the UI never needs to parse fre
 
 #### Prompt / client coverage
 
-- prompt payload uses the expected schema version
+- prompt payload uses `battle_advice_v1`
 - ZenMux responses normalize into the structured advice contract
 - malformed provider responses surface as non-fatal failures
 
