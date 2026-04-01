@@ -283,21 +283,29 @@ Required logical sections:
 - `strategic_thesis`
   - one-sentence statement of the turn's real job
 - `current_turn_main_line`
-  - ordered steps for the rest of this turn
+  - ordered step objects for the rest of this turn
 - `conditional_branches`
-  - conditional plans for uncertain outcomes
+  - conditional branch objects for uncertain outcomes
 - `prize_plan`
-  - the best expected prize map and tempo objective for the next one to two turns
+  - prize-plan objects for the next one to two turns
 - `why_this_line`
   - concrete reasons tied to board state, resources, and sequencing
 - `risk_watchouts`
-  - what can go wrong or what line this recommendation is hedging against
+  - risk objects describing what can go wrong and how to hedge
 - `confidence`
   - low / medium / high
 - `summary_for_next_request`
   - a compact assistant summary to persist into the next advice request
 
 The most important design rule is that the model must not blend future speculation into `current_turn_main_line`. That section is for the best executable line from the current position. Uncertain follow-ups belong in `conditional_branches`.
+
+Fixed item shapes for first-release planning and tests:
+
+- `current_turn_main_line`: `[{ "step": 1, "action": "string", "why": "string" }]`
+- `conditional_branches`: `[{ "if": "string", "then": ["string"] }]`
+- `prize_plan`: `[{ "horizon": "this_turn|next_turn|next_two_turns", "goal": "string" }]`
+- `why_this_line`: `["string"]`
+- `risk_watchouts`: `[{ "risk": "string", "mitigation": "string" }]`
 
 First-release localized section headings in the UI:
 
@@ -327,6 +335,22 @@ When pressed:
    - close
 
 The overlay is the first-read surface and should reuse the style language of the existing review overlay where practical.
+
+#### In-flight behavior
+
+Repeated requests are allowed across the match, but not while a request is already running.
+
+Concurrency rule for the first release:
+
+- if `latest_attempt_status == "running"`:
+  - disable the `BtnAiAdvice` button
+  - disable the overlay rerun action
+  - ignore extra press events
+  - do not queue, cancel, or start a parallel request
+- when the request completes:
+  - re-enable the button and rerun action
+
+This keeps `request_count`, sync cursors, and network behavior deterministic.
 
 #### Docked side panel
 
@@ -364,7 +388,7 @@ If ZenMux returns malformed JSON:
 - mark the request as failed
 - leave the session resumable
 
-### 8.1 Explicit persistence and payload contracts
+### 8. Explicit persistence and payload contracts
 
 To keep planning and testing unambiguous, the first implementation plan should treat these file contracts as fixed.
 
@@ -434,15 +458,53 @@ Same shape as `latest_advice.json`, but only written after successful requests.
 {
   "schema_version": "battle_advice_v1",
   "strategic_thesis": "string",
-  "current_turn_main_line": [],
-  "conditional_branches": [],
-  "prize_plan": [],
+  "current_turn_main_line": [
+    { "step": 1, "action": "string", "why": "string" }
+  ],
+  "conditional_branches": [
+    { "if": "string", "then": ["string"] }
+  ],
+  "prize_plan": [
+    { "horizon": "this_turn|next_turn|next_two_turns", "goal": "string" }
+  ],
   "why_this_line": [],
-  "risk_watchouts": [],
+  "risk_watchouts": [
+    { "risk": "string", "mitigation": "string" }
+  ],
   "confidence": "low|medium|high",
   "summary_for_next_request": "string"
 }
 ```
+
+#### failed attempt envelope
+
+For failed requests, `latest_advice.json` should use this normalized structure:
+
+```json
+{
+  "status": "failed",
+  "session_id": "string",
+  "request_index": 0,
+  "turn_number": 0,
+  "player_index": 0,
+  "generated_at": "string",
+  "advice": {},
+  "errors": [
+    {
+      "stage": "request|parse|response",
+      "error_type": "string",
+      "message": "string",
+      "http_code": 0
+    }
+  ],
+  "raw_provider_response": "string"
+}
+```
+
+Per-request debug artifacts should mirror this rule:
+
+- `advice_request_<n>.json`: exact request envelope sent to ZenMux
+- `advice_response_<n>.json`: normalized successful response or normalized failed envelope, including raw provider response when available
 
 ### 9. Prompting and model guidance
 
