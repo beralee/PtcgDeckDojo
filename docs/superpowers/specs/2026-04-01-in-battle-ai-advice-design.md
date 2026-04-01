@@ -2,9 +2,9 @@
 
 ## Goal
 
-Add an in-match `AI建议` feature for local human-vs-human battles that can coach the current turn player during the game.
+Add an in-match `AI Advice` feature for local human-vs-human battles that can coach the current turn player during the game.
 
-The feature should sit in the existing top-right action area, immediately to the left of `宙斯帮我`, and send the current player view of the match plus both full 60-card decklists to ZenMux-backed AI analysis.
+The feature should sit in the existing top-right action area, immediately to the left of `Zeus Help`, and send the current player view of the match plus both full 60-card decklists to ZenMux-backed AI analysis.
 
 The AI should return:
 
@@ -15,11 +15,33 @@ The AI should return:
 
 The tone target is high-level competitive coaching: specific, disciplined, and practical, not generic filler.
 
+## Canonical Names
+
+Use ASCII identifiers for planning, persistence, and tests. UI copy can be localized separately.
+
+- feature id: `in_battle_ai_advice`
+- scene button node: `BtnAiAdvice`
+- service class: `BattleAdviceService`
+- session store class: `BattleAdviceSessionStore`
+- context builder class: `BattleAdviceContextBuilder`
+- prompt builder class: `BattleAdvicePromptBuilder`
+- overlay title id: `ai_advice_overlay`
+- docked panel id: `ai_advice_panel`
+
+Exact localized UI strings for the first release:
+
+- advice button text: `AI建议`
+- overlay title: `AI建议`
+- overlay action: `重新分析`
+- overlay action: `固定到侧边`
+- overlay action: `关闭`
+- docked panel title: `AI建议`
+
 ## Scope
 
 This design covers:
 
-- a new `AI建议` button in local two-player battles
+- a new `AI Advice` button in local two-player battles
 - in-match AI analysis generation during an active match
 - a match-long persistent AI advice session
 - incremental context sync using existing battle recording artifacts
@@ -46,12 +68,12 @@ This design does not cover:
   - do not reveal prize card identities
   - do not reveal deck order
 - output structure:
-  - `本回合主线`
-  - `条件分支`
-  - `拿奖节奏判断`
-  - `原因说明`
-  - `风险提醒`
-  - `置信度`
+  - `current_turn_main_line`
+  - `conditional_branches`
+  - `prize_plan`
+  - `why_this_line`
+  - `risk_watchouts`
+  - `confidence`
 - UI pattern:
   - first show the result in an overlay
   - optionally pin the latest advice into a docked side panel
@@ -192,6 +214,7 @@ Store advice outputs under:
 
 - `user://match_records/<match_id>/advice/session.json`
 - `user://match_records/<match_id>/advice/latest_advice.json`
+- `user://match_records/<match_id>/advice/latest_success.json`
 - `user://match_records/<match_id>/advice/advice_request_001.json`
 - `user://match_records/<match_id>/advice/advice_response_001.json`
 
@@ -216,7 +239,7 @@ Canonical local session state:
 
 #### `latest_advice.json`
 
-Canonical UI-facing result for the newest successful or failed advice request.
+Canonical record of the newest completed advice attempt, whether it succeeded or failed.
 
 It should contain:
 
@@ -226,10 +249,30 @@ It should contain:
 - request index
 - turn number
 - player index
-- structured advice sections
+- structured advice sections, if successful
 - errors, if any
 
-If a request fails, the session file should remain valid and the last successful advice should remain available.
+#### `latest_success.json`
+
+Canonical UI-facing result for the newest successful advice response.
+
+Rules:
+
+- on success:
+  - write both `latest_advice.json` and `latest_success.json`
+- on failure:
+  - write only `latest_advice.json`
+  - preserve the existing `latest_success.json` unchanged
+
+This removes ambiguity between "latest attempt" and "latest usable advice".
+
+`session.json` should also expose:
+
+- `latest_attempt_status`
+- `latest_attempt_request_index`
+- `latest_success_request_index`
+
+If a request fails, the session file should remain valid and the last successful advice remains available through `latest_success.json`.
 
 ### 5. Keep the output structure strict and layered
 
@@ -239,28 +282,37 @@ Required logical sections:
 
 - `strategic_thesis`
   - one-sentence statement of the turn's real job
-- `main_line`
+- `current_turn_main_line`
   - ordered steps for the rest of this turn
-- `branches`
+- `conditional_branches`
   - conditional plans for uncertain outcomes
 - `prize_plan`
   - the best expected prize map and tempo objective for the next one to two turns
 - `why_this_line`
   - concrete reasons tied to board state, resources, and sequencing
-- `risks`
+- `risk_watchouts`
   - what can go wrong or what line this recommendation is hedging against
 - `confidence`
   - low / medium / high
 - `summary_for_next_request`
   - a compact assistant summary to persist into the next advice request
 
-The most important design rule is that the model must not blend future speculation into `main_line`. That section is for the best executable line from the current position. Uncertain follow-ups belong in `branches`.
+The most important design rule is that the model must not blend future speculation into `current_turn_main_line`. That section is for the best executable line from the current position. Uncertain follow-ups belong in `conditional_branches`.
+
+First-release localized section headings in the UI:
+
+- `current_turn_main_line` -> `本回合主线`
+- `conditional_branches` -> `条件分支`
+- `prize_plan` -> `拿奖节奏判断`
+- `why_this_line` -> `原因说明`
+- `risk_watchouts` -> `风险提醒`
+- `confidence` -> `置信度`
 
 ### 6. UI flow
 
 #### Button placement
 
-Add `AI建议` immediately to the left of `宙斯帮我` in the battle top bar.
+Add the `BtnAiAdvice` button immediately to the left of the existing `BtnZeusHelp` button in the battle top bar.
 
 #### Overlay flow
 
@@ -270,15 +322,15 @@ When pressed:
 2. Show a loading state while advice generation is running.
 3. Replace loading with the structured advice result.
 4. Expose actions:
-   - `重新分析`
-   - `固定到侧边`
-   - `关闭`
+   - re-run analysis
+   - pin to side panel
+   - close
 
 The overlay is the first-read surface and should reuse the style language of the existing review overlay where practical.
 
 #### Docked side panel
 
-If the player selects `固定到侧边`, show a dockable advice panel beside the existing right-side information area.
+If the player selects the pin action, show a dockable advice panel beside the existing right-side information area.
 
 The panel should:
 
@@ -312,7 +364,85 @@ If ZenMux returns malformed JSON:
 - mark the request as failed
 - leave the session resumable
 
-### 8. Prompting and model guidance
+### 8.1 Explicit persistence and payload contracts
+
+To keep planning and testing unambiguous, the first implementation plan should treat these file contracts as fixed.
+
+#### `session.json`
+
+```json
+{
+  "session_id": "string",
+  "created_at": "string",
+  "updated_at": "string",
+  "request_count": 0,
+  "last_synced_event_index": 0,
+  "last_synced_turn_number": 0,
+  "last_advice_summary": "string",
+  "last_player_view_index": 0,
+  "latest_attempt_status": "idle|running|completed|failed",
+  "latest_attempt_request_index": 0,
+  "latest_success_request_index": 0
+}
+```
+
+#### `latest_advice.json`
+
+```json
+{
+  "status": "completed|failed",
+  "session_id": "string",
+  "request_index": 0,
+  "turn_number": 0,
+  "player_index": 0,
+  "generated_at": "string",
+  "advice": {},
+  "errors": []
+}
+```
+
+#### `latest_success.json`
+
+Same shape as `latest_advice.json`, but only written after successful requests.
+
+#### advice request envelope
+
+```json
+{
+  "session": {
+    "session_id": "string",
+    "request_index": 0,
+    "last_advice_summary": "string",
+    "current_player_index": 0
+  },
+  "visibility_rules": {
+    "known": [],
+    "unknown": []
+  },
+  "current_position": {},
+  "delta_since_last_advice": {
+    "summary_lines": [],
+    "detail_events": []
+  }
+}
+```
+
+#### advice response payload
+
+```json
+{
+  "strategic_thesis": "string",
+  "current_turn_main_line": [],
+  "conditional_branches": [],
+  "prize_plan": [],
+  "why_this_line": [],
+  "risk_watchouts": [],
+  "confidence": "low|medium|high",
+  "summary_for_next_request": "string"
+}
+```
+
+### 9. Prompting and model guidance
 
 Prompting should live only in `BattleAdvicePromptBuilder`.
 
@@ -328,7 +458,7 @@ The prompt must explicitly instruct the model to:
 
 The response schema should be strict enough that the UI never needs to parse freeform prose blobs.
 
-### 9. Testing
+### 10. Testing
 
 #### UI coverage
 
