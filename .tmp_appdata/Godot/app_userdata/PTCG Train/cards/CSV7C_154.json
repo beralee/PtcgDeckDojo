@@ -1,0 +1,51 @@
+{
+	"abilities": [],
+	"ancient_trait": "",
+	"artist": "aky CG Works",
+	"attacks": [
+		{
+			"cost": "C",
+			"damage": "",
+			"is_vstar_power": false,
+			"name": "飞溅咆哮",
+			"text": "将自己的手牌全部放于弃牌区，从牌库上方抽取6张卡牌。"
+		},
+		{
+			"cost": "LF",
+			"damage": "70×",
+			"is_vstar_power": false,
+			"name": "极雷轰",
+			"text": "将自己场上宝可梦身上附着的任意数量的基本能量放于弃牌区，造成其张数×70伤害。"
+		}
+	],
+	"card_index": "154",
+	"card_index_en": "123",
+	"card_type": "Pokemon",
+	"description": " 飞溅咆哮 \n将自己的手牌全部放于弃牌区，从牌库上方抽取6张卡牌。\n\n【雷】【斗】 极雷轰 70×\n将自己场上宝可梦身上附着的任意数量的基本能量放于弃牌区，造成其张数×70伤害。\n\n",
+	"effect_id": "e96bb407c5f18bb9eec55487e70395fd",
+	"energy_provides": "",
+	"energy_type": "N",
+	"evolves_from": "",
+	"hp": 240,
+	"image_local_path": "user://cards/images/CSV7C/154.png",
+	"image_url": "https://tcg.mik.moe/static/img/CSV7C/154.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "ex",
+	"name": "猛雷鼓ex",
+	"name_en": "Raging Bolt ex",
+	"rarity": "RR",
+	"regulation_expanded": true,
+	"regulation_mark": "H",
+	"regulation_standard": true,
+	"release_date": "2026-01-16T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 3,
+	"set_code": "CSV7C",
+	"set_code_en": "TEF",
+	"stage": "Basic",
+	"weakness_energy": "",
+	"weakness_value": "",
+	"yoren_code": "Y1399"
+}

@@ -16,6 +16,7 @@ const EffectMirageGateScript = preload("res://scripts/effects/trainer_effects/Ef
 const EffectSwitchCartScript = preload("res://scripts/effects/trainer_effects/EffectSwitchCart.gd")
 const EffectSwitchPokemonScript = preload("res://scripts/effects/trainer_effects/EffectSwitchPokemon.gd")
 const EffectRareCandyScript = preload("res://scripts/effects/trainer_effects/EffectRareCandy.gd")
+const EffectCarmineScript = preload("res://scripts/effects/trainer_effects/EffectCarmine.gd")
 const EffectMelaScript = preload("res://scripts/effects/trainer_effects/EffectMela.gd")
 const EffectCollapsedStadiumScript = preload("res://scripts/effects/stadium_effects/EffectCollapsedStadium.gd")
 const AbilitySelfKnockoutDamageCountersScript = preload("res://scripts/effects/pokemon_effects/AbilitySelfKnockoutDamageCounters.gd")
@@ -48,6 +49,19 @@ class RiggedCoinFlipper extends CoinFlipper:
 		var result: bool = _results.pop_front() if not _results.is_empty() else false
 		coin_flipped.emit(result)
 		return result
+
+
+class FakeBattleReviewService extends RefCounted:
+	var generate_calls: Array[Dictionary] = []
+
+	func generate_review(host: Node, match_dir: String, api_config: Dictionary) -> Dictionary:
+		generate_calls.append({
+			"host": host,
+			"match_dir": match_dir,
+			"api_config": api_config.duplicate(true),
+		})
+		return {"status": "started"}
+
 
 
 ## 构建测试用 CardData（宝可梦）
@@ -441,6 +455,74 @@ func test_battle_scene_retreat_uses_field_slot_choice() -> String:
 	return run_checks([
 		assert_eq(str(scene.get("_pending_choice")), "retreat_bench", "Retreat should keep retreat_bench pending choice"),
 		assert_eq(str(scene.get("_field_interaction_mode")), "slot_select", "Retreat should use field slot selection"),
+	])
+
+
+func test_battle_scene_dreepy_rescue_board_retreats_through_manual_click_flow() -> String:
+	var scene = _make_battle_scene_stub()
+	scene._setup_ai_for_tests()
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+	gsm.game_state.turn_number = 2
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	scene._gsm = gsm
+	scene._view_player = 0
+
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+
+	var dreepy_cd: CardData = CardDatabase.get_card("CSV8C", "157")
+	var rescue_board_cd: CardData = CardDatabase.get_card("CSV7C", "185")
+	var player_state: PlayerState = gsm.game_state.players[0]
+
+	var active := PokemonSlot.new()
+	if dreepy_cd != null:
+		active.pokemon_stack.append(CardInstance.create(dreepy_cd, 0))
+	player_state.active_pokemon = active
+
+	var bench := PokemonSlot.new()
+	bench.pokemon_stack.append(CardInstance.create(_make_pokemon_cd("Bench", 90, "C"), 0))
+	player_state.bench = [bench]
+
+	var rescue_board: CardInstance = null
+	if rescue_board_cd != null:
+		rescue_board = CardInstance.create(rescue_board_cd, 0)
+		player_state.hand.append(rescue_board)
+
+	if rescue_board != null:
+		scene.call("_on_hand_card_clicked", rescue_board, PanelContainer.new())
+		var click := InputEventMouseButton.new()
+		click.button_index = MOUSE_BUTTON_LEFT
+		click.pressed = true
+		scene.call("_on_slot_input", click, "my_active")
+
+	scene.call("_show_pokemon_action_dialog", 0, active, true)
+	var actions: Array = (scene.get("_dialog_data") as Dictionary).get("actions", [])
+	var retreat_index: int = -1
+	for i: int in actions.size():
+		var action: Dictionary = actions[i]
+		if str(action.get("type", "")) == "retreat":
+			retreat_index = i
+			break
+
+	scene.call("_handle_dialog_choice", PackedInt32Array([retreat_index]))
+	var retreat_dialog_data: Dictionary = scene.get("_dialog_data")
+	var preselect_discard: Array = retreat_dialog_data.get("energy_discard", [])
+	scene.call("_handle_field_slot_select_index", 0)
+
+	return run_checks([
+		assert_not_null(dreepy_cd, "CSV8C_157 Dreepy should exist in the card database"),
+		assert_not_null(rescue_board_cd, "CSV7C_185 Rescue Board should exist in the card database"),
+		assert_eq(active.attached_tool, rescue_board, "The manual click flow should actually attach Rescue Board to Dreepy"),
+		assert_gte(retreat_index, 0, "The active Pokemon action dialog should include a retreat action"),
+		assert_eq(preselect_discard.size(), 0, "A zero-cost Rescue Board retreat should not preselect any Energy to discard"),
+		assert_eq(player_state.active_pokemon, bench, "Selecting the Benched Pokemon should complete the retreat in the manual UI flow"),
+		assert_true(active in player_state.bench, "The former Active Dreepy should return to the Bench after the retreat"),
+		assert_eq(active.attached_tool, rescue_board, "Rescue Board should stay attached after the manual retreat resolves"),
 	])
 
 
@@ -1133,6 +1215,54 @@ func test_battle_scene_mirage_gate_logs_when_the_deck_has_no_basic_energy() -> S
 		assert_eq(log_list.item_count > 0, true, "Mirage Gate should leave a UI log entry when it whiffs"),
 		assert_eq(last_log, "牌库里没有可附着的基本能量，幻象之门没有附着任何能量。", "Mirage Gate should explain the whiff to the player"),
 		assert_contains(gsm.game_state.players[0].discard_pile, card, "Mirage Gate should still be discarded after the whiff"),
+	])
+
+
+func test_battle_scene_carmine_click_allows_first_turn_supporter_exception() -> String:
+	var scene = _make_battle_scene_stub()
+
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.turn_number = 1
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	gsm.game_state.supporter_used_this_turn = false
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+
+	var own_active := PokemonSlot.new()
+	own_active.pokemon_stack.append(CardInstance.create(_make_pokemon_cd("Own Active", 120, "C"), 0))
+	gsm.game_state.players[0].active_pokemon = own_active
+
+	var opp_active := PokemonSlot.new()
+	opp_active.pokemon_stack.append(CardInstance.create(_make_pokemon_cd("Opp Active", 120, "C"), 1))
+	gsm.game_state.players[1].active_pokemon = opp_active
+
+	scene._gsm = gsm
+	scene._view_player = 0
+
+	var player: PlayerState = gsm.game_state.players[0]
+	player.hand.clear()
+	for i: int in 4:
+		player.hand.append(CardInstance.create(_make_pokemon_cd("Discard %d" % i, 60, "C"), 0))
+	for i: int in 6:
+		player.deck.append(CardInstance.create(_make_pokemon_cd("Draw %d" % i, 60, "C"), 0))
+
+	var card_data := _make_trainer_cd("CSV8C_199 Carmine", "Supporter", "")
+	card_data.effect_id = "8150af4062192998497e376ad931bea4"
+	var card := CardInstance.create(card_data, 0)
+	player.hand.append(card)
+	gsm.effect_processor.register_effect(card_data.effect_id, EffectCarmineScript.new())
+
+	scene.call("_on_hand_card_clicked", card, PanelContainer.new())
+
+	return run_checks([
+		assert_eq(player.hand.size(), 5, "BattleScene should let Carmine discard the hand and draw 5 on the first turn going first"),
+		assert_eq(player.discard_pile.size(), 5, "BattleScene should discard Carmine plus the previous hand cards"),
+		assert_true(gsm.game_state.supporter_used_this_turn, "BattleScene should still mark the supporter as used after Carmine resolves"),
 	])
 
 
@@ -2451,6 +2581,37 @@ func test_battle_scene_iron_hands_ui_prize_and_turn_flow() -> String:
 	return run_checks([
 		assert_true(handover_visible, "Arm Press knockout should prompt a handover to the opponent"),
 		assert_eq(arm_current_after_send_out, 1, "After Arm Press knockout and replacement, the turn should pass to the opponent"),
+	])
+
+
+func test_battle_scene_match_end_review_action_starts_review_instead_of_leaving_battle() -> String:
+	var previous_mode: int = GameManager.current_mode
+	GameManager.current_mode = GameManager.GameMode.TWO_PLAYER
+
+	var battle_scene = _make_battle_scene_stub()
+	var fake_review_service := FakeBattleReviewService.new()
+	battle_scene.set("_battle_review_service", fake_review_service)
+	battle_scene.set("_battle_review_match_dir", "user://test_match_end_review")
+	battle_scene.set("_battle_review_winner_index", 0)
+	battle_scene.set("_battle_review_reason", "knockout")
+
+	battle_scene.call("_show_match_end_dialog", 0, "knockout")
+	var dialog_items: Array = battle_scene.get("_dialog_items_data")
+	battle_scene.call("_handle_dialog_choice", PackedInt32Array([1]))
+
+	var generate_calls: Array = fake_review_service.generate_calls
+	var called_match_dir: String = str((generate_calls[0] as Dictionary).get("match_dir", "")) if not generate_calls.is_empty() and generate_calls[0] is Dictionary else ""
+	var review_busy: bool = bool(battle_scene.get("_battle_review_busy"))
+	var progress_text: String = str(battle_scene.get("_battle_review_progress_text"))
+	GameManager.current_mode = previous_mode
+
+	return run_checks([
+		assert_eq(dialog_items.size(), 3, "Match end dialog should include summary, review action, and return action when review is available"),
+		assert_eq(str(dialog_items[1]), "生成AI复盘", "The first actionable match end option should be the AI review action"),
+		assert_eq(generate_calls.size(), 1, "Choosing the AI review action should start battle review generation"),
+		assert_eq(called_match_dir, "user://test_match_end_review", "Battle review generation should use the current match dir"),
+		assert_true(review_busy, "Choosing the AI review action should mark review generation as running"),
+		assert_eq(progress_text, "正在筛选关键回合...", "Choosing the AI review action should update match end progress text"),
 	])
 
 

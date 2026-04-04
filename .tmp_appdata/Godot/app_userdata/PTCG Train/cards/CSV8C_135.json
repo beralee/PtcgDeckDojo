@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "化危为吉",
+			"text": "在上一个对手的回合，如果自己的宝可梦【昏厥】的话，则在自己的回合可以使用1次。从自己牌库上方抽取3张卡牌。在这个回合，如果已经使用了其他的「化危为吉」的话，则无法使用这个特性。"
+		}
+	],
+	"ancient_trait": "",
+	"artist": "takuyoa",
+	"attacks": [
+		{
+			"cost": "CCC",
+			"damage": "",
+			"is_vstar_power": false,
+			"name": "残忍箭矢",
+			"text": "给对手的1只宝可梦，造成100伤害。[备战宝可梦不计算弱点、抗性。]"
+		}
+	],
+	"card_index": "135",
+	"card_index_en": "38",
+	"card_type": "Pokemon",
+	"description": "特性: 化危为吉\n在上一个对手的回合，如果自己的宝可梦【昏厥】的话，则在自己的回合可以使用1次。从自己牌库上方抽取3张卡牌。在这个回合，如果已经使用了其他的「化危为吉」的话，则无法使用这个特性。\n\n 残忍箭矢 \n给对手的1只宝可梦，造成100伤害。[备战宝可梦不计算弱点、抗性。]\n\n",
+	"effect_id": "ab6c3357e2b8a8385a68da738f41e0c1",
+	"energy_provides": "",
+	"energy_type": "D",
+	"evolves_from": "",
+	"hp": 210,
+	"image_local_path": "user://cards/images/CSV8C/135.png",
+	"image_url": "https://tcg.mik.moe/static/img/CSV8C/135.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "ex",
+	"name": "吉雉鸡ex",
+	"name_en": "Fezandipiti ex",
+	"rarity": "RR",
+	"regulation_expanded": true,
+	"regulation_mark": "H",
+	"regulation_standard": true,
+	"release_date": "2026-03-13T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 1,
+	"set_code": "CSV8C",
+	"set_code_en": "SFA",
+	"stage": "Basic",
+	"weakness_energy": "F",
+	"weakness_value": "×2",
+	"yoren_code": "Y1455"
+}

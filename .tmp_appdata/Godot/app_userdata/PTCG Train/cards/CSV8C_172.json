@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "老练招式",
+			"text": "这只宝可梦使用「血月」所需能量会减少与对手已经获得的奖赏卡张数相同数量的【无】能量。"
+		}
+	],
+	"ancient_trait": "",
+	"artist": "aky CG Works",
+	"attacks": [
+		{
+			"cost": "CCCCC",
+			"damage": "240",
+			"is_vstar_power": false,
+			"name": "血月",
+			"text": "在下一个自己的回合，这只宝可梦无法使用招式。"
+		}
+	],
+	"card_index": "172",
+	"card_index_en": "141",
+	"card_type": "Pokemon",
+	"description": "特性: 老练招式\n这只宝可梦使用「血月」所需能量会减少与对手已经获得的奖赏卡张数相同数量的【无】能量。\n\n 血月 240\n在下一个自己的回合，这只宝可梦无法使用招式。\n\n",
+	"effect_id": "f2afef80b13b8f6a071facbcade0251c",
+	"energy_provides": "",
+	"energy_type": "C",
+	"evolves_from": "",
+	"hp": 260,
+	"image_local_path": "user://cards/images/CSV8C/172.png",
+	"image_url": "https://tcg.mik.moe/static/img/CSV8C/172.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "ex",
+	"name": "月月熊 赫月ex",
+	"name_en": "Bloodmoon Ursaluna ex",
+	"rarity": "RR",
+	"regulation_expanded": true,
+	"regulation_mark": "H",
+	"regulation_standard": true,
+	"release_date": "2026-03-13T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 3,
+	"set_code": "CSV8C",
+	"set_code_en": "TWM",
+	"stage": "Basic",
+	"weakness_energy": "F",
+	"weakness_value": "×2",
+	"yoren_code": "Y1461"
+}

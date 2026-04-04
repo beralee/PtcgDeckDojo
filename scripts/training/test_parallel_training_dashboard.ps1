@@ -81,6 +81,8 @@ New-Item -ItemType Directory -Force -Path (Join-Path $lane01RunDir 'models') | O
 New-Item -ItemType Directory -Force -Path (Join-Path $lane02RunDir 'self_play') | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $lane02RunDir 'benchmark') | Out-Null
 
+$secretBox = ([string][char]0x79D8) + ([string][char]0x5BC6) + ([string][char]0x7BB1)
+
 1..3 | ForEach-Object {
 	Set-Content -Path (Join-Path $lane01RunDir "self_play\game_$_.json") -Value '{}' -Encoding UTF8
 }
@@ -101,7 +103,7 @@ Set-Content -Path (Join-Path $lane01RunDir 'models\value_net_v1.json') -Value '{
   "accepted_generations": 2
 }
 '@ | Set-Content -Path (Join-Path $lane01RunDir 'status.json') -Encoding UTF8
-@'
+$lane02Summary = @'
 {
   "gate_passed": false,
   "total_matches": 24,
@@ -120,9 +122,41 @@ Set-Content -Path (Join-Path $lane01RunDir 'models\value_net_v1.json') -Value '{
         "version_a_win_rate": 0.375
       }
     }
-  ]
+  ],
+  "anomaly_summary": {
+    "schema_version": 3,
+    "total_anomalies": 1,
+    "failure_reason_counts": {
+      "stalled_no_progress": 1
+    },
+    "mcts_failure_category_counts": {
+      "headless_interaction_required": 1
+    },
+    "mcts_failure_kind_counts": {
+      "play_trainer": 1
+    },
+    "pairing_counts": {
+      "miraidon_vs_gardevoir": {
+        "total": 1,
+        "failure_reason_counts": {
+          "stalled_no_progress": 1
+        }
+      }
+    },
+    "samples": {
+      "stalled_no_progress": {
+        "miraidon_vs_gardevoir": [
+          {
+            "card_name": "__SECRET_BOX__"
+          }
+        ]
+      }
+    }
+  }
 }
-'@ | Set-Content -Path (Join-Path $lane02RunDir 'benchmark\summary.json') -Encoding UTF8
+'@
+$lane02Summary = $lane02Summary.Replace('__SECRET_BOX__', $secretBox)
+$lane02Summary | Set-Content -Path (Join-Path $lane02RunDir 'benchmark\summary.json') -Encoding UTF8
 
 @'
 ===== PTCG Train Iterative Training =====
@@ -166,6 +200,7 @@ Assert-Equal $lane02Status.benchmark_wins '9-15' 'lane status should expose benc
 Assert-Equal $lane02Status.benchmark_win_rate '37.5%' 'lane status should expose benchmark win rate'
 Assert-Equal $lane02Status.benchmark_gate 'fail' 'lane status should expose benchmark gate result'
 Assert-Equal $lane02Status.benchmark_pairings 1 'lane status should count benchmark pairings'
+Assert-Equal $lane02Status.benchmark_failures 1 'lane status should preserve benchmark failure counts'
 
 $dashboard = Get-ParallelTrainingDashboardData -WorkspaceRoot $workspaceRoot
 Assert-Equal $dashboard.summary.total_lanes 2 'dashboard should summarize all lanes'

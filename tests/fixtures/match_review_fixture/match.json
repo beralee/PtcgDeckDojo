@@ -1,0 +1,36 @@
+{
+  "meta": {
+    "match_id": "match_fixture_review",
+    "mode": "local_human_vs_human",
+    "player_labels": [
+      "player_0",
+      "player_1"
+    ],
+    "first_player_index": 0
+  },
+  "initial_state": {
+    "players": [
+      {
+        "player_index": 0,
+        "active": {
+          "pokemon_name": "Pidgey"
+        }
+      },
+      {
+        "player_index": 1,
+        "active": {
+          "pokemon_name": "Ralts"
+        }
+      }
+    ]
+  },
+  "result": {
+    "winner_index": 0,
+    "reason": "prize_out",
+    "turn_count": 6
+  },
+  "event_count": 7,
+  "turn_count": 3,
+  "turns_path": "turns.json",
+  "llm_digest_path": "llm_digest.json"
+}

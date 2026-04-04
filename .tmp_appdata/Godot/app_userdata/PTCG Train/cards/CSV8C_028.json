@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "碧草之舞",
+			"text": "在自己的回合可以使用1次。选择自己手牌中的1张「基本【草】能量」，附着于这只宝可梦身上。然后，从自己牌库上方抽取1张卡牌。"
+		}
+	],
+	"ancient_trait": "Tera",
+	"artist": "5ban Graphics",
+	"attacks": [
+		{
+			"cost": "GGG",
+			"damage": "30+",
+			"is_vstar_power": false,
+			"name": "万叶阵雨",
+			"text": "追加造成双方战斗宝可梦身上附着的能量数量×30伤害。"
+		}
+	],
+	"card_index": "028",
+	"card_index_en": "25",
+	"card_type": "Pokemon",
+	"description": "特性: 碧草之舞\n在自己的回合可以使用1次。选择自己手牌中的1张「基本【草】能量」，附着于这只宝可梦身上。然后，从自己牌库上方抽取1张卡牌。\n\n【草】【草】【草】 万叶阵雨 30+\n追加造成双方战斗宝可梦身上附着的能量数量×30伤害。\n\n",
+	"effect_id": "409898a79b38fe8ca279e7bdaf4fd52e",
+	"energy_provides": "",
+	"energy_type": "G",
+	"evolves_from": "",
+	"hp": 210,
+	"image_local_path": "user://cards/images/CSV8C/028.png",
+	"image_url": "https://tcg.mik.moe/static/img/CSV8C/028.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "ex",
+	"name": "厄诡椪 碧草面具ex",
+	"name_en": "Teal Mask Ogerpon ex",
+	"rarity": "RR",
+	"regulation_expanded": true,
+	"regulation_mark": "H",
+	"regulation_standard": true,
+	"release_date": "2026-03-13T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 1,
+	"set_code": "CSV8C",
+	"set_code_en": "TWM",
+	"stage": "Basic",
+	"weakness_energy": "R",
+	"weakness_value": "×2",
+	"yoren_code": "Y1442"
+}

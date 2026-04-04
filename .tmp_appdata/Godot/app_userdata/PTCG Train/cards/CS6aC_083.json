@@ -1,0 +1,51 @@
+{
+	"abilities": [],
+	"ancient_trait": "",
+	"artist": "sowsow",
+	"attacks": [
+		{
+			"cost": "C",
+			"damage": "",
+			"is_vstar_power": false,
+			"name": "磁力抬升",
+			"text": "选择自己牌库中任意1张卡牌。将剩余的牌库重洗，并将选择的卡牌放回牌库上方。"
+		},
+		{
+			"cost": "MC",
+			"damage": "20",
+			"is_vstar_power": false,
+			"name": "撞击",
+			"text": ""
+		}
+	],
+	"card_index": "083",
+	"card_index_en": "117",
+	"card_type": "Pokemon",
+	"description": " 磁力抬升 \n选择自己牌库中任意1张卡牌。将剩余的牌库重洗，并将选择的卡牌放回牌库上方。\n\n【钢】 撞击 20\n\n\n",
+	"effect_id": "04723b3e874025d333e477cf34a49e1c",
+	"energy_provides": "",
+	"energy_type": "M",
+	"evolves_from": "",
+	"hp": 60,
+	"image_local_path": "user://cards/images/CS6aC/083.png",
+	"image_url": "https://tcg.mik.moe/static/img/CS6aC/083.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "",
+	"name": "铁哑铃",
+	"name_en": "Beldum",
+	"rarity": "C",
+	"regulation_expanded": true,
+	"regulation_mark": "F",
+	"regulation_standard": true,
+	"release_date": "2024-09-20T00:00:00+08:00",
+	"resistance_energy": "G",
+	"resistance_value": "-30",
+	"retreat_cost": 1,
+	"set_code": "CS6aC",
+	"set_code_en": "SIT",
+	"stage": "Basic",
+	"weakness_energy": "R",
+	"weakness_value": "×2",
+	"yoren_code": "P374"
+}

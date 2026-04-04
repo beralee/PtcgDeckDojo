@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "星耀空扉",
+			"text": "在自己的回合可以使用。选择自己弃牌区中最多3张【水】能量，以任意方式附着于自己的【水】宝可梦身上。[对战中，己方的VSTAR力量只能使用1次。]"
+		}
+	],
+	"ancient_trait": "",
+	"artist": "aky CG Works",
+	"attacks": [
+		{
+			"cost": "WW",
+			"damage": "60+",
+			"is_vstar_power": false,
+			"name": "亚空潮漩",
+			"text": "追加造成双方备战宝可梦数量×20点伤害。"
+		}
+	],
+	"card_index": "051",
+	"card_index_en": "40",
+	"card_type": "Pokemon",
+	"description": "特性: 星耀空扉\n在自己的回合可以使用。选择自己弃牌区中最多3张【水】能量，以任意方式附着于自己的【水】宝可梦身上。[对战中，己方的VSTAR力量只能使用1次。]\n\n【水】【水】 亚空潮漩 60+\n追加造成双方备战宝可梦数量×20点伤害。\n\n",
+	"effect_id": "720fd5ca597f96db0f5f00d3ac16febb",
+	"energy_provides": "",
+	"energy_type": "W",
+	"evolves_from": "起源帕路奇亚V",
+	"hp": 280,
+	"image_local_path": "user://cards/images/CS5bC/051.png",
+	"image_url": "https://tcg.mik.moe/static/img/CS5bC/051.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "V",
+	"name": "起源帕路奇亚VSTAR",
+	"name_en": "Origin Forme Palkia VSTAR",
+	"rarity": "RRR",
+	"regulation_expanded": true,
+	"regulation_mark": "F",
+	"regulation_standard": true,
+	"release_date": "2024-06-18T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 2,
+	"set_code": "CS5bC",
+	"set_code_en": "ASR",
+	"stage": "VSTAR",
+	"weakness_energy": "L",
+	"weakness_value": "×2",
+	"yoren_code": "Y973"
+}

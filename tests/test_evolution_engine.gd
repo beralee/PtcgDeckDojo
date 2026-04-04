@@ -44,6 +44,73 @@ class FakeWinningRunner extends RefCounted:
 		}
 
 
+class FakeAnomalyRunner extends RefCounted:
+	func run_batch(_mutant_config: Dictionary, _current_best: Dictionary, _deck_pairings: Array, _seed_set: Array, _max_steps: int, _export_data: bool) -> Dictionary:
+		return {
+			"agent_a_win_rate": 0.625,
+			"total_matches": 4,
+			"agent_a_wins": 2,
+			"agent_b_wins": 1,
+			"match_results": [
+				{
+					"winner_index": -1,
+					"turn_count": 19,
+					"steps": 42,
+					"seed": 11,
+					"deck_a_id": 575720,
+					"deck_b_id": 578647,
+					"agent_a_player_index": 0,
+					"failure_reason": "action_cap_reached",
+					"terminated_by_cap": true,
+					"stalled": false,
+				},
+				{
+					"winner_index": -1,
+					"turn_count": 23,
+					"steps": 51,
+					"seed": 29,
+					"deck_a_id": 575720,
+					"deck_b_id": 578647,
+					"agent_a_player_index": 1,
+					"failure_reason": "stalled_no_progress",
+					"terminated_by_cap": false,
+					"stalled": true,
+				},
+			],
+		}
+
+
+class FakeProgressiveAnomalyRunner extends RefCounted:
+	var anomaly_output_path: String = ""
+	var saw_summary_before_second_generation: bool = false
+	var _call_count: int = 0
+
+	func run_batch(_mutant_config: Dictionary, _current_best: Dictionary, _deck_pairings: Array, _seed_set: Array, _max_steps: int, _export_data: bool) -> Dictionary:
+		_call_count += 1
+		if _call_count == 2 and anomaly_output_path != "":
+			saw_summary_before_second_generation = FileAccess.file_exists(anomaly_output_path)
+		return {
+			"agent_a_win_rate": 0.0,
+			"total_matches": 2,
+			"agent_a_wins": 0,
+			"agent_b_wins": 1,
+			"match_results": [
+				{
+					"winner_index": -1,
+					"turn_count": 11,
+					"steps": 27,
+					"seed": 11 + _call_count,
+					"deck_a_id": 575720,
+					"deck_b_id": 578647,
+					"agent_a_player_index": 0,
+					"failure_reason": "stalled_no_progress",
+					"terminated_by_cap": false,
+					"stalled": true,
+				},
+			],
+		}
+
+
 func test_run_writes_phase1_progress_status_json() -> String:
 	var engine := EvolutionEngineScript.new()
 	var fake_store := FakeStore.new()
@@ -78,6 +145,62 @@ func test_run_writes_phase1_progress_status_json() -> String:
 		assert_eq(int(progress.get("cumulative_agent_b_wins", 0)), 9, "progress status should accumulate agent_b wins"),
 		assert_eq(float(progress.get("last_generation_win_rate", 0.0)), 0.625, "progress status should record the latest generation win rate"),
 		assert_eq(int(progress.get("accepted_generations", 0)), 1, "progress status should record accepted generation count"),
+	])
+
+
+func test_run_writes_phase1_anomaly_summary_json() -> String:
+	var engine := EvolutionEngineScript.new()
+	var fake_store := FakeStore.new()
+	engine._store = fake_store
+	engine._runner = FakeAnomalyRunner.new()
+	engine.generations = 1
+	engine.anomaly_output_path = "user://evolution_phase1_anomalies_test.json"
+	var absolute_path := ProjectSettings.globalize_path(engine.anomaly_output_path)
+	if FileAccess.file_exists(engine.anomaly_output_path):
+		DirAccess.remove_absolute(absolute_path)
+
+	engine.run(EvolutionEngineScript.get_default_config())
+
+	if not FileAccess.file_exists(engine.anomaly_output_path):
+		return "phase1 anomaly summary should be written to the configured output path"
+
+	var file := FileAccess.open(engine.anomaly_output_path, FileAccess.READ)
+	if file == null:
+		return "phase1 anomaly summary should be readable after the run"
+	var parsed: Variant = JSON.parse_string(file.get_as_text())
+	file.close()
+	DirAccess.remove_absolute(absolute_path)
+	if not parsed is Dictionary:
+		return "phase1 anomaly summary should be valid JSON object"
+	var summary: Dictionary = parsed
+	var failure_counts: Dictionary = summary.get("failure_reason_counts", {})
+	return run_checks([
+		assert_eq(int(summary.get("total_anomalies", 0)), 2, "phase1 anomaly summary should count anomalous matches"),
+		assert_eq(int(failure_counts.get("action_cap_reached", 0)), 1, "phase1 anomaly summary should count capped matches"),
+		assert_eq(int(failure_counts.get("stalled_no_progress", 0)), 1, "phase1 anomaly summary should count stalled matches"),
+		assert_eq(int((summary.get("phase_counts", {}) as Dictionary).get("phase1_self_play", 0)), 2, "phase1 anomaly summary should tag anomalies with the phase"),
+	])
+
+
+func test_run_flushes_phase1_anomaly_summary_after_each_generation() -> String:
+	var engine := EvolutionEngineScript.new()
+	var fake_store := FakeStore.new()
+	var fake_runner := FakeProgressiveAnomalyRunner.new()
+	engine._store = fake_store
+	engine._runner = fake_runner
+	engine.generations = 2
+	engine.anomaly_output_path = "user://evolution_phase1_anomalies_progressive_test.json"
+	fake_runner.anomaly_output_path = engine.anomaly_output_path
+	var absolute_path := ProjectSettings.globalize_path(engine.anomaly_output_path)
+	if FileAccess.file_exists(engine.anomaly_output_path):
+		DirAccess.remove_absolute(absolute_path)
+
+	engine.run(EvolutionEngineScript.get_default_config())
+
+	if FileAccess.file_exists(engine.anomaly_output_path):
+		DirAccess.remove_absolute(absolute_path)
+	return run_checks([
+		assert_true(fake_runner.saw_summary_before_second_generation, "phase1 anomaly summary should be flushed before the next generation starts"),
 	])
 
 

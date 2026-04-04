@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "原始涡轮",
+			"text": "在自己的回合可以使用1次。选择自己牌库中最多2张特殊能量，附着于自己的1只宝可梦身上。并重洗牌库。"
+		}
+	],
+	"ancient_trait": "",
+	"artist": "Masakazu Fukuda",
+	"attacks": [
+		{
+			"cost": "CCC",
+			"damage": "120",
+			"is_vstar_power": false,
+			"name": "高速之翼",
+			"text": ""
+		}
+	],
+	"card_index": "113",
+	"card_index_en": "147",
+	"card_type": "Pokemon",
+	"description": "特性: 原始涡轮\n在自己的回合可以使用1次。选择自己牌库中最多2张特殊能量，附着于自己的1只宝可梦身上。并重洗牌库。\n\n 高速之翼 120\n\n\n",
+	"effect_id": "56b4f3dfefd725574df242a2b2d9e651",
+	"energy_provides": "",
+	"energy_type": "C",
+	"evolves_from": "始祖小鸟",
+	"hp": 150,
+	"image_local_path": "user://cards/images/CS6aC/113.png",
+	"image_url": "https://tcg.mik.moe/static/img/CS6aC/113.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "",
+	"name": "始祖大鸟",
+	"name_en": "Archeops",
+	"rarity": "R",
+	"regulation_expanded": true,
+	"regulation_mark": "F",
+	"regulation_standard": true,
+	"release_date": "2024-09-20T00:00:00+08:00",
+	"resistance_energy": "F",
+	"resistance_value": "-30",
+	"retreat_cost": 1,
+	"set_code": "CS6aC",
+	"set_code_en": "SIT",
+	"stage": "Stage 2",
+	"weakness_energy": "L",
+	"weakness_value": "×2",
+	"yoren_code": "P567"
+}

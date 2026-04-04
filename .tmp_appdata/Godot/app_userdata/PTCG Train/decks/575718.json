@@ -1,0 +1,254 @@
+{
+	"cards": [
+		{
+			"card_index": "020",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "09445b8c32fd4abef4230ebcdc964096",
+			"name": "光辉甲贺忍蛙",
+			"name_en": "Radiant Greninja",
+			"set_code": "CS6.5C"
+		},
+		{
+			"card_index": "043",
+			"card_type": "Item",
+			"count": 4,
+			"effect_id": "1af63a7e2cb7a79215474ad8db8fd8fd",
+			"name": "巢穴球",
+			"name_en": "Nest Ball",
+			"set_code": "CSVH1C"
+		},
+		{
+			"card_index": "105",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "1b951205e53e179bde0905c4a194d9ee",
+			"name": "怒鹦哥ex",
+			"name_en": "Squawkabilly ex",
+			"set_code": "CSV2C"
+		},
+		{
+			"card_index": "082",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "29f94ee004e4c312dbea4a7930d33544",
+			"name": "爬地翅",
+			"name_en": "Slither Wing",
+			"set_code": "CSV6C"
+		},
+		{
+			"card_index": "060",
+			"card_type": "Item",
+			"count": 1,
+			"effect_id": "2f68195255c863293be4fad262bf23d2",
+			"name": "洗翠的沉重球",
+			"name_en": "Hisuian Heavy Ball",
+			"set_code": "CS5.5C"
+		},
+		{
+			"card_index": "047",
+			"card_type": "Item",
+			"count": 2,
+			"effect_id": "3a6d419769778b40091e69fbd76737ec",
+			"name": "宝可梦捕捉器",
+			"name_en": "Pokémon Catcher",
+			"set_code": "CSVH1C"
+		},
+		{
+			"card_index": "183",
+			"card_type": "Item",
+			"count": 2,
+			"effect_id": "3e6f1daf545dfed48d0588dd50792a2e",
+			"name": "夜间担架",
+			"name_en": "Night Stretcher",
+			"set_code": "CSV8C"
+		},
+		{
+			"card_index": "028",
+			"card_type": "Pokemon",
+			"count": 3,
+			"effect_id": "409898a79b38fe8ca279e7bdaf4fd52e",
+			"name": "厄诡椪 碧草面具ex",
+			"name_en": "Teal Mask Ogerpon ex",
+			"set_code": "CSV8C"
+		},
+		{
+			"card_index": "LIG",
+			"card_type": "Basic Energy",
+			"count": 3,
+			"effect_id": "45550fd10011f6ade7eef16ba88788cf",
+			"name": "基本雷能量",
+			"name_en": "Lightning Energy",
+			"set_code": "CSVE1C"
+		},
+		{
+			"card_index": "042",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "47676dfc37415cfdf3b3992b1de64141",
+			"name": "铁包袱",
+			"name_en": "Iron Bundle",
+			"set_code": "CSV6C"
+		},
+		{
+			"card_index": "180",
+			"card_type": "Item",
+			"count": 1,
+			"effect_id": "4ec261453212280d0eb03ed8254ca97f",
+			"name": "顶尖捕捉器",
+			"name_en": "Prime Catcher",
+			"set_code": "CSV7C"
+		},
+		{
+			"card_index": "128",
+			"card_type": "Stadium",
+			"count": 1,
+			"effect_id": "53864b068a4a1e8dce3c53c884b67efa",
+			"name": "神奥神殿",
+			"name_en": "Temple of Sinnoh",
+			"set_code": "CS5bC"
+		},
+		{
+			"card_index": "GRA",
+			"card_type": "Basic Energy",
+			"count": 6,
+			"effect_id": "5e2d0ce37ca0c539aa45908da10544a0",
+			"name": "基本草能量",
+			"name_en": "Grass Energy",
+			"set_code": "CSVE1C"
+		},
+		{
+			"card_index": "121",
+			"card_type": "Supporter",
+			"count": 4,
+			"effect_id": "651276c51911345aa091c1c7b87f3f4f",
+			"name": "奥琳博士的气魄",
+			"name_en": "Professor Sada's Vitality",
+			"set_code": "CSV6C"
+		},
+		{
+			"card_index": "063",
+			"card_type": "Item",
+			"count": 3,
+			"effect_id": "70d14b4a5a9c15581b8a0c8dfd325717",
+			"name": "健行鞋",
+			"name_en": "Trekking Shoes",
+			"set_code": "CS6.5C"
+		},
+		{
+			"card_index": "113",
+			"card_type": "Item",
+			"count": 3,
+			"effect_id": "768b545a38fccd5e265093b5adce10af",
+			"name": "宝可装置3.0",
+			"name_en": "Pokégear 3.0",
+			"set_code": "CSV2C"
+		},
+		{
+			"card_index": "116",
+			"card_type": "Item",
+			"count": 2,
+			"effect_id": "8342fe3eeec6f897f3271be1aa26a412",
+			"name": "交替推车",
+			"name_en": "Switch Cart",
+			"set_code": "CS5DC"
+		},
+		{
+			"card_index": "034",
+			"card_type": "Item",
+			"count": 2,
+			"effect_id": "8538726d6cdfad2fa3ca5f4b462c12c5",
+			"name": "能量回收",
+			"name_en": "Energy Retrieval",
+			"set_code": "CSVH1C"
+		},
+		{
+			"card_index": "023",
+			"card_type": "Supporter",
+			"count": 1,
+			"effect_id": "8e1fa2c9018db938084c94c7c970d419",
+			"name": "老大的指令",
+			"name_en": "Boss's Orders",
+			"set_code": "CSVH1aC"
+		},
+		{
+			"card_index": "123",
+			"card_type": "Item",
+			"count": 1,
+			"effect_id": "8f655fea1f90164bfbccb7a95c223e17",
+			"name": "放逐吸尘器",
+			"name_en": "Lost Vacuum",
+			"set_code": "CS6bC"
+		},
+		{
+			"card_index": "FIG",
+			"card_type": "Basic Energy",
+			"count": 3,
+			"effect_id": "9fedb80a97ddd5cc8b8022a21364c326",
+			"name": "基本斗能量",
+			"name_en": "Fighting Energy",
+			"set_code": "CSVE1C"
+		},
+		{
+			"card_index": "111",
+			"card_type": "Item",
+			"count": 1,
+			"effect_id": "a47d5a8ed00e14a2146fc511745d23b5",
+			"name": "朋友手册",
+			"name_en": "Pal Pad",
+			"set_code": "CSV1C"
+		},
+		{
+			"card_index": "135",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "ab6c3357e2b8a8385a68da738f41e0c1",
+			"name": "吉雉鸡ex",
+			"name_en": "Fezandipiti ex",
+			"set_code": "CSV8C"
+		},
+		{
+			"card_index": "123",
+			"card_type": "Supporter",
+			"count": 2,
+			"effect_id": "af514f82d182aeae5327b2c360df703d",
+			"name": "奇树",
+			"name_en": "Iono",
+			"set_code": "CSV3C"
+		},
+		{
+			"card_index": "118",
+			"card_type": "Tool",
+			"count": 2,
+			"effect_id": "d1c2f018a644e662f2b6895fdfc29281",
+			"name": "勇气护符",
+			"name_en": "Bravery Charm",
+			"set_code": "CSV1C"
+		},
+		{
+			"card_index": "115",
+			"card_type": "Item",
+			"count": 4,
+			"effect_id": "e366f56ecd3f805a28294109a1a37453",
+			"name": "大地容器",
+			"name_en": "Earthen Vessel",
+			"set_code": "CSV6C"
+		},
+		{
+			"card_index": "154",
+			"card_type": "Pokemon",
+			"count": 4,
+			"effect_id": "e96bb407c5f18bb9eec55487e70395fd",
+			"name": "猛雷鼓ex",
+			"name_en": "Raging Bolt ex",
+			"set_code": "CSV7C"
+		}
+	],
+	"deck_code": "0hJV45nW8BZzrk1yEq",
+	"deck_name": "猛雷鼓 厄诡椪",
+	"id": 575718,
+	"import_date": "2026-03-15T16:16:53",
+	"source_url": "https://tcg.mik.moe/decks/list/575718",
+	"total_cards": 60,
+	"variant_name": "猛雷鼓 厄诡椪"
+}

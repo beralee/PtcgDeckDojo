@@ -1,0 +1,51 @@
+{
+	"abilities": [],
+	"ancient_trait": "",
+	"artist": "IKEDA Saki",
+	"attacks": [
+		{
+			"cost": "P",
+			"damage": "",
+			"is_vstar_power": false,
+			"name": "渡魂",
+			"text": "选择自己弃牌区中最多3张「夜巡灵」，放于备战区。"
+		},
+		{
+			"cost": "PP",
+			"damage": "30",
+			"is_vstar_power": false,
+			"name": "喃喃自语",
+			"text": ""
+		}
+	],
+	"card_index": "081",
+	"card_index_en": "35",
+	"card_type": "Pokemon",
+	"description": "【超】 渡魂 \n选择自己弃牌区中最多3张「夜巡灵」，放于备战区。\n\n【超】【超】 喃喃自语 30\n\n\n",
+	"effect_id": "ce6db179c3d166130e7a637581da3aa2",
+	"energy_provides": "",
+	"energy_type": "P",
+	"evolves_from": "",
+	"hp": 60,
+	"image_local_path": "user://cards/images/CSV8C/081.png",
+	"image_url": "https://tcg.mik.moe/static/img/CSV8C/081.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "",
+	"name": "夜巡灵",
+	"name_en": "Duskull",
+	"rarity": "C",
+	"regulation_expanded": true,
+	"regulation_mark": "H",
+	"regulation_standard": true,
+	"release_date": "2026-03-13T00:00:00+08:00",
+	"resistance_energy": "F",
+	"resistance_value": "-30",
+	"retreat_cost": 1,
+	"set_code": "CSV8C",
+	"set_code_en": "PRE",
+	"stage": "Basic",
+	"weakness_energy": "D",
+	"weakness_value": "×2",
+	"yoren_code": "P355"
+}

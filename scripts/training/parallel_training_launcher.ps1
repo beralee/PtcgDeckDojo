@@ -12,6 +12,14 @@ function Get-RepoRoot {
 	return [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 }
 
+function ConvertTo-InvariantString {
+	param(
+		[Parameter(Mandatory = $true)]
+		[double]$Value
+	)
+	return [string]::Format([System.Globalization.CultureInfo]::InvariantCulture, '{0:0.###}', $Value)
+}
+
 function Get-ParallelLaneRecipes {
 	$recipes = @()
 	for ($i = 1; $i -le 5; $i++) {
@@ -63,7 +71,9 @@ function New-ParallelTrainingPlan {
 		[string]$WorkspaceRoot,
 
 		[Parameter(Mandatory = $true)]
-		[hashtable]$ApprovedBaseline
+		[hashtable]$ApprovedBaseline,
+
+		[string]$PipelineName = 'fixed_three_deck_training'
 	)
 
 	$workspaceRootAbsolute = [System.IO.Path]::GetFullPath($WorkspaceRoot)
@@ -72,11 +82,14 @@ function New-ParallelTrainingPlan {
 	$plan = [ordered]@{
 		generated_at = (Get-Date).ToString('s')
 		workspace_root = $workspaceRootAbsolute
+		pipeline_name = [string]$PipelineName
 		approved_baseline = [ordered]@{
 			version_id = [string]$ApprovedBaseline.version_id
 			display_name = [string]$ApprovedBaseline.display_name
 			agent_config_path = [string]$ApprovedBaseline.agent_config_path
 			value_net_path = [string]$ApprovedBaseline.value_net_path
+			action_scorer_path = [string]$ApprovedBaseline.action_scorer_path
+			source = [string]$ApprovedBaseline.source
 		}
 		lanes = @()
 	}
@@ -113,14 +126,20 @@ function New-ParallelTrainingPlan {
 				display_name = [string]$plan.approved_baseline.display_name
 				agent_config_path = [string]$plan.approved_baseline.agent_config_path
 				value_net_path = [string]$plan.approved_baseline.value_net_path
+				action_scorer_path = [string]$plan.approved_baseline.action_scorer_path
+				source = [string]$plan.approved_baseline.source
 			}
 			train_loop_args = @(
 				'--iterations', '1',
+				'--pipeline-name', [string]$PipelineName,
 				'--generations', [string]$recipe.generations,
 				'--epochs', [string]$recipe.epochs,
+				'--sigma-weights', (ConvertTo-InvariantString -Value ([double]$recipe.sigma_weights)),
+				'--sigma-mcts', (ConvertTo-InvariantString -Value ([double]$recipe.sigma_mcts)),
 				'--data-dir', $dataRoot,
 				'--model-dir', $modelRoot,
-				'--lane-recipe-id', [string]$recipe.recipe_id
+				'--lane-recipe-id', [string]$recipe.recipe_id,
+				'--lane-id', $laneId
 			)
 		}
 
@@ -187,6 +206,7 @@ function Get-TrainingBaselineSnapshot {
 				display_name = [string]$latest.display_name
 				agent_config_path = [string]$latest.agent_config_path
 				value_net_path = [string]$latest.value_net_path
+				action_scorer_path = [string]$latest.action_scorer_path
 				source = 'approved-playable'
 			}
 		}
@@ -207,6 +227,7 @@ function Get-TrainingBaselineSnapshot {
 		display_name = 'bootstrap latest agent'
 		agent_config_path = $latestAgent.FullName
 		value_net_path = ''
+		action_scorer_path = ''
 		source = 'bootstrap-latest-agent'
 	}
 }
@@ -227,15 +248,39 @@ function New-ParallelLaneLaunchSpec {
 	$launchScriptPath = Join-Path $Lane.lane_root 'launch_lane.ps1'
 	$stdoutLog = Join-Path $Lane.log_root 'train.stdout.log'
 	$stderrLog = Join-Path $Lane.log_root 'train.stderr.log'
+	$runtimeRoot = Join-Path $Lane.lane_root 'runtime'
+	$trainLoopSourcePath = Join-Path $repoRoot 'scripts\training\train_loop.sh'
+	$trainLoopSnapshotPath = Join-Path $runtimeRoot 'train_loop.snapshot.sh'
+	New-Item -ItemType Directory -Force -Path $runtimeRoot | Out-Null
+	Copy-Item -LiteralPath $trainLoopSourcePath -Destination $trainLoopSnapshotPath -Force
 	$quotedRepoRoot = ConvertTo-PsSingleQuotedLiteral -Value $repoRoot
 	$quotedAppData = ConvertTo-PsSingleQuotedLiteral -Value $Lane.appdata_root
 	$quotedGitBash = ConvertTo-PsSingleQuotedLiteral -Value $GitBashPath
 	$quotedGodot = ConvertTo-PsSingleQuotedLiteral -Value $GodotPath
 
 	$bashArgs = @(
-		(ConvertTo-PsSingleQuotedLiteral -Value 'scripts/training/train_loop.sh'),
-		'--godot', $quotedGodot
+		(ConvertTo-PsSingleQuotedLiteral -Value $trainLoopSnapshotPath),
+		'--godot', $quotedGodot,
+		'--project-dir', $quotedRepoRoot
 	)
+	if (-not [string]::IsNullOrWhiteSpace([string]$Lane.baseline.agent_config_path)) {
+		$bashArgs += @('--baseline-agent-config', (ConvertTo-PsSingleQuotedLiteral -Value ([string]$Lane.baseline.agent_config_path)))
+	}
+	if (-not [string]::IsNullOrWhiteSpace([string]$Lane.baseline.value_net_path)) {
+		$bashArgs += @('--baseline-value-net', (ConvertTo-PsSingleQuotedLiteral -Value ([string]$Lane.baseline.value_net_path)))
+	}
+	if (-not [string]::IsNullOrWhiteSpace([string]$Lane.baseline.action_scorer_path)) {
+		$bashArgs += @('--baseline-action-scorer', (ConvertTo-PsSingleQuotedLiteral -Value ([string]$Lane.baseline.action_scorer_path)))
+	}
+	if (-not [string]::IsNullOrWhiteSpace([string]$Lane.baseline.source)) {
+		$bashArgs += @('--baseline-source', (ConvertTo-PsSingleQuotedLiteral -Value ([string]$Lane.baseline.source)))
+	}
+	if (-not [string]::IsNullOrWhiteSpace([string]$Lane.baseline.version_id)) {
+		$bashArgs += @('--baseline-version-id', (ConvertTo-PsSingleQuotedLiteral -Value ([string]$Lane.baseline.version_id)))
+	}
+	if (-not [string]::IsNullOrWhiteSpace([string]$Lane.baseline.display_name)) {
+		$bashArgs += @('--baseline-display-name', (ConvertTo-PsSingleQuotedLiteral -Value ([string]$Lane.baseline.display_name)))
+	}
 	foreach ($arg in $Lane.train_loop_args) {
 		$bashArgs += (ConvertTo-PsSingleQuotedLiteral -Value ([string]$arg))
 	}
@@ -254,6 +299,7 @@ function New-ParallelLaneLaunchSpec {
 		group = [string]$Lane.group
 		lane_root = [string]$Lane.lane_root
 		appdata_root = [string]$Lane.appdata_root
+		train_loop_snapshot_path = $trainLoopSnapshotPath
 		launch_script_path = $launchScriptPath
 		stdout_log = $stdoutLog
 		stderr_log = $stderrLog
@@ -327,12 +373,13 @@ function Invoke-ParallelTrainingLauncher {
 
 		[string]$PlanPath = '',
 		[string]$GitBashPath = $(Resolve-GitBashPath),
+		[string]$PipelineName = 'fixed_three_deck_training',
 		[switch]$AllowBootstrap,
 		[switch]$Launch
 	)
 
 	$baseline = Get-TrainingBaselineSnapshot -AllowBootstrap:$AllowBootstrap
-	$plan = New-ParallelTrainingPlan -WorkspaceRoot $WorkspaceRoot -ApprovedBaseline $baseline
+	$plan = New-ParallelTrainingPlan -WorkspaceRoot $WorkspaceRoot -ApprovedBaseline $baseline -PipelineName $PipelineName
 
 	if ([string]::IsNullOrWhiteSpace($PlanPath)) {
 		$PlanPath = Join-Path $WorkspaceRoot 'parallel_training_plan.json'

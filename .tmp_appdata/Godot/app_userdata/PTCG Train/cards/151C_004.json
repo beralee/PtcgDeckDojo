@@ -1,0 +1,51 @@
+{
+	"abilities": [],
+	"ancient_trait": "",
+	"artist": "GIDORA",
+	"attacks": [
+		{
+			"cost": "R",
+			"damage": "",
+			"is_vstar_power": false,
+			"name": "烧光",
+			"text": "将场上的竞技场放于弃牌区。"
+		},
+		{
+			"cost": "RR",
+			"damage": "30",
+			"is_vstar_power": false,
+			"name": "吐火",
+			"text": ""
+		}
+	],
+	"card_index": "004",
+	"card_index_en": "7",
+	"card_type": "Pokemon",
+	"description": "【火】 烧光 \n将场上的竞技场放于弃牌区。\n\n【火】【火】 吐火 30\n\n\n",
+	"effect_id": "7d8db29232cb263d7a9f27342814dff9",
+	"energy_provides": "",
+	"energy_type": "R",
+	"evolves_from": "",
+	"hp": 70,
+	"image_local_path": "user://cards/images/151C/004.png",
+	"image_url": "https://tcg.mik.moe/static/img/151C/004.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "",
+	"name": "小火龙",
+	"name_en": "Charmander",
+	"rarity": "C",
+	"regulation_expanded": true,
+	"regulation_mark": "G",
+	"regulation_standard": true,
+	"release_date": "2025-01-17T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 1,
+	"set_code": "151C",
+	"set_code_en": "PAF",
+	"stage": "Basic",
+	"weakness_energy": "W",
+	"weakness_value": "×2",
+	"yoren_code": "P004"
+}

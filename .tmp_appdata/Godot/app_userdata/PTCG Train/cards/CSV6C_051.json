@@ -1,0 +1,51 @@
+{
+	"abilities": [],
+	"ancient_trait": "",
+	"artist": "PLANETA Mochizuki",
+	"attacks": [
+		{
+			"cost": "LLC",
+			"damage": "160",
+			"is_vstar_power": false,
+			"name": "臂膀压制",
+			"text": ""
+		},
+		{
+			"cost": "LCCC",
+			"damage": "120",
+			"is_vstar_power": false,
+			"name": "多谢款待",
+			"text": "如果因为这个招式的伤害，对手的宝可梦【昏厥】的话，则多拿取1张奖赏卡。"
+		}
+	],
+	"card_index": "051",
+	"card_index_en": "31",
+	"card_type": "Pokemon",
+	"description": "【雷】【雷】 臂膀压制 160\n\n\n【雷】 多谢款待 120\n如果因为这个招式的伤害，对手的宝可梦【昏厥】的话，则多拿取1张奖赏卡。\n\n",
+	"effect_id": "e9f0c124fc2e352af2408a7e61862b95",
+	"energy_provides": "",
+	"energy_type": "L",
+	"evolves_from": "",
+	"hp": 230,
+	"image_local_path": "user://cards/images/CSV6C/051.png",
+	"image_url": "https://tcg.mik.moe/static/img/CSV6C/051.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "ex",
+	"name": "铁臂膀ex",
+	"name_en": "Iron Hands ex",
+	"rarity": "RR",
+	"regulation_expanded": true,
+	"regulation_mark": "G",
+	"regulation_standard": true,
+	"release_date": "2025-11-07T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 4,
+	"set_code": "CSV6C",
+	"set_code_en": "PRE",
+	"stage": "Basic",
+	"weakness_energy": "F",
+	"weakness_value": "×2",
+	"yoren_code": "Y1366"
+}

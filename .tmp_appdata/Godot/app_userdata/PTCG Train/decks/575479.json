@@ -1,0 +1,290 @@
+{
+	"cards": [
+		{
+			"card_index": "052",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "04653d073ffc3ca2202746e4f9aebabd",
+			"name": "玛纳霏",
+			"name_en": "Manaphy",
+			"set_code": "CS5bC"
+		},
+		{
+			"card_index": "089",
+			"card_type": "Pokemon",
+			"count": 4,
+			"effect_id": "07f01f4f21033a1bbc058e4af555420a",
+			"name": "赛富豪ex",
+			"name_en": "Gholdengo ex",
+			"set_code": "CSV4C"
+		},
+		{
+			"card_index": "020",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "09445b8c32fd4abef4230ebcdc964096",
+			"name": "光辉甲贺忍蛙",
+			"name_en": "Radiant Greninja",
+			"set_code": "CS6.5C"
+		},
+		{
+			"card_index": "051",
+			"card_type": "Supporter",
+			"count": 1,
+			"effect_id": "0a9bdf265647461dd5c6c827ffc19e61",
+			"name": "裁判",
+			"name_en": "Judge",
+			"set_code": "CSVH1C"
+		},
+		{
+			"card_index": "WAT",
+			"card_type": "Basic Energy",
+			"count": 6,
+			"effect_id": "0cf075ae61b8a0b4e9151e5146c3aa26",
+			"name": "基本水能量",
+			"name_en": "Water Energy",
+			"set_code": "CSVE1C"
+		},
+		{
+			"card_index": "043",
+			"card_type": "Item",
+			"count": 4,
+			"effect_id": "1af63a7e2cb7a79215474ad8db8fd8fd",
+			"name": "巢穴球",
+			"name_en": "Nest Ball",
+			"set_code": "CSVH1C"
+		},
+		{
+			"card_index": "191",
+			"card_type": "Supporter",
+			"count": 3,
+			"effect_id": "1b5fc2ed2bce98ef93457881c05354e2",
+			"name": "暗码迷的解读",
+			"name_en": "Ciphermaniac's Codebreaking",
+			"set_code": "CSV7C"
+		},
+		{
+			"card_index": "060",
+			"card_type": "Item",
+			"count": 1,
+			"effect_id": "2f68195255c863293be4fad262bf23d2",
+			"name": "洗翠的沉重球",
+			"name_en": "Hisuian Heavy Ball",
+			"set_code": "CS5.5C"
+		},
+		{
+			"card_index": "MET",
+			"card_type": "Basic Energy",
+			"count": 4,
+			"effect_id": "4557c01497b81767fdaa0004089ecfb3",
+			"name": "基本钢能量",
+			"name_en": "Metal Energy",
+			"set_code": "CSVE1C"
+		},
+		{
+			"card_index": "105",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "46e0b7c128aeca65657bf19f3ae8fb91",
+			"name": "索财灵",
+			"name_en": "Gimmighoul",
+			"set_code": "SVP"
+		},
+		{
+			"card_index": "180",
+			"card_type": "Item",
+			"count": 1,
+			"effect_id": "4ec261453212280d0eb03ed8254ca97f",
+			"name": "顶尖捕捉器",
+			"name_en": "Prime Catcher",
+			"set_code": "CSV7C"
+		},
+		{
+			"card_index": "138",
+			"card_type": "Supporter",
+			"count": 2,
+			"effect_id": "4f53ab6bf158fd1a8869ae037f4a0d6d",
+			"name": "珠贝",
+			"name_en": "Irida",
+			"set_code": "CS5DC"
+		},
+		{
+			"card_index": "202",
+			"card_type": "Stadium",
+			"count": 2,
+			"effect_id": "59e1e1faa3ceb8c3ae801979a499532e",
+			"name": "全金属实验室",
+			"name_en": "Full Metal Lab",
+			"set_code": "CSV7C"
+		},
+		{
+			"card_index": "111",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "5a80f8eb94c6fcc27c475c10a63cf856",
+			"name": "大牙狸",
+			"name_en": "Bidoof",
+			"set_code": "CS5bC"
+		},
+		{
+			"card_index": "003",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "63cf95979c653e65cbd502a4c0d3fbdd",
+			"name": "起源帕路奇亚V",
+			"name_en": "Origin Forme Palkia V",
+			"set_code": "CSNC"
+		},
+		{
+			"card_index": "113",
+			"card_type": "Item",
+			"count": 1,
+			"effect_id": "66b2f1d77328b6578b1bf0d58d98f66b",
+			"name": "清除古龙水",
+			"name_en": "Canceling Cologne",
+			"set_code": "CS5aC"
+		},
+		{
+			"card_index": "051",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "720fd5ca597f96db0f5f00d3ac16febb",
+			"name": "起源帕路奇亚VSTAR",
+			"name_en": "Origin Forme Palkia VSTAR",
+			"set_code": "CS5bC"
+		},
+		{
+			"card_index": "125",
+			"card_type": "Supporter",
+			"count": 1,
+			"effect_id": "73d5f46ecf3a6d71b23ce7bc1a28d4f4",
+			"name": "弗图博士的剧本",
+			"name_en": "Professor Turo's Scenario",
+			"set_code": "CSV6C"
+		},
+		{
+			"card_index": "113",
+			"card_type": "Item",
+			"count": 1,
+			"effect_id": "7c0b20e121c9d0e0d2d8a43524f7494e",
+			"name": "宝可梦交替",
+			"name_en": "Switch",
+			"set_code": "CSV1C"
+		},
+		{
+			"card_index": "034",
+			"card_type": "Item",
+			"count": 1,
+			"effect_id": "8538726d6cdfad2fa3ca5f4b462c12c5",
+			"name": "能量回收",
+			"name_en": "Energy Retrieval",
+			"set_code": "CSVH1C"
+		},
+		{
+			"card_index": "063",
+			"card_type": "Pokemon",
+			"count": 3,
+			"effect_id": "8bcc42363d38245b8b408cfaafa1ba30",
+			"name": "索财灵",
+			"name_en": "Gimmighoul",
+			"set_code": "CSV4C"
+		},
+		{
+			"card_index": "023",
+			"card_type": "Supporter",
+			"count": 2,
+			"effect_id": "8e1fa2c9018db938084c94c7c970d419",
+			"name": "老大的指令",
+			"name_en": "Boss's Orders",
+			"set_code": "CSVH1aC"
+		},
+		{
+			"card_index": "123",
+			"card_type": "Item",
+			"count": 1,
+			"effect_id": "8f655fea1f90164bfbccb7a95c223e17",
+			"name": "放逐吸尘器",
+			"name_en": "Lost Vacuum",
+			"set_code": "CS6bC"
+		},
+		{
+			"card_index": "112",
+			"card_type": "Item",
+			"count": 2,
+			"effect_id": "a337ed34a45e63c6d21d98c3d8e0cb6e",
+			"name": "高级球",
+			"name_en": "Ultra Ball",
+			"set_code": "CSV1C"
+		},
+		{
+			"card_index": "111",
+			"card_type": "Item",
+			"count": 1,
+			"effect_id": "a47d5a8ed00e14a2146fc511745d23b5",
+			"name": "朋友手册",
+			"name_en": "Pal Pad",
+			"set_code": "CSV1C"
+		},
+		{
+			"card_index": "123",
+			"card_type": "Supporter",
+			"count": 1,
+			"effect_id": "af514f82d182aeae5327b2c360df703d",
+			"name": "奇树",
+			"name_en": "Iono",
+			"set_code": "CSV3C"
+		},
+		{
+			"card_index": "109",
+			"card_type": "Item",
+			"count": 1,
+			"effect_id": "c9c948169525fbb3dce70c477ec7a90a",
+			"name": "厉害钓竿",
+			"name_en": "Super Rod",
+			"set_code": "CSV1C"
+		},
+		{
+			"card_index": "105",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "d8e81bf574a9d7a0f42ff33e15b0522c",
+			"name": "大尾狸",
+			"name_en": "Bibarel",
+			"set_code": "CS5aC"
+		},
+		{
+			"card_index": "115",
+			"card_type": "Item",
+			"count": 3,
+			"effect_id": "e366f56ecd3f805a28294109a1a37453",
+			"name": "大地容器",
+			"name_en": "Earthen Vessel",
+			"set_code": "CSV6C"
+		},
+		{
+			"card_index": "177",
+			"card_type": "Item",
+			"count": 3,
+			"effect_id": "f866dfee26cd6b0dbbb52b74438d0a59",
+			"name": "友好宝芬",
+			"name_en": "Buddy-Buddy Poffin",
+			"set_code": "CSV7C"
+		},
+		{
+			"card_index": "115",
+			"card_type": "Item",
+			"count": 4,
+			"effect_id": "ff7e5670880217816bcf5d34388624cd",
+			"name": "超级能量回收",
+			"name_en": "Superior Energy Retrieval",
+			"set_code": "CSV3C"
+		}
+	],
+	"deck_code": "NHpDY4VFN5jjYOVfy7",
+	"deck_name": "赛富豪 起源帕路奇亚",
+	"id": 575479,
+	"import_date": "2026-03-14T21:33:37",
+	"source_url": "https://tcg.mik.moe/decks/list/575479",
+	"total_cards": 60,
+	"variant_name": "赛富豪 起源帕路奇亚"
+}

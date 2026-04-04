@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "蔚蓝指令",
+			"text": "只要这只宝可梦在场上，自己的「未来」宝可梦（除「铁头壳【ex】」外）所使用的招式，给对手战斗宝可梦造成的伤害「+20」。"
+		}
+	],
+	"ancient_trait": "",
+	"artist": "5ban Graphics",
+	"attacks": [
+		{
+			"cost": "PCC",
+			"damage": "",
+			"is_vstar_power": false,
+			"name": "双刃",
+			"text": "给对手的2只宝可梦，各造成50伤害。这个招式的伤害，不计算弱点、抗性，以及受到伤害的宝可梦身上所附加的效果。"
+		}
+	],
+	"card_index": "111",
+	"card_index_en": "81",
+	"card_type": "Pokemon",
+	"description": "特性: 蔚蓝指令\n只要这只宝可梦在场上，自己的「未来」宝可梦（除「铁头壳【ex】」外）所使用的招式，给对手战斗宝可梦造成的伤害「+20」。\n\n【超】 双刃 \n给对手的2只宝可梦，各造成50伤害。这个招式的伤害，不计算弱点、抗性，以及受到伤害的宝可梦身上所附加的效果。\n\n",
+	"effect_id": "9f00ff54c265aa486652154a5e976c67",
+	"energy_provides": "",
+	"energy_type": "P",
+	"evolves_from": "",
+	"hp": 220,
+	"image_local_path": "user://cards/images/CSV7C/111.png",
+	"image_url": "https://tcg.mik.moe/static/img/CSV7C/111.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "ex",
+	"name": "铁头壳ex",
+	"name_en": "Iron Crown ex",
+	"rarity": "RR",
+	"regulation_expanded": true,
+	"regulation_mark": "H",
+	"regulation_standard": true,
+	"release_date": "2026-01-16T00:00:00+08:00",
+	"resistance_energy": "F",
+	"resistance_value": "-30",
+	"retreat_cost": 2,
+	"set_code": "CSV7C",
+	"set_code_en": "TEF",
+	"stage": "Basic",
+	"weakness_energy": "D",
+	"weakness_value": "×2",
+	"yoren_code": "Y1395"
+}

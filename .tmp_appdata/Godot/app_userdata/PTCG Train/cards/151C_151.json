@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "再起动",
+			"text": "在自己的回合可以使用1次。从牌库上方抽取卡牌，直到自己的手牌变为3张为止。"
+		}
+	],
+	"ancient_trait": "",
+	"artist": "aky CG Works",
+	"attacks": [
+		{
+			"cost": "CCC",
+			"damage": "",
+			"is_vstar_power": false,
+			"name": "基因侵入",
+			"text": "选择对手战斗宝可梦所拥有的1个招式，作为这个招式使用。"
+		}
+	],
+	"card_index": "151",
+	"card_index_en": "151",
+	"card_type": "Pokemon",
+	"description": "特性: 再起动\n在自己的回合可以使用1次。从牌库上方抽取卡牌，直到自己的手牌变为3张为止。\n\n 基因侵入 \n选择对手战斗宝可梦所拥有的1个招式，作为这个招式使用。\n\n",
+	"effect_id": "49669fcf461deacebeb5755c11ec51f1",
+	"energy_provides": "",
+	"energy_type": "P",
+	"evolves_from": "",
+	"hp": 180,
+	"image_local_path": "user://cards/images/151C/151.png",
+	"image_url": "https://tcg.mik.moe/static/img/151C/151.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "ex",
+	"name": "梦幻ex",
+	"name_en": "Mew ex",
+	"rarity": "RR",
+	"regulation_expanded": true,
+	"regulation_mark": "G",
+	"regulation_standard": true,
+	"release_date": "2025-01-17T00:00:00+08:00",
+	"resistance_energy": "F",
+	"resistance_value": "-30",
+	"retreat_cost": 0,
+	"set_code": "151C",
+	"set_code_en": "MEW",
+	"stage": "Basic",
+	"weakness_energy": "D",
+	"weakness_value": "×2",
+	"yoren_code": "Y1191"
+}

@@ -1,0 +1,51 @@
+{
+	"abilities": [],
+	"ancient_trait": "",
+	"artist": "Ryota Murayama",
+	"attacks": [
+		{
+			"cost": "P",
+			"damage": "30",
+			"is_vstar_power": false,
+			"name": "巴掌",
+			"text": ""
+		},
+		{
+			"cost": "PC",
+			"damage": "",
+			"is_vstar_power": false,
+			"name": "凶暴吼叫",
+			"text": "给对手的1只宝可梦，造成这只宝可梦身上放置的伤害指示物数量×20伤害。[备战宝可梦不计算弱点、抗性。]"
+		}
+	],
+	"card_index": "065",
+	"card_index_en": "42",
+	"card_type": "Pokemon",
+	"description": "【超】 巴掌 30\n\n\n【超】 凶暴吼叫 \n给对手的1只宝可梦，造成这只宝可梦身上放置的伤害指示物数量×20伤害。[备战宝可梦不计算弱点、抗性。]\n\n",
+	"effect_id": "12c9416c64d1a8cfbbf0a3000a9f3d50",
+	"energy_provides": "",
+	"energy_type": "P",
+	"evolves_from": "",
+	"hp": 90,
+	"image_local_path": "user://cards/images/CSV6C/065.png",
+	"image_url": "https://tcg.mik.moe/static/img/CSV6C/065.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "",
+	"name": "吼叫尾",
+	"name_en": "Scream Tail",
+	"rarity": "U",
+	"regulation_expanded": true,
+	"regulation_mark": "G",
+	"regulation_standard": true,
+	"release_date": "2025-11-07T00:00:00+08:00",
+	"resistance_energy": "F",
+	"resistance_value": "-30",
+	"retreat_cost": 1,
+	"set_code": "CSV6C",
+	"set_code_en": "PRE",
+	"stage": "Basic",
+	"weakness_energy": "D",
+	"weakness_value": "×2",
+	"yoren_code": "P0985"
+}

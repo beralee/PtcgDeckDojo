@@ -1,0 +1,51 @@
+{
+	"abilities": [],
+	"ancient_trait": "",
+	"artist": "Yuu Nishida",
+	"attacks": [
+		{
+			"cost": "C",
+			"damage": "30",
+			"is_vstar_power": false,
+			"name": "重掴",
+			"text": ""
+		},
+		{
+			"cost": "CC",
+			"damage": "70×",
+			"is_vstar_power": false,
+			"name": "特殊滚动",
+			"text": "造成这只宝可梦身上附着的特殊能量张数×70伤害。"
+		}
+	],
+	"card_index": "171",
+	"card_index_en": "137",
+	"card_type": "Pokemon",
+	"description": " 重掴 30\n\n\n 特殊滚动 70×\n造成这只宝可梦身上附着的特殊能量张数×70伤害。\n\n",
+	"effect_id": "afe4fbcaa0c39b45a94bc01f7163b142",
+	"energy_provides": "",
+	"energy_type": "C",
+	"evolves_from": "泡沫栗鼠",
+	"hp": 110,
+	"image_local_path": "user://cards/images/CSV7C/171.png",
+	"image_url": "https://tcg.mik.moe/static/img/CSV7C/171.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "",
+	"name": "奇诺栗鼠",
+	"name_en": "Cinccino",
+	"rarity": "U",
+	"regulation_expanded": true,
+	"regulation_mark": "H",
+	"regulation_standard": true,
+	"release_date": "2026-01-16T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 1,
+	"set_code": "CSV7C",
+	"set_code_en": "TEF",
+	"stage": "Stage 1",
+	"weakness_energy": "F",
+	"weakness_value": "×2",
+	"yoren_code": "P573"
+}

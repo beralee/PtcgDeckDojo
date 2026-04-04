@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "精炼",
+			"text": "在自己的回合，如果将自己的1张手牌放于弃牌区的话，则可使用1次。从自己牌库上方抽取2张卡牌。"
+		}
+	],
+	"ancient_trait": "",
+	"artist": "Yukiko Baba",
+	"attacks": [
+		{
+			"cost": "PC",
+			"damage": "30",
+			"is_vstar_power": false,
+			"name": "巴掌",
+			"text": ""
+		}
+	],
+	"card_index": "030",
+	"card_index_en": "68",
+	"card_type": "Pokemon",
+	"description": "特性: 精炼\n在自己的回合，如果将自己的1张手牌放于弃牌区的话，则可使用1次。从自己牌库上方抽取2张卡牌。\n\n【超】 巴掌 30\n\n\n",
+	"effect_id": "4abd956bdf3e956fcf679120601760ff",
+	"energy_provides": "",
+	"energy_type": "P",
+	"evolves_from": "拉鲁拉丝",
+	"hp": 80,
+	"image_local_path": "user://cards/images/CS6.5C/030.png",
+	"image_url": "https://tcg.mik.moe/static/img/CS6.5C/030.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "",
+	"name": "奇鲁莉安",
+	"name_en": "Kirlia",
+	"rarity": "C",
+	"regulation_expanded": true,
+	"regulation_mark": "F",
+	"regulation_standard": true,
+	"release_date": "2024-11-15T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 2,
+	"set_code": "CS6.5C",
+	"set_code_en": "SIT",
+	"stage": "Stage 1",
+	"weakness_energy": "M",
+	"weakness_value": "×2",
+	"yoren_code": "P281"
+}

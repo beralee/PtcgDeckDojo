@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "振奋之心",
+			"text": "这只宝可梦使用招式所需能量会减少与对手已经获得的奖赏卡张数相同数量的【无】能量。"
+		}
+	],
+	"ancient_trait": "",
+	"artist": "Kouki Saitou",
+	"attacks": [
+		{
+			"cost": "RCCCC",
+			"damage": "250",
+			"is_vstar_power": false,
+			"name": "炎爆",
+			"text": "在下一个自己的回合，这只宝可梦无法使用「炎爆」。"
+		}
+	],
+	"card_index": "007",
+	"card_index_en": "20",
+	"card_type": "Pokemon",
+	"description": "特性: 振奋之心\n这只宝可梦使用招式所需能量会减少与对手已经获得的奖赏卡张数相同数量的【无】能量。\n\n【火】 炎爆 250\n在下一个自己的回合，这只宝可梦无法使用「炎爆」。\n\n",
+	"effect_id": "8f4f913440ac17d759c061e4e6fcf947",
+	"energy_provides": "",
+	"energy_type": "R",
+	"evolves_from": "",
+	"hp": 160,
+	"image_local_path": "user://cards/images/CS5.5C/007.png",
+	"image_url": "https://tcg.mik.moe/static/img/CS5.5C/007.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "Radiant",
+	"name": "光辉喷火龙",
+	"name_en": "Radiant Charizard",
+	"rarity": "K",
+	"regulation_expanded": true,
+	"regulation_mark": "F",
+	"regulation_standard": true,
+	"release_date": "2024-08-02T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 3,
+	"set_code": "CS5.5C",
+	"set_code_en": "CRZ",
+	"stage": "Basic",
+	"weakness_energy": "W",
+	"weakness_value": "×2",
+	"yoren_code": "Y1064"
+}

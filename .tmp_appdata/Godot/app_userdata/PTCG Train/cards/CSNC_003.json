@@ -1,0 +1,51 @@
+{
+	"abilities": [],
+	"ancient_trait": "",
+	"artist": "aky CG Works",
+	"attacks": [
+		{
+			"cost": "W",
+			"damage": "",
+			"is_vstar_power": false,
+			"name": "领域支配",
+			"text": "选择自己牌库中的1张竞技场，在给对手看过之后，加入手牌。并重洗牌库。"
+		},
+		{
+			"cost": "WWC",
+			"damage": "200",
+			"is_vstar_power": false,
+			"name": "水炮破坏",
+			"text": "在下一个自己的回合，这只宝可梦无法使用招式。"
+		}
+	],
+	"card_index": "003",
+	"card_index_en": "39",
+	"card_type": "Pokemon",
+	"description": "【水】 领域支配 \n选择自己牌库中的1张竞技场，在给对手看过之后，加入手牌。并重洗牌库。\n\n【水】【水】 水炮破坏 200\n在下一个自己的回合，这只宝可梦无法使用招式。\n\n",
+	"effect_id": "63cf95979c653e65cbd502a4c0d3fbdd",
+	"energy_provides": "",
+	"energy_type": "W",
+	"evolves_from": "",
+	"hp": 220,
+	"image_local_path": "user://cards/images/CSNC/003.png",
+	"image_url": "https://tcg.mik.moe/static/img/CSNC/003.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "V",
+	"name": "起源帕路奇亚V",
+	"name_en": "Origin Forme Palkia V",
+	"rarity": "无标记",
+	"regulation_expanded": true,
+	"regulation_mark": "F",
+	"regulation_standard": true,
+	"release_date": "2024-06-18T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 2,
+	"set_code": "CSNC",
+	"set_code_en": "ASR",
+	"stage": "Basic",
+	"weakness_energy": "L",
+	"weakness_value": "×2",
+	"yoren_code": "Y927"
+}

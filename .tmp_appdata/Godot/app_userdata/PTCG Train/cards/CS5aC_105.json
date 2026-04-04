@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "勤奋门牙",
+			"text": "在自己的回合可以使用1次。从牌库上方抽取卡牌，直到自己的手牌变为5张为止。"
+		}
+	],
+	"ancient_trait": "",
+	"artist": "OKACHEKE",
+	"attacks": [
+		{
+			"cost": "CCC",
+			"damage": "100",
+			"is_vstar_power": false,
+			"name": "长尾粉碎",
+			"text": "抛掷1次硬币如果为反面，则这个招式失败。"
+		}
+	],
+	"card_index": "105",
+	"card_index_en": "121",
+	"card_type": "Pokemon",
+	"description": "特性: 勤奋门牙\n在自己的回合可以使用1次。从牌库上方抽取卡牌，直到自己的手牌变为5张为止。\n\n 长尾粉碎 100\n抛掷1次硬币如果为反面，则这个招式失败。\n\n",
+	"effect_id": "d8e81bf574a9d7a0f42ff33e15b0522c",
+	"energy_provides": "",
+	"energy_type": "C",
+	"evolves_from": "大牙狸",
+	"hp": 120,
+	"image_local_path": "user://cards/images/CS5aC/105.png",
+	"image_url": "https://tcg.mik.moe/static/img/CS5aC/105.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "",
+	"name": "大尾狸",
+	"name_en": "Bibarel",
+	"rarity": "R",
+	"regulation_expanded": true,
+	"regulation_mark": "F",
+	"regulation_standard": true,
+	"release_date": "2024-06-18T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 2,
+	"set_code": "CS5aC",
+	"set_code_en": "BRS",
+	"stage": "Stage 1",
+	"weakness_energy": "F",
+	"weakness_value": "×2",
+	"yoren_code": "P400"
+}

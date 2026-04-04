@@ -411,6 +411,45 @@ func test_use_attack_discard_basic_energy_from_hand_respects_selected_cards() ->
 	])
 
 
+func test_use_attack_read_wind_draw_respects_selected_hand_card() -> String:
+	var gsm := _make_manual_gsm()
+	var player: PlayerState = gsm.game_state.players[0]
+	var defender_player: PlayerState = gsm.game_state.players[1]
+
+	var attacker_cd := _make_basic_pokemon_data("Lugia V", "C", 220, "Basic", "d8e735158b27693de9d70f883d84f5a2")
+	attacker_cd.attacks = [{"name": "读风", "cost": "C", "damage": "", "text": "", "is_vstar_power": false}]
+	gsm.effect_processor.register_pokemon_card(attacker_cd)
+	var attacker_slot := PokemonSlot.new()
+	attacker_slot.pokemon_stack.append(CardInstance.create(attacker_cd, 0))
+	attacker_slot.attached_energy.append(CardInstance.create(_make_energy_data("Colorless Energy", "C"), 0))
+	player.active_pokemon = attacker_slot
+
+	var defender_slot := PokemonSlot.new()
+	defender_slot.pokemon_stack.append(CardInstance.create(_make_basic_pokemon_data("Defender", "W", 200), 1))
+	defender_player.active_pokemon = defender_slot
+
+	player.hand.clear()
+	player.discard_pile.clear()
+	player.deck.clear()
+	var chosen := CardInstance.create(_make_basic_pokemon_data("Chosen Discard", "C"), 0)
+	var unchosen := CardInstance.create(_make_basic_pokemon_data("Keep In Hand", "C"), 0)
+	player.hand.append_array([chosen, unchosen])
+	for i: int in 3:
+		player.deck.append(CardInstance.create(_make_basic_pokemon_data("Draw %d" % i, "C"), 0))
+
+	var result: bool = gsm.use_attack(0, 0, [{
+		"discard_card": [chosen],
+	}])
+
+	return run_checks([
+		assert_true(result, "Read the Wind should resolve with the selected hand card"),
+		assert_true(chosen in player.discard_pile, "Read the Wind should discard the selected hand card"),
+		assert_true(unchosen in player.hand, "Read the Wind should keep unselected hand cards"),
+		assert_false(unchosen in player.discard_pile, "Read the Wind should not discard an unselected hand card"),
+		assert_eq(player.hand.size(), 4, "Read the Wind should end with the remaining hand plus three drawn cards"),
+	])
+
+
 func test_first_turn_draw_ability_works_on_second_players_first_turn() -> String:
 	var gsm := _make_manual_gsm()
 	gsm.game_state.first_player_index = 0

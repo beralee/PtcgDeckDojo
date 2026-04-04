@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "快速游标",
+			"text": "在自己的回合，当将这张卡牌从手牌使出放于备战区时，可使用1次。将这只宝可梦与战斗宝可梦互换。如果成功执行互换了的话，则选择任意数量的自己场上宝可梦身上附着的能量，转附于这只宝可梦身上。"
+		}
+	],
+	"ancient_trait": "",
+	"artist": "5ban Graphics",
+	"attacks": [
+		{
+			"cost": "GGC",
+			"damage": "180",
+			"is_vstar_power": false,
+			"name": "棱镜利刃",
+			"text": "在下一个自己的回合，这只宝可梦无法使用招式。"
+		}
+	],
+	"card_index": "033",
+	"card_index_en": "25",
+	"card_type": "Pokemon",
+	"description": "特性: 快速游标\n在自己的回合，当将这张卡牌从手牌使出放于备战区时，可使用1次。将这只宝可梦与战斗宝可梦互换。如果成功执行互换了的话，则选择任意数量的自己场上宝可梦身上附着的能量，转附于这只宝可梦身上。\n\n【草】【草】 棱镜利刃 180\n在下一个自己的回合，这只宝可梦无法使用招式。\n\n",
+	"effect_id": "2e307380eb013c4e20db0a19816ba3b9",
+	"energy_provides": "",
+	"energy_type": "G",
+	"evolves_from": "",
+	"hp": 220,
+	"image_local_path": "user://cards/images/CSV7C/033.png",
+	"image_url": "https://tcg.mik.moe/static/img/CSV7C/033.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "ex",
+	"name": "铁斑叶ex",
+	"name_en": "Iron Leaves ex",
+	"rarity": "RR",
+	"regulation_expanded": true,
+	"regulation_mark": "H",
+	"regulation_standard": true,
+	"release_date": "2026-01-16T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 1,
+	"set_code": "CSV7C",
+	"set_code_en": "TEF",
+	"stage": "Basic",
+	"weakness_energy": "R",
+	"weakness_value": "×2",
+	"yoren_code": "Y1383"
+}

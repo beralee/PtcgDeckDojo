@@ -1,0 +1,51 @@
+{
+	"abilities": [],
+	"ancient_trait": "",
+	"artist": "Mizue",
+	"attacks": [
+		{
+			"cost": "C",
+			"damage": "",
+			"is_vstar_power": false,
+			"name": "呼朋引伴",
+			"text": "选择自己牌库中的1张【基础】宝可梦，放于备战区。并重洗牌库。"
+		},
+		{
+			"cost": "CC",
+			"damage": "20",
+			"is_vstar_power": false,
+			"name": "推打",
+			"text": ""
+		}
+	],
+	"card_index": "105",
+	"card_index_en": "87",
+	"card_type": "Pokemon",
+	"description": " 呼朋引伴 \n选择自己牌库中的1张【基础】宝可梦，放于备战区。并重洗牌库。\n\n 推打 20\n\n\n",
+	"effect_id": "46e0b7c128aeca65657bf19f3ae8fb91",
+	"energy_provides": "",
+	"energy_type": "P",
+	"evolves_from": "",
+	"hp": 50,
+	"image_local_path": "user://cards/images/SVP/105.png",
+	"image_url": "https://tcg.mik.moe/static/img/SVP/105.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "",
+	"name": "索财灵",
+	"name_en": "Gimmighoul",
+	"rarity": "无标记",
+	"regulation_expanded": true,
+	"regulation_mark": "G",
+	"regulation_standard": true,
+	"release_date": "2025-11-07T00:00:00+08:00",
+	"resistance_energy": "F",
+	"resistance_value": "-30",
+	"retreat_cost": 1,
+	"set_code": "SVP",
+	"set_code_en": "PAR",
+	"stage": "Basic",
+	"weakness_energy": "D",
+	"weakness_value": "×2",
+	"yoren_code": "P0999"
+}

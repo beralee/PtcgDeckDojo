@@ -1,0 +1,51 @@
+{
+	"abilities": [],
+	"ancient_trait": "",
+	"artist": "5ban Graphics",
+	"attacks": [
+		{
+			"cost": "C",
+			"damage": "",
+			"is_vstar_power": false,
+			"name": "深渊探求",
+			"text": "查看自己牌库上方4张卡牌，选择其中2张卡牌，加入手牌。将剩余的卡牌放于放逐区。"
+		},
+		{
+			"cost": "GPC",
+			"damage": "160",
+			"is_vstar_power": false,
+			"name": "撕裂",
+			"text": "这个招式的伤害，不计算对手的战斗宝可梦身上所附加的效果。"
+		}
+	],
+	"card_index": "107",
+	"card_index_en": "130",
+	"card_type": "Pokemon",
+	"description": " 深渊探求 \n查看自己牌库上方4张卡牌，选择其中2张卡牌，加入手牌。将剩余的卡牌放于放逐区。\n\n【草】【超】 撕裂 160\n这个招式的伤害，不计算对手的战斗宝可梦身上所附加的效果。\n\n",
+	"effect_id": "7975c3883e449a351bd55394cd43f393",
+	"energy_provides": "",
+	"energy_type": "N",
+	"evolves_from": "",
+	"hp": 220,
+	"image_local_path": "user://cards/images/CS6bC/107.png",
+	"image_url": "https://tcg.mik.moe/static/img/CS6bC/107.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "V",
+	"name": "骑拉帝纳V",
+	"name_en": "Giratina V",
+	"rarity": "RR",
+	"regulation_expanded": true,
+	"regulation_mark": "F",
+	"regulation_standard": true,
+	"release_date": "2024-09-20T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 2,
+	"set_code": "CS6bC",
+	"set_code_en": "LOR",
+	"stage": "Basic",
+	"weakness_energy": "",
+	"weakness_value": "",
+	"yoren_code": "Y1098"
+}

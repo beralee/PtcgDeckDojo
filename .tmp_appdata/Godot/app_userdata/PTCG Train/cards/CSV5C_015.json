@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "闪焰之幕",
+			"text": "这只宝可梦，不受到对手宝可梦所使用招式的效果影响。"
+		}
+	],
+	"ancient_trait": "",
+	"artist": "Tonji Matsuno",
+	"attacks": [
+		{
+			"cost": "RR",
+			"damage": "50",
+			"is_vstar_power": false,
+			"name": "烈焰",
+			"text": ""
+		}
+	],
+	"card_index": "015",
+	"card_index_en": "8",
+	"card_type": "Pokemon",
+	"description": "特性: 闪焰之幕\n这只宝可梦，不受到对手宝可梦所使用招式的效果影响。\n\n【火】【火】 烈焰 50\n\n\n",
+	"effect_id": "80abbdd5ce75ddd713dab42752383acd",
+	"energy_provides": "",
+	"energy_type": "R",
+	"evolves_from": "小火龙",
+	"hp": 90,
+	"image_local_path": "user://cards/images/CSV5C/015.png",
+	"image_url": "https://tcg.mik.moe/static/img/CSV5C/015.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "",
+	"name": "火恐龙",
+	"name_en": "Charmeleon",
+	"rarity": "C",
+	"regulation_expanded": true,
+	"regulation_mark": "G",
+	"regulation_standard": true,
+	"release_date": "2025-09-12T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 2,
+	"set_code": "CSV5C",
+	"set_code_en": "PAF",
+	"stage": "Stage 1",
+	"weakness_energy": "W",
+	"weakness_value": "×2",
+	"yoren_code": "P005"
+}

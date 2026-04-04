@@ -1,0 +1,299 @@
+{
+	"cards": [
+		{
+			"card_index": "052",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "04653d073ffc3ca2202746e4f9aebabd",
+			"name": "玛纳霏",
+			"name_en": "Manaphy",
+			"set_code": "CS5bC"
+		},
+		{
+			"card_index": "127",
+			"card_type": "Supporter",
+			"count": 1,
+			"effect_id": "05b9dc8ee5c16c46da20f47a04907856",
+			"name": "捩木",
+			"name_en": "Thorton",
+			"set_code": "CS6aC"
+		},
+		{
+			"card_index": "114",
+			"card_type": "Item",
+			"count": 2,
+			"effect_id": "06bc00d5dcec33898dc6db2e4c4d10ec",
+			"name": "反击捕捉器",
+			"name_en": "Counter Catcher",
+			"set_code": "CSV6C"
+		},
+		{
+			"card_index": "043",
+			"card_type": "Item",
+			"count": 3,
+			"effect_id": "1af63a7e2cb7a79215474ad8db8fd8fd",
+			"name": "巢穴球",
+			"name_en": "Nest Ball",
+			"set_code": "CSVH1C"
+		},
+		{
+			"card_index": "FIR",
+			"card_type": "Basic Energy",
+			"count": 5,
+			"effect_id": "22db5405bf0cce61a00aa8082cdd1e65",
+			"name": "基本火能量",
+			"name_en": "Fire Energy",
+			"set_code": "CSVE1C"
+		},
+		{
+			"card_index": "083",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "2a4178f21ba2bf13285bbb43ecaaa472",
+			"name": "黑夜魔灵",
+			"name_en": "Dusknoir",
+			"set_code": "CSV8C"
+		},
+		{
+			"card_index": "183",
+			"card_type": "Item",
+			"count": 1,
+			"effect_id": "3e6f1daf545dfed48d0588dd50792a2e",
+			"name": "夜间担架",
+			"name_en": "Night Stretcher",
+			"set_code": "CSV8C"
+		},
+		{
+			"card_index": "049",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "553639840a44f19ad83b89a892a21f98",
+			"name": "霓虹鱼V",
+			"name_en": "Lumineon V",
+			"set_code": "CS5bC"
+		},
+		{
+			"card_index": "123",
+			"card_type": "Supporter",
+			"count": 4,
+			"effect_id": "5bdbc985f9aa2e6f248b53f6f35d1d37",
+			"name": "派帕",
+			"name_en": "Arven",
+			"set_code": "CSV1C"
+		},
+		{
+			"card_index": "099",
+			"card_type": "Pokemon",
+			"count": 2,
+			"effect_id": "60635d7ef1f254b347154daf97a02fdf",
+			"name": "波波",
+			"name_en": "Pidgey",
+			"set_code": "CSV4C"
+		},
+		{
+			"card_index": "125",
+			"card_type": "Supporter",
+			"count": 1,
+			"effect_id": "73d5f46ecf3a6d71b23ce7bc1a28d4f4",
+			"name": "弗图博士的剧本",
+			"name_en": "Professor Turo's Scenario",
+			"set_code": "CSV6C"
+		},
+		{
+			"card_index": "075",
+			"card_type": "Pokemon",
+			"count": 2,
+			"effect_id": "767b6233bf90b98b7af190ea3b40d7a2",
+			"name": "喷火龙ex",
+			"name_en": "Charizard ex",
+			"set_code": "CSV5C"
+		},
+		{
+			"card_index": "004",
+			"card_type": "Pokemon",
+			"count": 3,
+			"effect_id": "7d8db29232cb263d7a9f27342814dff9",
+			"name": "小火龙",
+			"name_en": "Charmander",
+			"set_code": "151C"
+		},
+		{
+			"card_index": "015",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "80abbdd5ce75ddd713dab42752383acd",
+			"name": "火恐龙",
+			"name_en": "Charmeleon",
+			"set_code": "CSV5C"
+		},
+		{
+			"card_index": "101",
+			"card_type": "Pokemon",
+			"count": 2,
+			"effect_id": "8105afde9792c2596166f318a480d041",
+			"name": "大比鸟ex",
+			"name_en": "Pidgeot ex",
+			"set_code": "CSV4C"
+		},
+		{
+			"card_index": "032",
+			"card_type": "Pokemon",
+			"count": 2,
+			"effect_id": "8c23889e3e58324f3d58029f72379fac",
+			"name": "夜巡灵",
+			"name_en": "Duskull",
+			"set_code": "CS5.5C"
+		},
+		{
+			"card_index": "023",
+			"card_type": "Supporter",
+			"count": 2,
+			"effect_id": "8e1fa2c9018db938084c94c7c970d419",
+			"name": "老大的指令",
+			"name_en": "Boss's Orders",
+			"set_code": "CSVH1aC"
+		},
+		{
+			"card_index": "023",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "8ef5ff61fd97838af568f00fe3b0e3ea",
+			"name": "洛托姆V",
+			"name_en": "Rotom V",
+			"set_code": "CS6.5C"
+		},
+		{
+			"card_index": "007",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "8f4f913440ac17d759c061e4e6fcf947",
+			"name": "光辉喷火龙",
+			"name_en": "Radiant Charizard",
+			"set_code": "CS5.5C"
+		},
+		{
+			"card_index": "123",
+			"card_type": "Item",
+			"count": 1,
+			"effect_id": "8f655fea1f90164bfbccb7a95c223e17",
+			"name": "放逐吸尘器",
+			"name_en": "Lost Vacuum",
+			"set_code": "CS6bC"
+		},
+		{
+			"card_index": "024",
+			"card_type": "Special Energy",
+			"count": 1,
+			"effect_id": "9c04dd0addf56a7b2c88476bc8e45c0e",
+			"name": "双重涡轮能量",
+			"name_en": "Double Turbo Energy",
+			"set_code": "CSNC"
+		},
+		{
+			"card_index": "066",
+			"card_type": "Tool",
+			"count": 1,
+			"effect_id": "9fa9943ccda36f417ac3cb675177c216",
+			"name": "森林封印石",
+			"name_en": "Forest Seal Stone",
+			"set_code": "CS6.5C"
+		},
+		{
+			"card_index": "112",
+			"card_type": "Item",
+			"count": 4,
+			"effect_id": "a337ed34a45e63c6d21d98c3d8e0cb6e",
+			"name": "高级球",
+			"name_en": "Ultra Ball",
+			"set_code": "CSV1C"
+		},
+		{
+			"card_index": "135",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "ab6c3357e2b8a8385a68da738f41e0c1",
+			"name": "吉雉鸡ex",
+			"name_en": "Fezandipiti ex",
+			"set_code": "CSV8C"
+		},
+		{
+			"card_index": "082",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "ad031124df2ede62f945220fbbd680b3",
+			"name": "彷徨夜灵",
+			"name_en": "Dusclops",
+			"set_code": "CSV8C"
+		},
+		{
+			"card_index": "123",
+			"card_type": "Supporter",
+			"count": 2,
+			"effect_id": "af514f82d182aeae5327b2c360df703d",
+			"name": "奇树",
+			"name_en": "Iono",
+			"set_code": "CSV3C"
+		},
+		{
+			"card_index": "109",
+			"card_type": "Item",
+			"count": 2,
+			"effect_id": "c9c948169525fbb3dce70c477ec7a90a",
+			"name": "厉害钓竿",
+			"name_en": "Super Rod",
+			"set_code": "CSV1C"
+		},
+		{
+			"card_index": "173",
+			"card_type": "Item",
+			"count": 1,
+			"effect_id": "d324e01179ab048ed023bf4a20bf658d",
+			"name": "不公印章",
+			"name_en": "Unfair Stamp",
+			"set_code": "CSV8C"
+		},
+		{
+			"card_index": "045",
+			"card_type": "Item",
+			"count": 4,
+			"effect_id": "d3891abcfe3277c8811cde06741d3236",
+			"name": "神奇糖果",
+			"name_en": "Rare Candy",
+			"set_code": "CSVH1C"
+		},
+		{
+			"card_index": "117",
+			"card_type": "Tool",
+			"count": 1,
+			"effect_id": "e242d711feffd98f3fbb5c511d00d667",
+			"name": "不服输头带",
+			"name_en": "Defiance Band",
+			"set_code": "CSV1C"
+		},
+		{
+			"card_index": "177",
+			"card_type": "Item",
+			"count": 4,
+			"effect_id": "f866dfee26cd6b0dbbb52b74438d0a59",
+			"name": "友好宝芬",
+			"name_en": "Buddy-Buddy Poffin",
+			"set_code": "CSV7C"
+		},
+		{
+			"card_index": "071",
+			"card_type": "Stadium",
+			"count": 1,
+			"effect_id": "fb3628071280487676f79281696ffbd9",
+			"name": "崩塌的竞技场",
+			"name_en": "Collapsed Stadium",
+			"set_code": "CS6.5C"
+		}
+	],
+	"deck_code": "F5L2zsH_TytCksDg1X",
+	"deck_name": "喷火龙 大比鸟",
+	"id": 575716,
+	"import_date": "2026-03-15T17:22:06",
+	"source_url": "https://tcg.mik.moe/decks/list/575716",
+	"total_cards": 60,
+	"variant_name": "喷火龙 大比鸟"
+}

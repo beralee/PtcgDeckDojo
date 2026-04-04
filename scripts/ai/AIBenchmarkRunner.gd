@@ -311,6 +311,7 @@ func run_headless_duel(
 	gsm: GameStateMachine,
 	max_steps: int = 200,
 	step_callback: Callable = Callable(),
+	decision_exporter = null,
 ) -> Dictionary:
 	if gsm == null or gsm.game_state == null:
 		return _make_failed_match_result("invalid_state_transition", 0, gsm)
@@ -349,6 +350,7 @@ func run_headless_duel(
 					if not progressed:
 						result = _make_failed_match_result("unsupported_interaction_step", steps + 1, gsm)
 						break
+					_record_decision_trace_if_available(decision_exporter, prompt_ai)
 				else:
 					result = _make_failed_match_result("unsupported_prompt", steps + 1, gsm)
 					break
@@ -368,14 +370,27 @@ func run_headless_duel(
 					break
 				result = _make_failed_match_result("stalled_no_progress", steps + 1, gsm)
 				break
+			_record_decision_trace_if_available(decision_exporter, current_ai)
 		if step_callback.is_valid():
 			step_callback.call(gsm)
 		steps += 1
 	if result.is_empty():
 		result = _make_failed_match_result("action_cap_reached", max_steps, gsm)
+	result["event_counters"] = _collect_ai_event_counters(player_0_ai, player_1_ai)
 	## 释放 bridge（extends Control，非 RefCounted，必须显式释放）
 	bridge.free()
 	return result
+
+
+func _record_decision_trace_if_available(decision_exporter, ai: AIOpponent) -> void:
+	if decision_exporter == null or ai == null:
+		return
+	if not decision_exporter.has_method("record_trace"):
+		return
+	var trace = ai.get_last_decision_trace()
+	if trace == null:
+		return
+	decision_exporter.record_trace(trace)
 
 
 func _run_benchmark_match(
@@ -481,6 +496,9 @@ func _make_benchmark_agent(player_index: int, agent_config: Dictionary, comparis
 	var value_net_path := str(agent_config.get("value_net_path", ""))
 	if value_net_path != "":
 		agent.value_net_path = value_net_path
+	var action_scorer_path := str(agent_config.get("action_scorer_path", ""))
+	if action_scorer_path != "":
+		agent.action_scorer_path = action_scorer_path
 	return agent
 
 
@@ -597,6 +615,34 @@ func _has_interactive_legal_action(ai: AIOpponent, gsm: GameStateMachine) -> boo
 		if bool(action.get("requires_interaction", false)):
 			return true
 	return false
+
+
+func _collect_ai_event_counters(player_0_ai: AIOpponent, player_1_ai: AIOpponent) -> Dictionary:
+	var merged := {}
+	for ai: AIOpponent in [player_0_ai, player_1_ai]:
+		if ai == null or not ai.has_method("get_event_counters"):
+			continue
+		_merge_event_counters(merged, ai.get_event_counters())
+	return merged
+
+
+func _merge_event_counters(target: Dictionary, source: Dictionary) -> void:
+	for key_variant: Variant in source.keys():
+		var key: String = str(key_variant)
+		var value: Variant = source.get(key, null)
+		if value is Dictionary:
+			var target_dict: Dictionary = target.get(key, {})
+			for subkey_variant: Variant in (value as Dictionary).keys():
+				var subkey: String = str(subkey_variant)
+				target_dict[subkey] = int(target_dict.get(subkey, 0)) + int((value as Dictionary).get(subkey, 0))
+			target[key] = target_dict
+		elif value is Array:
+			var target_array: Array = target.get(key, [])
+			for entry: Variant in value:
+				target_array.append(entry)
+			target[key] = target_array
+		else:
+			target[key] = value
 
 
 func _make_empty_identity_hits() -> Dictionary:

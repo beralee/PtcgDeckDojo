@@ -1,0 +1,51 @@
+{
+	"abilities": [],
+	"ancient_trait": "",
+	"artist": "Sanosuke Sakuma",
+	"attacks": [
+		{
+			"cost": "C",
+			"damage": "10",
+			"is_vstar_power": false,
+			"name": "啃咬",
+			"text": ""
+		},
+		{
+			"cost": "CC",
+			"damage": "30",
+			"is_vstar_power": false,
+			"name": "挖洞",
+			"text": "抛掷1次硬币如果为正面，则在下一个对手的回合，这只宝可梦不受到招式的伤害和效果影响。"
+		}
+	],
+	"card_index": "161",
+	"card_index_en": "128",
+	"card_type": "Pokemon",
+	"description": " 啃咬 10\n\n\n 挖洞 30\n抛掷1次硬币如果为正面，则在下一个对手的回合，这只宝可梦不受到招式的伤害和效果影响。\n\n",
+	"effect_id": "3b9d970012f38e8fc348c5dbaf172802",
+	"energy_provides": "",
+	"energy_type": "C",
+	"evolves_from": "",
+	"hp": 60,
+	"image_local_path": "user://cards/images/CSV7C/161.png",
+	"image_url": "https://tcg.mik.moe/static/img/CSV7C/161.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "",
+	"name": "土龙弟弟",
+	"name_en": "Dunsparce",
+	"rarity": "C",
+	"regulation_expanded": true,
+	"regulation_mark": "H",
+	"regulation_standard": true,
+	"release_date": "2026-01-16T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 0,
+	"set_code": "CSV7C",
+	"set_code_en": "TEF",
+	"stage": "Basic",
+	"weakness_energy": "F",
+	"weakness_value": "×2",
+	"yoren_code": "P206"
+}

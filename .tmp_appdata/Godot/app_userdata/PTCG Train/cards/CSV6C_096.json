@@ -1,0 +1,51 @@
+{
+	"abilities": [],
+	"ancient_trait": "",
+	"artist": "takuyoa",
+	"attacks": [
+		{
+			"cost": "DDC",
+			"damage": "",
+			"is_vstar_power": false,
+			"name": "发狂深挖",
+			"text": "令对手的战斗宝可梦【昏厥】。然后，给这只宝可梦造成200伤害。"
+		},
+		{
+			"cost": "DDC",
+			"damage": "100+",
+			"is_vstar_power": false,
+			"name": "灾厄风暴",
+			"text": "若希望，可将场上的竞技场放于弃牌区。在这种情况下，追加造成120伤害。"
+		}
+	],
+	"card_index": "096",
+	"card_index_en": "124",
+	"card_type": "Pokemon",
+	"description": "【恶】【恶】 发狂深挖 \n令对手的战斗宝可梦【昏厥】。然后，给这只宝可梦造成200伤害。\n\n【恶】【恶】 灾厄风暴 100+\n若希望，可将场上的竞技场放于弃牌区。在这种情况下，追加造成120伤害。\n\n",
+	"effect_id": "90b0d1f117df6523fd92b9f3168d7f7e",
+	"energy_provides": "",
+	"energy_type": "D",
+	"evolves_from": "",
+	"hp": 230,
+	"image_local_path": "user://cards/images/CSV6C/096.png",
+	"image_url": "https://tcg.mik.moe/static/img/CSV6C/096.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "ex",
+	"name": "轰鸣月ex",
+	"name_en": "Roaring Moon ex",
+	"rarity": "RR",
+	"regulation_expanded": true,
+	"regulation_mark": "G",
+	"regulation_standard": true,
+	"release_date": "2025-11-07T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 2,
+	"set_code": "CSV6C",
+	"set_code_en": "PAR",
+	"stage": "Basic",
+	"weakness_energy": "G",
+	"weakness_value": "×2",
+	"yoren_code": "Y1370"
+}

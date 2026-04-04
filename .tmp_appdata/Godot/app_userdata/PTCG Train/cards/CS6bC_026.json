@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "放逐供应",
+			"text": "如果自己放逐区有4张以上（包含4张）卡牌的话，则这只宝可梦使用招式所需能量，全部消除。"
+		}
+	],
+	"ancient_trait": "",
+	"artist": "Midori Harada",
+	"attacks": [
+		{
+			"cost": "WWC",
+			"damage": "110",
+			"is_vstar_power": false,
+			"name": "稀里鹕吐",
+			"text": "这个招式的伤害不计算弱点。"
+		}
+	],
+	"card_index": "026",
+	"card_index_en": "50",
+	"card_type": "Pokemon",
+	"description": "特性: 放逐供应\n如果自己放逐区有4张以上（包含4张）卡牌的话，则这只宝可梦使用招式所需能量，全部消除。\n\n【水】【水】 稀里鹕吐 110\n这个招式的伤害不计算弱点。\n\n",
+	"effect_id": "4e07b2880d96deaa7a9afef69575d6c8",
+	"energy_provides": "",
+	"energy_type": "W",
+	"evolves_from": "",
+	"hp": 110,
+	"image_local_path": "user://cards/images/CS6bC/026.png",
+	"image_url": "https://tcg.mik.moe/static/img/CS6bC/026.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "",
+	"name": "古月鸟",
+	"name_en": "Cramorant",
+	"rarity": "U",
+	"regulation_expanded": true,
+	"regulation_mark": "F",
+	"regulation_standard": true,
+	"release_date": "2024-09-20T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 1,
+	"set_code": "CS6bC",
+	"set_code_en": "LOR",
+	"stage": "Basic",
+	"weakness_energy": "L",
+	"weakness_value": "×2",
+	"yoren_code": "P845"
+}

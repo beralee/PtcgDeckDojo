@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "精神拥抱",
+			"text": "在自己的回合可以使用任意次。选择自己弃牌区中的1张「基本【超】能量」，附着于自己的【超】宝可梦身上。然后，在被附着的宝可梦身上放置2个伤害指示物。（对会被【昏厥】的宝可梦，无法使用这个特性。）"
+		}
+	],
+	"ancient_trait": "",
+	"artist": "N-DESIGN Inc.",
+	"attacks": [
+		{
+			"cost": "PPC",
+			"damage": "190",
+			"is_vstar_power": false,
+			"name": "奇迹之力",
+			"text": "将这只宝可梦的特殊状态，全部恢复。"
+		}
+	],
+	"card_index": "055",
+	"card_index_en": "86",
+	"card_type": "Pokemon",
+	"description": "特性: 精神拥抱\n在自己的回合可以使用任意次。选择自己弃牌区中的1张「基本【超】能量」，附着于自己的【超】宝可梦身上。然后，在被附着的宝可梦身上放置2个伤害指示物。（对会被【昏厥】的宝可梦，无法使用这个特性。）\n\n【超】【超】 奇迹之力 190\n将这只宝可梦的特殊状态，全部恢复。\n\n",
+	"effect_id": "bd134d7d84e9f1a837a74b061fcb5f40",
+	"energy_provides": "",
+	"energy_type": "P",
+	"evolves_from": "奇鲁莉安",
+	"hp": 310,
+	"image_local_path": "user://cards/images/CSV2C/055.png",
+	"image_url": "https://tcg.mik.moe/static/img/CSV2C/055.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "ex",
+	"name": "沙奈朵ex",
+	"name_en": "Gardevoir ex",
+	"rarity": "RR",
+	"regulation_expanded": true,
+	"regulation_mark": "G",
+	"regulation_standard": true,
+	"release_date": "2025-03-21T00:00:00+08:00",
+	"resistance_energy": "F",
+	"resistance_value": "-30",
+	"retreat_cost": 2,
+	"set_code": "CSV2C",
+	"set_code_en": "SVI",
+	"stage": "Stage 2",
+	"weakness_energy": "D",
+	"weakness_value": "×2",
+	"yoren_code": "Y1249"
+}

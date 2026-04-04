@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "础石之姿",
+			"text": "这只宝可梦，不受到对手拥有特性的宝可梦的招式的伤害。"
+		}
+	],
+	"ancient_trait": "Tera",
+	"artist": "5ban Graphics",
+	"attacks": [
+		{
+			"cost": "FCC",
+			"damage": "140",
+			"is_vstar_power": false,
+			"name": "打爆",
+			"text": "这个招式的伤害，不计算弱点、抗性以及对手战斗宝可梦身上所附加的效果。"
+		}
+	],
+	"card_index": "121",
+	"card_index_en": "112",
+	"card_type": "Pokemon",
+	"description": "特性: 础石之姿\n这只宝可梦，不受到对手拥有特性的宝可梦的招式的伤害。\n\n【斗】 打爆 140\n这个招式的伤害，不计算弱点、抗性以及对手战斗宝可梦身上所附加的效果。\n\n",
+	"effect_id": "4f25f668ee0ab45c68f6954324c73003",
+	"energy_provides": "",
+	"energy_type": "F",
+	"evolves_from": "",
+	"hp": 210,
+	"image_local_path": "user://cards/images/CSV8C/121.png",
+	"image_url": "https://tcg.mik.moe/static/img/CSV8C/121.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "ex",
+	"name": "厄诡椪 础石面具ex",
+	"name_en": "Cornerstone Mask Ogerpon ex",
+	"rarity": "RR",
+	"regulation_expanded": true,
+	"regulation_mark": "H",
+	"regulation_standard": true,
+	"release_date": "2026-03-13T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 1,
+	"set_code": "CSV8C",
+	"set_code_en": "TWM",
+	"stage": "Basic",
+	"weakness_energy": "G",
+	"weakness_value": "×2",
+	"yoren_code": "Y1452"
+}

@@ -147,6 +147,7 @@ func test_create_run_persists_baseline_and_candidate_artifacts() -> String:
 		"baseline_value_net_path": "user://ai_models/approved.json",
 		"candidate_agent_config_path": "user://ai_agents/candidate.json",
 		"candidate_value_net_path": "user://ai_models/candidate.json",
+		"candidate_action_scorer_path": "user://ai_models/action_scorer_candidate.json",
 	})
 	var persisted := registry.get_run("run_with_artifacts")
 	var result := run_checks([
@@ -155,6 +156,7 @@ func test_create_run_persists_baseline_and_candidate_artifacts() -> String:
 		assert_eq(str(created.get("baseline_value_net_path", "")), "user://ai_models/approved.json", "create_run should persist the baseline value net path"),
 		assert_eq(str(persisted.get("candidate_agent_config_path", "")), "user://ai_agents/candidate.json", "create_run should persist the candidate agent path"),
 		assert_eq(str(persisted.get("candidate_value_net_path", "")), "user://ai_models/candidate.json", "create_run should persist the candidate value path"),
+		assert_eq(str(persisted.get("candidate_action_scorer_path", "")), "user://ai_models/action_scorer_candidate.json", "create_run should persist the candidate action scorer path"),
 	])
 	_cleanup()
 	return result

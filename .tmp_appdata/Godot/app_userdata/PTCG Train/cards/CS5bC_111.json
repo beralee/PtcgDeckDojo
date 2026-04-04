@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "毫不在意",
+			"text": "只要这只宝可梦，处于备战区，就不会受到招式的伤害。"
+		}
+	],
+	"ancient_trait": "",
+	"artist": "Naoyo Kimura",
+	"attacks": [
+		{
+			"cost": "CC",
+			"damage": "30",
+			"is_vstar_power": false,
+			"name": "终结门牙",
+			"text": "抛掷1次硬币如果为反面，则这个招式失败。"
+		}
+	],
+	"card_index": "111",
+	"card_index_en": "111",
+	"card_type": "Pokemon",
+	"description": "特性: 毫不在意\n只要这只宝可梦，处于备战区，就不会受到招式的伤害。\n\n 终结门牙 30\n抛掷1次硬币如果为反面，则这个招式失败。\n\n",
+	"effect_id": "5a80f8eb94c6fcc27c475c10a63cf856",
+	"energy_provides": "",
+	"energy_type": "C",
+	"evolves_from": "",
+	"hp": 60,
+	"image_local_path": "user://cards/images/CS5bC/111.png",
+	"image_url": "https://tcg.mik.moe/static/img/CS5bC/111.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "",
+	"name": "大牙狸",
+	"name_en": "Bidoof",
+	"rarity": "C",
+	"regulation_expanded": true,
+	"regulation_mark": "F",
+	"regulation_standard": true,
+	"release_date": "2024-06-18T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 1,
+	"set_code": "CS5bC",
+	"set_code_en": "CRZ",
+	"stage": "Basic",
+	"weakness_energy": "F",
+	"weakness_value": "×2",
+	"yoren_code": "P399"
+}

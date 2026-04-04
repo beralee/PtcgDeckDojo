@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "星耀遗产",
+			"text": "在自己的回合可以使用。将自己牌库上方的7张卡牌放于弃牌区。然后，选择自己弃牌区中任意卡牌最多2张，在给对手看过之后，加入手牌。[对战中，己方的【VSTAR】力量只能使用1次。]"
+		}
+	],
+	"ancient_trait": "",
+	"artist": "PLANETA Yamashita",
+	"attacks": [
+		{
+			"cost": "GGR",
+			"damage": "",
+			"is_vstar_power": false,
+			"name": "巨龙无双",
+			"text": "选择自己弃牌区中的【龙】宝可梦所拥有的1个招式，作为这个招式使用。"
+		}
+	],
+	"card_index": "055",
+	"card_index_en": "136",
+	"card_type": "Pokemon",
+	"description": "特性: 星耀遗产\n在自己的回合可以使用。将自己牌库上方的7张卡牌放于弃牌区。然后，选择自己弃牌区中任意卡牌最多2张，在给对手看过之后，加入手牌。[对战中，己方的【VSTAR】力量只能使用1次。]\n\n【草】【草】【火】 巨龙无双 \n选择自己弃牌区中的【龙】宝可梦所拥有的1个招式，作为这个招式使用。\n\n",
+	"effect_id": "749d2f12d33057c8cc20e52c1b11bcbf",
+	"energy_provides": "",
+	"energy_type": "N",
+	"evolves_from": "雷吉铎拉戈V",
+	"hp": 280,
+	"image_local_path": "user://cards/images/CS6.5C/055.png",
+	"image_url": "https://tcg.mik.moe/static/img/CS6.5C/055.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "V",
+	"name": "雷吉铎拉戈VSTAR",
+	"name_en": "Regidrago VSTAR",
+	"rarity": "RRR",
+	"regulation_expanded": true,
+	"regulation_mark": "F",
+	"regulation_standard": true,
+	"release_date": "2024-11-15T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 3,
+	"set_code": "CS6.5C",
+	"set_code_en": "SIT",
+	"stage": "VSTAR",
+	"weakness_energy": "",
+	"weakness_value": "",
+	"yoren_code": "Y1168"
+}

@@ -8,6 +8,17 @@ const PHASE2_DECK_ID_TO_KEY: Dictionary = {
 }
 const PHASE2_DEFAULT_SEED_SET: Array[int] = [11, 29, 47, 83]
 const VALID_COMPARISON_MODES: Array[String] = ["shared_agent_mirror", "version_regression"]
+const PIPELINE_FIXED_THREE_DECK := "fixed_three_deck_training"
+const PIPELINE_MIRAIDON_FOCUS := "miraidon_focus_training"
+const PHASE1_DEFAULT_PAIRINGS: Array[Array] = [
+	[575720, 578647],
+	[575720, 575716],
+	[578647, 575716],
+]
+const MIRAIDON_FOCUS_PAIRINGS: Array[Array] = [
+	[575720, 578647],
+	[575720, 575716],
+]
 
 var deck_a_id: int = 0
 var deck_b_id: int = 0
@@ -105,6 +116,29 @@ static func make_phase2_default_cases() -> Array:
 	]
 
 
+static func make_miraidon_focus_cases() -> Array:
+	return [
+		_make_phase2_case(575720, 578647),
+		_make_phase2_case(575720, 575716),
+	]
+
+
+static func make_phase2_cases_for_pipeline(pipeline_name: String) -> Array:
+	match pipeline_name:
+		PIPELINE_MIRAIDON_FOCUS:
+			return make_miraidon_focus_cases()
+		_:
+			return make_phase2_default_cases()
+
+
+static func get_training_deck_pairings(pipeline_name: String) -> Array[Array]:
+	match pipeline_name:
+		PIPELINE_MIRAIDON_FOCUS:
+			return _duplicate_pairings(MIRAIDON_FOCUS_PAIRINGS)
+		_:
+			return _duplicate_pairings(PHASE1_DEFAULT_PAIRINGS)
+
+
 static func _make_phase2_case(deck_a: int, deck_b: int):
 	var benchmark_case_script = load("res://scripts/ai/DeckBenchmarkCase.gd")
 	var benchmark_case = benchmark_case_script.new()
@@ -113,6 +147,13 @@ static func _make_phase2_case(deck_a: int, deck_b: int):
 	benchmark_case.seed_set = PHASE2_DEFAULT_SEED_SET.duplicate()
 	benchmark_case.resolve_decks()
 	return benchmark_case
+
+
+static func _duplicate_pairings(source_pairings: Array[Array]) -> Array[Array]:
+	var copy: Array[Array] = []
+	for pairing: Array in source_pairings:
+		copy.append(pairing.duplicate())
+	return copy
 
 
 func _validate_agent_config(config: Dictionary, label: String) -> PackedStringArray:

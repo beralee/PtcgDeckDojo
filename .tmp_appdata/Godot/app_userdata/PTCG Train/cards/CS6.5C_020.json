@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "隐藏牌",
+			"text": "在自己的回合，如果将自己手牌中的1张能量放于弃牌区的话，则可使用1次。从自己牌库上方抽取2张卡牌。"
+		}
+	],
+	"ancient_trait": "",
+	"artist": "Souichirou Gunjima",
+	"attacks": [
+		{
+			"cost": "WWC",
+			"damage": "",
+			"is_vstar_power": false,
+			"name": "月光手里剑",
+			"text": "将附着于这只宝可梦身上的2个能量放于弃牌区，给对手的2只宝可梦，各造成90点伤害。[备战宝可梦不计算弱点、抗性。]"
+		}
+	],
+	"card_index": "020",
+	"card_index_en": "46",
+	"card_type": "Pokemon",
+	"description": "特性: 隐藏牌\n在自己的回合，如果将自己手牌中的1张能量放于弃牌区的话，则可使用1次。从自己牌库上方抽取2张卡牌。\n\n【水】【水】 月光手里剑 \n将附着于这只宝可梦身上的2个能量放于弃牌区，给对手的2只宝可梦，各造成90点伤害。[备战宝可梦不计算弱点、抗性。]\n\n",
+	"effect_id": "09445b8c32fd4abef4230ebcdc964096",
+	"energy_provides": "",
+	"energy_type": "W",
+	"evolves_from": "",
+	"hp": 130,
+	"image_local_path": "user://cards/images/CS6.5C/020.png",
+	"image_url": "https://tcg.mik.moe/static/img/CS6.5C/020.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "Radiant",
+	"name": "光辉甲贺忍蛙",
+	"name_en": "Radiant Greninja",
+	"rarity": "K",
+	"regulation_expanded": true,
+	"regulation_mark": "F",
+	"regulation_standard": true,
+	"release_date": "2024-11-15T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 1,
+	"set_code": "CS6.5C",
+	"set_code_en": "ASR",
+	"stage": "Basic",
+	"weakness_energy": "L",
+	"weakness_value": "×2",
+	"yoren_code": "Y1160"
+}

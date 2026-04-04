@@ -68,6 +68,13 @@ size_flags_horizontal = 4
 text = "对手手牌"
 theme_override_font_sizes/font_size = 11
 
+[node name="BtnAiAdvice" type="Button" parent="TopBar/TopBarRow/TopBarRight/TopBarActions"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 4
+text = "AI建议"
+theme_override_font_sizes/font_size = 11
+
 [node name="BtnZeusHelp" type="Button" parent="TopBar/TopBarRow/TopBarRight/TopBarActions"]
 unique_name_in_owner = true
 layout_mode = 2
@@ -1387,4 +1394,64 @@ theme_override_font_sizes/font_size = 11
 [node name="DiscardCloseBtn" type="Button" parent="DiscardOverlay/DiscardCenter/DiscardBox/DiscardVBox"]
 unique_name_in_owner = true
 layout_mode = 2
+text = "关闭"
+
+[node name="ReviewOverlay" type="Panel" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+visible = false
+self_modulate = Color(0, 0, 0, 0.5)
+
+[node name="ReviewCenter" type="CenterContainer" parent="ReviewOverlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="ReviewBox" type="PanelContainer" parent="ReviewOverlay/ReviewCenter"]
+layout_mode = 2
+custom_minimum_size = Vector2(520, 420)
+
+[node name="ReviewVBox" type="VBoxContainer" parent="ReviewOverlay/ReviewCenter/ReviewBox"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = 10.0
+offset_right = -10.0
+offset_bottom = -10.0
+theme_override_constants/separation = 8
+
+[node name="ReviewTitle" type="Label" parent="ReviewOverlay/ReviewCenter/ReviewBox/ReviewVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 1
+text = "AI复盘"
+theme_override_font_sizes/font_size = 15
+
+[node name="ReviewContent" type="RichTextLabel" parent="ReviewOverlay/ReviewCenter/ReviewBox/ReviewVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+bbcode_enabled = true
+theme_override_font_sizes/font_size = 11
+
+[node name="ReviewButtons" type="HBoxContainer" parent="ReviewOverlay/ReviewCenter/ReviewBox/ReviewVBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ReviewRegenerateBtn" type="Button" parent="ReviewOverlay/ReviewCenter/ReviewBox/ReviewVBox/ReviewButtons"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "重新生成"
+
+[node name="ReviewCloseBtn" type="Button" parent="ReviewOverlay/ReviewCenter/ReviewBox/ReviewVBox/ReviewButtons"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
 text = "关闭"

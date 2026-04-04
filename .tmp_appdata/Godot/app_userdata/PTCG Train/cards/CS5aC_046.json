@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "慈爱帘幕",
+			"text": "只要这只宝可梦在场上，自己的所有宝可梦，受到对手「宝可梦【V】」的招式的伤害「-20」。"
+		}
+	],
+	"ancient_trait": "",
+	"artist": "Ryuta Fuse",
+	"attacks": [
+		{
+			"cost": "PCC",
+			"damage": "70+",
+			"is_vstar_power": false,
+			"name": "精神强念",
+			"text": "追加造成对手战斗宝可梦身上附有的能量数量×20点伤害。"
+		}
+	],
+	"card_index": "046",
+	"card_index_en": "69",
+	"card_type": "Pokemon",
+	"description": "特性: 慈爱帘幕\n只要这只宝可梦在场上，自己的所有宝可梦，受到对手「宝可梦【V】」的招式的伤害「-20」。\n\n【超】 精神强念 70+\n追加造成对手战斗宝可梦身上附有的能量数量×20点伤害。\n\n",
+	"effect_id": "387a5ce5abefabfc7644c79840747581",
+	"energy_provides": "",
+	"energy_type": "P",
+	"evolves_from": "",
+	"hp": 130,
+	"image_local_path": "user://cards/images/CS5aC/046.png",
+	"image_url": "https://tcg.mik.moe/static/img/CS5aC/046.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "Radiant",
+	"name": "光辉沙奈朵",
+	"name_en": "Radiant Gardevoir",
+	"rarity": "K",
+	"regulation_expanded": true,
+	"regulation_mark": "F",
+	"regulation_standard": true,
+	"release_date": "2024-06-18T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 2,
+	"set_code": "CS5aC",
+	"set_code_en": "LOR",
+	"stage": "Basic",
+	"weakness_energy": "M",
+	"weakness_value": "×2",
+	"yoren_code": "Y1008"
+}

@@ -1,0 +1,61 @@
+{
+  "turns": [
+    {
+      "turn_number": 4,
+      "phase_sequence": [
+        "main"
+      ],
+      "snapshot_reasons": [
+        "turn_start"
+      ],
+      "key_choices": [],
+      "key_actions": [],
+      "event_count": 1
+    },
+    {
+      "turn_number": 5,
+      "phase_sequence": [
+        "main",
+        "attack"
+      ],
+      "snapshot_reasons": [
+        "post_action"
+      ],
+      "key_choices": [
+        {
+          "event_type": "action_selected",
+          "player_index": 0,
+          "prompt_type": "choose_card",
+          "title": "Ultra Ball",
+          "selected_index": 1,
+          "selected_indices": [
+            1
+          ],
+          "selected_labels": [
+            "Pidgeot ex"
+          ]
+        }
+      ],
+      "key_actions": [
+        {
+          "event_type": "action_resolved",
+          "player_index": 0,
+          "description": "Player 0 searched with Ultra Ball"
+        }
+      ],
+      "event_count": 3
+    },
+    {
+      "turn_number": 6,
+      "phase_sequence": [
+        "main"
+      ],
+      "snapshot_reasons": [
+        "turn_start"
+      ],
+      "key_choices": [],
+      "key_actions": [],
+      "event_count": 1
+    }
+  ]
+}

@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "逃跑抽取",
+			"text": "在自己的回合可以使用1次。从自己牌库上方抽取3张卡牌。然后，将这只宝可梦，以及放于其身上的所有卡牌，放回牌库并重洗牌库。"
+		}
+	],
+	"ancient_trait": "",
+	"artist": "Teeziro",
+	"attacks": [
+		{
+			"cost": "CCC",
+			"damage": "90",
+			"is_vstar_power": false,
+			"name": "大地粉碎",
+			"text": ""
+		}
+	],
+	"card_index": "162",
+	"card_index_en": "129",
+	"card_type": "Pokemon",
+	"description": "特性: 逃跑抽取\n在自己的回合可以使用1次。从自己牌库上方抽取3张卡牌。然后，将这只宝可梦，以及放于其身上的所有卡牌，放回牌库并重洗牌库。\n\n 大地粉碎 90\n\n\n",
+	"effect_id": "f822c0b2e4cb2865a8ac7af9d3018969",
+	"energy_provides": "",
+	"energy_type": "C",
+	"evolves_from": "土龙弟弟",
+	"hp": 140,
+	"image_local_path": "user://cards/images/CSV7C/162.png",
+	"image_url": "https://tcg.mik.moe/static/img/CSV7C/162.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "",
+	"name": "土龙节节",
+	"name_en": "Dudunsparce",
+	"rarity": "R",
+	"regulation_expanded": true,
+	"regulation_mark": "H",
+	"regulation_standard": true,
+	"release_date": "2026-01-16T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 3,
+	"set_code": "CSV7C",
+	"set_code_en": "TEF",
+	"stage": "Stage 1",
+	"weakness_energy": "F",
+	"weakness_value": "×2",
+	"yoren_code": "P0982"
+}

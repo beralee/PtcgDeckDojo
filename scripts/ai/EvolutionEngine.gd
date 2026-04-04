@@ -7,6 +7,7 @@ extends RefCounted
 const SelfPlayRunnerScript = preload("res://scripts/ai/SelfPlayRunner.gd")
 const AgentVersionStoreScript = preload("res://scripts/ai/AgentVersionStore.gd")
 const AIHeuristicsScript = preload("res://scripts/ai/AIHeuristics.gd")
+const TrainingAnomalyArchiveScript = preload("res://scripts/ai/TrainingAnomalyArchive.gd")
 
 ## 进化配置
 var generations: int = 50
@@ -20,8 +21,11 @@ var deck_pairings: Array[Array] = [
 	[578647, 575716],   # gardevoir vs charizard_ex
 ]
 var value_net_path: String = ""
+var action_scorer_path: String = ""
 var progress_output_path: String = ""
+var anomaly_output_path: String = ""
 var export_training_data: bool = false
+var export_action_training_data: bool = false
 
 ## 自适应 sigma 参数
 const SIGMA_MIN: float = 0.05
@@ -93,6 +97,7 @@ func run(initial_config: Dictionary = {}) -> Dictionary:
 	var cumulative_agent_a_wins: int = 0
 	var cumulative_agent_b_wins: int = 0
 	var accepted_generations: int = 0
+	var anomaly_archive = TrainingAnomalyArchiveScript.new()
 
 	print("[Evolution] 启动进化: %d 代, sigma_w=%.3f, sigma_m=%.3f" % [generations, sigma_weights, sigma_mcts])
 
@@ -118,6 +123,9 @@ func run(initial_config: Dictionary = {}) -> Dictionary:
 		if value_net_path != "":
 			mutant_config["value_net_path"] = value_net_path
 			current_best["value_net_path"] = value_net_path
+		if action_scorer_path != "":
+			mutant_config["action_scorer_path"] = action_scorer_path
+			current_best["action_scorer_path"] = action_scorer_path
 		## 导出训练数据时使用更大的步数上限确保对局能完成
 		var effective_max_steps: int = 500 if export_training_data else max_steps_per_match
 		var result: Dictionary = _runner.run_batch(
@@ -127,6 +135,7 @@ func run(initial_config: Dictionary = {}) -> Dictionary:
 			seed_set,
 			effective_max_steps,
 			export_training_data,
+			export_action_training_data,
 		)
 		var mutant_wr: float = float(result.get("agent_a_win_rate", 0.0))
 		var accepted: bool = mutant_wr > 0.5
@@ -165,6 +174,11 @@ func run(initial_config: Dictionary = {}) -> Dictionary:
 			adjust_sigma("reject")
 			print("[进化] 第 %d 代: 拒绝 (胜率 %.1f%%) sigma_w=%.3f sigma_m=%.3f" % [gen, mutant_wr * 100.0, sigma_weights, sigma_mcts])
 
+		anomaly_archive.record_matches("phase1_self_play", result.get("match_results", []), {
+			"generation": gen,
+		})
+		if anomaly_output_path != "":
+			anomaly_archive.write_summary(anomaly_output_path)
 		_print_generation_detail(result, gen)
 		_write_progress_status({
 			"phase": "phase1",
@@ -185,6 +199,8 @@ func run(initial_config: Dictionary = {}) -> Dictionary:
 
 	print("[进化] 完成! %d 代, 保存了 %d 个版本" % [generations, versions_saved.size()])
 	_print_trend_summary(generation_log)
+	if anomaly_output_path != "":
+		anomaly_archive.write_summary(anomaly_output_path)
 	_write_progress_status({
 		"phase": "complete",
 		"generation_current": generations,

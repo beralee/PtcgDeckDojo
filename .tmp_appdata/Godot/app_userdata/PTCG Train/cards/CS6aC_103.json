@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "星耀汇聚",
+			"text": "在自己的回合可以使用。选择自己弃牌区中最多2张【无】宝可梦（除「拥有规则的宝可梦」外），放于备战区。[对战中，己方的【VSTAR】力量只能使用1次。]"
+		}
+	],
+	"ancient_trait": "",
+	"artist": "PLANETA Mochizuki",
+	"attacks": [
+		{
+			"cost": "CCCC",
+			"damage": "220",
+			"is_vstar_power": false,
+			"name": "风暴俯冲",
+			"text": "若希望，可将场上的竞技场放于弃牌区。"
+		}
+	],
+	"card_index": "103",
+	"card_index_en": "139",
+	"card_type": "Pokemon",
+	"description": "特性: 星耀汇聚\n在自己的回合可以使用。选择自己弃牌区中最多2张【无】宝可梦（除「拥有规则的宝可梦」外），放于备战区。[对战中，己方的【VSTAR】力量只能使用1次。]\n\n 风暴俯冲 220\n若希望，可将场上的竞技场放于弃牌区。\n\n",
+	"effect_id": "b219587ea29cd6901c83f698ed25f052",
+	"energy_provides": "",
+	"energy_type": "C",
+	"evolves_from": "洛奇亚V",
+	"hp": 280,
+	"image_local_path": "user://cards/images/CS6aC/103.png",
+	"image_url": "https://tcg.mik.moe/static/img/CS6aC/103.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "V",
+	"name": "洛奇亚VSTAR",
+	"name_en": "Lugia VSTAR",
+	"rarity": "RRR",
+	"regulation_expanded": true,
+	"regulation_mark": "F",
+	"regulation_standard": true,
+	"release_date": "2024-09-20T00:00:00+08:00",
+	"resistance_energy": "F",
+	"resistance_value": "-30",
+	"retreat_cost": 2,
+	"set_code": "CS6aC",
+	"set_code_en": "SIT",
+	"stage": "VSTAR",
+	"weakness_energy": "L",
+	"weakness_value": "×2",
+	"yoren_code": "Y1129"
+}

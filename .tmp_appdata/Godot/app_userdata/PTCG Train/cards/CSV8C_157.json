@@ -1,0 +1,51 @@
+{
+	"abilities": [],
+	"ancient_trait": "",
+	"artist": "Scav",
+	"attacks": [
+		{
+			"cost": "P",
+			"damage": "10",
+			"is_vstar_power": false,
+			"name": "小哀怨",
+			"text": ""
+		},
+		{
+			"cost": "RP",
+			"damage": "40",
+			"is_vstar_power": false,
+			"name": "咬住",
+			"text": ""
+		}
+	],
+	"card_index": "157",
+	"card_index_en": "71",
+	"card_type": "Pokemon",
+	"description": "【超】 小哀怨 10\n\n\n【火】【超】 咬住 40\n\n\n",
+	"effect_id": "e793842faf5a8017e5456f898b1bf9d2",
+	"energy_provides": "",
+	"energy_type": "N",
+	"evolves_from": "",
+	"hp": 70,
+	"image_local_path": "user://cards/images/CSV8C/157.png",
+	"image_url": "https://tcg.mik.moe/static/img/CSV8C/157.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "",
+	"name": "多龙梅西亚",
+	"name_en": "Dreepy",
+	"rarity": "C",
+	"regulation_expanded": true,
+	"regulation_mark": "H",
+	"regulation_standard": true,
+	"release_date": "2026-03-13T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 1,
+	"set_code": "CSV8C",
+	"set_code_en": "PRE",
+	"stage": "Basic",
+	"weakness_energy": "",
+	"weakness_value": "",
+	"yoren_code": "P885"
+}

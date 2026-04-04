@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "亢奋脑力",
+			"text": "如果这只宝可梦身上附着了【恶】能量的话，则在自己的回合可以使用1次。选择自己场上1只宝可梦身上放置的最多3个伤害指示物，转放于对手场上1只宝可梦身上。"
+		}
+	],
+	"ancient_trait": "",
+	"artist": "kodama",
+	"attacks": [
+		{
+			"cost": "PC",
+			"damage": "60",
+			"is_vstar_power": false,
+			"name": "精神幻觉",
+			"text": "令对手的战斗宝可梦陷入【混乱】状态。"
+		}
+	],
+	"card_index": "094",
+	"card_index_en": "95",
+	"card_type": "Pokemon",
+	"description": "特性: 亢奋脑力\n如果这只宝可梦身上附着了【恶】能量的话，则在自己的回合可以使用1次。选择自己场上1只宝可梦身上放置的最多3个伤害指示物，转放于对手场上1只宝可梦身上。\n\n【超】 精神幻觉 60\n令对手的战斗宝可梦陷入【混乱】状态。\n\n",
+	"effect_id": "66fee12502043db7d92b97b0d62b0f59",
+	"energy_provides": "",
+	"energy_type": "P",
+	"evolves_from": "",
+	"hp": 110,
+	"image_local_path": "user://cards/images/CSV8C/094.png",
+	"image_url": "https://tcg.mik.moe/static/img/CSV8C/094.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "",
+	"name": "愿增猿",
+	"name_en": "Munkidori",
+	"rarity": "R",
+	"regulation_expanded": true,
+	"regulation_mark": "H",
+	"regulation_standard": true,
+	"release_date": "2026-03-13T00:00:00+08:00",
+	"resistance_energy": "F",
+	"resistance_value": "-30",
+	"retreat_cost": 1,
+	"set_code": "CSV8C",
+	"set_code_en": "TWM",
+	"stage": "Basic",
+	"weakness_energy": "D",
+	"weakness_value": "×2",
+	"yoren_code": "P1015"
+}

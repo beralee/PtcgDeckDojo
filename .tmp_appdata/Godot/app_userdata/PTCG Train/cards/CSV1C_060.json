@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "恶作剧之锁",
+			"text": "只要这只宝可梦在战斗场上，双方场上【基础】宝可梦的特性（除「恶作剧之锁」外），全部消除。"
+		}
+	],
+	"ancient_trait": "",
+	"artist": "GOSSAN",
+	"attacks": [
+		{
+			"cost": "C",
+			"damage": "10",
+			"is_vstar_power": false,
+			"name": "狙落",
+			"text": "在造成伤害前，将放于对手战斗宝可梦身上的「宝可梦道具」放于弃牌区。"
+		}
+	],
+	"card_index": "060",
+	"card_index_en": "96",
+	"card_type": "Pokemon",
+	"description": "特性: 恶作剧之锁\n只要这只宝可梦在战斗场上，双方场上【基础】宝可梦的特性（除「恶作剧之锁」外），全部消除。\n\n 狙落 10\n在造成伤害前，将放于对手战斗宝可梦身上的「宝可梦道具」放于弃牌区。\n\n",
+	"effect_id": "8ef8bc904c5953682fbf7a3fa50eb7fc",
+	"energy_provides": "",
+	"energy_type": "P",
+	"evolves_from": "",
+	"hp": 70,
+	"image_local_path": "user://cards/images/CSV1C/060.png",
+	"image_url": "https://tcg.mik.moe/static/img/CSV1C/060.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "",
+	"name": "钥圈儿",
+	"name_en": "Klefki",
+	"rarity": "R",
+	"regulation_expanded": true,
+	"regulation_mark": "G",
+	"regulation_standard": true,
+	"release_date": "2025-01-17T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 1,
+	"set_code": "CSV1C",
+	"set_code_en": "SVI",
+	"stage": "Basic",
+	"weakness_energy": "M",
+	"weakness_value": "×2",
+	"yoren_code": "P707"
+}

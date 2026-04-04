@@ -1,0 +1,227 @@
+{
+	"cards": [
+		{
+			"card_index": "051",
+			"card_type": "Supporter",
+			"count": 4,
+			"effect_id": "0a9bdf265647461dd5c6c827ffc19e61",
+			"name": "裁判",
+			"name_en": "Judge",
+			"set_code": "CSVH1C"
+		},
+		{
+			"card_index": "129",
+			"card_type": "Special Energy",
+			"count": 1,
+			"effect_id": "1323733f19cc04e54090b39bc1a393b8",
+			"name": "喷射能量",
+			"name_en": "Jet Energy",
+			"set_code": "CSV4C"
+		},
+		{
+			"card_index": "043",
+			"card_type": "Item",
+			"count": 4,
+			"effect_id": "1af63a7e2cb7a79215474ad8db8fd8fd",
+			"name": "巢穴球",
+			"name_en": "Nest Ball",
+			"set_code": "CSVH1C"
+		},
+		{
+			"card_index": "189",
+			"card_type": "Tool",
+			"count": 1,
+			"effect_id": "2e07a9870350b611a3d21ab2053dfa2a",
+			"name": "极限腰带",
+			"name_en": "Maximum Belt",
+			"set_code": "CSV7C"
+		},
+		{
+			"card_index": "033",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "2e307380eb013c4e20db0a19816ba3b9",
+			"name": "铁斑叶ex",
+			"name_en": "Iron Leaves ex",
+			"set_code": "CSV7C"
+		},
+		{
+			"card_index": "116",
+			"card_type": "Tool",
+			"count": 1,
+			"effect_id": "36939b241f51e497487feb52e0ea8994",
+			"name": "讲究腰带",
+			"name_en": "Choice Belt",
+			"set_code": "CSV1C"
+		},
+		{
+			"card_index": "046",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "387a5ce5abefabfc7644c79840747581",
+			"name": "光辉沙奈朵",
+			"name_en": "Radiant Gardevoir",
+			"set_code": "CS5aC"
+		},
+		{
+			"card_index": "PSY",
+			"card_type": "Basic Energy",
+			"count": 3,
+			"effect_id": "41b2d1a95fafc35e4cf39383ffae928a",
+			"name": "基本超能量",
+			"name_en": "Psychic Energy",
+			"set_code": "CSVE1C"
+		},
+		{
+			"card_index": "111",
+			"card_type": "Pokemon",
+			"count": 2,
+			"effect_id": "5a80f8eb94c6fcc27c475c10a63cf856",
+			"name": "大牙狸",
+			"name_en": "Bidoof",
+			"set_code": "CS5bC"
+		},
+		{
+			"card_index": "GRA",
+			"card_type": "Basic Energy",
+			"count": 6,
+			"effect_id": "5e2d0ce37ca0c539aa45908da10544a0",
+			"name": "基本草能量",
+			"name_en": "Grass Energy",
+			"set_code": "CSVE1C"
+		},
+		{
+			"card_index": "107",
+			"card_type": "Pokemon",
+			"count": 2,
+			"effect_id": "7975c3883e449a351bd55394cd43f393",
+			"name": "骑拉帝纳V",
+			"name_en": "Giratina V",
+			"set_code": "CS6bC"
+		},
+		{
+			"card_index": "113",
+			"card_type": "Item",
+			"count": 1,
+			"effect_id": "7c0b20e121c9d0e0d2d8a43524f7494e",
+			"name": "宝可梦交替",
+			"name_en": "Switch",
+			"set_code": "CSV1C"
+		},
+		{
+			"card_index": "120",
+			"card_type": "Item",
+			"count": 1,
+			"effect_id": "7cd68d9e286b78a7f9c799fce24a7d6c",
+			"name": "捕获香氛",
+			"name_en": "Capturing Aroma",
+			"set_code": "CS6aC"
+		},
+		{
+			"card_index": "130",
+			"card_type": "Stadium",
+			"count": 2,
+			"effect_id": "7f4e493ec0d852a5bb31c02bdbdb2c4e",
+			"name": "放逐市",
+			"name_en": "Lost City",
+			"set_code": "CS6bC"
+		},
+		{
+			"card_index": "023",
+			"card_type": "Supporter",
+			"count": 4,
+			"effect_id": "8e1fa2c9018db938084c94c7c970d419",
+			"name": "老大的指令",
+			"name_en": "Boss's Orders",
+			"set_code": "CSVH1aC"
+		},
+		{
+			"card_index": "123",
+			"card_type": "Item",
+			"count": 2,
+			"effect_id": "8f655fea1f90164bfbccb7a95c223e17",
+			"name": "放逐吸尘器",
+			"name_en": "Lost Vacuum",
+			"set_code": "CS6bC"
+		},
+		{
+			"card_index": "108",
+			"card_type": "Pokemon",
+			"count": 2,
+			"effect_id": "90c254f809637aea730f5ff97b143f44",
+			"name": "骑拉帝纳VSTAR",
+			"name_en": "Giratina VSTAR",
+			"set_code": "CS6bC"
+		},
+		{
+			"card_index": "009",
+			"card_type": "Pokemon",
+			"count": 4,
+			"effect_id": "94c6f72a67045857fa44962e4fbb8c27",
+			"name": "阿尔宙斯V",
+			"name_en": "Arceus V",
+			"set_code": "CSNC"
+		},
+		{
+			"card_index": "107",
+			"card_type": "Pokemon",
+			"count": 3,
+			"effect_id": "9a0982e46cf9a3aaed89e6d3517e7d58",
+			"name": "阿尔宙斯VSTAR",
+			"name_en": "Arceus VSTAR",
+			"set_code": "CS5aC"
+		},
+		{
+			"card_index": "024",
+			"card_type": "Special Energy",
+			"count": 4,
+			"effect_id": "9c04dd0addf56a7b2c88476bc8e45c0e",
+			"name": "双重涡轮能量",
+			"name_en": "Double Turbo Energy",
+			"set_code": "CSNC"
+		},
+		{
+			"card_index": "112",
+			"card_type": "Item",
+			"count": 4,
+			"effect_id": "a337ed34a45e63c6d21d98c3d8e0cb6e",
+			"name": "高级球",
+			"name_en": "Ultra Ball",
+			"set_code": "CSV1C"
+		},
+		{
+			"card_index": "123",
+			"card_type": "Supporter",
+			"count": 4,
+			"effect_id": "af514f82d182aeae5327b2c360df703d",
+			"name": "奇树",
+			"name_en": "Iono",
+			"set_code": "CSV3C"
+		},
+		{
+			"card_index": "105",
+			"card_type": "Pokemon",
+			"count": 2,
+			"effect_id": "d8e81bf574a9d7a0f42ff33e15b0522c",
+			"name": "大尾狸",
+			"name_en": "Bibarel",
+			"set_code": "CS5aC"
+		},
+		{
+			"card_index": "099",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "de67a9a68f5207134be40c715c9be8ef",
+			"name": "贪心栗鼠",
+			"name_en": "Skwovet",
+			"set_code": "CSV1C"
+		}
+	],
+	"deck_code": "NA9g4mygDYExwEuXrR",
+	"deck_name": "阿尔宙斯 骑拉帝纳",
+	"id": 569061,
+	"import_date": "2026-03-14T00:21:22",
+	"source_url": "https://tcg.mik.moe/decks/list/569061",
+	"total_cards": 60,
+	"variant_name": "阿尔宙斯 骑拉帝纳"
+}

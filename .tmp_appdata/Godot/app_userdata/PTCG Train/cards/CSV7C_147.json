@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "金属制造者",
+			"text": "在自己的回合可以使用1次。查看自己牌库上方4张卡牌，选择其中任意数量的「基本【钢】能量」，以任意方式附着于自己的宝可梦身上。将剩余的卡牌全部翻到反面重洗，放回牌库下方。"
+		}
+	],
+	"ancient_trait": "",
+	"artist": "Nobuhiro Imagawa",
+	"attacks": [
+		{
+			"cost": "MCC",
+			"damage": "60",
+			"is_vstar_power": false,
+			"name": "光束",
+			"text": ""
+		}
+	],
+	"card_index": "147",
+	"card_index_en": "114",
+	"card_type": "Pokemon",
+	"description": "特性: 金属制造者\n在自己的回合可以使用1次。查看自己牌库上方4张卡牌，选择其中任意数量的「基本【钢】能量」，以任意方式附着于自己的宝可梦身上。将剩余的卡牌全部翻到反面重洗，放回牌库下方。\n\n【钢】 光束 60\n\n\n",
+	"effect_id": "daab918dc820662c599221a8a1d85114",
+	"energy_provides": "",
+	"energy_type": "M",
+	"evolves_from": "铁哑铃",
+	"hp": 100,
+	"image_local_path": "user://cards/images/CSV7C/147.png",
+	"image_url": "https://tcg.mik.moe/static/img/CSV7C/147.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "",
+	"name": "金属怪",
+	"name_en": "Metang",
+	"rarity": "C",
+	"regulation_expanded": true,
+	"regulation_mark": "H",
+	"regulation_standard": true,
+	"release_date": "2026-01-16T00:00:00+08:00",
+	"resistance_energy": "G",
+	"resistance_value": "-30",
+	"retreat_cost": 2,
+	"set_code": "CSV7C",
+	"set_code_en": "TEF",
+	"stage": "Stage 1",
+	"weakness_energy": "R",
+	"weakness_value": "×2",
+	"yoren_code": "P375"
+}

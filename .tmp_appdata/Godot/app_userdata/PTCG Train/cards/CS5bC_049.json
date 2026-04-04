@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "夜光信号",
+			"text": "在自己的回合，当将这张卡牌从手牌使出放于备战区时，可使用1次。选择自己牌库中的1张支援者，在给对手看过之后，加入手牌。并重洗牌库。"
+		}
+	],
+	"ancient_trait": "",
+	"artist": "takuyoa",
+	"attacks": [
+		{
+			"cost": "WCC",
+			"damage": "120",
+			"is_vstar_power": false,
+			"name": "水流回转",
+			"text": "将这只宝可梦，以及放于其身上的所有卡牌，放回自己的牌库并重洗牌库。"
+		}
+	],
+	"card_index": "049",
+	"card_index_en": "40",
+	"card_type": "Pokemon",
+	"description": "特性: 夜光信号\n在自己的回合，当将这张卡牌从手牌使出放于备战区时，可使用1次。选择自己牌库中的1张支援者，在给对手看过之后，加入手牌。并重洗牌库。\n\n【水】 水流回转 120\n将这只宝可梦，以及放于其身上的所有卡牌，放回自己的牌库并重洗牌库。\n\n",
+	"effect_id": "553639840a44f19ad83b89a892a21f98",
+	"energy_provides": "",
+	"energy_type": "W",
+	"evolves_from": "",
+	"hp": 170,
+	"image_local_path": "user://cards/images/CS5bC/049.png",
+	"image_url": "https://tcg.mik.moe/static/img/CS5bC/049.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "V",
+	"name": "霓虹鱼V",
+	"name_en": "Lumineon V",
+	"rarity": "RR",
+	"regulation_expanded": true,
+	"regulation_mark": "F",
+	"regulation_standard": true,
+	"release_date": "2024-06-18T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 1,
+	"set_code": "CS5bC",
+	"set_code_en": "BRS",
+	"stage": "Basic",
+	"weakness_energy": "L",
+	"weakness_value": "×2",
+	"yoren_code": "Y972"
+}

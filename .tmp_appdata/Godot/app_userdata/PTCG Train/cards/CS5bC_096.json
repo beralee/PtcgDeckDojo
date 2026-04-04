@@ -1,0 +1,51 @@
+{
+	"abilities": [],
+	"ancient_trait": "",
+	"artist": "5ban Graphics",
+	"attacks": [
+		{
+			"cost": "C",
+			"damage": "40+",
+			"is_vstar_power": false,
+			"name": "金属爆破",
+			"text": "追加造成这只宝可梦身上附有的【钢】能量数量×40点伤害。"
+		},
+		{
+			"cost": "MMMMC",
+			"damage": "220",
+			"is_vstar_power": true,
+			"name": "星耀时刻",
+			"text": "当这个回合结束时，自己的回合会再开始1次。[对战中，己方的VSTAR力量只能使用1次。]"
+		}
+	],
+	"card_index": "096",
+	"card_index_en": "114",
+	"card_type": "Pokemon",
+	"description": " 金属爆破 40+\n追加造成这只宝可梦身上附有的【钢】能量数量×40点伤害。\n\n【钢】【钢】【钢】【钢】 星耀时刻 220\n当这个回合结束时，自己的回合会再开始1次。[对战中，己方的VSTAR力量只能使用1次。]\n\n",
+	"effect_id": "e470ac9bf3503ca157a8679c91e19fb1",
+	"energy_provides": "",
+	"energy_type": "M",
+	"evolves_from": "起源帝牙卢卡V",
+	"hp": 280,
+	"image_local_path": "user://cards/images/CS5bC/096.png",
+	"image_url": "https://tcg.mik.moe/static/img/CS5bC/096.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "V",
+	"name": "起源帝牙卢卡VSTAR",
+	"name_en": "Origin Forme Dialga VSTAR",
+	"rarity": "RRR",
+	"regulation_expanded": true,
+	"regulation_mark": "F",
+	"regulation_standard": true,
+	"release_date": "2024-06-18T00:00:00+08:00",
+	"resistance_energy": "G",
+	"resistance_value": "-30",
+	"retreat_cost": 3,
+	"set_code": "CS5bC",
+	"set_code_en": "ASR",
+	"stage": "VSTAR",
+	"weakness_energy": "R",
+	"weakness_value": "×2",
+	"yoren_code": "Y984"
+}

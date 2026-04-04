@@ -1,0 +1,51 @@
+{
+	"abilities": [],
+	"ancient_trait": "",
+	"artist": "Tsuyoshi Nagano",
+	"attacks": [
+		{
+			"cost": "F",
+			"damage": "",
+			"is_vstar_power": false,
+			"name": "巨斧劈落",
+			"text": "如果对手的战斗宝可梦身上附着了特殊能量的话，则令那只宝可梦【昏厥】。"
+		},
+		{
+			"cost": "FM",
+			"damage": "230",
+			"is_vstar_power": false,
+			"name": "龙之波动",
+			"text": "将自己牌库上方3张卡牌放于弃牌区。"
+		}
+	],
+	"card_index": "153",
+	"card_index_en": "46",
+	"card_type": "Pokemon",
+	"description": "【斗】 巨斧劈落 \n如果对手的战斗宝可梦身上附着了特殊能量的话，则令那只宝可梦【昏厥】。\n\n【斗】【钢】 龙之波动 230\n将自己牌库上方3张卡牌放于弃牌区。\n\n",
+	"effect_id": "e45788bd7d9ffec5b3da3730d2dc806f",
+	"energy_provides": "",
+	"energy_type": "N",
+	"evolves_from": "斧牙龙",
+	"hp": 170,
+	"image_local_path": "user://cards/images/CSV8C/153.png",
+	"image_url": "https://tcg.mik.moe/static/img/CSV8C/153.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "",
+	"name": "双斧战龙",
+	"name_en": "Haxorus",
+	"rarity": "R",
+	"regulation_expanded": true,
+	"regulation_mark": "H",
+	"regulation_standard": true,
+	"release_date": "2026-03-13T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 2,
+	"set_code": "CSV8C",
+	"set_code_en": "SFA",
+	"stage": "Stage 2",
+	"weakness_energy": "",
+	"weakness_value": "",
+	"yoren_code": "P612"
+}

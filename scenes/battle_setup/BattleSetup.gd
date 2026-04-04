@@ -144,6 +144,7 @@ func _build_ai_selection(source: String, version_record: Dictionary = {}) -> Dic
 		"version_id": str(version_record.get("version_id", "")),
 		"agent_config_path": str(version_record.get("agent_config_path", "")),
 		"value_net_path": str(version_record.get("value_net_path", "")),
+		"action_scorer_path": str(version_record.get("action_scorer_path", "")),
 		"display_name": str(version_record.get("display_name", "")),
 	}
 

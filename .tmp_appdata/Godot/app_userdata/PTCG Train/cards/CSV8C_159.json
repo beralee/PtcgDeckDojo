@@ -1,0 +1,51 @@
+{
+	"abilities": [],
+	"ancient_trait": "Tera",
+	"artist": "5ban Graphics",
+	"attacks": [
+		{
+			"cost": "C",
+			"damage": "70",
+			"is_vstar_power": false,
+			"name": "喷射头击",
+			"text": ""
+		},
+		{
+			"cost": "RP",
+			"damage": "200",
+			"is_vstar_power": false,
+			"name": "幻影潜袭",
+			"text": "将6个伤害指示物，以任意方式放置于对手的备战宝可梦身上。"
+		}
+	],
+	"card_index": "159",
+	"card_index_en": "73",
+	"card_type": "Pokemon",
+	"description": " 喷射头击 70\n\n\n【火】【超】 幻影潜袭 200\n将6个伤害指示物，以任意方式放置于对手的备战宝可梦身上。\n\n",
+	"effect_id": "52a205820de799a53a689f23cbeb8622",
+	"energy_provides": "",
+	"energy_type": "N",
+	"evolves_from": "多龙奇",
+	"hp": 320,
+	"image_local_path": "user://cards/images/CSV8C/159.png",
+	"image_url": "https://tcg.mik.moe/static/img/CSV8C/159.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "ex",
+	"name": "多龙巴鲁托ex",
+	"name_en": "Dragapult ex",
+	"rarity": "RR",
+	"regulation_expanded": true,
+	"regulation_mark": "H",
+	"regulation_standard": true,
+	"release_date": "2026-03-13T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 1,
+	"set_code": "CSV8C",
+	"set_code_en": "PRE",
+	"stage": "Stage 2",
+	"weakness_energy": "",
+	"weakness_value": "",
+	"yoren_code": "Y1459"
+}

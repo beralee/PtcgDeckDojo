@@ -10,12 +10,24 @@ const AIDecisionTraceScript = preload("res://scripts/ai/AIDecisionTrace.gd")
 const MCTSPlannerScript = preload("res://scripts/ai/MCTSPlanner.gd")
 const NeuralNetInferenceScript = preload("res://scripts/ai/NeuralNetInference.gd")
 const StateEncoderScript = preload("res://scripts/ai/StateEncoder.gd")
+const AIActionScorerScript = preload("res://scripts/ai/AIActionScorer.gd")
+
+const ACTION_SCORER_SUPPORTED_KINDS := {
+	"play_trainer": true,
+	"use_ability": true,
+	"attach_tool": true,
+	"attach_energy": true,
+	"attack": true,
+}
+const ACTION_SCORER_SCORE_SCALE: float = 200.0
 
 var player_index: int = 1
 var difficulty: int = 1
 var heuristic_weights: Dictionary = {}
 var value_net_path: String = ""
+var action_scorer_path: String = ""
 var _value_net: RefCounted = null
+var _action_scorer: RefCounted = null
 var _setup_planner = AISetupPlannerScript.new()
 var _legal_action_builder = AILegalActionBuilderScript.new()
 var _feature_extractor = AIFeatureExtractorScript.new()
@@ -29,11 +41,21 @@ var mcts_config: Dictionary = {}
 var _mcts_planner = MCTSPlannerScript.new()
 var _mcts_planned_sequence: Array = []
 var _mcts_sequence_index: int = 0
+var _event_counters: Dictionary = {}
 
 
 func configure(next_player_index: int, next_difficulty: int) -> void:
 	player_index = next_player_index
 	difficulty = next_difficulty
+
+
+func _ensure_action_scorer_loaded() -> void:
+	if _action_scorer != null or action_scorer_path == "":
+		return
+	_action_scorer = AIActionScorerScript.new()
+	if not _action_scorer.load_weights(action_scorer_path):
+		push_warning("[AIOpponent] 无法加载动作评分器: %s" % action_scorer_path)
+		_action_scorer = null
 
 
 func should_control_turn(game_state: GameState, ui_blocked: bool) -> bool:
@@ -54,6 +76,10 @@ func get_last_decision_trace():
 	if _last_decision_trace == null:
 		return null
 	return _last_decision_trace.clone()
+
+
+func get_event_counters() -> Dictionary:
+	return _event_counters.duplicate(true)
 
 
 func run_single_step(battle_scene: Control, gsm: GameStateMachine) -> bool:
@@ -178,13 +204,17 @@ func _choose_best_action(gsm: GameStateMachine) -> Dictionary:
 	## MCTS 模式：使用预规划序列
 	if use_mcts:
 		return _choose_mcts_action(gsm)
+	return _choose_heuristic_action(gsm)
 	## 同步权重到 heuristics
 	_heuristics.weights = heuristic_weights
 	## 原有 heuristic 逻辑
 	var actions: Array[Dictionary] = get_legal_actions(gsm)
 	var trace = AIDecisionTraceScript.new()
 	trace.turn_number = int(gsm.game_state.turn_number) if gsm != null and gsm.game_state != null else -1
+	trace.phase = str(gsm.game_state.phase) if gsm != null and gsm.game_state != null else ""
 	trace.player_index = player_index
+	trace.state_features = StateEncoderScript.encode(gsm.game_state, player_index) if gsm != null and gsm.game_state != null else []
+	trace.used_mcts = false
 	trace.legal_actions = actions.duplicate(true)
 	if actions.is_empty():
 		_last_decision_trace = trace
@@ -204,6 +234,7 @@ func _choose_best_action(gsm: GameStateMachine) -> Dictionary:
 		var score: float = _heuristics.score_action(scored_action, score_context)
 		var trace_scored_action: Dictionary = scored_action.duplicate(true)
 		trace_scored_action["score"] = score
+		trace_scored_action["features"] = score_context["features"].duplicate(true)
 		trace.scored_actions.append(trace_scored_action)
 		if best_action.is_empty() or score > best_score:
 			best_action = action
@@ -235,9 +266,122 @@ func _augment_action_for_scoring(gsm: GameStateMachine, action: Dictionary) -> D
 		"attach_energy":
 			var player: PlayerState = gsm.game_state.players[player_index]
 			scored_action["is_active_target"] = action.get("target_slot") == player.active_pokemon
-		"play_trainer", "play_stadium", "use_ability", "evolve", "retreat", "play_basic_to_bench":
+		"play_trainer", "play_stadium", "use_ability", "evolve", "retreat", "play_basic_to_bench", "attach_tool":
 			scored_action["productive"] = true
 	return scored_action
+
+
+func _build_trace_scored_actions(gsm: GameStateMachine, actions: Array[Dictionary]) -> Array[Dictionary]:
+	_heuristics.weights = heuristic_weights
+	var state_features: Array = StateEncoderScript.encode(gsm.game_state, player_index) if gsm != null and gsm.game_state != null else []
+	var scored_actions: Array[Dictionary] = []
+	for action: Dictionary in actions:
+		var scored_action: Dictionary = _augment_action_for_scoring(gsm, action)
+		var score_context := {
+			"gsm": gsm,
+			"game_state": gsm.game_state,
+			"player_index": player_index,
+			"action": scored_action,
+			"features": _feature_extractor.build_context(gsm, player_index, scored_action),
+		}
+		var heuristic_score: float = _heuristics.score_action(scored_action, score_context)
+		var learned_action_score: float = _score_action_with_action_scorer(str(scored_action.get("kind", "")), state_features, score_context["features"])
+		var score: float = heuristic_score + learned_action_score
+		score_context["features"]["heuristic_score"] = heuristic_score
+		score_context["features"]["learned_action_score"] = learned_action_score
+		var trace_scored_action: Dictionary = scored_action.duplicate(true)
+		trace_scored_action["score"] = score
+		trace_scored_action["heuristic_score"] = heuristic_score
+		trace_scored_action["learned_action_score"] = learned_action_score
+		trace_scored_action["features"] = score_context["features"].duplicate(true)
+		scored_actions.append(trace_scored_action)
+	return scored_actions
+
+
+func _score_action_with_action_scorer(action_kind: String, state_features: Array, features: Dictionary) -> float:
+	if not ACTION_SCORER_SUPPORTED_KINDS.has(action_kind):
+		return 0.0
+	var action_vector_variant: Variant = features.get("action_vector", [])
+	if not (action_vector_variant is Array) or (action_vector_variant as Array).is_empty():
+		return 0.0
+	_ensure_action_scorer_loaded()
+	if _action_scorer == null or not _action_scorer.has_method("score"):
+		return 0.0
+	var prediction: float = float(_action_scorer.call("score", state_features, action_vector_variant))
+	return (prediction - 0.5) * ACTION_SCORER_SCORE_SCALE
+
+
+func _record_decision_trace_from_choice(
+	gsm: GameStateMachine,
+	actions: Array[Dictionary],
+	scored_actions: Array[Dictionary],
+	chosen_action: Dictionary,
+	used_mcts: bool
+) -> void:
+	var trace = AIDecisionTraceScript.new()
+	trace.turn_number = int(gsm.game_state.turn_number) if gsm != null and gsm.game_state != null else -1
+	trace.phase = str(gsm.game_state.phase) if gsm != null and gsm.game_state != null else ""
+	trace.player_index = player_index
+	trace.state_features = StateEncoderScript.encode(gsm.game_state, player_index) if gsm != null and gsm.game_state != null else []
+	trace.used_mcts = used_mcts
+	trace.legal_actions = actions.duplicate(true)
+	trace.scored_actions = scored_actions.duplicate(true)
+	var chosen_scored_action: Dictionary = _find_matching_scored_action(scored_actions, chosen_action)
+	if chosen_scored_action.is_empty() and not chosen_action.is_empty():
+		var fallback_action: Dictionary = _augment_action_for_scoring(gsm, chosen_action)
+		var fallback_features: Dictionary = _feature_extractor.build_context(gsm, player_index, fallback_action)
+		chosen_scored_action = fallback_action.duplicate(true)
+		chosen_scored_action["features"] = fallback_features.duplicate(true)
+		chosen_scored_action["score"] = float(fallback_features.get("heuristic_score", 0.0))
+	trace.chosen_action = chosen_scored_action.duplicate(true)
+	if chosen_scored_action.has("reason_tags") and chosen_scored_action.get("reason_tags") is Array:
+		for tag_variant: Variant in chosen_scored_action.get("reason_tags", []):
+			trace.reason_tags.append(str(tag_variant))
+	if trace.reason_tags.is_empty() and trace.chosen_action.has("reason_tags") and trace.chosen_action.get("reason_tags") is Array:
+		for tag_variant: Variant in trace.chosen_action.get("reason_tags", []):
+			trace.reason_tags.append(str(tag_variant))
+	_last_decision_trace = trace
+
+
+func _find_matching_scored_action(scored_actions: Array[Dictionary], chosen_action: Dictionary) -> Dictionary:
+	for scored_action: Dictionary in scored_actions:
+		if _actions_equivalent(scored_action, chosen_action):
+			return scored_action
+	return {}
+
+
+func _actions_equivalent(lhs: Dictionary, rhs: Dictionary) -> bool:
+	if lhs.is_empty() or rhs.is_empty():
+		return false
+	if str(lhs.get("kind", "")) != str(rhs.get("kind", "")):
+		return false
+	if int(lhs.get("attack_index", -1)) != int(rhs.get("attack_index", -1)):
+		return false
+	if int(lhs.get("ability_index", -1)) != int(rhs.get("ability_index", -1)):
+		return false
+	if _extract_action_card_id(lhs.get("card", null)) != _extract_action_card_id(rhs.get("card", null)):
+		return false
+	if _extract_action_slot_card_id(lhs.get("target_slot", null)) != _extract_action_slot_card_id(rhs.get("target_slot", null)):
+		return false
+	if _extract_action_slot_card_id(lhs.get("source_slot", null)) != _extract_action_slot_card_id(rhs.get("source_slot", null)):
+		return false
+	if _extract_action_slot_card_id(lhs.get("bench_target", null)) != _extract_action_slot_card_id(rhs.get("bench_target", null)):
+		return false
+	return true
+
+
+func _extract_action_card_id(card_variant: Variant) -> int:
+	if card_variant is CardInstance:
+		return int((card_variant as CardInstance).instance_id)
+	return -1
+
+
+func _extract_action_slot_card_id(slot_variant: Variant) -> int:
+	if slot_variant is PokemonSlot:
+		var top_card: CardInstance = (slot_variant as PokemonSlot).get_top_card()
+		if top_card != null:
+			return int(top_card.instance_id)
+	return -1
 
 
 func _execute_action(battle_scene: Control, gsm: GameStateMachine, action: Dictionary) -> bool:
@@ -246,6 +390,12 @@ func _execute_action(battle_scene: Control, gsm: GameStateMachine, action: Dicti
 			var target_slot: PokemonSlot = action.get("target_slot")
 			var energy_card: CardInstance = action.get("card")
 			if gsm.attach_energy(player_index, energy_card, target_slot):
+				_after_successful_action(battle_scene)
+				return true
+		"attach_tool":
+			var tool_target_slot: PokemonSlot = action.get("target_slot")
+			var tool_card: CardInstance = action.get("card")
+			if gsm.attach_tool(player_index, tool_card, tool_target_slot):
 				_after_successful_action(battle_scene)
 				return true
 		"play_basic_to_bench":
@@ -401,6 +551,8 @@ func _choose_mcts_action(gsm: GameStateMachine) -> Dictionary:
 			_value_net = null
 	if _mcts_planner != null:
 		_mcts_planner.value_net = _value_net
+		_ensure_action_scorer_loaded()
+		_mcts_planner.action_scorer = _action_scorer
 		_mcts_planner.state_encoder_class = StateEncoderScript
 	## 如果还有预规划的序列动作，继续执行
 	if _mcts_sequence_index < _mcts_planned_sequence.size():
@@ -423,17 +575,22 @@ func _choose_mcts_action(gsm: GameStateMachine) -> Dictionary:
 			var _mc := "[MCTS] 续执行: %s (%d/%d)" % [str(resolved.get("kind", "")), _mcts_sequence_index, _mcts_planned_sequence.size()]
 			print(_mc)
 			_mcts_log_to_file(_mc)
+			var continuation_actions: Array[Dictionary] = get_legal_actions(gsm)
+			var continuation_scored_actions: Array[Dictionary] = _build_trace_scored_actions(gsm, continuation_actions)
+			_record_decision_trace_from_choice(gsm, continuation_actions, continuation_scored_actions, resolved, true)
 			return resolved
 		## 解析失败，清空序列并回退到 heuristic
 		var _mf := "[MCTS] 续解析失败步骤 %d: %s" % [_mcts_sequence_index, planned_kind]
 		print(_mf)
 		_mcts_log_to_file(_mf)
+		_record_mcts_resolution_mismatch(planned_kind, gsm)
 		_mcts_planned_sequence.clear()
 		_mcts_sequence_index = 0
 		return _choose_heuristic_action(gsm)
 
 	## 否则规划新序列
 	_mcts_planned_sequence = _mcts_planner.plan_turn(gsm, player_index, mcts_config)
+	_merge_event_counters(_mcts_planner.get_execution_failure_diagnostics())
 	_mcts_sequence_index = 0
 	## 诊断输出
 	var _dbg_kinds: Array[String] = []
@@ -462,11 +619,15 @@ func _choose_mcts_action(gsm: GameStateMachine) -> Dictionary:
 		var _m1 := "[MCTS] 执行: %s (解析成功)" % str(resolved.get("kind", ""))
 		print(_m1)
 		_mcts_log_to_file(_m1)
+		var planned_actions: Array[Dictionary] = get_legal_actions(gsm)
+		var planned_scored_actions: Array[Dictionary] = _build_trace_scored_actions(gsm, planned_actions)
+		_record_decision_trace_from_choice(gsm, planned_actions, planned_scored_actions, resolved, true)
 		return resolved
 	## 解析失败，清空序列并回退到 heuristic
 	var _mf2 := "[MCTS] 解析失败，回退 heuristic: kind=%s" % planned_kind
 	print(_mf2)
 	_mcts_log_to_file(_mf2)
+	_record_mcts_resolution_mismatch(planned_kind, gsm)
 	_mcts_planned_sequence.clear()
 	_mcts_sequence_index = 0
 	return _choose_heuristic_action(gsm)
@@ -474,43 +635,23 @@ func _choose_mcts_action(gsm: GameStateMachine) -> Dictionary:
 
 func _choose_heuristic_action(gsm: GameStateMachine) -> Dictionary:
 	## 与原 _choose_best_action 中的 heuristic 分支相同的逻辑
-	_heuristics.weights = heuristic_weights
 	var actions: Array[Dictionary] = get_legal_actions(gsm)
-	var trace = AIDecisionTraceScript.new()
-	trace.turn_number = int(gsm.game_state.turn_number) if gsm != null and gsm.game_state != null else -1
-	trace.player_index = player_index
-	trace.legal_actions = actions.duplicate(true)
 	if actions.is_empty():
-		_last_decision_trace = trace
+		_record_decision_trace_from_choice(gsm, actions, [], {}, false)
 		return {}
+	var scored_actions: Array[Dictionary] = _build_trace_scored_actions(gsm, actions)
 	var best_action: Dictionary = {}
 	var best_score := -INF
 	var best_scored_action: Dictionary = {}
-	for action: Dictionary in actions:
-		var scored_action: Dictionary = _augment_action_for_scoring(gsm, action)
-		var score_context := {
-			"gsm": gsm,
-			"game_state": gsm.game_state,
-			"player_index": player_index,
-			"action": scored_action,
-			"features": _feature_extractor.build_context(gsm, player_index, scored_action),
-		}
-		var score: float = _heuristics.score_action(scored_action, score_context)
-		var trace_scored_action: Dictionary = scored_action.duplicate(true)
-		trace_scored_action["score"] = score
-		trace.scored_actions.append(trace_scored_action)
+	for index: int in actions.size():
+		var action: Dictionary = actions[index]
+		var trace_scored_action: Dictionary = scored_actions[index]
+		var score: float = float(trace_scored_action.get("score", 0.0))
 		if best_action.is_empty() or score > best_score:
 			best_action = action
 			best_score = score
 			best_scored_action = trace_scored_action
-	trace.chosen_action = best_scored_action.duplicate(true)
-	if best_scored_action.has("reason_tags") and best_scored_action.get("reason_tags") is Array:
-		for tag_variant: Variant in best_scored_action.get("reason_tags", []):
-			trace.reason_tags.append(str(tag_variant))
-	if trace.reason_tags.is_empty() and trace.chosen_action.has("reason_tags") and trace.chosen_action.get("reason_tags") is Array:
-		for tag_variant: Variant in trace.chosen_action.get("reason_tags", []):
-			trace.reason_tags.append(str(tag_variant))
-	_last_decision_trace = trace
+	_record_decision_trace_from_choice(gsm, actions, scored_actions, best_scored_action, false)
 	return best_action
 
 
@@ -543,6 +684,9 @@ func _resolve_mcts_action(gsm: GameStateMachine, planned_action: Dictionary) -> 
 				if _match_card_id(action, card_id):
 					return action
 			"attach_energy":
+				if _match_card_id(action, card_id) and _match_slot_card_id(action, "target_slot", target_slot_card_id):
+					return action
+			"attach_tool":
 				if _match_card_id(action, card_id) and _match_slot_card_id(action, "target_slot", target_slot_card_id):
 					return action
 			"evolve":
@@ -585,6 +729,38 @@ func _match_slot_card_id(action: Dictionary, slot_key: String, expected_id: int)
 		if top_card != null:
 			return top_card.instance_id == expected_id
 	return false
+
+
+func _merge_event_counters(counters: Dictionary) -> void:
+	for key_variant: Variant in counters.keys():
+		var key: String = str(key_variant)
+		var value: Variant = counters.get(key, null)
+		if value is Dictionary:
+			var existing: Dictionary = _event_counters.get(key, {})
+			for subkey_variant: Variant in (value as Dictionary).keys():
+				var subkey: String = str(subkey_variant)
+				existing[subkey] = int(existing.get(subkey, 0)) + int((value as Dictionary).get(subkey, 0))
+			_event_counters[key] = existing
+		elif value is Array:
+			var existing_array: Array = _event_counters.get(key, [])
+			for entry: Variant in value:
+				existing_array.append(entry)
+			_event_counters[key] = existing_array
+		else:
+			_event_counters[key] = value
+
+
+func _record_mcts_resolution_mismatch(kind: String, gsm: GameStateMachine) -> void:
+	_merge_event_counters({
+		"mcts_failure_category_counts": {"action_resolution_mismatch": 1},
+		"mcts_failure_kind_counts": {kind: 1},
+		"mcts_failure_samples": [{
+			"category": "action_resolution_mismatch",
+			"kind": kind,
+			"turn_number": -1 if gsm == null or gsm.game_state == null else int(gsm.game_state.turn_number),
+			"step_index": int((_event_counters.get("mcts_failure_samples", []) as Array).size()) + 1,
+		}],
+	})
 
 
 func _mcts_log_to_file(msg: String) -> void:

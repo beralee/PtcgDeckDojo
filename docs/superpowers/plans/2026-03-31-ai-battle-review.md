@@ -32,6 +32,8 @@
   - Orchestrates the two-stage pipeline, caching, partial-success handling, and UI-visible status.
 - `D:/ai/code/ptcgtrain/tests/test_zenmux_client.gd`
   - Focused coverage for HTTP success and failure normalization.
+- `D:/ai/code/ptcgtrain/tests/test_battle_review_prompt_builder.gd`
+  - Focused coverage for stage 1 and stage 2 prompt payload schemas.
 - `D:/ai/code/ptcgtrain/tests/test_battle_review_turn_extractor.gd`
   - Focused coverage for turn extraction and snapshot selection.
 - `D:/ai/code/ptcgtrain/tests/test_battle_review_context_builder.gd`
@@ -44,6 +46,7 @@
 - `D:/ai/code/ptcgtrain/scripts/autoload/GameManager.gd`
   - Add minimal `battle_review_api_config` fields for first-release ZenMux endpoint/model/key configuration.
 - `D:/ai/code/ptcgtrain/scripts/engine/BattleRecordExporter.gd`
+- `D:/ai/code/ptcgtrain/scripts/engine/BattleRecorder.gd`
   - Add any tiny metadata improvements needed by review payloads, but avoid redesigning current artifacts.
 - `D:/ai/code/ptcgtrain/scenes/battle/BattleScene.gd`
   - Replace the current game-over two-option dialog with a result flow that supports `生成AI复盘`, in-progress states, cached review loading, and opening a review viewer.
@@ -124,7 +127,9 @@ git commit -m "test: add ZenMux client coverage"
 **Files:**
 - Create: `D:/ai/code/ptcgtrain/scripts/network/ZenMuxClient.gd`
 - Create: `D:/ai/code/ptcgtrain/scripts/engine/BattleReviewPromptBuilder.gd`
+- Create: `D:/ai/code/ptcgtrain/tests/test_battle_review_prompt_builder.gd`
 - Test: `D:/ai/code/ptcgtrain/tests/test_zenmux_client.gd`
+- Test: `D:/ai/code/ptcgtrain/tests/test_battle_review_prompt_builder.gd`
 
 - [ ] **Step 1: Implement a thin `ZenMuxClient` around `HTTPRequest` following the request pattern already used in `DeckImporter.gd`**
 
@@ -168,10 +173,28 @@ func build_stage2_payload(turn_packet: Dictionary) -> Dictionary:
 
 - [ ] **Step 4: Run the ZenMux client suite until it passes**
 
+- [ ] **Step 4a: Add prompt-builder contract tests before finalizing the implementation**
+
+```gdscript
+func test_stage1_payload_contains_version_and_match() -> void:
+	var builder := BattleReviewPromptBuilder.new()
+	var payload := builder.build_stage1_payload({"winner_index": 0})
+	assert_eq(String(payload.get("system_prompt_version", "")), "battle_review_stage1_v1")
+	assert_true(payload.has("response_format"))
+
+
+func test_stage2_payload_contains_turn_packet_and_schema() -> void:
+	var builder := BattleReviewPromptBuilder.new()
+	var payload := builder.build_stage2_payload({"turn_number": 8})
+	assert_eq(String(payload.get("system_prompt_version", "")), "battle_review_stage2_v1")
+	assert_true(payload.has("turn_packet"))
+```
+
 Run:
 
 ```powershell
 & "D:/ai/godot/Godot_v4.6.1-stable_win64_console.exe" --headless --path D:/ai/code/ptcgtrain -s res://tests/FocusedSuiteRunner.gd -- --suite-script=res://tests/test_zenmux_client.gd
+& "D:/ai/godot/Godot_v4.6.1-stable_win64_console.exe" --headless --path D:/ai/code/ptcgtrain -s res://tests/FocusedSuiteRunner.gd -- --suite-script=res://tests/test_battle_review_prompt_builder.gd
 ```
 
 Expected:
@@ -181,17 +204,24 @@ Expected:
 - [ ] **Step 5: Commit**
 
 ```powershell
-git add scripts/network/ZenMuxClient.gd scripts/engine/BattleReviewPromptBuilder.gd tests/test_zenmux_client.gd
+git add scripts/network/ZenMuxClient.gd scripts/engine/BattleReviewPromptBuilder.gd tests/test_zenmux_client.gd tests/test_battle_review_prompt_builder.gd
 git commit -m "feat: add ZenMux review client and prompt builder"
 ```
 
-### Task 3: Add failing tests for turn extraction
+### Task 3: Add failing tests and fixture for turn extraction
 
 **Files:**
+- Create: `D:/ai/code/ptcgtrain/tests/fixtures/match_review_fixture/`
 - Create: `D:/ai/code/ptcgtrain/tests/test_battle_review_turn_extractor.gd`
 - Modify: `D:/ai/code/ptcgtrain/tests/TestRunner.gd`
 
-- [ ] **Step 1: Write failing tests for extracting turn slices and snapshots from a recorded match fixture**
+- [ ] **Step 1: Add a minimal recorded-match fixture under `tests/fixtures/match_review_fixture/`**
+  - include `match.json`
+  - include `turns.json`
+  - include `detail.jsonl`
+  - keep it small but sufficient to cover one key turn with before/after snapshots
+
+- [ ] **Step 2: Write failing tests for extracting turn slices and snapshots from the recorded match fixture**
 
 ```gdscript
 func test_extract_turn_returns_only_matching_turn_events() -> void:
@@ -208,9 +238,9 @@ func test_extract_turn_includes_before_and_after_snapshots() -> void:
 	assert_true(result.has("after_snapshot"))
 ```
 
-- [ ] **Step 2: Register the new extractor suite in `TestRunner.gd`**
+- [ ] **Step 3: Register the new extractor suite in `TestRunner.gd`**
 
-- [ ] **Step 3: Run the focused suite and verify failure**
+- [ ] **Step 4: Run the focused suite and verify failure**
 
 Run:
 
@@ -222,10 +252,10 @@ Expected:
 
 - tests fail because the extractor does not exist yet
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 5: Commit**
 
 ```powershell
-git add tests/test_battle_review_turn_extractor.gd tests/TestRunner.gd
+git add tests/fixtures/match_review_fixture tests/test_battle_review_turn_extractor.gd tests/TestRunner.gd
 git commit -m "test: add battle review turn extraction coverage"
 ```
 
@@ -545,7 +575,7 @@ git commit -m "test: add battle review UI flow coverage"
 - Modify: `D:/ai/code/ptcgtrain/tests/test_battle_ui_features.gd`
 
 - [ ] **Step 1: Add review service ownership and match-directory tracking to `BattleScene.gd`**
-  - Capture the finished match directory from the recorder
+  - Add a tiny `BattleRecorder` accessor or finalize return value so `BattleScene` can capture the finished match directory from the recorder
   - Reuse it for cache lookup and review generation
 
 - [ ] **Step 2: Replace the current two-option `_on_game_over()` dialog flow with a review-aware result flow**

@@ -1,0 +1,51 @@
+{
+	"abilities": [],
+	"ancient_trait": "",
+	"artist": "Mitsuhiro Arita",
+	"attacks": [
+		{
+			"cost": "C",
+			"damage": "",
+			"is_vstar_power": false,
+			"name": "读风",
+			"text": "将自己的1张手牌放于弃牌区。然后，从自己牌库上方抽取3张卡牌。"
+		},
+		{
+			"cost": "CCCC",
+			"damage": "130",
+			"is_vstar_power": false,
+			"name": "气旋俯冲",
+			"text": "若希望，可将场上的竞技场放于弃牌区。"
+		}
+	],
+	"card_index": "102",
+	"card_index_en": "138",
+	"card_type": "Pokemon",
+	"description": " 读风 \n将自己的1张手牌放于弃牌区。然后，从自己牌库上方抽取3张卡牌。\n\n 气旋俯冲 130\n若希望，可将场上的竞技场放于弃牌区。\n\n",
+	"effect_id": "d8e735158b27693de9d70f883d84f5a2",
+	"energy_provides": "",
+	"energy_type": "C",
+	"evolves_from": "",
+	"hp": 220,
+	"image_local_path": "user://cards/images/CS6aC/102.png",
+	"image_url": "https://tcg.mik.moe/static/img/CS6aC/102.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "V",
+	"name": "洛奇亚V",
+	"name_en": "Lugia V",
+	"rarity": "RR",
+	"regulation_expanded": true,
+	"regulation_mark": "F",
+	"regulation_standard": true,
+	"release_date": "2024-09-20T00:00:00+08:00",
+	"resistance_energy": "F",
+	"resistance_value": "-30",
+	"retreat_cost": 2,
+	"set_code": "CS6aC",
+	"set_code_en": "SIT",
+	"stage": "Basic",
+	"weakness_energy": "L",
+	"weakness_value": "×2",
+	"yoren_code": "Y1128"
+}

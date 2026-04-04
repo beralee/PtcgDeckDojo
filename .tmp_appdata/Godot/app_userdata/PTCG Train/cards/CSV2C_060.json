@@ -1,0 +1,51 @@
+{
+	"abilities": [],
+	"ancient_trait": "",
+	"artist": "Taira Akitsu",
+	"attacks": [
+		{
+			"cost": "CC",
+			"damage": "10",
+			"is_vstar_power": false,
+			"name": "起风",
+			"text": ""
+		},
+		{
+			"cost": "PP",
+			"damage": "30×",
+			"is_vstar_power": false,
+			"name": "气球炸弹",
+			"text": "造成这只宝可梦身上放置的伤害指示物数量×30伤害。"
+		}
+	],
+	"card_index": "060",
+	"card_index_en": "89",
+	"card_type": "Pokemon",
+	"description": " 起风 10\n\n\n【超】【超】 气球炸弹 30×\n造成这只宝可梦身上放置的伤害指示物数量×30伤害。\n\n",
+	"effect_id": "8e295bb9597fb1ebbc2c6d58a98e0839",
+	"energy_provides": "",
+	"energy_type": "P",
+	"evolves_from": "",
+	"hp": 70,
+	"image_local_path": "user://cards/images/CSV2C/060.png",
+	"image_url": "https://tcg.mik.moe/static/img/CSV2C/060.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "",
+	"name": "飘飘球",
+	"name_en": "Drifloon",
+	"rarity": "C",
+	"regulation_expanded": true,
+	"regulation_mark": "G",
+	"regulation_standard": true,
+	"release_date": "2025-03-21T00:00:00+08:00",
+	"resistance_energy": "F",
+	"resistance_value": "-30",
+	"retreat_cost": 1,
+	"set_code": "CSV2C",
+	"set_code_en": "SVI",
+	"stage": "Basic",
+	"weakness_energy": "D",
+	"weakness_value": "×2",
+	"yoren_code": "P425"
+}

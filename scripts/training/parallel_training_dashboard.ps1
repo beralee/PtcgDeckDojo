@@ -1,5 +1,20 @@
 $ErrorActionPreference = 'Stop'
 
+function Read-JsonFileUtf8 {
+	param(
+		[Parameter(Mandatory = $true)]
+		[string]$Path
+	)
+
+	if (-not (Test-Path -LiteralPath $Path)) {
+		throw "JSON file not found: $Path"
+	}
+
+	$utf8 = New-Object System.Text.UTF8Encoding($false, $true)
+	$raw = [System.IO.File]::ReadAllText([System.IO.Path]::GetFullPath($Path), $utf8)
+	return ($raw | ConvertFrom-Json)
+}
+
 function Get-ParallelTrainingManifestPath {
 	param(
 		[Parameter(Mandatory = $true)]
@@ -20,7 +35,7 @@ function Read-ParallelTrainingManifest {
 		throw "Launch manifest not found: $manifestPath"
 	}
 
-	return (Get-Content -Path $manifestPath -Raw | ConvertFrom-Json)
+	return (Read-JsonFileUtf8 -Path $manifestPath)
 }
 
 function Get-LanePhaseFromLog {
@@ -103,6 +118,7 @@ function Get-LaneBenchmarkSummary {
 	if (-not (Test-Path -LiteralPath $summaryPath)) {
 		return [ordered]@{
 			has_summary = $false
+			parse_error = ''
 			gate = ''
 			wins = ''
 			win_rate = ''
@@ -113,7 +129,21 @@ function Get-LaneBenchmarkSummary {
 		}
 	}
 
-	$summary = Get-Content -Path $summaryPath -Raw -ErrorAction SilentlyContinue | ConvertFrom-Json
+	try {
+		$summary = Read-JsonFileUtf8 -Path $summaryPath
+	} catch {
+		return [ordered]@{
+			has_summary = $true
+			parse_error = $_.Exception.Message
+			gate = 'parse_error'
+			wins = '?'
+			win_rate = '?'
+			total_matches = 0
+			pairings = 0
+			timeouts = 0
+			failures = 0
+		}
+	}
 	$totalMatches = [int]($summary.total_matches)
 	$winsA = [int]($summary.version_a_wins)
 	$winsB = [int]($summary.version_b_wins)
@@ -124,6 +154,7 @@ function Get-LaneBenchmarkSummary {
 	}
 	return [ordered]@{
 		has_summary = $true
+		parse_error = ''
 		gate = if ([bool]$summary.gate_passed) { 'pass' } else { 'fail' }
 		wins = ('{0}-{1}' -f $winsA, $winsB)
 		win_rate = ('{0:N1}%' -f ($winRate * 100.0))
@@ -144,6 +175,7 @@ function Get-LaneProgressSnapshot {
 	if (-not (Test-Path -LiteralPath $statusPath)) {
 		return [ordered]@{
 			has_progress = $false
+			parse_error = ''
 			generation = ''
 			wins = ''
 			win_rate = ''
@@ -152,7 +184,19 @@ function Get-LaneProgressSnapshot {
 		}
 	}
 
-	$status = Get-Content -Path $statusPath -Raw -ErrorAction SilentlyContinue | ConvertFrom-Json
+	try {
+		$status = Read-JsonFileUtf8 -Path $statusPath
+	} catch {
+		return [ordered]@{
+			has_progress = $false
+			parse_error = $_.Exception.Message
+			generation = ''
+			wins = ''
+			win_rate = ''
+			last_generation = ''
+			accepted_generations = 0
+		}
+	}
 	$generationCurrent = [int]($status.generation_current)
 	$generationTotal = [int]($status.generation_total)
 	$cumulativeAgentAWins = [int]($status.cumulative_agent_a_wins)
@@ -163,6 +207,7 @@ function Get-LaneProgressSnapshot {
 	$lastWinRate = [double]($status.last_generation_win_rate)
 	return [ordered]@{
 		has_progress = $true
+		parse_error = ''
 		generation = ('{0}/{1}' -f $generationCurrent, $generationTotal)
 		wins = ('{0}-{1}' -f $cumulativeAgentAWins, $cumulativeAgentBWins)
 		win_rate = ('{0:N1}%' -f ($cumulativeWinRate * 100.0))

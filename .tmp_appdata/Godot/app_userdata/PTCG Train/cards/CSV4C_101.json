@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "音速搜索",
+			"text": "在自己的回合可以使用1次。选择自己牌库中任意1张卡牌，加入手牌。并重洗牌库。在这个回合，如果已经使用了其他的「音速搜索」的话，则无法使用这个特性。"
+		}
+	],
+	"ancient_trait": "",
+	"artist": "takuyoa",
+	"attacks": [
+		{
+			"cost": "CC",
+			"damage": "120",
+			"is_vstar_power": false,
+			"name": "狂风呼啸",
+			"text": "若希望，可将场上的竞技场放于弃牌区。"
+		}
+	],
+	"card_index": "101",
+	"card_index_en": "164",
+	"card_type": "Pokemon",
+	"description": "特性: 音速搜索\n在自己的回合可以使用1次。选择自己牌库中任意1张卡牌，加入手牌。并重洗牌库。在这个回合，如果已经使用了其他的「音速搜索」的话，则无法使用这个特性。\n\n 狂风呼啸 120\n若希望，可将场上的竞技场放于弃牌区。\n\n",
+	"effect_id": "8105afde9792c2596166f318a480d041",
+	"energy_provides": "",
+	"energy_type": "C",
+	"evolves_from": "比比鸟",
+	"hp": 280,
+	"image_local_path": "user://cards/images/CSV4C/101.png",
+	"image_url": "https://tcg.mik.moe/static/img/CSV4C/101.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "ex",
+	"name": "大比鸟ex",
+	"name_en": "Pidgeot ex",
+	"rarity": "RR",
+	"regulation_expanded": true,
+	"regulation_mark": "G",
+	"regulation_standard": true,
+	"release_date": "2025-07-18T00:00:00+08:00",
+	"resistance_energy": "F",
+	"resistance_value": "-30",
+	"retreat_cost": 0,
+	"set_code": "CSV4C",
+	"set_code_en": "OBF",
+	"stage": "Stage 2",
+	"weakness_energy": "L",
+	"weakness_value": "×2",
+	"yoren_code": "Y1315"
+}

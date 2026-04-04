@@ -1,0 +1,263 @@
+{
+	"cards": [
+		{
+			"card_index": "127",
+			"card_type": "Supporter",
+			"count": 1,
+			"effect_id": "05b9dc8ee5c16c46da20f47a04907856",
+			"name": "捩木",
+			"name_en": "Thorton",
+			"set_code": "CS6aC"
+		},
+		{
+			"card_index": "129",
+			"card_type": "Special Energy",
+			"count": 4,
+			"effect_id": "1323733f19cc04e54090b39bc1a393b8",
+			"name": "喷射能量",
+			"name_en": "Jet Energy",
+			"set_code": "CSV4C"
+		},
+		{
+			"card_index": "067",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "14cf8080c35f652fe13a579f1b50542a",
+			"name": "厄诡椪 水井面具ex",
+			"name_en": "Wellspring Mask Ogerpon ex",
+			"set_code": "CSV8C"
+		},
+		{
+			"card_index": "116",
+			"card_type": "Item",
+			"count": 2,
+			"effect_id": "1838e8afe529b519a57dd8bbd307905a",
+			"name": "超级球",
+			"name_en": "Great Ball",
+			"set_code": "CSV3C"
+		},
+		{
+			"card_index": "117",
+			"card_type": "Pokemon",
+			"count": 2,
+			"effect_id": "219cd852ba122475a0dee92ad1aeaba9",
+			"name": "泡沫栗鼠",
+			"name_en": "Minccino",
+			"set_code": "CS6bC"
+		},
+		{
+			"card_index": "203",
+			"card_type": "Stadium",
+			"count": 1,
+			"effect_id": "4e16157bfa88a41e823d058a732df8e0",
+			"name": "阻碍之塔",
+			"name_en": "Jamming Tower",
+			"set_code": "CSV8C"
+		},
+		{
+			"card_index": "121",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "4f25f668ee0ab45c68f6954324c73003",
+			"name": "厄诡椪 础石面具ex",
+			"name_en": "Cornerstone Mask Ogerpon ex",
+			"set_code": "CSV8C"
+		},
+		{
+			"card_index": "049",
+			"card_type": "Pokemon",
+			"count": 2,
+			"effect_id": "553639840a44f19ad83b89a892a21f98",
+			"name": "霓虹鱼V",
+			"name_en": "Lumineon V",
+			"set_code": "CS5bC"
+		},
+		{
+			"card_index": "113",
+			"card_type": "Pokemon",
+			"count": 4,
+			"effect_id": "56b4f3dfefd725574df242a2b2d9e651",
+			"name": "始祖大鸟",
+			"name_en": "Archeops",
+			"set_code": "CS6aC"
+		},
+		{
+			"card_index": "207",
+			"card_type": "Special Energy",
+			"count": 1,
+			"effect_id": "6f31b7241a181631016466e561f148f3",
+			"name": "遗赠能量",
+			"name_en": "Legacy Energy",
+			"set_code": "CSV8C"
+		},
+		{
+			"card_index": "120",
+			"card_type": "Item",
+			"count": 4,
+			"effect_id": "7cd68d9e286b78a7f9c799fce24a7d6c",
+			"name": "捕获香氛",
+			"name_en": "Capturing Aroma",
+			"set_code": "CS6aC"
+		},
+		{
+			"card_index": "199",
+			"card_type": "Supporter",
+			"count": 1,
+			"effect_id": "8150af4062192998497e376ad931bea4",
+			"name": "丹瑜",
+			"name_en": "Carmine",
+			"set_code": "CSV8C"
+		},
+		{
+			"card_index": "072",
+			"card_type": "Special Energy",
+			"count": 1,
+			"effect_id": "88bf9902f1d769a667bbd3939fc757de",
+			"name": "V防守能量",
+			"name_en": "V Guard Energy",
+			"set_code": "CS6.5C"
+		},
+		{
+			"card_index": "023",
+			"card_type": "Supporter",
+			"count": 3,
+			"effect_id": "8e1fa2c9018db938084c94c7c970d419",
+			"name": "老大的指令",
+			"name_en": "Boss's Orders",
+			"set_code": "CSVH1aC"
+		},
+		{
+			"card_index": "024",
+			"card_type": "Special Energy",
+			"count": 3,
+			"effect_id": "9c04dd0addf56a7b2c88476bc8e45c0e",
+			"name": "双重涡轮能量",
+			"name_en": "Double Turbo Energy",
+			"set_code": "CSNC"
+		},
+		{
+			"card_index": "112",
+			"card_type": "Item",
+			"count": 4,
+			"effect_id": "a337ed34a45e63c6d21d98c3d8e0cb6e",
+			"name": "高级球",
+			"name_en": "Ultra Ball",
+			"set_code": "CSV1C"
+		},
+		{
+			"card_index": "120",
+			"card_type": "Supporter",
+			"count": 1,
+			"effect_id": "a8a2b27c2641d8d7212fc887ca032e4c",
+			"name": "吉尼亚",
+			"name_en": "Jacq",
+			"set_code": "CSV1C"
+		},
+		{
+			"card_index": "135",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "ab6c3357e2b8a8385a68da738f41e0c1",
+			"name": "吉雉鸡ex",
+			"name_en": "Fezandipiti ex",
+			"set_code": "CSV8C"
+		},
+		{
+			"card_index": "121",
+			"card_type": "Supporter",
+			"count": 3,
+			"effect_id": "aecd80ca2722885c3d062a2255346f3e",
+			"name": "博士的研究",
+			"name_en": "Professor's Research",
+			"set_code": "CSV1C"
+		},
+		{
+			"card_index": "123",
+			"card_type": "Supporter",
+			"count": 2,
+			"effect_id": "af514f82d182aeae5327b2c360df703d",
+			"name": "奇树",
+			"name_en": "Iono",
+			"set_code": "CSV3C"
+		},
+		{
+			"card_index": "171",
+			"card_type": "Pokemon",
+			"count": 2,
+			"effect_id": "afe4fbcaa0c39b45a94bc01f7163b142",
+			"name": "奇诺栗鼠",
+			"name_en": "Cinccino",
+			"set_code": "CSV7C"
+		},
+		{
+			"card_index": "103",
+			"card_type": "Pokemon",
+			"count": 3,
+			"effect_id": "b219587ea29cd6901c83f698ed25f052",
+			"name": "洛奇亚VSTAR",
+			"name_en": "Lugia VSTAR",
+			"set_code": "CS6aC"
+		},
+		{
+			"card_index": "102",
+			"card_type": "Pokemon",
+			"count": 3,
+			"effect_id": "d8e735158b27693de9d70f883d84f5a2",
+			"name": "洛奇亚V",
+			"name_en": "Lugia V",
+			"set_code": "CS6aC"
+		},
+		{
+			"card_index": "131",
+			"card_type": "Special Energy",
+			"count": 4,
+			"effect_id": "dbb3f3d2ef2f3372bc8b21336e6c9bc6",
+			"name": "馈赠能量",
+			"name_en": "Gift Energy",
+			"set_code": "CS6aC"
+		},
+		{
+			"card_index": "051",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "e9f0c124fc2e352af2408a7e61862b95",
+			"name": "铁臂膀ex",
+			"name_en": "Iron Hands ex",
+			"set_code": "CSV6C"
+		},
+		{
+			"card_index": "172",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "f2afef80b13b8f6a071facbcade0251c",
+			"name": "月月熊 赫月ex",
+			"name_en": "Bloodmoon Ursaluna ex",
+			"set_code": "CSV8C"
+		},
+		{
+			"card_index": "204",
+			"card_type": "Special Energy",
+			"count": 3,
+			"effect_id": "fb0948c721db1f31767aa6cf0c2ea692",
+			"name": "薄雾能量",
+			"name_en": "Mist Energy",
+			"set_code": "CSV7C"
+		},
+		{
+			"card_index": "071",
+			"card_type": "Stadium",
+			"count": 1,
+			"effect_id": "fb3628071280487676f79281696ffbd9",
+			"name": "崩塌的竞技场",
+			"name_en": "Collapsed Stadium",
+			"set_code": "CS6.5C"
+		}
+	],
+	"deck_code": "ZtbXyOm19xdE4oo80G",
+	"deck_name": "洛奇亚 始祖大鸟",
+	"id": 575657,
+	"import_date": "2026-03-15T17:22:52",
+	"source_url": "https://tcg.mik.moe/decks/list/575657",
+	"total_cards": 60,
+	"variant_name": "洛奇亚 始祖大鸟"
+}

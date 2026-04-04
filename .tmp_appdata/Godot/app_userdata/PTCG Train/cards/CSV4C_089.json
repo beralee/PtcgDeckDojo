@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "嘉奖硬币",
+			"text": "在自己的回合可以使用1次。从自己牌库上方抽取1张卡牌。如果这只宝可梦在战斗场上的话，则额外抽取1张卡牌。"
+		}
+	],
+	"ancient_trait": "",
+	"artist": "takuyoa",
+	"attacks": [
+		{
+			"cost": "M",
+			"damage": "50×",
+			"is_vstar_power": false,
+			"name": "淘金潮",
+			"text": "将自己手牌中任意数量的基本能量放于弃牌区，造成其张数×50伤害。"
+		}
+	],
+	"card_index": "089",
+	"card_index_en": "139",
+	"card_type": "Pokemon",
+	"description": "特性: 嘉奖硬币\n在自己的回合可以使用1次。从自己牌库上方抽取1张卡牌。如果这只宝可梦在战斗场上的话，则额外抽取1张卡牌。\n\n【钢】 淘金潮 50×\n将自己手牌中任意数量的基本能量放于弃牌区，造成其张数×50伤害。\n\n",
+	"effect_id": "07f01f4f21033a1bbc058e4af555420a",
+	"energy_provides": "",
+	"energy_type": "M",
+	"evolves_from": "索财灵",
+	"hp": 260,
+	"image_local_path": "user://cards/images/CSV4C/089.png",
+	"image_url": "https://tcg.mik.moe/static/img/CSV4C/089.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "ex",
+	"name": "赛富豪ex",
+	"name_en": "Gholdengo ex",
+	"rarity": "RR",
+	"regulation_expanded": true,
+	"regulation_mark": "G",
+	"regulation_standard": true,
+	"release_date": "2025-07-18T00:00:00+08:00",
+	"resistance_energy": "G",
+	"resistance_value": "-30",
+	"retreat_cost": 2,
+	"set_code": "CSV4C",
+	"set_code_en": "PAR",
+	"stage": "Stage 1",
+	"weakness_energy": "R",
+	"weakness_value": "×2",
+	"yoren_code": "Y1313"
+}

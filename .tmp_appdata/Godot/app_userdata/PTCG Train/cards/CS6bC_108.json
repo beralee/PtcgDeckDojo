@@ -1,0 +1,51 @@
+{
+	"abilities": [],
+	"ancient_trait": "",
+	"artist": "5ban Graphics",
+	"attacks": [
+		{
+			"cost": "GPC",
+			"damage": "280",
+			"is_vstar_power": false,
+			"name": "放逐冲击",
+			"text": "选择附着于自己场上宝可梦身上的2个能量，放于放逐区。"
+		},
+		{
+			"cost": "GP",
+			"damage": "",
+			"is_vstar_power": true,
+			"name": "星耀安魂曲",
+			"text": "这个招式，只有在自己放逐区有10张以上（包含10张）卡牌时才可使用。使对手战斗宝可梦【昏厥】。[对战中，己方的VSTAR力量只能使用1次。]"
+		}
+	],
+	"card_index": "108",
+	"card_index_en": "131",
+	"card_type": "Pokemon",
+	"description": "【草】【超】 放逐冲击 280\n选择附着于自己场上宝可梦身上的2个能量，放于放逐区。\n\n【草】【超】 星耀安魂曲 \n这个招式，只有在自己放逐区有10张以上（包含10张）卡牌时才可使用。使对手战斗宝可梦【昏厥】。[对战中，己方的VSTAR力量只能使用1次。]\n\n",
+	"effect_id": "90c254f809637aea730f5ff97b143f44",
+	"energy_provides": "",
+	"energy_type": "N",
+	"evolves_from": "骑拉帝纳V",
+	"hp": 280,
+	"image_local_path": "user://cards/images/CS6bC/108.png",
+	"image_url": "https://tcg.mik.moe/static/img/CS6bC/108.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "V",
+	"name": "骑拉帝纳VSTAR",
+	"name_en": "Giratina VSTAR",
+	"rarity": "RRR",
+	"regulation_expanded": true,
+	"regulation_mark": "F",
+	"regulation_standard": true,
+	"release_date": "2024-09-20T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 2,
+	"set_code": "CS6bC",
+	"set_code_en": "LOR",
+	"stage": "VSTAR",
+	"weakness_energy": "",
+	"weakness_value": "",
+	"yoren_code": "Y1099"
+}

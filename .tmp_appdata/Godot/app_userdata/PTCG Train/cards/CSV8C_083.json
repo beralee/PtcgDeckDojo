@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "咒怨炸弹",
+			"text": "在自己的回合可以使用1次，如果使用了，则令这只宝可梦【昏厥】。给对手的1只宝可梦身上，放置13个伤害指示物。"
+		}
+	],
+	"ancient_trait": "",
+	"artist": "danciao",
+	"attacks": [
+		{
+			"cost": "PPC",
+			"damage": "150",
+			"is_vstar_power": false,
+			"name": "影子束缚",
+			"text": "在下一个对手的回合，受到这个招式影响的宝可梦，无法撤退。"
+		}
+	],
+	"card_index": "083",
+	"card_index_en": "20",
+	"card_type": "Pokemon",
+	"description": "特性: 咒怨炸弹\n在自己的回合可以使用1次，如果使用了，则令这只宝可梦【昏厥】。给对手的1只宝可梦身上，放置13个伤害指示物。\n\n【超】【超】 影子束缚 150\n在下一个对手的回合，受到这个招式影响的宝可梦，无法撤退。\n\n",
+	"effect_id": "2a4178f21ba2bf13285bbb43ecaaa472",
+	"energy_provides": "",
+	"energy_type": "P",
+	"evolves_from": "彷徨夜灵",
+	"hp": 160,
+	"image_local_path": "user://cards/images/CSV8C/083.png",
+	"image_url": "https://tcg.mik.moe/static/img/CSV8C/083.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "",
+	"name": "黑夜魔灵",
+	"name_en": "Dusknoir",
+	"rarity": "R",
+	"regulation_expanded": true,
+	"regulation_mark": "H",
+	"regulation_standard": true,
+	"release_date": "2026-03-13T00:00:00+08:00",
+	"resistance_energy": "F",
+	"resistance_value": "-30",
+	"retreat_cost": 3,
+	"set_code": "CSV8C",
+	"set_code_en": "SFA",
+	"stage": "Stage 2",
+	"weakness_energy": "D",
+	"weakness_value": "×2",
+	"yoren_code": "P477"
+}

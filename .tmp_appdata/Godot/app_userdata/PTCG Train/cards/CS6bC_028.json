@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "伤痛汤匙",
+			"text": "在自己的回合可以使用1次。选择对手场上1只宝可梦身上放置的最多2个伤害指示物，转放于对手1只其他宝可梦身上。"
+		}
+	],
+	"ancient_trait": "",
+	"artist": "Akira Komayama",
+	"attacks": [
+		{
+			"cost": "PC",
+			"damage": "20×",
+			"is_vstar_power": false,
+			"name": "意志控制者",
+			"text": "造成对手手牌张数×20点伤害。"
+		}
+	],
+	"card_index": "028",
+	"card_index_en": "59",
+	"card_type": "Pokemon",
+	"description": "特性: 伤痛汤匙\n在自己的回合可以使用1次。选择对手场上1只宝可梦身上放置的最多2个伤害指示物，转放于对手1只其他宝可梦身上。\n\n【超】 意志控制者 20×\n造成对手手牌张数×20点伤害。\n\n",
+	"effect_id": "68244d82147e13bb7d77116ffedf6162",
+	"energy_provides": "",
+	"energy_type": "P",
+	"evolves_from": "",
+	"hp": 130,
+	"image_local_path": "user://cards/images/CS6bC/028.png",
+	"image_url": "https://tcg.mik.moe/static/img/CS6bC/028.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "Radiant",
+	"name": "光辉胡地",
+	"name_en": "Radiant Alakazam",
+	"rarity": "K",
+	"regulation_expanded": true,
+	"regulation_mark": "F",
+	"regulation_standard": true,
+	"release_date": "2024-09-20T00:00:00+08:00",
+	"resistance_energy": "F",
+	"resistance_value": "-30",
+	"retreat_cost": 2,
+	"set_code": "CS6bC",
+	"set_code_en": "SIT",
+	"stage": "Basic",
+	"weakness_energy": "D",
+	"weakness_value": "×2",
+	"yoren_code": "Y1088"
+}

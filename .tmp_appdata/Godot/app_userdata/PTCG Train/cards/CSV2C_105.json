@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "英武重抽",
+			"text": "只有在最初的自己的回合可以使用1次。将自己的手牌全部放于弃牌区，从牌库上方抽取6张卡牌。在这个回合，如果已经使用了其他的「英武重抽」的话，则无法使用这个特性。"
+		}
+	],
+	"ancient_trait": "",
+	"artist": "PLANETA Mochizuki",
+	"attacks": [
+		{
+			"cost": "C",
+			"damage": "20",
+			"is_vstar_power": false,
+			"name": "鼓足干劲",
+			"text": "选择自己弃牌区中最多2张基本能量，附着于1只备战宝可梦身上。"
+		}
+	],
+	"card_index": "105",
+	"card_index_en": "75",
+	"card_type": "Pokemon",
+	"description": "特性: 英武重抽\n只有在最初的自己的回合可以使用1次。将自己的手牌全部放于弃牌区，从牌库上方抽取6张卡牌。在这个回合，如果已经使用了其他的「英武重抽」的话，则无法使用这个特性。\n\n 鼓足干劲 20\n选择自己弃牌区中最多2张基本能量，附着于1只备战宝可梦身上。\n\n",
+	"effect_id": "1b951205e53e179bde0905c4a194d9ee",
+	"energy_provides": "",
+	"energy_type": "C",
+	"evolves_from": "",
+	"hp": 160,
+	"image_local_path": "user://cards/images/CSV2C/105.png",
+	"image_url": "https://tcg.mik.moe/static/img/CSV2C/105.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "ex",
+	"name": "怒鹦哥ex",
+	"name_en": "Squawkabilly ex",
+	"rarity": "RR",
+	"regulation_expanded": true,
+	"regulation_mark": "G",
+	"regulation_standard": true,
+	"release_date": "2025-03-21T00:00:00+08:00",
+	"resistance_energy": "F",
+	"resistance_value": "-30",
+	"retreat_cost": 1,
+	"set_code": "CSV2C",
+	"set_code_en": "PAF",
+	"stage": "Basic",
+	"weakness_energy": "L",
+	"weakness_value": "×2",
+	"yoren_code": "Y1253"
+}

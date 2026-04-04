@@ -7,6 +7,10 @@ const BATTLE_CARD_VIEW := preload("res://scenes/battle/BattleCardView.gd")
 const AIOpponentScript := preload("res://scripts/ai/AIOpponent.gd")
 const AIVersionRegistryScript := preload("res://scripts/ai/AIVersionRegistry.gd")
 const AgentVersionStoreScript := preload("res://scripts/ai/AgentVersionStore.gd")
+const BattleRecorderScript := preload("res://scripts/engine/BattleRecorder.gd")
+const BattleAdviceServiceScript := preload("res://scripts/engine/BattleAdviceService.gd")
+const BattleReviewArtifactStoreScript := preload("res://scripts/engine/BattleReviewArtifactStore.gd")
+const BattleReviewServiceScript := preload("res://scripts/engine/BattleReviewService.gd")
 const CARD_ASPECT := 0.716
 const BATTLE_RUNTIME_LOG_PATH := "user://logs/battle_runtime.log"
 const BATTLE_BACKDROP_RESOURCE := "res://assets/ui/background.png"
@@ -82,6 +86,31 @@ var _field_interaction_position: String = "center"
 
 var _player_card_back_texture: Texture2D = null
 var _opponent_card_back_texture: Texture2D = null
+var _battle_recorder: RefCounted = null
+var _battle_recording_started: bool = false
+var _battle_recording_context_captured: bool = false
+var _battle_recording_output_root: String = ""
+var _battle_review_service: RefCounted = null
+var _battle_review_store: RefCounted = BattleReviewArtifactStoreScript.new()
+var _battle_review_match_dir: String = ""
+var _battle_review_last_review: Dictionary = {}
+var _battle_review_busy: bool = false
+var _battle_review_progress_text: String = ""
+var _battle_review_winner_index: int = -1
+var _battle_review_reason: String = ""
+var _battle_advice_service: RefCounted = null
+var _battle_advice_last_result: Dictionary = {}
+var _battle_advice_busy: bool = false
+var _battle_advice_progress_text: String = ""
+var _battle_advice_initial_snapshot: Dictionary = {}
+var _battle_advice_pinned: bool = false
+var _battle_advice_panel: PanelContainer = null
+var _battle_advice_panel_title: Label = null
+var _battle_advice_panel_toggle_btn: Button = null
+var _battle_advice_panel_content: RichTextLabel = null
+var _battle_advice_panel_collapsed: bool = false
+var _review_pin_btn: Button = null
+var _review_overlay_mode: String = ""
 
 # ===================== UI References =====================
 @onready var _log_list: ItemList = %LogList
@@ -95,6 +124,7 @@ var _opponent_card_back_texture: Texture2D = null
 # Top actions
 @onready var _btn_end_turn: Button = %BtnEndTurn
 @onready var _btn_back: Button = %BtnBack
+@onready var _btn_ai_advice: Button = %BtnAiAdvice
 @onready var _btn_opponent_hand: Button = %BtnOpponentHand
 @onready var _btn_zeus_help: Button = %BtnZeusHelp
 @onready var _hud_end_turn_btn: Button = %HudEndTurnBtn
@@ -196,6 +226,11 @@ var _coin_animating: bool = false
 @onready var _discard_title: Label = %DiscardTitle
 @onready var _discard_list: ItemList = %DiscardList
 @onready var _discard_close_btn: Button = %DiscardCloseBtn
+@onready var _review_overlay: Panel = %ReviewOverlay
+@onready var _review_title: Label = %ReviewTitle
+@onready var _review_content: RichTextLabel = %ReviewContent
+@onready var _review_close_btn: Button = %ReviewCloseBtn
+@onready var _review_regenerate_btn: Button = %ReviewRegenerateBtn
 
 
 # ===================== Lifecycle =====================
@@ -206,6 +241,7 @@ func _ready() -> void:
 	_hud_end_turn_btn.pressed.connect(_on_end_turn)
 	_btn_stadium_action.pressed.connect(_on_stadium_action_pressed)
 	_btn_opponent_hand.pressed.connect(_on_opponent_hand_pressed)
+	_btn_ai_advice.pressed.connect(_on_ai_advice_pressed)
 	_btn_zeus_help.pressed.connect(_on_zeus_help_pressed)
 	_btn_back.pressed.connect(_on_back_pressed)
 	_dialog_confirm.pressed.connect(_on_dialog_confirm)
@@ -219,6 +255,7 @@ func _ready() -> void:
 	_coin_overlay.visible = false
 	_detail_overlay.visible = false
 	_discard_overlay.visible = false
+	_review_overlay.visible = false
 	_hand_title.visible = false
 	_left_panel.visible = false
 	_right_panel.visible = false
@@ -268,6 +305,11 @@ func _ready() -> void:
 	_discard_close_btn.pressed.connect(func() -> void:
 		_discard_overlay.visible = false
 	)
+	_review_close_btn.pressed.connect(func() -> void:
+		_review_overlay.visible = false
+	)
+	_review_regenerate_btn.pressed.connect(_on_review_regenerate_pressed)
+	_setup_battle_advice_ui()
 	var stadium_sections := $MainArea/CenterField/FieldArea/StadiumBar/StadiumSections as HBoxContainer
 	if stadium_sections != null:
 		stadium_sections.move_child(_stadium_center_section, 0)
@@ -284,7 +326,7 @@ func _ready() -> void:
 		if e is InputEventMouseButton:
 			var mbe := e as InputEventMouseButton
 			if mbe.pressed and mbe.button_index == MOUSE_BUTTON_LEFT:
-				_show_discard_pile(_view_player, "己方弃牌区")
+				_show_discard_pile(_view_player, "我方弃牌区")
 	)
 	if _opp_discard_preview != null:
 		_opp_discard_preview.left_clicked.connect(func(_ci: CardInstance, _cd: CardData) -> void:
@@ -296,7 +338,7 @@ func _ready() -> void:
 		)
 	if _my_discard_preview != null:
 		_my_discard_preview.left_clicked.connect(func(_ci: CardInstance, _cd: CardData) -> void:
-			_show_discard_pile(_view_player, "己方弃牌区")
+			_show_discard_pile(_view_player, "我方弃牌区")
 		)
 		_my_discard_preview.right_clicked.connect(func(_ci: CardInstance, cd: CardData) -> void:
 			if cd != null:
@@ -363,7 +405,11 @@ func _start_battle() -> void:
 	_setup_done = [false, false]
 	# Reset visible player before starting a new match.
 	_view_player = 0
+	_battle_recording_started = false
+	_battle_recording_context_captured = false
+	_ensure_battle_recording_started()
 	_gsm.start_game(deck1_data, deck2_data, GameManager.first_player_choice)
+	_capture_battle_recording_context_if_ready()
 	# Setup flow continues through state change callbacks and mulligan prompts.
 	# The visible player may be switched later by setup and handover logic.
 
@@ -967,6 +1013,7 @@ func _insert_pile_preview(box: VBoxContainer, child_index: int, clickable: bool,
 # ===================== Scene Callbacks =====================
 
 func _on_state_changed(_new_phase: GameState.GamePhase) -> void:
+	_capture_battle_recording_context_if_ready()
 	_refresh_ui()
 	_check_two_player_handover()
 	_maybe_run_ai()
@@ -974,11 +1021,27 @@ func _on_state_changed(_new_phase: GameState.GamePhase) -> void:
 
 
 func _on_action_logged(action: GameAction) -> void:
+	_capture_battle_recording_context_if_ready()
 	if action.description != "":
 		_log(action.description)
+	_record_battle_event({
+		"event_type": "action_resolved",
+		"action_type": action.action_type,
+		"player_index": action.player_index,
+		"turn_number": action.turn_number,
+		"phase": _recording_phase_name(),
+		"description": action.description,
+		"data": action.data.duplicate(true),
+	})
+	_record_battle_state_snapshot("after_action_resolved", {
+		"action_type": action.action_type,
+		"description": action.description,
+		"resolved_player_index": action.player_index,
+	})
 
 
 func _on_player_choice_required(choice_type: String, data: Dictionary) -> void:
+	_capture_battle_recording_context_if_ready()
 	_runtime_log("player_choice_required", "%s data=%s" % [choice_type, JSON.stringify(data)])
 	match choice_type:
 		"mulligan_extra_draw":
@@ -1073,11 +1136,28 @@ func _on_game_over(winner_index: int, reason: String) -> void:
 	_runtime_log("game_over", "winner=%d reason=%s" % [winner_index, reason])
 	_clear_prize_selection()
 	_refresh_ui()
-	_show_dialog(
-		"游戏结束",
-		["玩家 %d 获胜\n原因：%s" % [winner_index + 1, reason], "返回对战准备"],
-		{"winner": winner_index, "action": "game_over"}
-	)
+	_battle_review_winner_index = winner_index
+	_battle_review_reason = reason
+	_record_battle_state_snapshot("match_end", {
+		"winner_index": winner_index,
+		"reason": reason,
+	})
+	_record_battle_event({
+		"event_type": "match_ended",
+		"player_index": winner_index,
+		"turn_number": _gsm.game_state.turn_number if _gsm != null and _gsm.game_state != null else 0,
+		"phase": _recording_phase_name(),
+		"reason": reason,
+		"winner_index": winner_index,
+	})
+	if _battle_recorder != null and _battle_recorder.has_method("get_match_dir"):
+		_battle_review_match_dir = str(_battle_recorder.call("get_match_dir"))
+	_show_match_end_dialog(winner_index, reason)
+	_finalize_battle_recording({
+		"winner_index": winner_index,
+		"reason": reason,
+		"turn_number": _gsm.game_state.turn_number if _gsm != null and _gsm.game_state != null else 0,
+	})
 
 
 # ===================== Setup Flow (UI-driven) =====================
@@ -1754,6 +1834,17 @@ func _show_field_slot_choice(title: String, items: Array, data: Dictionary = {})
 	_rebuild_field_slot_index_map(items)
 	_field_interaction_overlay.visible = true
 	_refresh_field_interaction_status()
+	_record_battle_event({
+		"event_type": "choice_context",
+		"prompt_source": "field_slot",
+		"prompt_type": str(data.get("prompt_type", _pending_choice)),
+		"title": title,
+		"items": items.duplicate(true),
+		"extra_data": data.duplicate(true),
+		"player_index": int(data.get("player", _gsm.game_state.current_player_index if _gsm != null and _gsm.game_state != null else -1)),
+		"turn_number": _gsm.game_state.turn_number if _gsm != null and _gsm.game_state != null else 0,
+		"phase": _recording_phase_name(),
+	})
 
 
 func _show_field_assignment_interaction(step: Dictionary) -> void:
@@ -1767,6 +1858,17 @@ func _show_field_assignment_interaction(step: Dictionary) -> void:
 	_build_field_assignment_source_cards()
 	_field_interaction_overlay.visible = true
 	_refresh_field_interaction_status()
+	_record_battle_event({
+		"event_type": "choice_context",
+		"prompt_source": "field_assignment",
+		"prompt_type": str(step.get("prompt_type", _pending_choice)),
+		"title": str(step.get("title", "请选择")),
+		"items": step.get("target_items", []).duplicate(true),
+		"extra_data": step.duplicate(true),
+		"player_index": int(step.get("player", _gsm.game_state.current_player_index if _gsm != null and _gsm.game_state != null else -1)),
+		"turn_number": _gsm.game_state.turn_number if _gsm != null and _gsm.game_state != null else 0,
+		"phase": _recording_phase_name(),
+	})
 
 
 func _rebuild_field_slot_index_map(items: Array) -> void:
@@ -2136,6 +2238,22 @@ func _show_dialog(title: String, items: Array, extra_data: Dictionary = {}) -> v
 			_dialog_state_snapshot()
 		]
 	)
+	_record_battle_state_snapshot("before_choice_context", {
+		"prompt_source": "dialog",
+		"prompt_type": str(extra_data.get("prompt_type", _pending_choice)),
+		"title": title,
+	})
+	_record_battle_event({
+		"event_type": "choice_context",
+		"prompt_source": "dialog",
+		"prompt_type": str(extra_data.get("prompt_type", _pending_choice)),
+		"title": title,
+		"items": items.duplicate(true),
+		"extra_data": extra_data.duplicate(true),
+		"player_index": int(extra_data.get("player", _gsm.game_state.current_player_index if _gsm != null and _gsm.game_state != null else -1)),
+		"turn_number": _gsm.game_state.turn_number if _gsm != null and _gsm.game_state != null else 0,
+		"phase": _recording_phase_name(),
+	})
 	if not _dialog_assignment_mode and int(extra_data.get("max_select", 1)) > 1:
 		_log("已启用多选：先选择卡牌，再点击确认。")
 	return
@@ -2506,6 +2624,61 @@ func _dialog_item_has_card_visual(item: Variant) -> bool:
 	return item is CardInstance or item is CardData or item is PokemonSlot
 
 
+func _selection_label_from_item(item: Variant, fallback: String = "") -> String:
+	if fallback.strip_edges() != "":
+		return fallback.strip_edges()
+	if item is PokemonSlot:
+		return (item as PokemonSlot).get_pokemon_name()
+	if item is CardInstance:
+		var card: CardInstance = item
+		return card.card_data.name if card.card_data != null else ""
+	if item is CardData:
+		return (item as CardData).name
+	if item is Dictionary:
+		var entry: Dictionary = item
+		for key: String in ["pokemon_name", "card_name", "name", "title"]:
+			var text := str(entry.get(key, "")).strip_edges()
+			if text != "":
+				return text
+	return str(item).strip_edges()
+
+
+func _selected_dialog_labels(sel_items: PackedInt32Array) -> Array[String]:
+	var labels: Array[String] = []
+	var choice_labels: Array = _dialog_data.get("choice_labels", _dialog_items_data)
+	for idx: int in sel_items:
+		if idx < 0:
+			continue
+		var item: Variant = _dialog_items_data[idx] if idx < _dialog_items_data.size() else null
+		var fallback := str(choice_labels[idx]) if idx < choice_labels.size() else ""
+		labels.append(_selection_label_from_item(item, fallback))
+	return labels
+
+
+func _selected_field_slot_labels(sel_items: PackedInt32Array) -> Array[String]:
+	var labels: Array[String] = []
+	var items: Array = _field_interaction_data.get("items", [])
+	for idx: int in sel_items:
+		if idx < 0 or idx >= items.size():
+			continue
+		labels.append(_selection_label_from_item(items[idx]))
+	return labels
+
+
+func _selected_assignment_labels(assignments: Array[Dictionary]) -> Array[String]:
+	var labels: Array[String] = []
+	for assignment: Dictionary in assignments:
+		var source_label := _selection_label_from_item(assignment.get("source"))
+		var target_label := _selection_label_from_item(assignment.get("target"))
+		if source_label != "" and target_label != "":
+			labels.append("%s -> %s" % [source_label, target_label])
+		elif source_label != "":
+			labels.append(source_label)
+		elif target_label != "":
+			labels.append(target_label)
+	return labels
+
+
 func _on_dialog_card_chosen(real_index: int) -> void:
 	var min_select: int = int(_dialog_data.get("min_select", 1))
 	var max_select: int = int(_dialog_data.get("max_select", 1))
@@ -2761,7 +2934,17 @@ func _handle_dialog_choice(selected_indices: PackedInt32Array) -> void:
 			)
 			_apply_zeus_help(zeus_player_index, selected_cards)
 		"game_over":
-			if idx == 1:
+			var review_action_kind: String = str(_dialog_data.get("review_action", ""))
+			if review_action_kind != "":
+				if idx == 1:
+					match review_action_kind:
+						"generate", "retry":
+							_begin_battle_review_generation()
+						"view":
+							_open_cached_battle_review()
+				elif idx == 2:
+					GameManager.goto_battle_setup()
+			elif idx == 1:
 				GameManager.goto_battle_setup()
 		"effect_interaction":
 			_handle_effect_interaction_choice(selected_indices)
@@ -3317,6 +3500,973 @@ func _setup_ai_for_tests() -> void:
 	_ai_actions_this_turn = 0
 
 
+func _set_battle_recording_output_root(root_path: String) -> void:
+	_battle_recording_output_root = root_path
+	if _battle_recorder != null and _battle_recorder.has_method("set_output_root"):
+		_battle_recorder.call("set_output_root", root_path)
+
+
+func _should_record_local_battle() -> bool:
+	return GameManager.current_mode == GameManager.GameMode.TWO_PLAYER
+
+
+func _can_capture_battle_recording_context() -> bool:
+	return (
+		_gsm != null
+		and _gsm.game_state != null
+		and _gsm.game_state.players.size() >= 2
+	)
+
+
+func _capture_battle_recording_context_if_ready() -> void:
+	if not _battle_recording_started or _battle_recorder == null or not _can_capture_battle_recording_context():
+		return
+	if _battle_recorder.has_method("update_match_context"):
+		_battle_recorder.call("update_match_context", _build_battle_record_meta(), _build_battle_initial_state())
+	if _battle_recording_context_captured:
+		return
+	_battle_recording_context_captured = true
+	_record_battle_event({
+		"event_type": "match_started",
+		"player_index": -1,
+		"turn_number": _gsm.game_state.turn_number,
+		"phase": _recording_phase_name(),
+		"mode": "two_player",
+		"view_player": _view_player,
+	})
+	_record_battle_state_snapshot("match_start")
+
+
+func _ensure_battle_recording_started() -> void:
+	if _battle_recording_started or not _should_record_local_battle() or _gsm == null or _gsm.game_state == null:
+		return
+	_battle_recorder = BattleRecorderScript.new()
+	if _battle_recorder == null:
+		return
+	if _battle_recording_output_root != "":
+		_battle_recorder.call("set_output_root", _battle_recording_output_root)
+	_battle_recorder.call("start_match", _build_battle_record_meta(), _build_battle_initial_state())
+	_battle_recording_started = true
+	_battle_advice_initial_snapshot = _build_battle_advice_initial_snapshot()
+	if _battle_recorder.has_method("get_match_dir"):
+		_battle_review_match_dir = str(_battle_recorder.call("get_match_dir"))
+	_capture_battle_recording_context_if_ready()
+
+
+func _record_battle_event(event_data: Dictionary) -> void:
+	if not _battle_recording_started or _battle_recorder == null:
+		return
+	var sanitized: Variant = _sanitize_recording_value(event_data)
+	_battle_recorder.call("record_event", sanitized if sanitized is Dictionary else {})
+
+
+func _finalize_battle_recording(result_data: Dictionary) -> void:
+	if not _battle_recording_started or _battle_recorder == null:
+		return
+	_battle_recorder.call("finalize_match", result_data)
+	if _battle_recorder.has_method("get_match_dir"):
+		_battle_review_match_dir = str(_battle_recorder.call("get_match_dir"))
+	_battle_recording_started = false
+	_battle_recording_context_captured = false
+
+
+func _show_match_end_dialog(winner_index: int, reason: String) -> void:
+	var summary := _match_end_summary_text(winner_index, reason)
+	var items: Array[String] = [summary]
+	var extra_data: Dictionary = {
+		"winner": winner_index,
+		"reason": reason,
+		"action": "game_over",
+	}
+	var review_action: Dictionary = _current_match_end_review_action()
+	if not review_action.is_empty():
+		items.append(str(review_action.get("label", "生成AI复盘")))
+		items.append("返回对战准备")
+		extra_data["review_action"] = str(review_action.get("kind", "generate"))
+	else:
+		items.append("返回对战准备")
+	_pending_choice = "game_over"
+	_show_dialog("游戏结束", items, extra_data)
+
+
+func _match_end_summary_text(winner_index: int, reason: String) -> String:
+	return "玩家 %d 获胜\n原因：%s" % [winner_index + 1, reason]
+
+
+func _current_match_end_review_action() -> Dictionary:
+	if not _should_offer_battle_review():
+		return {}
+	if _battle_review_busy:
+		return {
+			"kind": "busy",
+			"label": _battle_review_progress_text if _battle_review_progress_text != "" else "正在生成 AI 复盘...",
+		}
+	var cached_review: Dictionary = _load_cached_battle_review()
+	var cached_status := str(cached_review.get("status", ""))
+	if cached_status in ["completed", "partial_success"]:
+		_battle_review_last_review = cached_review
+		return {"kind": "view", "label": "查看AI复盘"}
+	if cached_status == "failed":
+		_battle_review_last_review = cached_review
+		return {"kind": "retry", "label": "生成失败，重试"}
+	if str(_battle_review_last_review.get("status", "")) == "failed":
+		return {"kind": "retry", "label": "生成失败，重试"}
+	return {"kind": "generate", "label": "生成AI复盘"}
+
+
+func _should_offer_battle_review() -> bool:
+	return GameManager.current_mode == GameManager.GameMode.TWO_PLAYER
+
+
+func _load_cached_battle_review() -> Dictionary:
+	if _battle_review_match_dir.strip_edges() == "" or _battle_review_store == null:
+		return {}
+	if not _battle_review_store.has_method("read_review"):
+		return {}
+	var review: Variant = _battle_review_store.call("read_review", _battle_review_match_dir)
+	return review if review is Dictionary else {}
+
+
+func _ensure_battle_review_service() -> void:
+	if _battle_review_service != null:
+		return
+	_battle_review_service = BattleReviewServiceScript.new()
+	if _battle_review_service == null:
+		return
+	if _battle_review_service.has_method("configure_dependencies"):
+		_battle_review_service.call("configure_dependencies", null, null, _battle_review_store, null)
+	if _battle_review_service.has_signal("status_changed") and not _battle_review_service.status_changed.is_connected(_on_battle_review_status_changed):
+		_battle_review_service.status_changed.connect(_on_battle_review_status_changed)
+	if _battle_review_service.has_signal("review_completed") and not _battle_review_service.review_completed.is_connected(_on_battle_review_completed):
+		_battle_review_service.review_completed.connect(_on_battle_review_completed)
+
+
+func _begin_battle_review_generation() -> void:
+	if _battle_review_match_dir.strip_edges() == "":
+		_battle_review_last_review = {
+			"status": "failed",
+			"errors": [{"message": "match_dir unavailable"}],
+		}
+		_show_match_end_dialog(_battle_review_winner_index, _battle_review_reason)
+		return
+	_ensure_battle_review_service()
+	if _battle_review_service == null:
+		return
+	_battle_review_busy = true
+	_battle_review_progress_text = "正在筛选关键回合..."
+	_show_match_end_dialog(_battle_review_winner_index, _battle_review_reason)
+	_battle_review_service.call("generate_review", self, _battle_review_match_dir, GameManager.get_battle_review_api_config())
+
+
+func _on_battle_review_status_changed(status: String, context: Dictionary) -> void:
+	match status:
+		"selecting_turns":
+			_battle_review_busy = true
+			_battle_review_progress_text = "正在筛选关键回合..."
+		"analyzing_turn":
+			_battle_review_busy = true
+			var current_turn: int = int(context.get("turn_index", 0)) + 1
+			var total: int = int(context.get("total", 0))
+			_battle_review_progress_text = "正在分析回合 %d / %d..." % [current_turn, total]
+		"writing_review":
+			_battle_review_busy = true
+			_battle_review_progress_text = "正在写入 AI 复盘..."
+		"completed":
+			_battle_review_busy = false
+			_battle_review_progress_text = ""
+		"failed":
+			_battle_review_busy = false
+			_battle_review_progress_text = ""
+	_refresh_match_end_dialog_if_visible()
+
+
+func _on_battle_review_completed(review: Dictionary) -> void:
+	_battle_review_last_review = review.duplicate(true)
+	_battle_review_busy = false
+	_battle_review_progress_text = ""
+	_refresh_match_end_dialog_if_visible()
+
+
+func _refresh_match_end_dialog_if_visible() -> void:
+	if _pending_choice != "game_over" or _dialog_overlay == null or not _dialog_overlay.visible:
+		return
+	_show_match_end_dialog(_battle_review_winner_index, _battle_review_reason)
+
+
+func _open_cached_battle_review() -> void:
+	var review: Dictionary = _load_cached_battle_review()
+	if review.is_empty():
+		review = _battle_review_last_review.duplicate(true)
+	if review.is_empty():
+		return
+	_show_battle_review_overlay(review)
+
+
+func _show_battle_review_overlay(review: Dictionary) -> void:
+	_review_title.text = "AI Review"
+	_review_content.text = _format_battle_review(review)
+	_review_overlay.visible = true
+	_review_regenerate_btn.disabled = _battle_review_busy
+
+
+func _format_battle_review(review: Dictionary) -> String:
+	var lines: Array[String] = []
+	lines.append("[b]Status[/b] %s" % str(review.get("status", "")))
+	var selected_turns: Array = review.get("selected_turns", [])
+	var turn_reviews_by_number: Dictionary = {}
+	for turn_review_variant: Variant in review.get("turn_reviews", []):
+		if not (turn_review_variant is Dictionary):
+			continue
+		var turn_review: Dictionary = turn_review_variant
+		turn_reviews_by_number[int(turn_review.get("turn_number", 0))] = turn_review
+	lines.append("")
+	lines.append("[b]Winner Key Turn[/b]")
+	_append_review_side_v4(lines, selected_turns, "winner", turn_reviews_by_number)
+	lines.append("")
+	lines.append("[b]Loser Key Turn[/b]")
+	_append_review_side_v4(lines, selected_turns, "loser", turn_reviews_by_number)
+	var errors: Array = review.get("errors", [])
+	if not errors.is_empty():
+		lines.append("")
+		lines.append("[b]Errors[/b]")
+		for error_variant: Variant in errors:
+			if not (error_variant is Dictionary):
+				continue
+			lines.append("- %s" % str((error_variant as Dictionary).get("message", "")))
+	return "\n".join(lines)
+
+
+func _append_review_side(lines: Array[String], selected_turns: Array, side: String, turn_reviews_by_number: Dictionary) -> void:
+	var wrote_any := false
+	for turn_variant: Variant in selected_turns:
+		if not (turn_variant is Dictionary):
+			continue
+		var turn: Dictionary = turn_variant
+		if str(turn.get("side", "")) != side:
+			continue
+		wrote_any = true
+		var turn_number := int(turn.get("turn_number", 0))
+		lines.append("第 %d 回合: %s" % [turn_number, str(turn.get("reason", ""))])
+		var review_variant: Variant = turn_reviews_by_number.get(turn_number, {})
+		var turn_review: Dictionary = review_variant if review_variant is Dictionary else {}
+		var falls_short: Array = turn_review.get("why_current_line_falls_short", [])
+		if not falls_short.is_empty():
+			lines.append("当前线路的问题")
+			for item_variant: Variant in falls_short:
+				lines.append("- %s" % str(item_variant))
+		var better_line_variant: Variant = turn_review.get("better_line", {})
+		var better_line: Dictionary = better_line_variant if better_line_variant is Dictionary else {}
+		var goal := str(better_line.get("goal", ""))
+		if goal != "":
+			lines.append("目标: %s" % goal)
+		var steps: Array = better_line.get("steps", [])
+		for step_index: int in steps.size():
+			lines.append("%d. %s" % [step_index + 1, str(steps[step_index])])
+		for reason_variant: Variant in turn_review.get("why_better", []):
+			lines.append("- %s" % str(reason_variant))
+		lines.append("")
+	if not wrote_any:
+		lines.append("暂无")
+
+
+func _on_review_regenerate_pressed() -> void:
+	if _review_overlay_mode == "advice":
+		_on_ai_advice_pressed()
+		return
+	_begin_battle_review_generation()
+
+
+func _setup_battle_advice_ui() -> void:
+	var review_buttons := _review_regenerate_btn.get_parent() as HBoxContainer
+	if review_buttons != null and _review_pin_btn == null:
+		_review_pin_btn = Button.new()
+		_review_pin_btn.name = "ReviewPinBtn"
+		_review_pin_btn.text = "固定到侧边"
+		review_buttons.add_child(_review_pin_btn)
+		review_buttons.move_child(_review_pin_btn, review_buttons.get_child_count() - 1)
+		_review_pin_btn.pressed.connect(_on_review_pin_pressed)
+		_style_hud_button(_review_pin_btn)
+		_review_pin_btn.visible = false
+
+	if _battle_advice_panel != null:
+		return
+
+	var log_panel := get_node_or_null("MainArea/LogPanel") as VBoxContainer
+	if log_panel == null:
+		return
+
+	_battle_advice_panel = PanelContainer.new()
+	_battle_advice_panel.name = "AdvicePanel"
+	_battle_advice_panel.visible = false
+	_battle_advice_panel.size_flags_vertical = Control.SIZE_FILL
+	_style_panel(_battle_advice_panel, Color(0.02, 0.08, 0.12, 0.86), Color(0.18, 0.62, 0.78, 0.9), 12)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 8)
+	margin.add_theme_constant_override("margin_top", 8)
+	margin.add_theme_constant_override("margin_right", 8)
+	margin.add_theme_constant_override("margin_bottom", 8)
+	_battle_advice_panel.add_child(margin)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 6)
+	margin.add_child(vbox)
+
+	var header := HBoxContainer.new()
+	header.add_theme_constant_override("separation", 6)
+	vbox.add_child(header)
+
+	_battle_advice_panel_title = Label.new()
+	_battle_advice_panel_title.text = "AI建议"
+	_battle_advice_panel_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(_battle_advice_panel_title)
+
+	_battle_advice_panel_toggle_btn = Button.new()
+	_battle_advice_panel_toggle_btn.text = "折叠"
+	_battle_advice_panel_toggle_btn.pressed.connect(_on_battle_advice_panel_toggle_pressed)
+	_style_hud_button(_battle_advice_panel_toggle_btn)
+	header.add_child(_battle_advice_panel_toggle_btn)
+
+	_battle_advice_panel_content = RichTextLabel.new()
+	_battle_advice_panel_content.bbcode_enabled = true
+	_battle_advice_panel_content.fit_content = false
+	_battle_advice_panel_content.scroll_active = true
+	_battle_advice_panel_content.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	vbox.add_child(_battle_advice_panel_content)
+
+	log_panel.add_child(_battle_advice_panel)
+	log_panel.move_child(_battle_advice_panel, 1)
+
+
+func _should_offer_battle_advice() -> bool:
+	return GameManager.current_mode == GameManager.GameMode.TWO_PLAYER
+
+
+func _current_battle_advice_match_dir() -> String:
+	if _battle_review_match_dir.strip_edges() != "":
+		return _battle_review_match_dir
+	if _battle_recorder != null and _battle_recorder.has_method("get_match_dir"):
+		return str(_battle_recorder.call("get_match_dir"))
+	return ""
+
+
+func _ensure_battle_advice_service() -> void:
+	if _battle_advice_service != null:
+		return
+	_battle_advice_service = BattleAdviceServiceScript.new()
+	if _battle_advice_service == null:
+		return
+	if _battle_advice_service.has_signal("status_changed") and not _battle_advice_service.status_changed.is_connected(_on_battle_advice_status_changed):
+		_battle_advice_service.status_changed.connect(_on_battle_advice_status_changed)
+	if _battle_advice_service.has_signal("advice_completed") and not _battle_advice_service.advice_completed.is_connected(_on_battle_advice_completed):
+		_battle_advice_service.advice_completed.connect(_on_battle_advice_completed)
+
+
+func _on_ai_advice_pressed() -> void:
+	if not _should_offer_battle_advice() or _battle_advice_busy:
+		return
+
+	var match_dir := _current_battle_advice_match_dir()
+	if match_dir.strip_edges() == "":
+		_show_battle_advice_overlay({
+			"status": "failed",
+			"errors": [{"message": "match_dir unavailable"}],
+		})
+		return
+
+	if _battle_advice_initial_snapshot.is_empty():
+		_battle_advice_initial_snapshot = _build_battle_advice_initial_snapshot()
+
+	_ensure_battle_advice_service()
+	if _battle_advice_service == null:
+		return
+
+	_battle_advice_busy = true
+	_battle_advice_progress_text = "正在生成 AI 建议..."
+	_show_battle_advice_overlay({"status": "running"})
+	_battle_advice_service.call(
+		"generate_advice",
+		self,
+		match_dir,
+		_build_battle_state_snapshot(),
+		_battle_advice_initial_snapshot,
+		GameManager.get_battle_review_api_config(),
+		_view_player
+	)
+	_refresh_ui()
+
+
+func _on_battle_advice_status_changed(status: String, _context: Dictionary) -> void:
+	if status == "completed" or status == "failed":
+		_battle_advice_busy = false
+		_battle_advice_progress_text = ""
+	else:
+		_battle_advice_busy = true
+		if _battle_advice_progress_text == "":
+			_battle_advice_progress_text = "正在生成 AI 建议..."
+	if _review_overlay_mode == "advice" and _review_overlay.visible:
+		_review_regenerate_btn.disabled = _battle_advice_busy
+		if _review_pin_btn != null:
+			_review_pin_btn.disabled = _battle_advice_busy
+	_refresh_ui()
+
+
+func _on_battle_advice_completed(result: Dictionary) -> void:
+	_battle_advice_last_result = result.duplicate(true)
+	_battle_advice_busy = false
+	_battle_advice_progress_text = ""
+	_show_battle_advice_overlay(result)
+	_refresh_battle_advice_panel()
+	_refresh_ui()
+
+
+func _show_battle_advice_overlay(result: Dictionary) -> void:
+	_review_overlay_mode = "advice"
+	_review_title.text = "AI建议"
+	_review_regenerate_btn.visible = true
+	_review_regenerate_btn.text = "重新分析"
+	_review_regenerate_btn.disabled = _battle_advice_busy
+	if _review_pin_btn != null:
+		_review_pin_btn.visible = true
+		_review_pin_btn.disabled = _battle_advice_busy
+	_review_content.text = _format_battle_advice(result)
+	_review_overlay.visible = true
+
+
+func _format_battle_advice(result: Dictionary) -> String:
+	var status := str(result.get("status", ""))
+	if status == "running":
+		return "[b]AI建议[/b]\n%s" % _battle_advice_progress_text
+
+	var lines: Array[String] = []
+	lines.append("[b]状态[/b] %s" % status)
+
+	if status == "failed":
+		lines.append("")
+		lines.append("[b]错误[/b]")
+		for error_variant: Variant in result.get("errors", []):
+			if error_variant is Dictionary:
+				lines.append("- %s" % str((error_variant as Dictionary).get("message", "")))
+		return "\n".join(lines)
+
+	var thesis := str(result.get("strategic_thesis", ""))
+	if thesis != "":
+		lines.append("")
+		lines.append("[b]核心判断[/b]")
+		lines.append(thesis)
+
+	_append_advice_step_block(lines, "本回合主线", result.get("current_turn_main_line", []))
+	_append_advice_branch_block(lines, "条件分支", result.get("conditional_branches", []))
+	_append_advice_goal_block(lines, "拿奖节奏判断", result.get("prize_plan", []))
+	_append_advice_string_list(lines, "原因说明", result.get("why_this_line", []))
+	_append_advice_risk_block(lines, "风险提醒", result.get("risk_watchouts", []))
+
+	var confidence := str(result.get("confidence", ""))
+	if confidence != "":
+		lines.append("")
+		lines.append("[b]置信度[/b] %s" % confidence)
+	return "\n".join(lines)
+
+
+func _append_advice_step_block(lines: Array[String], title: String, steps_variant: Variant) -> void:
+	if not (steps_variant is Array):
+		return
+	var steps: Array = steps_variant
+	if steps.is_empty():
+		return
+	lines.append("")
+	lines.append("[b]%s[/b]" % title)
+	for step_variant: Variant in steps:
+		if not (step_variant is Dictionary):
+			continue
+		var step: Dictionary = step_variant
+		lines.append("%d. %s" % [int(step.get("step", 0)), str(step.get("action", ""))])
+		var why := str(step.get("why", ""))
+		if why != "":
+			lines.append("   %s" % why)
+
+
+func _append_advice_branch_block(lines: Array[String], title: String, branches_variant: Variant) -> void:
+	if not (branches_variant is Array):
+		return
+	var branches: Array = branches_variant
+	if branches.is_empty():
+		return
+	lines.append("")
+	lines.append("[b]%s[/b]" % title)
+	for branch_variant: Variant in branches:
+		if not (branch_variant is Dictionary):
+			continue
+		var branch: Dictionary = branch_variant
+		lines.append("- 如果 %s" % str(branch.get("if", "")))
+		for step_variant: Variant in branch.get("then", []):
+			lines.append("  - %s" % str(step_variant))
+
+
+func _append_advice_goal_block(lines: Array[String], title: String, goals_variant: Variant) -> void:
+	if not (goals_variant is Array):
+		return
+	var goals: Array = goals_variant
+	if goals.is_empty():
+		return
+	lines.append("")
+	lines.append("[b]%s[/b]" % title)
+	for goal_variant: Variant in goals:
+		if not (goal_variant is Dictionary):
+			continue
+		var goal: Dictionary = goal_variant
+		lines.append("- [%s] %s" % [str(goal.get("horizon", "")), str(goal.get("goal", ""))])
+
+
+func _append_advice_string_list(lines: Array[String], title: String, values_variant: Variant) -> void:
+	if not (values_variant is Array):
+		return
+	var values: Array = values_variant
+	if values.is_empty():
+		return
+	lines.append("")
+	lines.append("[b]%s[/b]" % title)
+	for value_variant: Variant in values:
+		lines.append("- %s" % str(value_variant))
+
+
+func _append_advice_risk_block(lines: Array[String], title: String, risks_variant: Variant) -> void:
+	if not (risks_variant is Array):
+		return
+	var risks: Array = risks_variant
+	if risks.is_empty():
+		return
+	lines.append("")
+	lines.append("[b]%s[/b]" % title)
+	for risk_variant: Variant in risks:
+		if not (risk_variant is Dictionary):
+			continue
+		var risk: Dictionary = risk_variant
+		lines.append("- %s" % str(risk.get("risk", "")))
+		lines.append("  %s" % str(risk.get("mitigation", "")))
+
+
+func _on_review_pin_pressed() -> void:
+	_battle_advice_pinned = true
+	_refresh_battle_advice_panel()
+
+
+func _on_battle_advice_panel_toggle_pressed() -> void:
+	_battle_advice_panel_collapsed = not _battle_advice_panel_collapsed
+	_refresh_battle_advice_panel()
+
+
+func _refresh_battle_advice_panel() -> void:
+	if _battle_advice_panel == null or _battle_advice_panel_content == null:
+		return
+	var has_content := not _battle_advice_last_result.is_empty()
+	_battle_advice_panel.visible = _battle_advice_pinned and (has_content or _battle_advice_busy)
+	if not _battle_advice_panel.visible:
+		return
+	_battle_advice_panel_title.text = "AI建议"
+	_battle_advice_panel_toggle_btn.text = "展开" if _battle_advice_panel_collapsed else "折叠"
+	_battle_advice_panel_content.visible = not _battle_advice_panel_collapsed
+	if _battle_advice_busy and _battle_advice_last_result.is_empty():
+		_battle_advice_panel_content.text = "[b]AI建议[/b]\n%s" % _battle_advice_progress_text
+	else:
+		_battle_advice_panel_content.text = _format_battle_advice(_battle_advice_last_result)
+
+
+func _append_review_side_v2(lines: Array[String], selected_turns: Array, side: String, turn_reviews_by_number: Dictionary) -> void:
+	var wrote_any := false
+	for turn_variant: Variant in selected_turns:
+		if not (turn_variant is Dictionary):
+			continue
+		var turn: Dictionary = turn_variant
+		if str(turn.get("side", "")) != side:
+			continue
+		wrote_any = true
+		var turn_number := int(turn.get("turn_number", 0))
+		lines.append("第 %d 回合: %s" % [turn_number, str(turn.get("reason", ""))])
+		var review_variant: Variant = turn_reviews_by_number.get(turn_number, {})
+		var turn_review: Dictionary = review_variant if review_variant is Dictionary else {}
+		_append_review_turn_goal_v2(lines, turn_review)
+		_append_review_list_v2(lines, "根因链:", turn_review.get("root_causes", []))
+		_append_review_list_v2(lines, "当前线路的问题:", turn_review.get("why_current_line_falls_short", []))
+		_append_review_line_block_v2(lines, "最佳路线:", turn_review.get("best_line", {}))
+		_append_review_list_v2(lines, "为何更适合当前对局:", turn_review.get("why_this_is_best_in_matchup", []))
+		_append_review_list_v2(lines, "对手可能的回应:", turn_review.get("expected_opponent_response", []))
+		_append_review_list_v2(lines, "权衡与风险:", turn_review.get("tradeoffs_and_risks", []))
+		_append_review_line_block_v2(lines, "鍚庡绾胯矾:", turn_review.get("fallback_line_if_goal_misses", {}))
+		_append_review_legacy_block_v2(lines, turn_review)
+		var coach_takeaway := str(turn_review.get("coach_takeaway", ""))
+		if coach_takeaway != "":
+			lines.append("教练总结: %s" % coach_takeaway)
+		lines.append("")
+	if not wrote_any:
+		lines.append("暂无")
+
+
+func _append_review_turn_goal_v2(lines: Array[String], turn_review: Dictionary) -> void:
+	var turn_goal := str(turn_review.get("turn_goal", ""))
+	if turn_goal != "":
+		lines.append("回合目标: %s" % turn_goal)
+
+
+func _append_review_list_v2(lines: Array[String], title: String, values_variant: Variant) -> void:
+	if not (values_variant is Array):
+		return
+	var values: Array = values_variant
+	if values.is_empty():
+		return
+	lines.append(title)
+	for item_variant: Variant in values:
+		lines.append("- %s" % str(item_variant))
+
+
+func _append_review_line_block_v2(lines: Array[String], title: String, block_variant: Variant) -> void:
+	if not (block_variant is Dictionary):
+		return
+	var block: Dictionary = block_variant
+	var summary := str(block.get("summary", ""))
+	if summary != "":
+		lines.append("%s %s" % [title, summary])
+	var steps: Array = block.get("steps", [])
+	for step_index: int in steps.size():
+		lines.append("%d. %s" % [step_index + 1, str(steps[step_index])])
+
+
+func _append_review_legacy_block_v2(lines: Array[String], turn_review: Dictionary) -> void:
+	var better_line_variant: Variant = turn_review.get("better_line", {})
+	if better_line_variant is Dictionary:
+		var better_line: Dictionary = better_line_variant
+		var goal := str(better_line.get("goal", ""))
+		if goal != "":
+			lines.append("目标: %s" % goal)
+		var steps: Array = better_line.get("steps", [])
+		for step_index: int in steps.size():
+			lines.append("%d. %s" % [step_index + 1, str(steps[step_index])])
+	for reason_variant: Variant in turn_review.get("why_better", []):
+		lines.append("- %s" % str(reason_variant))
+
+
+func _append_review_side_v3(lines: Array[String], selected_turns: Array, side: String, turn_reviews_by_number: Dictionary) -> void:
+	var wrote_any := false
+	for turn_variant: Variant in selected_turns:
+		if not (turn_variant is Dictionary):
+			continue
+		var turn: Dictionary = turn_variant
+		if str(turn.get("side", "")) != side:
+			continue
+		wrote_any = true
+		var turn_number := int(turn.get("turn_number", 0))
+		lines.append("Turn %d: %s" % [turn_number, str(turn.get("reason", ""))])
+		var review_variant: Variant = turn_reviews_by_number.get(turn_number, {})
+		var turn_review: Dictionary = review_variant if review_variant is Dictionary else {}
+		var turn_goal := str(turn_review.get("turn_goal", ""))
+		if turn_goal != "":
+			lines.append("回合目标: %s" % turn_goal)
+		_append_review_array_block_v3(lines, "鏍规湰鍘熷洜", turn_review.get("root_causes", []))
+		_append_review_array_block_v3(lines, "\u8930\u64B3\u58A0\u7EFE\u80EF\u77FE\u9428\u52EF\u68F6\u68F0?", turn_review.get("why_current_line_falls_short", []))
+		_append_review_dict_block_v3(lines, "Best line", turn_review.get("best_line", {}))
+		_append_review_array_block_v3(lines, "Matchup reasons", turn_review.get("why_this_is_best_in_matchup", []))
+		_append_review_array_block_v3(lines, "Expected opponent response", turn_review.get("expected_opponent_response", []))
+		_append_review_array_block_v3(lines, "Tradeoffs and risks", turn_review.get("tradeoffs_and_risks", []))
+		_append_review_dict_block_v3(lines, "Fallback line", turn_review.get("fallback_line_if_goal_misses", {}))
+		var better_line_variant: Variant = turn_review.get("better_line", {})
+		if better_line_variant is Dictionary:
+			var better_line: Dictionary = better_line_variant
+			var goal := str(better_line.get("goal", ""))
+			if goal != "":
+				lines.append("目标: %s" % goal)
+			var steps: Array = better_line.get("steps", [])
+			for step_index: int in steps.size():
+				lines.append("%d. %s" % [step_index + 1, str(steps[step_index])])
+		for reason_variant: Variant in turn_review.get("why_better", []):
+			lines.append("- %s" % str(reason_variant))
+		var coach_takeaway := str(turn_review.get("coach_takeaway", ""))
+		if coach_takeaway != "":
+			lines.append("Coach takeaway: %s" % coach_takeaway)
+		lines.append("")
+	if not wrote_any:
+		lines.append("暂无")
+
+
+func _append_review_array_block_v3(lines: Array[String], title: String, values_variant: Variant) -> void:
+	if not (values_variant is Array):
+		return
+	var values: Array = values_variant
+	if values.is_empty():
+		return
+	lines.append(title)
+	for item_variant: Variant in values:
+		lines.append("- %s" % str(item_variant))
+
+
+func _append_review_dict_block_v3(lines: Array[String], title: String, block_variant: Variant) -> void:
+	if not (block_variant is Dictionary):
+		return
+	var block: Dictionary = block_variant
+	var summary := str(block.get("summary", ""))
+	if summary != "":
+		lines.append("%s: %s" % [title, summary])
+	var steps: Array = block.get("steps", [])
+	for step_index: int in steps.size():
+		lines.append("%d. %s" % [step_index + 1, str(steps[step_index])])
+
+
+func _append_review_side_v4(lines: Array[String], selected_turns: Array, side: String, turn_reviews_by_number: Dictionary) -> void:
+	var wrote_any := false
+	for turn_variant: Variant in selected_turns:
+		if not (turn_variant is Dictionary):
+			continue
+		var turn: Dictionary = turn_variant
+		if str(turn.get("side", "")) != side:
+			continue
+		wrote_any = true
+		var turn_number := int(turn.get("turn_number", 0))
+		lines.append("Turn %d: %s" % [turn_number, str(turn.get("reason", ""))])
+		var review_variant: Variant = turn_reviews_by_number.get(turn_number, {})
+		var turn_review: Dictionary = review_variant if review_variant is Dictionary else {}
+		var turn_goal := str(turn_review.get("turn_goal", ""))
+		if turn_goal != "":
+			lines.append("Goal: %s" % turn_goal)
+		var timing_window_variant: Variant = turn_review.get("timing_window", {})
+		var timing_window: Dictionary = timing_window_variant if timing_window_variant is Dictionary else {}
+		var timing_assessment := str(timing_window.get("assessment", ""))
+		if timing_assessment != "":
+			lines.append("Timing: %s" % timing_assessment)
+		_append_review_short_list_v4(lines, "Current line issues", turn_review.get("why_current_line_falls_short", []))
+		_append_review_best_line_v4(lines, turn_review.get("best_line", {}))
+		var coach_takeaway := str(turn_review.get("coach_takeaway", ""))
+		if coach_takeaway != "":
+			lines.append("Takeaway: %s" % coach_takeaway)
+		lines.append("")
+	if not wrote_any:
+		lines.append("None")
+
+
+func _append_review_short_list_v4(lines: Array[String], title: String, values_variant: Variant) -> void:
+	if not (values_variant is Array):
+		return
+	var values: Array = values_variant
+	if values.is_empty():
+		return
+	lines.append("%s:" % title)
+	for item_variant: Variant in values:
+		lines.append("- %s" % str(item_variant))
+
+
+func _append_review_best_line_v4(lines: Array[String], block_variant: Variant) -> void:
+	if not (block_variant is Dictionary):
+		return
+	var block: Dictionary = block_variant
+	var summary := str(block.get("summary", ""))
+	if summary != "":
+		lines.append("Best line: %s" % summary)
+	var steps: Array = block.get("steps", [])
+	for step_index: int in steps.size():
+		lines.append("%d. %s" % [step_index + 1, str(steps[step_index])])
+
+
+func _build_battle_record_meta() -> Dictionary:
+	var player_labels: Array[String] = []
+	for deck_id_variant: Variant in GameManager.selected_deck_ids:
+		var deck_id: int = int(deck_id_variant)
+		var deck: DeckData = CardDatabase.get_deck(deck_id)
+		if deck != null and deck.deck_name.strip_edges() != "":
+			player_labels.append(deck.deck_name)
+		else:
+			player_labels.append("player_%d" % player_labels.size())
+	return {
+		"mode": "two_player",
+		"player_types": ["human", "human"],
+		"selected_deck_ids": GameManager.selected_deck_ids.duplicate(),
+		"player_labels": player_labels,
+		"first_player_index": _gsm.game_state.first_player_index if _gsm != null and _gsm.game_state != null else GameManager.first_player_choice,
+	}
+
+
+func _build_battle_initial_state() -> Dictionary:
+	return _build_battle_state_snapshot()
+
+
+func _build_battle_advice_initial_snapshot() -> Dictionary:
+	if _gsm == null or _gsm.game_state == null:
+		return {}
+	var state: GameState = _gsm.game_state
+	var players: Array[Dictionary] = []
+	for player_variant: Variant in state.players:
+		if not (player_variant is PlayerState):
+			continue
+		var player := player_variant as PlayerState
+		players.append({
+			"player_index": player.player_index,
+			"decklist": _serialize_card_list(player.deck),
+		})
+	return {"players": players}
+
+
+func _build_battle_state_snapshot() -> Dictionary:
+	if _gsm == null or _gsm.game_state == null:
+		return {}
+	var state: GameState = _gsm.game_state
+	return {
+		"turn_number": state.turn_number,
+		"phase": _recording_phase_name(),
+		"current_player_index": state.current_player_index,
+		"first_player_index": state.first_player_index,
+		"winner_index": state.winner_index,
+		"win_reason": state.win_reason,
+		"energy_attached_this_turn": state.energy_attached_this_turn,
+		"supporter_used_this_turn": state.supporter_used_this_turn,
+		"stadium_played_this_turn": state.stadium_played_this_turn,
+		"retreat_used_this_turn": state.retreat_used_this_turn,
+		"stadium_card": _serialize_card_instance(state.stadium_card),
+		"stadium_owner_index": state.stadium_owner_index,
+		"players": [
+			_build_battle_initial_player_state(state.players[0]) if state.players.size() > 0 else {},
+			_build_battle_initial_player_state(state.players[1]) if state.players.size() > 1 else {},
+		],
+	}
+
+
+func _build_battle_initial_player_state(player: PlayerState) -> Dictionary:
+	if player == null:
+		return {}
+	return {
+		"player_index": player.player_index,
+		"hand_count": player.hand.size(),
+		"deck_count": player.deck.size(),
+		"discard_count": player.discard_pile.size(),
+		"prize_count": player.prizes.size(),
+		"hand": _serialize_card_list(player.hand),
+		"deck": _serialize_card_list(player.deck),
+		"prizes": _serialize_card_list(player.prizes),
+		"discard_pile": _serialize_card_list(player.discard_pile),
+		"lost_zone": _serialize_card_list(player.lost_zone),
+		"active": _serialize_pokemon_slot(player.active_pokemon),
+		"bench": _serialize_slot_list(player.bench),
+	}
+
+
+func _slot_record_names(slots: Array) -> Array[String]:
+	var names: Array[String] = []
+	for slot_variant: Variant in slots:
+		names.append(_slot_record_name(slot_variant as PokemonSlot if slot_variant is PokemonSlot else null))
+	return names
+
+
+func _slot_record_name(slot: PokemonSlot) -> String:
+	return slot.get_pokemon_name() if slot != null else ""
+
+
+func _recording_phase_name() -> String:
+	if _gsm == null or _gsm.game_state == null:
+		return ""
+	return str(_gsm.game_state.phase)
+
+
+func _record_battle_state_snapshot(snapshot_reason: String, extra_data: Dictionary = {}) -> void:
+	if not _battle_recording_started:
+		return
+	var event := {
+		"event_type": "state_snapshot",
+		"snapshot_reason": snapshot_reason,
+		"player_index": _gsm.game_state.current_player_index if _gsm != null and _gsm.game_state != null else -1,
+		"turn_number": _gsm.game_state.turn_number if _gsm != null and _gsm.game_state != null else 0,
+		"phase": _recording_phase_name(),
+		"state": _build_battle_state_snapshot(),
+	}
+	for key: Variant in extra_data.keys():
+		event[str(key)] = extra_data.get(key)
+	_record_battle_event(event)
+
+
+func _serialize_slot_list(slots: Array) -> Array[Dictionary]:
+	var serialized: Array[Dictionary] = []
+	for slot_variant: Variant in slots:
+		serialized.append(_serialize_pokemon_slot(slot_variant as PokemonSlot if slot_variant is PokemonSlot else null))
+	return serialized
+
+
+func _serialize_card_list(cards: Array) -> Array[Dictionary]:
+	var serialized: Array[Dictionary] = []
+	for card_variant: Variant in cards:
+		serialized.append(_serialize_card_instance(card_variant as CardInstance if card_variant is CardInstance else null))
+	return serialized
+
+
+func _serialize_pokemon_slot(slot: PokemonSlot) -> Dictionary:
+	if slot == null:
+		return {}
+	return {
+		"pokemon_name": slot.get_pokemon_name(),
+		"prize_count": slot.get_prize_count(),
+		"damage_counters": slot.damage_counters,
+		"remaining_hp": slot.get_remaining_hp(),
+		"max_hp": slot.get_max_hp(),
+		"retreat_cost": slot.get_retreat_cost(),
+		"attached_energy": _serialize_card_list(slot.attached_energy),
+		"attached_tool": _serialize_card_instance(slot.attached_tool),
+		"status_conditions": slot.status_conditions.duplicate(true),
+		"effects": slot.effects.duplicate(true),
+		"turn_played": slot.turn_played,
+		"turn_evolved": slot.turn_evolved,
+		"pokemon_stack": _serialize_card_list(slot.pokemon_stack),
+	}
+
+
+func _serialize_card_instance(card: CardInstance) -> Dictionary:
+	if card == null:
+		return {}
+	var card_data := card.card_data
+	return {
+		"card_name": card_data.name if card_data != null else "",
+		"instance_id": card.instance_id,
+		"owner_index": card.owner_index,
+		"face_up": card.face_up,
+		"card_type": card_data.card_type if card_data != null else "",
+		"mechanic": card_data.mechanic if card_data != null else "",
+		"description": card_data.description if card_data != null else "",
+		"stage": card_data.stage if card_data != null else "",
+		"hp": card_data.hp if card_data != null else 0,
+		"energy_type": card_data.energy_type if card_data != null else "",
+		"effect_id": card_data.effect_id if card_data != null else "",
+		"energy_provides": card_data.energy_provides if card_data != null else "",
+		"attacks": card_data.attacks.duplicate(true) if card_data != null else [],
+		"abilities": card_data.abilities.duplicate(true) if card_data != null else [],
+	}
+
+
+func _sanitize_recording_value(value: Variant) -> Variant:
+	if value is Dictionary:
+		var sanitized_dict := {}
+		for key: Variant in (value as Dictionary).keys():
+			sanitized_dict[str(key)] = _sanitize_recording_value((value as Dictionary).get(key))
+		return sanitized_dict
+	if value is Array:
+		var sanitized_array: Array = []
+		for entry: Variant in value:
+			sanitized_array.append(_sanitize_recording_value(entry))
+		return sanitized_array
+	if value is PokemonSlot:
+		return _serialize_pokemon_slot(value)
+	if value is CardInstance:
+		return _serialize_card_instance(value)
+	if value is CardData:
+		var card_data: CardData = value
+		return {
+			"card_name": card_data.name,
+			"card_type": card_data.card_type,
+			"mechanic": card_data.mechanic,
+			"description": card_data.description,
+			"stage": card_data.stage,
+			"hp": card_data.hp,
+			"energy_type": card_data.energy_type,
+			"effect_id": card_data.effect_id,
+			"energy_provides": card_data.energy_provides,
+			"attacks": card_data.attacks.duplicate(true),
+			"abilities": card_data.abilities.duplicate(true),
+		}
+	return value
+
+
 func set_ai_version_registry_for_test(registry: RefCounted) -> void:
 	_ai_version_registry = registry
 
@@ -3581,7 +4731,7 @@ func _on_hand_card_clicked(inst: CardInstance, _panel: PanelContainer) -> void:
 	var cd := inst.card_data
 
 	if cd.card_type == "Supporter":
-		if _gsm.rule_validator.can_play_supporter(_gsm.game_state, cp):
+		if _gsm.rule_validator.can_play_supporter(_gsm.game_state, cp) or _gsm._can_play_supporter_exception(cp, inst):
 			_try_play_trainer_with_interaction(cp, inst)
 		else:
 			_log("当前不能使用支援者卡")
@@ -4111,26 +5261,29 @@ func _refresh_ui() -> void:
 	var my: PlayerState = gs.players[vp]
 	var opp: PlayerState = gs.players[op]
 
-	_lbl_phase.text = "当前回合：%s | 对方手牌：%d" % [_get_selected_deck_name(cp), opp.hand.size()]
+	_lbl_phase.text = "当前牌组：%s | 对手手牌：%d" % [_get_selected_deck_name(cp), opp.hand.size()]
 	_lbl_turn.text = "第 %d 回合 | 玩家 %d 行动" % [gs.turn_number, cp + 1]
 	if _btn_opponent_hand != null:
 		_btn_opponent_hand.visible = GameManager.current_mode == GameManager.GameMode.VS_AI
+	if _btn_ai_advice != null:
+		_btn_ai_advice.visible = GameManager.current_mode == GameManager.GameMode.TWO_PLAYER
+		_btn_ai_advice.disabled = _battle_advice_busy
 
 	_opp_prizes.text = "x%d" % opp.prizes.size()
 	_opp_deck.text = "%d" % opp.deck.size()
 	_opp_discard.text = "%d" % opp.discard_pile.size()
-	_opp_hand_lbl.text = "对方手牌：%d" % opp.hand.size()
+	_opp_hand_lbl.text = "对手手牌：%d" % opp.hand.size()
 	_opp_hand_bar.visible = false
 	_opp_prize_hud_count.text = "x%d" % opp.prizes.size()
-	_opp_deck_hud_value.text = "%d张" % opp.deck.size()
-	_opp_discard_hud_value.text = "%d张" % opp.discard_pile.size()
+	_opp_deck_hud_value.text = "%d 张" % opp.deck.size()
+	_opp_discard_hud_value.text = "%d 张" % opp.discard_pile.size()
 
 	_my_prizes.text = "x%d" % my.prizes.size()
 	_my_deck.text = "%d" % my.deck.size()
 	_my_discard.text = "%d" % my.discard_pile.size()
 	_my_prize_hud_count.text = "x%d" % my.prizes.size()
-	_my_deck_hud_value.text = "%d张" % my.deck.size()
-	_my_discard_hud_value.text = "%d张" % my.discard_pile.size()
+	_my_deck_hud_value.text = "%d 张" % my.deck.size()
+	_my_discard_hud_value.text = "%d 张" % my.discard_pile.size()
 	_refresh_prize_titles()
 	_update_side_previews(opp, my)
 
@@ -4145,6 +5298,7 @@ func _refresh_ui() -> void:
 	_refresh_hand()
 	if _is_field_interaction_active():
 		_refresh_field_interaction_status()
+	_refresh_battle_advice_panel()
 	_runtime_log_ui_state_if_changed()
 
 

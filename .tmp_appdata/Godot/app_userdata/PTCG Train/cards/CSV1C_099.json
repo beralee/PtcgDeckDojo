@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "巢穴藏身",
+			"text": "在自己的回合可以使用1次。将自己所有的手牌翻到反面重洗，放回牌库下方。然后，从牌库上方抽取1张卡牌。"
+		}
+	],
+	"ancient_trait": "",
+	"artist": "HYOGONOSUKE",
+	"attacks": [
+		{
+			"cost": "CC",
+			"damage": "20",
+			"is_vstar_power": false,
+			"name": "咬住",
+			"text": ""
+		}
+	],
+	"card_index": "099",
+	"card_index_en": "151",
+	"card_type": "Pokemon",
+	"description": "特性: 巢穴藏身\n在自己的回合可以使用1次。将自己所有的手牌翻到反面重洗，放回牌库下方。然后，从牌库上方抽取1张卡牌。\n\n 咬住 20\n\n\n",
+	"effect_id": "de67a9a68f5207134be40c715c9be8ef",
+	"energy_provides": "",
+	"energy_type": "C",
+	"evolves_from": "",
+	"hp": 60,
+	"image_local_path": "user://cards/images/CSV1C/099.png",
+	"image_url": "https://tcg.mik.moe/static/img/CSV1C/099.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "",
+	"name": "贪心栗鼠",
+	"name_en": "Skwovet",
+	"rarity": "C",
+	"regulation_expanded": true,
+	"regulation_mark": "G",
+	"regulation_standard": true,
+	"release_date": "2025-01-17T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 1,
+	"set_code": "CSV1C",
+	"set_code_en": "SVI",
+	"stage": "Basic",
+	"weakness_energy": "F",
+	"weakness_value": "×2",
+	"yoren_code": "P819"
+}

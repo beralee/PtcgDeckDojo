@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "烈炎支配",
+			"text": "在自己的回合，当将这张卡牌从手牌使出并进行进化时，可使用1次。选择自己牌库中最多3张「基本【火】能量」，以任意方式附着于自己的宝可梦身上。并重洗牌库。"
+		}
+	],
+	"ancient_trait": "Tera",
+	"artist": "5ban Graphics",
+	"attacks": [
+		{
+			"cost": "RR",
+			"damage": "180+",
+			"is_vstar_power": false,
+			"name": "燃烧黑暗",
+			"text": "追加造成对手已经获得的奖赏卡张数×30伤害。"
+		}
+	],
+	"card_index": "075",
+	"card_index_en": "125",
+	"card_type": "Pokemon",
+	"description": "特性: 烈炎支配\n在自己的回合，当将这张卡牌从手牌使出并进行进化时，可使用1次。选择自己牌库中最多3张「基本【火】能量」，以任意方式附着于自己的宝可梦身上。并重洗牌库。\n\n【火】【火】 燃烧黑暗 180+\n追加造成对手已经获得的奖赏卡张数×30伤害。\n\n",
+	"effect_id": "767b6233bf90b98b7af190ea3b40d7a2",
+	"energy_provides": "",
+	"energy_type": "D",
+	"evolves_from": "火恐龙",
+	"hp": 330,
+	"image_local_path": "user://cards/images/CSV5C/075.png",
+	"image_url": "https://tcg.mik.moe/static/img/CSV5C/075.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "ex",
+	"name": "喷火龙ex",
+	"name_en": "Charizard ex",
+	"rarity": "RR",
+	"regulation_expanded": true,
+	"regulation_mark": "G",
+	"regulation_standard": true,
+	"release_date": "2025-09-12T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 2,
+	"set_code": "CSV5C",
+	"set_code_en": "OBF",
+	"stage": "Stage 2",
+	"weakness_energy": "G",
+	"weakness_value": "×2",
+	"yoren_code": "Y1181"
+}

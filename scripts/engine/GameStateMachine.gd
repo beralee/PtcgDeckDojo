@@ -456,6 +456,17 @@ func _finalize_knockout(player_index: int, slot: PokemonSlot, is_active: bool) -
 			{"count": prizes_taken.size()},
 			"玩家%d拿取%d张奖赏卡" % [opp_index, prizes_taken.size()])
 
+		var prize_action: GameAction = action_log.back()
+		if prize_action != null:
+			var prize_names: Array[String] = []
+			for prize_card: CardInstance in prizes_taken:
+				prize_names.append(prize_card.card_data.name if prize_card.card_data != null else "")
+			prize_action.data["prize_count"] = prizes_taken.size()
+			prize_action.data["card_names"] = prize_names
+			if prizes_taken.size() == 1:
+				prize_action.data["card_name"] = prize_names[0]
+				prize_action.data["prize_card_name"] = prize_names[0]
+
 	# 检查胜利条件
 	if _check_win_condition() >= 0:
 		return true
@@ -493,6 +504,13 @@ func resolve_take_prize(player_index: int, slot_index: int) -> bool:
 		},
 		"玩家%d拿取1张奖赏卡" % player_index)
 
+	var taken_prize_action: GameAction = action_log.back()
+	if taken_prize_action != null:
+		var taken_prize_name: String = taken_prize.card_data.name if taken_prize.card_data != null else ""
+		taken_prize_action.data["prize_count"] = 1
+		taken_prize_action.data["card_names"] = [taken_prize_name]
+		taken_prize_action.data["card_name"] = taken_prize_name
+		taken_prize_action.data["prize_card_name"] = taken_prize_name
 	if _pending_prize_remaining > 0 and not player.prizes.is_empty():
 		player_choice_required.emit("take_prize", {
 			"player": player_index,
@@ -697,6 +715,9 @@ func send_out_pokemon(player_index: int, bench_slot: PokemonSlot) -> bool:
 		{"pokemon_name": bench_slot.get_pokemon_name()},
 		"玩家%d派出 %s" % [player_index, bench_slot.get_pokemon_name()])
 
+	var send_out_action: GameAction = action_log.back()
+	if send_out_action != null:
+		send_out_action.data["replacement_pokemon_name"] = bench_slot.get_pokemon_name()
 	if _has_pending_knockouts():
 		_enter_phase(GameState.GamePhase.POKEMON_CHECK)
 		_check_all_knockouts()
@@ -895,7 +916,8 @@ func play_trainer(player_index: int, card: CardInstance, targets: Array) -> bool
 		return false
 
 	# 放入弃牌区
-	player.discard_pile.append(card)
+	if not _is_card_in_any_zone(card):
+		player.discard_pile.append(card)
 
 	if card_type == "Supporter":
 		game_state.supporter_used_this_turn = true
@@ -904,6 +926,28 @@ func play_trainer(player_index: int, card: CardInstance, targets: Array) -> bool
 		{"card_name": card.card_data.name}, "玩家%d使用 %s" % [player_index, card.card_data.name])
 	_resolve_mid_turn_knockouts()
 	return true
+
+
+func _is_card_in_any_zone(card: CardInstance) -> bool:
+	if card == null:
+		return false
+	if game_state.stadium_card == card:
+		return true
+
+	for player: PlayerState in game_state.players:
+		if card in player.hand or card in player.deck or card in player.prizes:
+			return true
+		if card in player.discard_pile or card in player.lost_zone:
+			return true
+
+		var active: PokemonSlot = player.active_pokemon
+		if active != null and card in active.collect_all_cards():
+			return true
+		for slot: PokemonSlot in player.bench:
+			if card in slot.collect_all_cards():
+				return true
+
+	return false
 
 
 ## 使出竞技场卡
@@ -1107,6 +1151,12 @@ func use_attack(player_index: int, attack_index: int, targets: Array = []) -> bo
 	_log_action(GameAction.ActionType.ATTACK, player_index,
 		{"attack_name": attack_name}, "玩家%d使用招式「%s」" % [player_index, attack_name])
 
+	var attack_action: GameAction = action_log.back()
+	if attack_action != null:
+		var has_explicit_attack_target: bool = _attack_targets_define_resolved_target(targets)
+		if not has_explicit_attack_target and (damage > 0 or targets.is_empty()):
+			attack_action.data["target_pokemon_name"] = defender.get_pokemon_name()
+		attack_action.data["damage"] = damage
 	_after_attack(player_index)
 	return true
 
@@ -1142,8 +1192,38 @@ func use_granted_attack(
 
 	var attack_name: String = str(granted_attack.get("name", ""))
 	_log_action(GameAction.ActionType.ATTACK, player_index, {"attack_name": attack_name}, "玩家%d使用招式：%s" % [player_index, attack_name])
+	var granted_attack_action: GameAction = action_log.back()
+	if granted_attack_action != null:
+		var granted_damage: int = int(granted_attack.get("damage", 0))
+		var has_explicit_attack_target: bool = _attack_targets_define_resolved_target(targets)
+		if not has_explicit_attack_target and (granted_damage > 0 or targets.is_empty()):
+			granted_attack_action.data["target_pokemon_name"] = defender.get_pokemon_name()
+		granted_attack_action.data["damage"] = granted_damage
 	_after_attack(player_index)
 	return true
+
+
+func _attack_targets_define_resolved_target(targets: Array) -> bool:
+	for entry: Variant in targets:
+		if _contains_target_selection_marker(entry):
+			return true
+	return false
+
+
+func _contains_target_selection_marker(value: Variant) -> bool:
+	if value is Dictionary:
+		var entry_dict: Dictionary = value
+		for raw_key: Variant in entry_dict.keys():
+			var key_text: String = str(raw_key).to_lower()
+			if key_text.contains("target"):
+				return true
+			if _contains_target_selection_marker(entry_dict.get(raw_key)):
+				return true
+	elif value is Array:
+		for nested: Variant in value:
+			if _contains_target_selection_marker(nested):
+				return true
+	return false
 
 
 func _calculate_attack_damage(

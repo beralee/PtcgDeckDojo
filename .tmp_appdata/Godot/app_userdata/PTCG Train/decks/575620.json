@@ -1,0 +1,290 @@
+{
+	"cards": [
+		{
+			"card_index": "020",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "09445b8c32fd4abef4230ebcdc964096",
+			"name": "光辉甲贺忍蛙",
+			"name_en": "Radiant Greninja",
+			"set_code": "CS6.5C"
+		},
+		{
+			"card_index": "185",
+			"card_type": "Tool",
+			"count": 1,
+			"effect_id": "0b4cc131a19862f92acf71494f29a0ed",
+			"name": "紧急滑板",
+			"name_en": "Rescue Board",
+			"set_code": "CSV7C"
+		},
+		{
+			"card_index": "WAT",
+			"card_type": "Basic Energy",
+			"count": 3,
+			"effect_id": "0cf075ae61b8a0b4e9151e5146c3aa26",
+			"name": "基本水能量",
+			"name_en": "Water Energy",
+			"set_code": "CSVE1C"
+		},
+		{
+			"card_index": "128",
+			"card_type": "Stadium",
+			"count": 1,
+			"effect_id": "13b3caaa408a85dfd1e2a5ad797e8b8a",
+			"name": "城镇百货",
+			"name_en": "Town Store",
+			"set_code": "CSV5C"
+		},
+		{
+			"card_index": "122",
+			"card_type": "Item",
+			"count": 4,
+			"effect_id": "15b5bf0cc2edae9b9cd0bc24389ad355",
+			"name": "幻象之门",
+			"name_en": "Mirage Gate",
+			"set_code": "CS6bC"
+		},
+		{
+			"card_index": "043",
+			"card_type": "Item",
+			"count": 4,
+			"effect_id": "1af63a7e2cb7a79215474ad8db8fd8fd",
+			"name": "巢穴球",
+			"name_en": "Nest Ball",
+			"set_code": "CSVH1C"
+		},
+		{
+			"card_index": "060",
+			"card_type": "Item",
+			"count": 1,
+			"effect_id": "2f68195255c863293be4fad262bf23d2",
+			"name": "洗翠的沉重球",
+			"name_en": "Hisuian Heavy Ball",
+			"set_code": "CS5.5C"
+		},
+		{
+			"card_index": "161",
+			"card_type": "Pokemon",
+			"count": 2,
+			"effect_id": "3b9d970012f38e8fc348c5dbaf172802",
+			"name": "土龙弟弟",
+			"name_en": "Dunsparce",
+			"set_code": "CSV7C"
+		},
+		{
+			"card_index": "LIG",
+			"card_type": "Basic Energy",
+			"count": 2,
+			"effect_id": "45550fd10011f6ade7eef16ba88788cf",
+			"name": "基本雷能量",
+			"name_en": "Lightning Energy",
+			"set_code": "CSVE1C"
+		},
+		{
+			"card_index": "DAR",
+			"card_type": "Basic Energy",
+			"count": 3,
+			"effect_id": "46c769fc57a6c250c560df648bb779f8",
+			"name": "基本恶能量",
+			"name_en": "Darkness Energy",
+			"set_code": "CSVE1C"
+		},
+		{
+			"card_index": "042",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "47676dfc37415cfdf3b3992b1de64141",
+			"name": "铁包袱",
+			"name_en": "Iron Bundle",
+			"set_code": "CSV6C"
+		},
+		{
+			"card_index": "026",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "4e07b2880d96deaa7a9afef69575d6c8",
+			"name": "古月鸟",
+			"name_en": "Cramorant",
+			"set_code": "CS6bC"
+		},
+		{
+			"card_index": "128",
+			"card_type": "Stadium",
+			"count": 1,
+			"effect_id": "53864b068a4a1e8dce3c53c884b67efa",
+			"name": "神奥神殿",
+			"name_en": "Temple of Sinnoh",
+			"set_code": "CS5bC"
+		},
+		{
+			"card_index": "116",
+			"card_type": "Item",
+			"count": 4,
+			"effect_id": "8342fe3eeec6f897f3271be1aa26a412",
+			"name": "交替推车",
+			"name_en": "Switch Cart",
+			"set_code": "CS5DC"
+		},
+		{
+			"card_index": "065",
+			"card_type": "Supporter",
+			"count": 1,
+			"effect_id": "889c893f76d8be0261cd53daad5e3c11",
+			"name": "杜娟",
+			"name_en": "Roxanne",
+			"set_code": "CS5.5C"
+		},
+		{
+			"card_index": "023",
+			"card_type": "Supporter",
+			"count": 1,
+			"effect_id": "8e1fa2c9018db938084c94c7c970d419",
+			"name": "老大的指令",
+			"name_en": "Boss's Orders",
+			"set_code": "CSVH1aC"
+		},
+		{
+			"card_index": "023",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "8ef5ff61fd97838af568f00fe3b0e3ea",
+			"name": "洛托姆V",
+			"name_en": "Rotom V",
+			"set_code": "CS6.5C"
+		},
+		{
+			"card_index": "123",
+			"card_type": "Item",
+			"count": 2,
+			"effect_id": "8f655fea1f90164bfbccb7a95c223e17",
+			"name": "放逐吸尘器",
+			"name_en": "Lost Vacuum",
+			"set_code": "CS6bC"
+		},
+		{
+			"card_index": "096",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "90b0d1f117df6523fd92b9f3168d7f7e",
+			"name": "轰鸣月ex",
+			"name_en": "Roaring Moon ex",
+			"set_code": "CSV6C"
+		},
+		{
+			"card_index": "137",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "9296cfa33d6dc517d8e12f62ad96cb75",
+			"name": "雷公V",
+			"name_en": "Raikou V",
+			"set_code": "CS4DaC"
+		},
+		{
+			"card_index": "052",
+			"card_type": "Pokemon",
+			"count": 4,
+			"effect_id": "9561f33b1bcf22820a53bf2de8ba6e35",
+			"name": "花疗环环",
+			"name_en": "Comfey",
+			"set_code": "CS6bC"
+		},
+		{
+			"card_index": "125",
+			"card_type": "Supporter",
+			"count": 4,
+			"effect_id": "9c6f696e9eb8f0c53b5f1057141a1227",
+			"name": "阿克罗玛的实验",
+			"name_en": "Colress's Experiment",
+			"set_code": "CS6bC"
+		},
+		{
+			"card_index": "066",
+			"card_type": "Tool",
+			"count": 1,
+			"effect_id": "9fa9943ccda36f417ac3cb675177c216",
+			"name": "森林封印石",
+			"name_en": "Forest Seal Stone",
+			"set_code": "CS6.5C"
+		},
+		{
+			"card_index": "112",
+			"card_type": "Item",
+			"count": 1,
+			"effect_id": "a337ed34a45e63c6d21d98c3d8e0cb6e",
+			"name": "高级球",
+			"name_en": "Ultra Ball",
+			"set_code": "CSV1C"
+		},
+		{
+			"card_index": "135",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "ab6c3357e2b8a8385a68da738f41e0c1",
+			"name": "吉雉鸡ex",
+			"name_en": "Fezandipiti ex",
+			"set_code": "CSV8C"
+		},
+		{
+			"card_index": "109",
+			"card_type": "Item",
+			"count": 4,
+			"effect_id": "c9c948169525fbb3dce70c477ec7a90a",
+			"name": "厉害钓竿",
+			"name_en": "Super Rod",
+			"set_code": "CSV1C"
+		},
+		{
+			"card_index": "176",
+			"card_type": "Item",
+			"count": 1,
+			"effect_id": "e92a86246f44351d023bd4fa271089aa",
+			"name": "秘密箱",
+			"name_en": "Secret Box",
+			"set_code": "CSV8C"
+		},
+		{
+			"card_index": "051",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "e9f0c124fc2e352af2408a7e61862b95",
+			"name": "铁臂膀ex",
+			"name_en": "Iron Hands ex",
+			"set_code": "CSV6C"
+		},
+		{
+			"card_index": "172",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "f2afef80b13b8f6a071facbcade0251c",
+			"name": "月月熊 赫月ex",
+			"name_en": "Bloodmoon Ursaluna ex",
+			"set_code": "CSV8C"
+		},
+		{
+			"card_index": "162",
+			"card_type": "Pokemon",
+			"count": 2,
+			"effect_id": "f822c0b2e4cb2865a8ac7af9d3018969",
+			"name": "土龙节节",
+			"name_en": "Dudunsparce",
+			"set_code": "CSV7C"
+		},
+		{
+			"card_index": "177",
+			"card_type": "Item",
+			"count": 4,
+			"effect_id": "f866dfee26cd6b0dbbb52b74438d0a59",
+			"name": "友好宝芬",
+			"name_en": "Buddy-Buddy Poffin",
+			"set_code": "CSV7C"
+		}
+	],
+	"deck_code": "Dg991igHRw5qmQtbpw",
+	"deck_name": "放逐Box",
+	"id": 575620,
+	"import_date": "2026-03-22T18:06:36",
+	"source_url": "https://tcg.mik.moe/decks/list/575620",
+	"total_cards": 60,
+	"variant_name": "放逐Box"
+}

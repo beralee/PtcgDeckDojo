@@ -687,6 +687,8 @@ func test_benchmark_runner_aggregate_case_results_fails_when_any_pairing_fails_g
 	])
 
 
+
+
 func test_publish_and_record_keeps_last_approved_version_when_gate_fails() -> String:
 	_cleanup_benchmark_registry_fixtures()
 	var version_registry := AIVersionRegistryScript.new()
@@ -711,8 +713,10 @@ func test_publish_and_record_keeps_last_approved_version_when_gate_fails() -> St
 	}, {
 		"candidate_agent_config_path": "user://ai_agents/candidate_failed.json",
 		"candidate_value_net_path": "user://ai_models/candidate_failed.json",
+		"candidate_action_scorer_path": "user://ai_models/action_scorer_failed.json",
 		"baseline_agent_config_path": "user://ai_agents/approved.json",
 		"baseline_value_net_path": "user://ai_models/approved.json",
+		"baseline_action_scorer_path": "user://ai_models/action_scorer_approved.json",
 		"gate_passed": false,
 		"win_rate_vs_current_best": 0.41,
 		"total_matches": 24,
@@ -729,6 +733,8 @@ func test_publish_and_record_keeps_last_approved_version_when_gate_fails() -> St
 		assert_eq(str(run_record.get("baseline_version_id", "")), "AI-20260329-01", "run records should keep the approved baseline version id"),
 		assert_eq(str(run_record.get("baseline_agent_config_path", "")), "user://ai_agents/approved.json", "run records should keep the approved baseline agent path"),
 		assert_eq(str(run_record.get("candidate_agent_config_path", "")), "user://ai_agents/candidate_failed.json", "run records should keep the failed candidate agent path"),
+		assert_eq(str(run_record.get("candidate_action_scorer_path", "")), "user://ai_models/action_scorer_failed.json", "run records should persist the failed candidate action scorer path"),
+		assert_eq(str(run_record.get("baseline_action_scorer_path", "")), "user://ai_models/action_scorer_approved.json", "run records should persist the approved baseline action scorer path"),
 	])
 	_cleanup_benchmark_registry_fixtures()
 	return result
@@ -760,8 +766,10 @@ func test_publish_and_record_promotes_new_latest_approved_version_after_gate_pas
 	}, {
 		"candidate_agent_config_path": "user://ai_agents/candidate_passed.json",
 		"candidate_value_net_path": "user://ai_models/candidate_passed.json",
+		"candidate_action_scorer_path": "user://ai_models/action_scorer_passed.json",
 		"baseline_agent_config_path": "user://ai_agents/approved.json",
 		"baseline_value_net_path": "user://ai_models/approved.json",
+		"baseline_action_scorer_path": "user://ai_models/action_scorer_approved.json",
 		"gate_passed": true,
 		"win_rate_vs_current_best": 0.58,
 		"total_matches": 24,
@@ -775,9 +783,43 @@ func test_publish_and_record_promotes_new_latest_approved_version_after_gate_pas
 	var result := run_checks([
 		assert_eq(str(latest_approved.get("version_id", "")), "AI-20260329-02", "passed gate runs should publish a new approved version"),
 		assert_eq(str(latest_approved.get("agent_config_path", "")), "user://ai_agents/candidate_passed.json", "published version should point at the candidate agent config"),
+		assert_eq(str(latest_approved.get("action_scorer_path", "")), "user://ai_models/action_scorer_passed.json", "published version should point at the candidate action scorer"),
 		assert_eq(str(run_record.get("status", "")), "published", "passed gate runs should persist published status"),
 		assert_eq(str(run_record.get("baseline_version_id", "")), "AI-20260329-01", "published run records should keep the parent approved baseline id"),
 		assert_eq(str(run_record.get("published_version_id", "")), "AI-20260329-02", "published run records should keep the new approved version id"),
+		assert_eq(str(run_record.get("candidate_action_scorer_path", "")), "user://ai_models/action_scorer_passed.json", "published run records should persist the candidate action scorer path"),
 	])
 	_cleanup_benchmark_registry_fixtures()
 	return result
+
+
+func test_benchmark_runner_persisted_summary_omits_heavy_anomaly_samples() -> String:
+	var runner = BenchmarkRunnerSceneScript.new()
+	var persisted: Dictionary = runner.call("_build_persisted_summary", {
+		"gate_passed": false,
+		"version_a_win_rate": 0.5625,
+		"anomaly_summary_path": "user://training_data/runs/run_x/anomaly_summary.json",
+		"anomaly_summary": {
+			"schema_version": 3,
+			"total_anomalies": 2,
+			"sample_limit_per_group": 3,
+			"updated_at": "2026-03-30 22:14:47",
+			"failure_reason_counts": {"stalled_no_progress": 2},
+			"phase_counts": {"phase1_self_play": 2},
+			"pairing_counts": {"miraidon_vs_gardevoir": {"total": 2, "failure_reason_counts": {"stalled_no_progress": 2}}},
+			"lane_counts": {"lane_03": 2},
+			"generation_counts": {"4": 1, "5": 1},
+			"mcts_failure_category_counts": {"headless_interaction_required": 5},
+			"mcts_failure_kind_counts": {"play_trainer": 5},
+			"samples": {"stalled_no_progress": {"miraidon_vs_gardevoir": [{"seed": 10047}]}},
+			"mcts_failure_samples": {"headless_interaction_required": {"miraidon_vs_gardevoir": [{"card_name": "秘密箱"}]}},
+		},
+	})
+	var anomaly_digest: Dictionary = persisted.get("anomaly_summary", {})
+	return run_checks([
+		assert_eq(float(persisted.get("version_a_win_rate", 0.0)), 0.5625, "Persisted summary should keep the benchmark win rate"),
+		assert_eq(int(anomaly_digest.get("total_anomalies", 0)), 2, "Persisted summary should keep anomaly totals"),
+		assert_eq(int((anomaly_digest.get("failure_reason_counts", {}) as Dictionary).get("stalled_no_progress", 0)), 2, "Persisted summary should keep anomaly counters"),
+		assert_false(anomaly_digest.has("samples"), "Persisted summary should omit heavyweight anomaly sample payloads"),
+		assert_false(anomaly_digest.has("mcts_failure_samples"), "Persisted summary should omit heavyweight MCTS failure samples"),
+	])

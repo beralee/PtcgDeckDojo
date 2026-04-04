@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "串联装置",
+			"text": "在自己的回合可以使用1次。选择自己牌库中最多2张【雷】属性的【基础】宝可梦，放于备战区。并重洗牌库。"
+		}
+	],
+	"ancient_trait": "",
+	"artist": "5ban Graphics",
+	"attacks": [
+		{
+			"cost": "LLC",
+			"damage": "220",
+			"is_vstar_power": false,
+			"name": "光子引爆",
+			"text": "在下一个自己的回合，这只宝可梦无法使用招式。"
+		}
+	],
+	"card_index": "050",
+	"card_index_en": "81",
+	"card_type": "Pokemon",
+	"description": "特性: 串联装置\n在自己的回合可以使用1次。选择自己牌库中最多2张【雷】属性的【基础】宝可梦，放于备战区。并重洗牌库。\n\n【雷】【雷】 光子引爆 220\n在下一个自己的回合，这只宝可梦无法使用招式。\n\n",
+	"effect_id": "27fbc2c429b05bd8206cd0c7f5d39b11",
+	"energy_provides": "",
+	"energy_type": "L",
+	"evolves_from": "",
+	"hp": 220,
+	"image_local_path": "user://cards/images/CSV1C/050.png",
+	"image_url": "https://tcg.mik.moe/static/img/CSV1C/050.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "ex",
+	"name": "密勒顿ex",
+	"name_en": "Miraidon ex",
+	"rarity": "RR",
+	"regulation_expanded": true,
+	"regulation_mark": "G",
+	"regulation_standard": true,
+	"release_date": "2025-01-17T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 1,
+	"set_code": "CSV1C",
+	"set_code_en": "SVI",
+	"stage": "Basic",
+	"weakness_energy": "F",
+	"weakness_value": "×2",
+	"yoren_code": "Y1196"
+}

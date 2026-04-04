@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "暗夜振翼",
+			"text": "只要这只宝可梦在战斗场上，对手战斗宝可梦的特性（除「暗夜振翼」外），全部消除。"
+		}
+	],
+	"ancient_trait": "",
+	"artist": "kodama",
+	"attacks": [
+		{
+			"cost": "CCC",
+			"damage": "90",
+			"is_vstar_power": false,
+			"name": "飞来横祸",
+			"text": "将2个伤害指示物，以任意方式放置于对手的备战宝可梦身上。"
+		}
+	],
+	"card_index": "109",
+	"card_index_en": "43",
+	"card_type": "Pokemon",
+	"description": "特性: 暗夜振翼\n只要这只宝可梦在战斗场上，对手战斗宝可梦的特性（除「暗夜振翼」外），全部消除。\n\n 飞来横祸 90\n将2个伤害指示物，以任意方式放置于对手的备战宝可梦身上。\n\n",
+	"effect_id": "0e2ffb26032237ddfb8895534fdaf39d",
+	"energy_provides": "",
+	"energy_type": "P",
+	"evolves_from": "",
+	"hp": 90,
+	"image_local_path": "user://cards/images/CSV7C/109.png",
+	"image_url": "https://tcg.mik.moe/static/img/CSV7C/109.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "",
+	"name": "振翼发",
+	"name_en": "Flutter Mane",
+	"rarity": "R",
+	"regulation_expanded": true,
+	"regulation_mark": "H",
+	"regulation_standard": true,
+	"release_date": "2026-01-16T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 1,
+	"set_code": "CSV7C",
+	"set_code_en": "PRE",
+	"stage": "Basic",
+	"weakness_energy": "M",
+	"weakness_value": "×2",
+	"yoren_code": "P0987"
+}

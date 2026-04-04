@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "润泽星耀",
+			"text": "在自己的回合可以使用。将这只宝可梦的HP，全部回复。[对战中，己方的【VSTAR】力量只能使用1次。]"
+		}
+	],
+	"ancient_trait": "",
+	"artist": "5ban Graphics",
+	"attacks": [
+		{
+			"cost": "WMC",
+			"damage": "200",
+			"is_vstar_power": false,
+			"name": "钢铁滚动",
+			"text": "在下一个对手的回合，这只宝可梦所受到的招式的伤害「-80」。"
+		}
+	],
+	"card_index": "053",
+	"card_index_en": "136",
+	"card_type": "Pokemon",
+	"description": "特性: 润泽星耀\n在自己的回合可以使用。将这只宝可梦的HP，全部回复。[对战中，己方的【VSTAR】力量只能使用1次。]\n\n【水】【钢】 钢铁滚动 200\n在下一个对手的回合，这只宝可梦所受到的招式的伤害「-80」。\n\n",
+	"effect_id": "c3ada06b5a60fb63228d9f704109718b",
+	"energy_provides": "",
+	"energy_type": "N",
+	"evolves_from": "洗翠 黏美龙V",
+	"hp": 270,
+	"image_local_path": "user://cards/images/CS5.5C/053.png",
+	"image_url": "https://tcg.mik.moe/static/img/CS5.5C/053.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "V",
+	"name": "洗翠 黏美龙VSTAR",
+	"name_en": "Hisuian Goodra VSTAR",
+	"rarity": "RRR",
+	"regulation_expanded": true,
+	"regulation_mark": "F",
+	"regulation_standard": true,
+	"release_date": "2024-08-02T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 3,
+	"set_code": "CS5.5C",
+	"set_code_en": "LOR",
+	"stage": "VSTAR",
+	"weakness_energy": "",
+	"weakness_value": "",
+	"yoren_code": "Y1073"
+}

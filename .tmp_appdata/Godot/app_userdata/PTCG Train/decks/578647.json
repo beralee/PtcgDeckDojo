@@ -1,0 +1,272 @@
+{
+	"cards": [
+		{
+			"card_index": "052",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "04653d073ffc3ca2202746e4f9aebabd",
+			"name": "玛纳霏",
+			"name_en": "Manaphy",
+			"set_code": "CS5bC"
+		},
+		{
+			"card_index": "114",
+			"card_type": "Item",
+			"count": 2,
+			"effect_id": "06bc00d5dcec33898dc6db2e4c4d10ec",
+			"name": "反击捕捉器",
+			"name_en": "Counter Catcher",
+			"set_code": "CSV6C"
+		},
+		{
+			"card_index": "020",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "09445b8c32fd4abef4230ebcdc964096",
+			"name": "光辉甲贺忍蛙",
+			"name_en": "Radiant Greninja",
+			"set_code": "CS6.5C"
+		},
+		{
+			"card_index": "109",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "0e2ffb26032237ddfb8895534fdaf39d",
+			"name": "振翼发",
+			"name_en": "Flutter Mane",
+			"set_code": "CSV7C"
+		},
+		{
+			"card_index": "065",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "12c9416c64d1a8cfbbf0a3000a9f3d50",
+			"name": "吼叫尾",
+			"name_en": "Scream Tail",
+			"set_code": "CSV6C"
+		},
+		{
+			"card_index": "043",
+			"card_type": "Item",
+			"count": 1,
+			"effect_id": "1af63a7e2cb7a79215474ad8db8fd8fd",
+			"name": "巢穴球",
+			"name_en": "Nest Ball",
+			"set_code": "CSVH1C"
+		},
+		{
+			"card_index": "043",
+			"card_type": "Pokemon",
+			"count": 3,
+			"effect_id": "27246a1e79cd8b4f7d965cf2b41b5089",
+			"name": "拉鲁拉丝",
+			"name_en": "Ralts",
+			"set_code": "CS5aC"
+		},
+		{
+			"card_index": "060",
+			"card_type": "Item",
+			"count": 1,
+			"effect_id": "2f68195255c863293be4fad262bf23d2",
+			"name": "洗翠的沉重球",
+			"name_en": "Hisuian Heavy Ball",
+			"set_code": "CS5.5C"
+		},
+		{
+			"card_index": "183",
+			"card_type": "Item",
+			"count": 2,
+			"effect_id": "3e6f1daf545dfed48d0588dd50792a2e",
+			"name": "夜间担架",
+			"name_en": "Night Stretcher",
+			"set_code": "CSV8C"
+		},
+		{
+			"card_index": "PSY",
+			"card_type": "Basic Energy",
+			"count": 7,
+			"effect_id": "41b2d1a95fafc35e4cf39383ffae928a",
+			"name": "基本超能量",
+			"name_en": "Psychic Energy",
+			"set_code": "CSVE1C"
+		},
+		{
+			"card_index": "119",
+			"card_type": "Tool",
+			"count": 2,
+			"effect_id": "43386015be5c073ba2e5b9d3692ece3f",
+			"name": "招式学习器 进化",
+			"name_en": "Technical Machine: Evolution",
+			"set_code": "CSV5C"
+		},
+		{
+			"card_index": "DAR",
+			"card_type": "Basic Energy",
+			"count": 3,
+			"effect_id": "46c769fc57a6c250c560df648bb779f8",
+			"name": "基本恶能量",
+			"name_en": "Darkness Energy",
+			"set_code": "CSVE1C"
+		},
+		{
+			"card_index": "030",
+			"card_type": "Pokemon",
+			"count": 4,
+			"effect_id": "4abd956bdf3e956fcf679120601760ff",
+			"name": "奇鲁莉安",
+			"name_en": "Kirlia",
+			"set_code": "CS6.5C"
+		},
+		{
+			"card_index": "123",
+			"card_type": "Supporter",
+			"count": 4,
+			"effect_id": "5bdbc985f9aa2e6f248b53f6f35d1d37",
+			"name": "派帕",
+			"name_en": "Arven",
+			"set_code": "CSV1C"
+		},
+		{
+			"card_index": "094",
+			"card_type": "Pokemon",
+			"count": 2,
+			"effect_id": "66fee12502043db7d92b97b0d62b0f59",
+			"name": "愿增猿",
+			"name_en": "Munkidori",
+			"set_code": "CSV8C"
+		},
+		{
+			"card_index": "125",
+			"card_type": "Supporter",
+			"count": 1,
+			"effect_id": "73d5f46ecf3a6d71b23ce7bc1a28d4f4",
+			"name": "弗图博士的剧本",
+			"name_en": "Professor Turo's Scenario",
+			"set_code": "CSV6C"
+		},
+		{
+			"card_index": "023",
+			"card_type": "Supporter",
+			"count": 1,
+			"effect_id": "8e1fa2c9018db938084c94c7c970d419",
+			"name": "老大的指令",
+			"name_en": "Boss's Orders",
+			"set_code": "CSVH1aC"
+		},
+		{
+			"card_index": "060",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "8e295bb9597fb1ebbc2c6d58a98e0839",
+			"name": "飘飘球",
+			"name_en": "Drifloon",
+			"set_code": "CSV2C"
+		},
+		{
+			"card_index": "060",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "8ef8bc904c5953682fbf7a3fa50eb7fc",
+			"name": "钥圈儿",
+			"name_en": "Klefki",
+			"set_code": "CSV1C"
+		},
+		{
+			"card_index": "112",
+			"card_type": "Item",
+			"count": 2,
+			"effect_id": "a337ed34a45e63c6d21d98c3d8e0cb6e",
+			"name": "高级球",
+			"name_en": "Ultra Ball",
+			"set_code": "CSV1C"
+		},
+		{
+			"card_index": "123",
+			"card_type": "Supporter",
+			"count": 4,
+			"effect_id": "af514f82d182aeae5327b2c360df703d",
+			"name": "奇树",
+			"name_en": "Iono",
+			"set_code": "CSV3C"
+		},
+		{
+			"card_index": "055",
+			"card_type": "Pokemon",
+			"count": 2,
+			"effect_id": "bd134d7d84e9f1a837a74b061fcb5f40",
+			"name": "沙奈朵ex",
+			"name_en": "Gardevoir ex",
+			"set_code": "CSV2C"
+		},
+		{
+			"card_index": "127",
+			"card_type": "Stadium",
+			"count": 2,
+			"effect_id": "c117bea3cc758d46430d6bef11062a56",
+			"name": "深钵镇",
+			"name_en": "Artazon",
+			"set_code": "CSV2C"
+		},
+		{
+			"card_index": "109",
+			"card_type": "Item",
+			"count": 1,
+			"effect_id": "c9c948169525fbb3dce70c477ec7a90a",
+			"name": "厉害钓竿",
+			"name_en": "Super Rod",
+			"set_code": "CSV1C"
+		},
+		{
+			"card_index": "118",
+			"card_type": "Tool",
+			"count": 2,
+			"effect_id": "d1c2f018a644e662f2b6895fdfc29281",
+			"name": "勇气护符",
+			"name_en": "Bravery Charm",
+			"set_code": "CSV1C"
+		},
+		{
+			"card_index": "053",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "daccaa8fc34b41e47e77be2143eea71b",
+			"name": "拉鲁拉丝",
+			"name_en": "Ralts",
+			"set_code": "CSV2C"
+		},
+		{
+			"card_index": "115",
+			"card_type": "Item",
+			"count": 2,
+			"effect_id": "e366f56ecd3f805a28294109a1a37453",
+			"name": "大地容器",
+			"name_en": "Earthen Vessel",
+			"set_code": "CSV6C"
+		},
+		{
+			"card_index": "176",
+			"card_type": "Item",
+			"count": 1,
+			"effect_id": "e92a86246f44351d023bd4fa271089aa",
+			"name": "秘密箱",
+			"name_en": "Secret Box",
+			"set_code": "CSV8C"
+		},
+		{
+			"card_index": "177",
+			"card_type": "Item",
+			"count": 4,
+			"effect_id": "f866dfee26cd6b0dbbb52b74438d0a59",
+			"name": "友好宝芬",
+			"name_en": "Buddy-Buddy Poffin",
+			"set_code": "CSV7C"
+		}
+	],
+	"deck_code": "5V99XUSOmmugAnzaOk",
+	"deck_name": "沙奈朵",
+	"id": 578647,
+	"import_date": "2026-03-21T11:44:11",
+	"source_url": "https://tcg.mik.moe/decks/list/578647",
+	"total_cards": 60,
+	"variant_name": "沙奈朵"
+}

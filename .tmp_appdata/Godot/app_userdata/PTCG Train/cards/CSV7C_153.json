@@ -1,0 +1,51 @@
+{
+	"abilities": [],
+	"ancient_trait": "",
+	"artist": "GOSSAN",
+	"attacks": [
+		{
+			"cost": "C",
+			"damage": "40",
+			"is_vstar_power": false,
+			"name": "巅峰加速",
+			"text": "选择自己牌库中最多2张基本能量，以任意方式附着于自己的「未来」宝可梦身上。并重洗牌库。"
+		},
+		{
+			"cost": "LLP",
+			"damage": "160",
+			"is_vstar_power": false,
+			"name": "电火花攻击",
+			"text": ""
+		}
+	],
+	"card_index": "153",
+	"card_index_en": "121",
+	"card_type": "Pokemon",
+	"description": " 巅峰加速 40\n选择自己牌库中最多2张基本能量，以任意方式附着于自己的「未来」宝可梦身上。并重洗牌库。\n\n【雷】【雷】【超】 电火花攻击 160\n\n\n",
+	"effect_id": "e35117d04885875ff7564d6fc45ac44d",
+	"energy_provides": "",
+	"energy_type": "N",
+	"evolves_from": "",
+	"hp": 110,
+	"image_local_path": "user://cards/images/CSV7C/153.png",
+	"image_url": "https://tcg.mik.moe/static/img/CSV7C/153.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "",
+	"name": "密勒顿",
+	"name_en": "Miraidon",
+	"rarity": "R",
+	"regulation_expanded": true,
+	"regulation_mark": "H",
+	"regulation_standard": true,
+	"release_date": "2026-01-16T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 2,
+	"set_code": "CSV7C",
+	"set_code_en": "TEF",
+	"stage": "Basic",
+	"weakness_energy": "",
+	"weakness_value": "",
+	"yoren_code": "P1008"
+}

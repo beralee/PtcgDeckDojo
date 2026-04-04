@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "金属之盾",
+			"text": "如果这只宝可梦身上附有能量的话，则这只宝可梦所受到的招式的伤害「-30」。"
+		}
+	],
+	"ancient_trait": "",
+	"artist": "GIDORA",
+	"attacks": [
+		{
+			"cost": "MMC",
+			"damage": "100+",
+			"is_vstar_power": false,
+			"name": "报仇",
+			"text": "在上一个对手的回合，如果自己的宝可梦【昏厥】的话，则追加造成120点伤害。"
+		}
+	],
+	"card_index": "049",
+	"card_index_en": "97",
+	"card_type": "Pokemon",
+	"description": "特性: 金属之盾\n如果这只宝可梦身上附有能量的话，则这只宝可梦所受到的招式的伤害「-30」。\n\n【钢】【钢】 报仇 100+\n在上一个对手的回合，如果自己的宝可梦【昏厥】的话，则追加造成120点伤害。\n\n",
+	"effect_id": "354ba2d0df40cde93977a7fc7c7af622",
+	"energy_provides": "",
+	"energy_type": "M",
+	"evolves_from": "",
+	"hp": 130,
+	"image_local_path": "user://cards/images/CS6.5C/049.png",
+	"image_url": "https://tcg.mik.moe/static/img/CS6.5C/049.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "",
+	"name": "藏玛然特",
+	"name_en": "Zamazenta",
+	"rarity": "R",
+	"regulation_expanded": true,
+	"regulation_mark": "F",
+	"regulation_standard": true,
+	"release_date": "2024-11-15T00:00:00+08:00",
+	"resistance_energy": "G",
+	"resistance_value": "-30",
+	"retreat_cost": 2,
+	"set_code": "CS6.5C",
+	"set_code_en": "CRZ",
+	"stage": "Basic",
+	"weakness_energy": "R",
+	"weakness_value": "×2",
+	"yoren_code": "P889"
+}

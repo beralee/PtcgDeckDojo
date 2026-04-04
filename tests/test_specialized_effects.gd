@@ -1081,7 +1081,7 @@ func test_superior_energy_retrieval_cannot_recover_cost_energy() -> String:
 	])
 
 
-func test_hisuian_heavy_ball_takes_basic_from_prizes() -> String:
+func _legacy_hisuian_heavy_ball_wrong_swap_test() -> String:
 	var state := _make_state()
 	var player: PlayerState = state.players[0]
 	player.prizes.clear()
@@ -1105,6 +1105,66 @@ func test_hisuian_heavy_ball_takes_basic_from_prizes() -> String:
 		assert_false(replacement_hand in player.hand, "放回奖赏卡的手牌不应继续留在手牌"),
 	])
 
+
+func test_hisuian_heavy_ball_takes_basic_from_prizes_and_replaces_with_self() -> String:
+	var state := _make_state()
+	var player: PlayerState = state.players[0]
+	player.prizes.clear()
+	var basic_prize := CardInstance.create(_make_basic_pokemon_data("Prize Basic", "W"), 0)
+	var other_prize := CardInstance.create(_make_trainer_data("Prize Item"), 0)
+	var hand_card := CardInstance.create(_make_trainer_data("Hand Card"), 0)
+	player.prizes.append_array([basic_prize, other_prize])
+	player.hand.clear()
+	player.hand.append(hand_card)
+
+	var effect := EffectHisuianHeavyBallEffect.new()
+	var card := CardInstance.create(_make_trainer_data("Hisuian Heavy Ball"), 0)
+	var steps: Array[Dictionary] = effect.get_interaction_steps(card, state)
+	effect.execute(card, [{
+		"chosen_prize_basic": [basic_prize],
+	}], state)
+
+	return run_checks([
+		assert_eq(steps.size(), 1, "Hisuian Heavy Ball should only ask for the prize Basic selection"),
+		assert_eq(str(steps[0].get("id", "")), "chosen_prize_basic", "The only interaction should be choosing the Basic Pokemon from prizes"),
+		assert_true(basic_prize in player.hand, "Hisuian Heavy Ball should move the chosen Basic Pokemon to hand"),
+		assert_eq(player.prizes.size(), 2, "Prize count should stay unchanged after the swap"),
+		assert_true(card in player.prizes, "The Heavy Ball itself should become the replacement prize card"),
+		assert_false(hand_card in player.prizes, "An unrelated hand card should not be moved into prizes"),
+		assert_true(hand_card in player.hand, "Other hand cards should remain in hand"),
+	])
+
+
+func test_hisuian_heavy_ball_play_trainer_keeps_source_card_out_of_discard() -> String:
+	var state := _make_state()
+	state.phase = GameState.GamePhase.MAIN
+	var player: PlayerState = state.players[0]
+	player.prizes.clear()
+	player.hand.clear()
+
+	var basic_prize := CardInstance.create(_make_basic_pokemon_data("Prize Basic", "W"), 0)
+	var other_prize := CardInstance.create(_make_trainer_data("Prize Item"), 0)
+	var heavy_ball := CardInstance.create(
+		_make_trainer_data("Hisuian Heavy Ball", "Item", "2f68195255c863293be4fad262bf23d2"),
+		0
+	)
+	var hand_card := CardInstance.create(_make_trainer_data("Hand Card"), 0)
+	player.prizes.append_array([basic_prize, other_prize])
+	player.hand.append_array([heavy_ball, hand_card])
+
+	var gsm := GameStateMachine.new()
+	gsm.game_state = state
+	var used: bool = gsm.play_trainer(0, heavy_ball, [{
+		"chosen_prize_basic": [basic_prize],
+	}])
+
+	return run_checks([
+		assert_true(used, "GameStateMachine should allow Hisuian Heavy Ball to be played"),
+		assert_true(basic_prize in player.hand, "Playing Hisuian Heavy Ball should still take the chosen Basic Pokemon"),
+		assert_true(heavy_ball in player.prizes, "The played Heavy Ball should be placed into prizes"),
+		assert_false(heavy_ball in player.discard_pile, "The played Heavy Ball must not also be discarded"),
+		assert_true(hand_card in player.hand, "Other hand cards should remain in hand after the effect resolves"),
+	])
 
 func test_hisuian_heavy_ball_can_execute_without_basic_prize() -> String:
 	var state := _make_state()
@@ -1526,6 +1586,30 @@ func test_attack_read_wind_draw_discards_then_draws() -> String:
 	return run_checks([
 		assert_eq(player.hand.size(), 4, "弃1抽3后手牌应净增2"),
 		assert_eq(player.discard_pile.size(), 1, "应弃置1张手牌"),
+	])
+
+
+func test_attack_read_wind_draw_generates_hand_selection_step() -> String:
+	var state := _make_state()
+	var player: PlayerState = state.players[0]
+	player.hand.clear()
+	var hand_a := CardInstance.create(_make_basic_pokemon_data("Discard A", "C"), 0)
+	var hand_b := CardInstance.create(_make_basic_pokemon_data("Discard B", "C"), 0)
+	player.hand.append_array([hand_a, hand_b])
+
+	var lugia_cd := _make_basic_pokemon_data("Lugia V", "C", 220, "Basic", "V", "d8e735158b27693de9d70f883d84f5a2")
+	lugia_cd.attacks = [{"name": "读风", "cost": "C", "damage": "", "text": "", "is_vstar_power": false}]
+	var effect := AttackReadWindDraw.new()
+	var steps: Array[Dictionary] = effect.get_attack_interaction_steps(player.active_pokemon.get_top_card(), lugia_cd.attacks[0], state)
+	var first_step: Dictionary = steps[0] if not steps.is_empty() else {}
+	var items: Array = first_step.get("items", [])
+
+	return run_checks([
+		assert_eq(steps.size(), 1, "AttackReadWindDraw should expose one interaction step"),
+		assert_eq(str(first_step.get("id", "")), "discard_card", "AttackReadWindDraw should ask the player to choose a hand card"),
+		assert_eq(int(first_step.get("min_select", 0)), 1, "AttackReadWindDraw should require one discard selection"),
+		assert_eq(int(first_step.get("max_select", 0)), 1, "AttackReadWindDraw should allow selecting exactly one hand card"),
+		assert_true(hand_a in items and hand_b in items, "AttackReadWindDraw should offer the current hand as discard candidates"),
 	])
 
 

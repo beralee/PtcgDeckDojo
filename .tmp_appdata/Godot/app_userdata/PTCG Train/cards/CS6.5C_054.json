@@ -1,0 +1,51 @@
+{
+	"abilities": [],
+	"ancient_trait": "",
+	"artist": "N-DESIGN Inc.",
+	"attacks": [
+		{
+			"cost": "C",
+			"damage": "",
+			"is_vstar_power": false,
+			"name": "天之呐喊",
+			"text": "将自己牌库上方3张卡牌放于弃牌区，将其中所有能量，附着于这只宝可梦身上。"
+		},
+		{
+			"cost": "GGR",
+			"damage": "130",
+			"is_vstar_power": false,
+			"name": "巨龙镭射",
+			"text": "给对手的1只备战宝可梦，也造成30点伤害。[备战宝可梦不计算弱点、抗性。]"
+		}
+	],
+	"card_index": "054",
+	"card_index_en": "135",
+	"card_type": "Pokemon",
+	"description": " 天之呐喊 \n将自己牌库上方3张卡牌放于弃牌区，将其中所有能量，附着于这只宝可梦身上。\n\n【草】【草】【火】 巨龙镭射 130\n给对手的1只备战宝可梦，也造成30点伤害。[备战宝可梦不计算弱点、抗性。]\n\n",
+	"effect_id": "90c9e117fa846938024ae15eb859f1b6",
+	"energy_provides": "",
+	"energy_type": "N",
+	"evolves_from": "",
+	"hp": 220,
+	"image_local_path": "user://cards/images/CS6.5C/054.png",
+	"image_url": "https://tcg.mik.moe/static/img/CS6.5C/054.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "V",
+	"name": "雷吉铎拉戈V",
+	"name_en": "Regidrago V",
+	"rarity": "RR",
+	"regulation_expanded": true,
+	"regulation_mark": "F",
+	"regulation_standard": true,
+	"release_date": "2024-11-15T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 3,
+	"set_code": "CS6.5C",
+	"set_code_en": "SIT",
+	"stage": "Basic",
+	"weakness_energy": "",
+	"weakness_value": "",
+	"yoren_code": "Y1167"
+}

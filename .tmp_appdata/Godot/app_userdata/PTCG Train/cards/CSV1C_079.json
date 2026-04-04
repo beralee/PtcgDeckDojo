@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "飞身入场",
+			"text": "在自己的回合，当将这张卡牌从手牌使出放于备战区时，可使用1次。给对手的2只备战宝可梦身上，各放置1个伤害指示物。"
+		}
+	],
+	"ancient_trait": "",
+	"artist": "GOSSAN",
+	"attacks": [
+		{
+			"cost": "FCC",
+			"damage": "70",
+			"is_vstar_power": false,
+			"name": "翅膀攻击",
+			"text": ""
+		}
+	],
+	"card_index": "079",
+	"card_index_en": "118",
+	"card_type": "Pokemon",
+	"description": "特性: 飞身入场\n在自己的回合，当将这张卡牌从手牌使出放于备战区时，可使用1次。给对手的2只备战宝可梦身上，各放置1个伤害指示物。\n\n【斗】 翅膀攻击 70\n\n\n",
+	"effect_id": "74b83ef8987d072950dfe3bde3364d87",
+	"energy_provides": "",
+	"energy_type": "F",
+	"evolves_from": "",
+	"hp": 70,
+	"image_local_path": "user://cards/images/CSV1C/079.png",
+	"image_url": "https://tcg.mik.moe/static/img/CSV1C/079.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "",
+	"name": "摔角鹰人",
+	"name_en": "Hawlucha",
+	"rarity": "R",
+	"regulation_expanded": true,
+	"regulation_mark": "G",
+	"regulation_standard": true,
+	"release_date": "2025-01-17T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 1,
+	"set_code": "CSV1C",
+	"set_code_en": "SVI",
+	"stage": "Basic",
+	"weakness_energy": "P",
+	"weakness_value": "×2",
+	"yoren_code": "P701"
+}

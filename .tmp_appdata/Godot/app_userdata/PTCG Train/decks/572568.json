@@ -1,0 +1,209 @@
+{
+	"cards": [
+		{
+			"card_index": "114",
+			"card_type": "Item",
+			"count": 1,
+			"effect_id": "06bc00d5dcec33898dc6db2e4c4d10ec",
+			"name": "反击捕捉器",
+			"name_en": "Counter Catcher",
+			"set_code": "CSV6C"
+		},
+		{
+			"card_index": "043",
+			"card_type": "Item",
+			"count": 1,
+			"effect_id": "1af63a7e2cb7a79215474ad8db8fd8fd",
+			"name": "巢穴球",
+			"name_en": "Nest Ball",
+			"set_code": "CSVH1C"
+		},
+		{
+			"card_index": "107",
+			"card_type": "Item",
+			"count": 4,
+			"effect_id": "2234845fbc2e11ab95587e1b393bb318",
+			"name": "电气发生器",
+			"name_en": "Electric Generator",
+			"set_code": "CSV1C"
+		},
+		{
+			"card_index": "033",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "2e307380eb013c4e20db0a19816ba3b9",
+			"name": "铁斑叶ex",
+			"name_en": "Iron Leaves ex",
+			"set_code": "CSV7C"
+		},
+		{
+			"card_index": "LIG",
+			"card_type": "Basic Energy",
+			"count": 13,
+			"effect_id": "45550fd10011f6ade7eef16ba88788cf",
+			"name": "基本雷能量",
+			"name_en": "Lightning Energy",
+			"set_code": "CSVE1C"
+		},
+		{
+			"card_index": "042",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "47676dfc37415cfdf3b3992b1de64141",
+			"name": "铁包袱",
+			"name_en": "Iron Bundle",
+			"set_code": "CSV6C"
+		},
+		{
+			"card_index": "151",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "49669fcf461deacebeb5755c11ec51f1",
+			"name": "梦幻ex",
+			"name_en": "Mew ex",
+			"set_code": "151C"
+		},
+		{
+			"card_index": "180",
+			"card_type": "Item",
+			"count": 1,
+			"effect_id": "4ec261453212280d0eb03ed8254ca97f",
+			"name": "顶尖捕捉器",
+			"name_en": "Prime Catcher",
+			"set_code": "CSV7C"
+		},
+		{
+			"card_index": "119",
+			"card_type": "Tool",
+			"count": 4,
+			"effect_id": "54920a273edba38ce45f3bc8f6e8ff25",
+			"name": "驱劲能量 未来",
+			"name_en": "Future Booster Energy Capsule",
+			"set_code": "CSV6C"
+		},
+		{
+			"card_index": "123",
+			"card_type": "Supporter",
+			"count": 4,
+			"effect_id": "5bdbc985f9aa2e6f248b53f6f35d1d37",
+			"name": "派帕",
+			"name_en": "Arven",
+			"set_code": "CSV1C"
+		},
+		{
+			"card_index": "GRA",
+			"card_type": "Basic Energy",
+			"count": 3,
+			"effect_id": "5e2d0ce37ca0c539aa45908da10544a0",
+			"name": "基本草能量",
+			"name_en": "Grass Energy",
+			"set_code": "CSVE1C"
+		},
+		{
+			"card_index": "113",
+			"card_type": "Item",
+			"count": 1,
+			"effect_id": "768b545a38fccd5e265093b5adce10af",
+			"name": "宝可装置3.0",
+			"name_en": "Pokégear 3.0",
+			"set_code": "CSV2C"
+		},
+		{
+			"card_index": "188",
+			"card_type": "Tool",
+			"count": 2,
+			"effect_id": "770c741043025f241dbd81422cb8987d",
+			"name": "沉重接力棒",
+			"name_en": "Heavy Baton",
+			"set_code": "CSV7C"
+		},
+		{
+			"card_index": "116",
+			"card_type": "Item",
+			"count": 4,
+			"effect_id": "8b0d4f541f256d67f0757efe4fc8b407",
+			"name": "高科技雷达",
+			"name_en": "Techno Radar",
+			"set_code": "CSV6C"
+		},
+		{
+			"card_index": "023",
+			"card_type": "Supporter",
+			"count": 2,
+			"effect_id": "8e1fa2c9018db938084c94c7c970d419",
+			"name": "老大的指令",
+			"name_en": "Boss's Orders",
+			"set_code": "CSVH1aC"
+		},
+		{
+			"card_index": "123",
+			"card_type": "Item",
+			"count": 1,
+			"effect_id": "8f655fea1f90164bfbccb7a95c223e17",
+			"name": "放逐吸尘器",
+			"name_en": "Lost Vacuum",
+			"set_code": "CS6bC"
+		},
+		{
+			"card_index": "111",
+			"card_type": "Pokemon",
+			"count": 4,
+			"effect_id": "9f00ff54c265aa486652154a5e976c67",
+			"name": "铁头壳ex",
+			"name_en": "Iron Crown ex",
+			"set_code": "CSV7C"
+		},
+		{
+			"card_index": "121",
+			"card_type": "Supporter",
+			"count": 3,
+			"effect_id": "aecd80ca2722885c3d062a2255346f3e",
+			"name": "博士的研究",
+			"name_en": "Professor's Research",
+			"set_code": "CSV1C"
+		},
+		{
+			"card_index": "123",
+			"card_type": "Supporter",
+			"count": 3,
+			"effect_id": "af514f82d182aeae5327b2c360df703d",
+			"name": "奇树",
+			"name_en": "Iono",
+			"set_code": "CSV3C"
+		},
+		{
+			"card_index": "109",
+			"card_type": "Item",
+			"count": 1,
+			"effect_id": "c9c948169525fbb3dce70c477ec7a90a",
+			"name": "厉害钓竿",
+			"name_en": "Super Rod",
+			"set_code": "CSV1C"
+		},
+		{
+			"card_index": "153",
+			"card_type": "Pokemon",
+			"count": 2,
+			"effect_id": "e35117d04885875ff7564d6fc45ac44d",
+			"name": "密勒顿",
+			"name_en": "Miraidon",
+			"set_code": "CSV7C"
+		},
+		{
+			"card_index": "051",
+			"card_type": "Pokemon",
+			"count": 3,
+			"effect_id": "e9f0c124fc2e352af2408a7e61862b95",
+			"name": "铁臂膀ex",
+			"name_en": "Iron Hands ex",
+			"set_code": "CSV6C"
+		}
+	],
+	"deck_code": "pg9FB4urT2ehRtSy6Q",
+	"deck_name": "未来Box",
+	"id": 572568,
+	"import_date": "2026-03-14T10:40:54",
+	"source_url": "https://tcg.mik.moe/decks/list/572568",
+	"total_cards": 60,
+	"variant_name": "未来Box"
+}

@@ -1,0 +1,51 @@
+{
+	"abilities": [],
+	"ancient_trait": "",
+	"artist": "MUGENUP",
+	"attacks": [
+		{
+			"cost": "L",
+			"damage": "",
+			"is_vstar_power": false,
+			"name": "快速充能",
+			"text": "这个招式，即使是先攻玩家的最初回合也可以使用。选择自己牌库中的1张【雷】能量，附着于这只宝可梦身上。并重洗牌库。"
+		},
+		{
+			"cost": "LL",
+			"damage": "60×",
+			"is_vstar_power": false,
+			"name": "强劲电光",
+			"text": "将附着于自己场上宝可梦身上任意数量的【雷】能量放于弃牌区，造成其张数×60点伤害。"
+		}
+	],
+	"card_index": "019",
+	"card_index_en": "45",
+	"card_type": "Pokemon",
+	"description": "【雷】 快速充能 \n这个招式，即使是先攻玩家的最初回合也可以使用。选择自己牌库中的1张【雷】能量，附着于这只宝可梦身上。并重洗牌库。\n\n【雷】【雷】 强劲电光 60×\n将附着于自己场上宝可梦身上任意数量的【雷】能量放于弃牌区，造成其张数×60点伤害。\n\n",
+	"effect_id": "4c9d0366a3633bc11a4612a3ef1624cf",
+	"energy_provides": "",
+	"energy_type": "L",
+	"evolves_from": "",
+	"hp": 200,
+	"image_local_path": "user://cards/images/CS5aC/019.png",
+	"image_url": "https://tcg.mik.moe/static/img/CS5aC/019.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "V",
+	"name": "雷丘V",
+	"name_en": "Raichu V",
+	"rarity": "RR",
+	"regulation_expanded": true,
+	"regulation_mark": "F",
+	"regulation_standard": true,
+	"release_date": "2024-06-18T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 1,
+	"set_code": "CS5aC",
+	"set_code_en": "BRS",
+	"stage": "Basic",
+	"weakness_energy": "F",
+	"weakness_value": "×2",
+	"yoren_code": "Y1001"
+}

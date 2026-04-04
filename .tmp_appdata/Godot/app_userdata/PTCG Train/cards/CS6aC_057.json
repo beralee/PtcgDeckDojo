@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "电气象征",
+			"text": "只要这只宝可梦在场上，自己【雷】属性的【基础】宝可梦（除「闪电鸟」外）使用的招式，给对手战斗宝可梦造成的伤害「+10」。"
+		}
+	],
+	"ancient_trait": "",
+	"artist": "Hasuno",
+	"attacks": [
+		{
+			"cost": "LLC",
+			"damage": "110",
+			"is_vstar_power": false,
+			"name": "雷电球",
+			"text": ""
+		}
+	],
+	"card_index": "057",
+	"card_index_en": "29",
+	"card_type": "Pokemon",
+	"description": "特性: 电气象征\n只要这只宝可梦在场上，自己【雷】属性的【基础】宝可梦（除「闪电鸟」外）使用的招式，给对手战斗宝可梦造成的伤害「+10」。\n\n【雷】【雷】 雷电球 110\n\n\n",
+	"effect_id": "03bcecb40c957575e16b4af22b08b7bd",
+	"energy_provides": "",
+	"energy_type": "L",
+	"evolves_from": "",
+	"hp": 120,
+	"image_local_path": "user://cards/images/CS6aC/057.png",
+	"image_url": "https://tcg.mik.moe/static/img/CS6aC/057.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "",
+	"name": "闪电鸟",
+	"name_en": "Zapdos",
+	"rarity": "R",
+	"regulation_expanded": true,
+	"regulation_mark": "F",
+	"regulation_standard": true,
+	"release_date": "2024-09-20T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 2,
+	"set_code": "CS6aC",
+	"set_code_en": "PGO",
+	"stage": "Basic",
+	"weakness_energy": "F",
+	"weakness_value": "×2",
+	"yoren_code": "P145"
+}

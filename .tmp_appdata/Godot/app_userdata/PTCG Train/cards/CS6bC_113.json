@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "无畏脂肪",
+			"text": "这只宝可梦，不会受到对手宝可梦所使用招式的效果影响。"
+		}
+	],
+	"ancient_trait": "",
+	"artist": "0313",
+	"attacks": [
+		{
+			"cost": "CCC",
+			"damage": "180",
+			"is_vstar_power": false,
+			"name": "轰隆鼾声",
+			"text": "使这只宝可梦陷入【睡眠】状态。因这个【睡眠】而抛掷的硬币次数变为2次，只要不是全为正面就不会恢复。"
+		}
+	],
+	"card_index": "113",
+	"card_index_en": "143",
+	"card_type": "Pokemon",
+	"description": "特性: 无畏脂肪\n这只宝可梦，不会受到对手宝可梦所使用招式的效果影响。\n\n 轰隆鼾声 180\n使这只宝可梦陷入【睡眠】状态。因这个【睡眠】而抛掷的硬币次数变为2次，只要不是全为正面就不会恢复。\n\n",
+	"effect_id": "642ba201c56f670b7af8ea0450f8ab07",
+	"energy_provides": "",
+	"energy_type": "C",
+	"evolves_from": "",
+	"hp": 150,
+	"image_local_path": "user://cards/images/CS6bC/113.png",
+	"image_url": "https://tcg.mik.moe/static/img/CS6bC/113.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "",
+	"name": "卡比兽",
+	"name_en": "Snorlax",
+	"rarity": "R",
+	"regulation_expanded": true,
+	"regulation_mark": "F",
+	"regulation_standard": true,
+	"release_date": "2024-09-20T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 4,
+	"set_code": "CS6bC",
+	"set_code_en": "LOR",
+	"stage": "Basic",
+	"weakness_energy": "F",
+	"weakness_value": "×2",
+	"yoren_code": "P143"
+}

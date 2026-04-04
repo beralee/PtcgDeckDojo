@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "瞬步",
+			"text": "如果这只宝可梦在战斗场上的话，则在自己的回合可以使用1次。从自己的牌库上方抽取1张卡牌。"
+		}
+	],
+	"ancient_trait": "",
+	"artist": "PLANETA Mochizuki",
+	"attacks": [
+		{
+			"cost": "LC",
+			"damage": "20+",
+			"is_vstar_power": false,
+			"name": "雷电回旋曲",
+			"text": "追加造成双方备战宝可梦数量×20点伤害。"
+		}
+	],
+	"card_index": "137",
+	"card_index_en": "48",
+	"card_type": "Pokemon",
+	"description": "特性: 瞬步\n如果这只宝可梦在战斗场上的话，则在自己的回合可以使用1次。从自己的牌库上方抽取1张卡牌。\n\n【雷】 雷电回旋曲 20+\n追加造成双方备战宝可梦数量×20点伤害。\n\n",
+	"effect_id": "9296cfa33d6dc517d8e12f62ad96cb75",
+	"energy_provides": "",
+	"energy_type": "L",
+	"evolves_from": "",
+	"hp": 200,
+	"image_local_path": "user://cards/images/CS4DaC/137.png",
+	"image_url": "https://tcg.mik.moe/static/img/CS4DaC/137.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "V",
+	"name": "雷公V",
+	"name_en": "Raikou V",
+	"rarity": "无标记",
+	"regulation_expanded": true,
+	"regulation_mark": "F",
+	"regulation_standard": true,
+	"release_date": "2024-05-17T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 1,
+	"set_code": "CS4DaC",
+	"set_code_en": "BRS",
+	"stage": "Basic",
+	"weakness_energy": "F",
+	"weakness_value": "×2",
+	"yoren_code": "Y916"
+}

@@ -1,0 +1,51 @@
+{
+	"abilities": [],
+	"ancient_trait": "Tera",
+	"artist": "5ban Graphics",
+	"attacks": [
+		{
+			"cost": "C",
+			"damage": "20",
+			"is_vstar_power": false,
+			"name": "啜泣",
+			"text": "在下一个对手的回合，受到这个招式影响的宝可梦，无法撤退。"
+		},
+		{
+			"cost": "WCC",
+			"damage": "100",
+			"is_vstar_power": false,
+			"name": "激流水泵",
+			"text": "若希望，可选择这只宝可梦身上附着的3个能量，放回牌库并重洗牌库。在这种情况下，给对手的1只备战宝可梦，也造成120伤害。[备战宝可梦不计算弱点、抗性。]"
+		}
+	],
+	"card_index": "067",
+	"card_index_en": "64",
+	"card_type": "Pokemon",
+	"description": " 啜泣 20\n在下一个对手的回合，受到这个招式影响的宝可梦，无法撤退。\n\n【水】 激流水泵 100\n若希望，可选择这只宝可梦身上附着的3个能量，放回牌库并重洗牌库。在这种情况下，给对手的1只备战宝可梦，也造成120伤害。[备战宝可梦不计算弱点、抗性。]\n\n",
+	"effect_id": "14cf8080c35f652fe13a579f1b50542a",
+	"energy_provides": "",
+	"energy_type": "W",
+	"evolves_from": "",
+	"hp": 210,
+	"image_local_path": "user://cards/images/CSV8C/067.png",
+	"image_url": "https://tcg.mik.moe/static/img/CSV8C/067.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "ex",
+	"name": "厄诡椪 水井面具ex",
+	"name_en": "Wellspring Mask Ogerpon ex",
+	"rarity": "RR",
+	"regulation_expanded": true,
+	"regulation_mark": "H",
+	"regulation_standard": true,
+	"release_date": "2026-03-13T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 1,
+	"set_code": "CSV8C",
+	"set_code_en": "TWM",
+	"stage": "Basic",
+	"weakness_energy": "L",
+	"weakness_value": "×2",
+	"yoren_code": "Y1449"
+}

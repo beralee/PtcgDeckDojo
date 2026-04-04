@@ -1,0 +1,51 @@
+{
+	"abilities": [],
+	"ancient_trait": "",
+	"artist": "Mina Nakai",
+	"attacks": [
+		{
+			"cost": "C",
+			"damage": "",
+			"is_vstar_power": false,
+			"name": "呼朋引伴",
+			"text": "选择自己牌库中最多2张【基础】宝可梦，放于备战区。并重洗牌库。"
+		},
+		{
+			"cost": "C",
+			"damage": "10",
+			"is_vstar_power": false,
+			"name": "拍击",
+			"text": ""
+		}
+	],
+	"card_index": "117",
+	"card_index_en": "124",
+	"card_type": "Pokemon",
+	"description": " 呼朋引伴 \n选择自己牌库中最多2张【基础】宝可梦，放于备战区。并重洗牌库。\n\n 拍击 10\n\n\n",
+	"effect_id": "219cd852ba122475a0dee92ad1aeaba9",
+	"energy_provides": "",
+	"energy_type": "C",
+	"evolves_from": "",
+	"hp": 60,
+	"image_local_path": "user://cards/images/CS6bC/117.png",
+	"image_url": "https://tcg.mik.moe/static/img/CS6bC/117.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "",
+	"name": "泡沫栗鼠",
+	"name_en": "Minccino",
+	"rarity": "C",
+	"regulation_expanded": true,
+	"regulation_mark": "F",
+	"regulation_standard": true,
+	"release_date": "2024-09-20T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 1,
+	"set_code": "CS6bC",
+	"set_code_en": "BRS",
+	"stage": "Basic",
+	"weakness_energy": "F",
+	"weakness_value": "×2",
+	"yoren_code": "P572"
+}

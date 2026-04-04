@@ -7,6 +7,7 @@ extends RefCounted
 const AIBenchmarkRunnerScript = preload("res://scripts/ai/AIBenchmarkRunner.gd")
 const AIOpponentScript = preload("res://scripts/ai/AIOpponent.gd")
 const AIHeuristicsScript = preload("res://scripts/ai/AIHeuristics.gd")
+const AIDecisionSampleExporterScript = preload("res://scripts/ai/AIDecisionSampleExporter.gd")
 const SelfPlayDataExporterScript = preload("res://scripts/ai/SelfPlayDataExporter.gd")
 
 
@@ -17,6 +18,7 @@ func run_batch(
 	seeds: Array,
 	max_steps_per_match: int = 200,
 	export_training_data: bool = false,
+	export_action_training_data: bool = false,
 ) -> Dictionary:
 	var runner := AIBenchmarkRunnerScript.new()
 	var total_matches: int = 0
@@ -40,11 +42,15 @@ func run_batch(
 			var sv: int = int(seed_value)
 			## agent_a 做 player 0
 			var exporter_a0 = null
+			var decision_exporter_a0 = null
 			if export_training_data:
 				exporter_a0 = SelfPlayDataExporterScript.new()
+			if export_action_training_data:
+				decision_exporter_a0 = AIDecisionSampleExporterScript.new()
 			var result_a0 := _run_one_match(
 				runner, agent_a_config, agent_b_config,
-				deck_a, deck_b, sv, max_steps_per_match, exporter_a0, export_training_data
+				deck_a, deck_b, sv, max_steps_per_match, exporter_a0, export_training_data,
+				decision_exporter_a0, _build_decision_meta("self_play_%d_a0" % sv, deck_a_id, deck_b_id, "agent_a")
 			)
 			var match_entry_a0 := _build_match_entry(result_a0, sv, deck_a_id, deck_b_id, 0)
 			match_results.append(match_entry_a0)
@@ -59,11 +65,15 @@ func run_batch(
 
 			## agent_a 做 player 1
 			var exporter_a1 = null
+			var decision_exporter_a1 = null
 			if export_training_data:
 				exporter_a1 = SelfPlayDataExporterScript.new()
+			if export_action_training_data:
+				decision_exporter_a1 = AIDecisionSampleExporterScript.new()
 			var result_a1 := _run_one_match(
 				runner, agent_b_config, agent_a_config,
-				deck_a, deck_b, sv + 10000, max_steps_per_match, exporter_a1, export_training_data
+				deck_a, deck_b, sv + 10000, max_steps_per_match, exporter_a1, export_training_data,
+				decision_exporter_a1, _build_decision_meta("self_play_%d_a1" % sv, deck_a_id, deck_b_id, "agent_a")
 			)
 			var match_entry_a1 := _build_match_entry(result_a1, sv + 10000, deck_a_id, deck_b_id, 1)
 			match_results.append(match_entry_a1)
@@ -97,6 +107,8 @@ func _run_one_match(
 	max_steps: int,
 	exporter = null,
 	_export_training_data: bool = false,
+	decision_exporter = null,
+	decision_meta: Dictionary = {},
 ) -> Dictionary:
 	## 进化搜索始终使用轻量 MCTS 加速对局评估
 	var p0_ai := _make_agent(0, p0_config, true)
@@ -125,16 +137,31 @@ func _run_one_match(
 				tracker["last_player"] = cp
 				exporter.record_state(step_gsm.game_state, 0)
 				exporter.record_state(step_gsm.game_state, 1)
+	if decision_exporter != null:
+		decision_exporter.start_game(decision_meta)
 
-	var result: Dictionary = runner.run_headless_duel(p0_ai, p1_ai, gsm, max_steps, step_cb)
+	var result: Dictionary = runner.run_headless_duel(p0_ai, p1_ai, gsm, max_steps, step_cb, decision_exporter)
 
 	if exporter != null:
 		var wi: int = int(result.get("winner_index", -1))
 		exporter.end_game(wi)
 		exporter.export_game()
+	if decision_exporter != null:
+		decision_exporter.end_game(int(result.get("winner_index", -1)))
+		decision_exporter.export_game()
 
 	_clear_forced_shuffle_seed()
 	return result
+
+
+func _build_decision_meta(match_id: String, deck_a_id: int, deck_b_id: int, pipeline_name: String) -> Dictionary:
+	return {
+		"run_id": match_id,
+		"match_id": match_id,
+		"pipeline_name": pipeline_name,
+		"deck_identity": str(deck_a_id),
+		"opponent_deck_identity": str(deck_b_id),
+	}
 
 
 func _make_agent(player_index: int, config: Dictionary, fast_mode: bool = false) -> AIOpponent:
@@ -159,6 +186,9 @@ func _make_agent(player_index: int, config: Dictionary, fast_mode: bool = false)
 	var vn_path: Variant = config.get("value_net_path", "")
 	if vn_path is String and (vn_path as String) != "":
 		agent.value_net_path = vn_path as String
+	var action_scorer_path: Variant = config.get("action_scorer_path", "")
+	if action_scorer_path is String and (action_scorer_path as String) != "":
+		agent.action_scorer_path = action_scorer_path as String
 	return agent
 
 
@@ -174,6 +204,7 @@ func _build_match_entry(result: Dictionary, seed_value: int, deck_a_id: int, dec
 		"failure_reason": str(result.get("failure_reason", "")),
 		"terminated_by_cap": bool(result.get("terminated_by_cap", false)),
 		"stalled": bool(result.get("stalled", false)),
+		"event_counters": result.get("event_counters", {}),
 	}
 
 

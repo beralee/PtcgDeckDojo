@@ -1,0 +1,51 @@
+{
+	"abilities": [],
+	"ancient_trait": "",
+	"artist": "N-DESIGN Inc.",
+	"attacks": [
+		{
+			"cost": "CC",
+			"damage": "",
+			"is_vstar_power": false,
+			"name": "三重蓄能",
+			"text": "选择自己牌库中最多3张基本能量，以任意方式附着于自己的「宝可梦V」身上。并重洗牌库。"
+		},
+		{
+			"cost": "CCC",
+			"damage": "130",
+			"is_vstar_power": false,
+			"name": "力量利刃",
+			"text": ""
+		}
+	],
+	"card_index": "009",
+	"card_index_en": "122",
+	"card_type": "Pokemon",
+	"description": " 三重蓄能 \n选择自己牌库中最多3张基本能量，以任意方式附着于自己的「宝可梦V」身上。并重洗牌库。\n\n 力量利刃 130\n\n\n",
+	"effect_id": "94c6f72a67045857fa44962e4fbb8c27",
+	"energy_provides": "",
+	"energy_type": "C",
+	"evolves_from": "",
+	"hp": 220,
+	"image_local_path": "user://cards/images/CSNC/009.png",
+	"image_url": "https://tcg.mik.moe/static/img/CSNC/009.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "V",
+	"name": "阿尔宙斯V",
+	"name_en": "Arceus V",
+	"rarity": "无标记",
+	"regulation_expanded": true,
+	"regulation_mark": "F",
+	"regulation_standard": true,
+	"release_date": "2024-06-18T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 2,
+	"set_code": "CSNC",
+	"set_code_en": "BRS",
+	"stage": "Basic",
+	"weakness_energy": "F",
+	"weakness_value": "×2",
+	"yoren_code": "Y932"
+}

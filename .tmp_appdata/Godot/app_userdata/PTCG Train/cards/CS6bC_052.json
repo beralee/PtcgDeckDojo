@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "选花",
+			"text": "如果这只宝可梦在战斗场上的话，则在自己的回合可以使用1次。查看自己牌库上方2张卡牌，选择其中1张卡牌，加入手牌。将剩余的卡牌放于放逐区。"
+		}
+	],
+	"ancient_trait": "",
+	"artist": "Aya Kusube",
+	"attacks": [
+		{
+			"cost": "PC",
+			"damage": "30",
+			"is_vstar_power": false,
+			"name": "回转攻击",
+			"text": ""
+		}
+	],
+	"card_index": "052",
+	"card_index_en": "79",
+	"card_type": "Pokemon",
+	"description": "特性: 选花\n如果这只宝可梦在战斗场上的话，则在自己的回合可以使用1次。查看自己牌库上方2张卡牌，选择其中1张卡牌，加入手牌。将剩余的卡牌放于放逐区。\n\n【超】 回转攻击 30\n\n\n",
+	"effect_id": "9561f33b1bcf22820a53bf2de8ba6e35",
+	"energy_provides": "",
+	"energy_type": "P",
+	"evolves_from": "",
+	"hp": 70,
+	"image_local_path": "user://cards/images/CS6bC/052.png",
+	"image_url": "https://tcg.mik.moe/static/img/CS6bC/052.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "",
+	"name": "花疗环环",
+	"name_en": "Comfey",
+	"rarity": "U",
+	"regulation_expanded": true,
+	"regulation_mark": "F",
+	"regulation_standard": true,
+	"release_date": "2024-09-20T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 1,
+	"set_code": "CS6bC",
+	"set_code_en": "LOR",
+	"stage": "Basic",
+	"weakness_energy": "M",
+	"weakness_value": "×2",
+	"yoren_code": "P764"
+}

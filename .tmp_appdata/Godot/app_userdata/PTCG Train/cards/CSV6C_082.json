@@ -1,0 +1,51 @@
+{
+	"abilities": [],
+	"ancient_trait": "",
+	"artist": "Anesaki Dynamic",
+	"attacks": [
+		{
+			"cost": "F",
+			"damage": "",
+			"is_vstar_power": false,
+			"name": "踏平",
+			"text": "将对手牌库上方1张卡牌放于弃牌区。"
+		},
+		{
+			"cost": "FF",
+			"damage": "120",
+			"is_vstar_power": false,
+			"name": "烫伤怒涛",
+			"text": "给这只宝可梦也造成90伤害。令对手的战斗宝可梦陷入【灼伤】状态。"
+		}
+	],
+	"card_index": "082",
+	"card_index_en": "107",
+	"card_type": "Pokemon",
+	"description": "【斗】 踏平 \n将对手牌库上方1张卡牌放于弃牌区。\n\n【斗】【斗】 烫伤怒涛 120\n给这只宝可梦也造成90伤害。令对手的战斗宝可梦陷入【灼伤】状态。\n\n",
+	"effect_id": "29f94ee004e4c312dbea4a7930d33544",
+	"energy_provides": "",
+	"energy_type": "F",
+	"evolves_from": "",
+	"hp": 140,
+	"image_local_path": "user://cards/images/CSV6C/082.png",
+	"image_url": "https://tcg.mik.moe/static/img/CSV6C/082.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "",
+	"name": "爬地翅",
+	"name_en": "Slither Wing",
+	"rarity": "U",
+	"regulation_expanded": true,
+	"regulation_mark": "G",
+	"regulation_standard": true,
+	"release_date": "2025-11-07T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 3,
+	"set_code": "CSV6C",
+	"set_code_en": "PAR",
+	"stage": "Basic",
+	"weakness_energy": "P",
+	"weakness_value": "×2",
+	"yoren_code": "P0988"
+}

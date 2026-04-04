@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "侦察指令",
+			"text": "在自己的回合可以使用1次。查看自己牌库上方2张卡牌，选择其中1张卡牌，加入手牌。将剩余的卡牌，放回牌库下方。"
+		}
+	],
+	"ancient_trait": "",
+	"artist": "cochi8i",
+	"attacks": [
+		{
+			"cost": "RP",
+			"damage": "70",
+			"is_vstar_power": false,
+			"name": "龙之头击",
+			"text": ""
+		}
+	],
+	"card_index": "158",
+	"card_index_en": "72",
+	"card_type": "Pokemon",
+	"description": "特性: 侦察指令\n在自己的回合可以使用1次。查看自己牌库上方2张卡牌，选择其中1张卡牌，加入手牌。将剩余的卡牌，放回牌库下方。\n\n【火】【超】 龙之头击 70\n\n\n",
+	"effect_id": "4e13cd08de3b6d141ce8e2f09d17a3a4",
+	"energy_provides": "",
+	"energy_type": "N",
+	"evolves_from": "多龙梅西亚",
+	"hp": 90,
+	"image_local_path": "user://cards/images/CSV8C/158.png",
+	"image_url": "https://tcg.mik.moe/static/img/CSV8C/158.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "",
+	"name": "多龙奇",
+	"name_en": "Drakloak",
+	"rarity": "C",
+	"regulation_expanded": true,
+	"regulation_mark": "H",
+	"regulation_standard": true,
+	"release_date": "2026-03-13T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 1,
+	"set_code": "CSV8C",
+	"set_code_en": "PRE",
+	"stage": "Stage 1",
+	"weakness_energy": "",
+	"weakness_value": "",
+	"yoren_code": "P886"
+}

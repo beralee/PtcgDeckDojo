@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "强力吹风机",
+			"text": "如果这只宝可梦在备战区的话，则在自己的回合可以使用1次。将对手的战斗宝可梦与备战宝可梦互换（放于战斗场的宝可梦由对手选择）。然后，将这只宝可梦，以及放于其身上的所有卡牌，放于弃牌区。"
+		}
+	],
+	"ancient_trait": "",
+	"artist": "Oswaldo KATO",
+	"attacks": [
+		{
+			"cost": "WCC",
+			"damage": "80",
+			"is_vstar_power": false,
+			"name": "冷却喷射",
+			"text": "在下一个对手的回合，受到这个招式影响的进化宝可梦，无法使用招式。"
+		}
+	],
+	"card_index": "042",
+	"card_index_en": "56",
+	"card_type": "Pokemon",
+	"description": "特性: 强力吹风机\n如果这只宝可梦在备战区的话，则在自己的回合可以使用1次。将对手的战斗宝可梦与备战宝可梦互换（放于战斗场的宝可梦由对手选择）。然后，将这只宝可梦，以及放于其身上的所有卡牌，放于弃牌区。\n\n【水】 冷却喷射 80\n在下一个对手的回合，受到这个招式影响的进化宝可梦，无法使用招式。\n\n",
+	"effect_id": "47676dfc37415cfdf3b3992b1de64141",
+	"energy_provides": "",
+	"energy_type": "W",
+	"evolves_from": "",
+	"hp": 100,
+	"image_local_path": "user://cards/images/CSV6C/042.png",
+	"image_url": "https://tcg.mik.moe/static/img/CSV6C/042.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "",
+	"name": "铁包袱",
+	"name_en": "Iron Bundle",
+	"rarity": "U",
+	"regulation_expanded": true,
+	"regulation_mark": "G",
+	"regulation_standard": true,
+	"release_date": "2025-11-07T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 1,
+	"set_code": "CSV6C",
+	"set_code_en": "PAR",
+	"stage": "Basic",
+	"weakness_energy": "L",
+	"weakness_value": "×2",
+	"yoren_code": "P0991"
+}

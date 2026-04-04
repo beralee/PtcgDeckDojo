@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "浪花水帘",
+			"text": "只要这只宝可梦在场上，自己所有的备战宝可梦，不会受到对手招式的伤害。"
+		}
+	],
+	"ancient_trait": "",
+	"artist": "HYOGONOSUKE",
+	"attacks": [
+		{
+			"cost": "W",
+			"damage": "20",
+			"is_vstar_power": false,
+			"name": "泼水",
+			"text": ""
+		}
+	],
+	"card_index": "052",
+	"card_index_en": "41",
+	"card_type": "Pokemon",
+	"description": "特性: 浪花水帘\n只要这只宝可梦在场上，自己所有的备战宝可梦，不会受到对手招式的伤害。\n\n【水】 泼水 20\n\n\n",
+	"effect_id": "04653d073ffc3ca2202746e4f9aebabd",
+	"energy_provides": "",
+	"energy_type": "W",
+	"evolves_from": "",
+	"hp": 70,
+	"image_local_path": "user://cards/images/CS5bC/052.png",
+	"image_url": "https://tcg.mik.moe/static/img/CS5bC/052.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "",
+	"name": "玛纳霏",
+	"name_en": "Manaphy",
+	"rarity": "U",
+	"regulation_expanded": true,
+	"regulation_mark": "F",
+	"regulation_standard": true,
+	"release_date": "2024-06-18T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 1,
+	"set_code": "CS5bC",
+	"set_code_en": "BRS",
+	"stage": "Basic",
+	"weakness_energy": "L",
+	"weakness_value": "×2",
+	"yoren_code": "P490"
+}

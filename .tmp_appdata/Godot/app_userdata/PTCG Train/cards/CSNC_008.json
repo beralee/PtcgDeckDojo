@@ -1,0 +1,51 @@
+{
+	"abilities": [],
+	"ancient_trait": "",
+	"artist": "5ban Graphics",
+	"attacks": [
+		{
+			"cost": "C",
+			"damage": "",
+			"is_vstar_power": false,
+			"name": "金属涂层",
+			"text": "选择自己弃牌区中最多2张【钢】能量，附着于这只宝可梦身上。"
+		},
+		{
+			"cost": "MMMC",
+			"damage": "180",
+			"is_vstar_power": false,
+			"name": "时间断绝",
+			"text": ""
+		}
+	],
+	"card_index": "008",
+	"card_index_en": "113",
+	"card_type": "Pokemon",
+	"description": " 金属涂层 \n选择自己弃牌区中最多2张【钢】能量，附着于这只宝可梦身上。\n\n【钢】【钢】【钢】 时间断绝 180\n\n\n",
+	"effect_id": "5fbf2a43fe0f6df85dd1b7eb420ac678",
+	"energy_provides": "",
+	"energy_type": "M",
+	"evolves_from": "",
+	"hp": 220,
+	"image_local_path": "user://cards/images/CSNC/008.png",
+	"image_url": "https://tcg.mik.moe/static/img/CSNC/008.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "V",
+	"name": "起源帝牙卢卡V",
+	"name_en": "Origin Forme Dialga V",
+	"rarity": "无标记",
+	"regulation_expanded": true,
+	"regulation_mark": "F",
+	"regulation_standard": true,
+	"release_date": "2024-06-18T00:00:00+08:00",
+	"resistance_energy": "G",
+	"resistance_value": "-30",
+	"retreat_cost": 2,
+	"set_code": "CSNC",
+	"set_code_en": "ASR",
+	"stage": "Basic",
+	"weakness_energy": "R",
+	"weakness_value": "×2",
+	"yoren_code": "Y931"
+}

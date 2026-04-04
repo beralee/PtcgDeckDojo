@@ -1,0 +1,173 @@
+{
+	"cards": [
+		{
+			"card_index": "083",
+			"card_type": "Pokemon",
+			"count": 4,
+			"effect_id": "04723b3e874025d333e477cf34a49e1c",
+			"name": "铁哑铃",
+			"name_en": "Beldum",
+			"set_code": "CS6aC"
+		},
+		{
+			"card_index": "020",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "09445b8c32fd4abef4230ebcdc964096",
+			"name": "光辉甲贺忍蛙",
+			"name_en": "Radiant Greninja",
+			"set_code": "CS6.5C"
+		},
+		{
+			"card_index": "043",
+			"card_type": "Item",
+			"count": 4,
+			"effect_id": "1af63a7e2cb7a79215474ad8db8fd8fd",
+			"name": "巢穴球",
+			"name_en": "Nest Ball",
+			"set_code": "CSVH1C"
+		},
+		{
+			"card_index": "191",
+			"card_type": "Supporter",
+			"count": 1,
+			"effect_id": "1b5fc2ed2bce98ef93457881c05354e2",
+			"name": "暗码迷的解读",
+			"name_en": "Ciphermaniac's Codebreaking",
+			"set_code": "CSV7C"
+		},
+		{
+			"card_index": "049",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "354ba2d0df40cde93977a7fc7c7af622",
+			"name": "藏玛然特",
+			"name_en": "Zamazenta",
+			"set_code": "CS6.5C"
+		},
+		{
+			"card_index": "MET",
+			"card_type": "Basic Energy",
+			"count": 15,
+			"effect_id": "4557c01497b81767fdaa0004089ecfb3",
+			"name": "基本钢能量",
+			"name_en": "Metal Energy",
+			"set_code": "CSVE1C"
+		},
+		{
+			"card_index": "151",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "49669fcf461deacebeb5755c11ec51f1",
+			"name": "梦幻ex",
+			"name_en": "Mew ex",
+			"set_code": "151C"
+		},
+		{
+			"card_index": "180",
+			"card_type": "Item",
+			"count": 1,
+			"effect_id": "4ec261453212280d0eb03ed8254ca97f",
+			"name": "顶尖捕捉器",
+			"name_en": "Prime Catcher",
+			"set_code": "CSV7C"
+		},
+		{
+			"card_index": "008",
+			"card_type": "Pokemon",
+			"count": 3,
+			"effect_id": "5fbf2a43fe0f6df85dd1b7eb420ac678",
+			"name": "起源帝牙卢卡V",
+			"name_en": "Origin Forme Dialga V",
+			"set_code": "CSNC"
+		},
+		{
+			"card_index": "113",
+			"card_type": "Item",
+			"count": 1,
+			"effect_id": "768b545a38fccd5e265093b5adce10af",
+			"name": "宝可装置3.0",
+			"name_en": "Pokégear 3.0",
+			"set_code": "CSV2C"
+		},
+		{
+			"card_index": "023",
+			"card_type": "Supporter",
+			"count": 3,
+			"effect_id": "8e1fa2c9018db938084c94c7c970d419",
+			"name": "老大的指令",
+			"name_en": "Boss's Orders",
+			"set_code": "CSVH1aC"
+		},
+		{
+			"card_index": "112",
+			"card_type": "Item",
+			"count": 4,
+			"effect_id": "a337ed34a45e63c6d21d98c3d8e0cb6e",
+			"name": "高级球",
+			"name_en": "Ultra Ball",
+			"set_code": "CSV1C"
+		},
+		{
+			"card_index": "121",
+			"card_type": "Supporter",
+			"count": 4,
+			"effect_id": "aecd80ca2722885c3d062a2255346f3e",
+			"name": "博士的研究",
+			"name_en": "Professor's Research",
+			"set_code": "CSV1C"
+		},
+		{
+			"card_index": "123",
+			"card_type": "Supporter",
+			"count": 4,
+			"effect_id": "af514f82d182aeae5327b2c360df703d",
+			"name": "奇树",
+			"name_en": "Iono",
+			"set_code": "CSV3C"
+		},
+		{
+			"card_index": "109",
+			"card_type": "Item",
+			"count": 4,
+			"effect_id": "c9c948169525fbb3dce70c477ec7a90a",
+			"name": "厉害钓竿",
+			"name_en": "Super Rod",
+			"set_code": "CSV1C"
+		},
+		{
+			"card_index": "147",
+			"card_type": "Pokemon",
+			"count": 4,
+			"effect_id": "daab918dc820662c599221a8a1d85114",
+			"name": "金属怪",
+			"name_en": "Metang",
+			"set_code": "CSV7C"
+		},
+		{
+			"card_index": "096",
+			"card_type": "Pokemon",
+			"count": 3,
+			"effect_id": "e470ac9bf3503ca157a8679c91e19fb1",
+			"name": "起源帝牙卢卡VSTAR",
+			"name_en": "Origin Forme Dialga VSTAR",
+			"set_code": "CS5bC"
+		},
+		{
+			"card_index": "177",
+			"card_type": "Item",
+			"count": 2,
+			"effect_id": "f866dfee26cd6b0dbbb52b74438d0a59",
+			"name": "友好宝芬",
+			"name_en": "Buddy-Buddy Poffin",
+			"set_code": "CSV7C"
+		}
+	],
+	"deck_code": "1Lupx1CC3jfOLB_wKx",
+	"deck_name": "起源帝牙卢卡",
+	"id": 561444,
+	"import_date": "2026-03-15T16:19:50",
+	"source_url": "https://tcg.mik.moe/decks/list/561444",
+	"total_cards": 60,
+	"variant_name": "起源帝牙卢卡"
+}

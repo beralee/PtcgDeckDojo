@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "快速充电",
+			"text": "在自己的回合可以使用1次，如果使用了，则自己的回合结束。从自己牌库上方抽取3张卡牌。"
+		}
+	],
+	"ancient_trait": "",
+	"artist": "5ban Graphics",
+	"attacks": [
+		{
+			"cost": "LL",
+			"damage": "40+",
+			"is_vstar_power": false,
+			"name": "废品短路",
+			"text": "将自己弃牌区中任意数量的「宝可梦道具」放于放逐区，追加造成其张数×40点伤害。"
+		}
+	],
+	"card_index": "023",
+	"card_index_en": "58",
+	"card_type": "Pokemon",
+	"description": "特性: 快速充电\n在自己的回合可以使用1次，如果使用了，则自己的回合结束。从自己牌库上方抽取3张卡牌。\n\n【雷】【雷】 废品短路 40+\n将自己弃牌区中任意数量的「宝可梦道具」放于放逐区，追加造成其张数×40点伤害。\n\n",
+	"effect_id": "8ef5ff61fd97838af568f00fe3b0e3ea",
+	"energy_provides": "",
+	"energy_type": "L",
+	"evolves_from": "",
+	"hp": 190,
+	"image_local_path": "user://cards/images/CS6.5C/023.png",
+	"image_url": "https://tcg.mik.moe/static/img/CS6.5C/023.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "V",
+	"name": "洛托姆V",
+	"name_en": "Rotom V",
+	"rarity": "RR",
+	"regulation_expanded": true,
+	"regulation_mark": "F",
+	"regulation_standard": true,
+	"release_date": "2024-11-15T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 1,
+	"set_code": "CS6.5C",
+	"set_code_en": "LOR",
+	"stage": "Basic",
+	"weakness_energy": "F",
+	"weakness_value": "×2",
+	"yoren_code": "Y1161"
+}

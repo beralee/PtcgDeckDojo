@@ -21,6 +21,7 @@ func test_save_and_load_version_roundtrip() -> String:
 		"status": "playable",
 		"agent_config_path": "user://ai_agents/agent_v015.json",
 		"value_net_path": "user://ai_models/value_net_v1.json",
+		"action_scorer_path": "user://ai_models/action_scorer_v1.json",
 		"benchmark_summary": {"win_rate_vs_current_best": 0.57}
 	}
 	var ok: bool = registry.save_version(record)

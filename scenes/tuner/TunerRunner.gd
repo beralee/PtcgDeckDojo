@@ -3,6 +3,7 @@ extends Control
 
 const EvolutionEngineScript = preload("res://scripts/ai/EvolutionEngine.gd")
 const AgentVersionStoreScript = preload("res://scripts/ai/AgentVersionStore.gd")
+const DeckBenchmarkCaseScript = preload("res://scripts/ai/DeckBenchmarkCase.gd")
 
 
 func _ready() -> void:
@@ -15,6 +16,7 @@ func _ready() -> void:
 	print("[TunerRunner] Config: generations=%d sigma_w=%.3f sigma_m=%.3f" % [
 		engine.generations, engine.sigma_weights, engine.sigma_mcts
 	])
+	print("[TunerRunner] Pipeline: %s" % str(options.get("pipeline_name", DeckBenchmarkCaseScript.PIPELINE_FIXED_THREE_DECK)))
 
 	var initial_config := build_initial_config(options)
 	if str(options.get("agent_config_path", "")) != "":
@@ -56,8 +58,12 @@ func parse_args(args: PackedStringArray) -> Dictionary:
 		"from_latest": false,
 		"agent_config_path": "",
 		"value_net_path": "",
+		"action_scorer_path": "",
 		"progress_output_path": "",
+		"anomaly_output_path": "",
+		"pipeline_name": DeckBenchmarkCaseScript.PIPELINE_FIXED_THREE_DECK,
 		"export_data": false,
+		"export_action_data": false,
 	}
 	for arg: String in args:
 		if arg.begins_with("--generations="):
@@ -74,10 +80,18 @@ func parse_args(args: PackedStringArray) -> Dictionary:
 			parsed["agent_config_path"] = arg.split("=")[1]
 		elif arg.begins_with("--value-net="):
 			parsed["value_net_path"] = arg.split("=")[1]
+		elif arg.begins_with("--action-scorer="):
+			parsed["action_scorer_path"] = arg.split("=")[1]
 		elif arg.begins_with("--progress-output="):
 			parsed["progress_output_path"] = arg.split("=")[1]
+		elif arg.begins_with("--anomaly-output="):
+			parsed["anomaly_output_path"] = arg.split("=")[1]
+		elif arg.begins_with("--pipeline-name="):
+			parsed["pipeline_name"] = arg.split("=")[1]
 		elif arg == "--export-data":
 			parsed["export_data"] = true
+		elif arg == "--export-action-data":
+			parsed["export_action_data"] = true
 	return parsed
 
 
@@ -103,8 +117,12 @@ func _apply_engine_options(engine: EvolutionEngine, options: Dictionary) -> void
 	engine.sigma_mcts = float(options.get("sigma_mcts", engine.sigma_mcts))
 	engine.max_steps_per_match = int(options.get("max_steps", engine.max_steps_per_match))
 	engine.value_net_path = str(options.get("value_net_path", ""))
+	engine.action_scorer_path = str(options.get("action_scorer_path", ""))
 	engine.progress_output_path = str(options.get("progress_output_path", ""))
+	engine.anomaly_output_path = str(options.get("anomaly_output_path", ""))
+	engine.deck_pairings = DeckBenchmarkCaseScript.get_training_deck_pairings(str(options.get("pipeline_name", DeckBenchmarkCaseScript.PIPELINE_FIXED_THREE_DECK)))
 	engine.export_training_data = bool(options.get("export_data", false))
+	engine.export_action_training_data = bool(options.get("export_action_data", false))
 
 
 func _extract_agent_config(source: Dictionary, fallback: Dictionary) -> Dictionary:

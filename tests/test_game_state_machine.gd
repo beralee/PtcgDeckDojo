@@ -5,6 +5,7 @@ extends TestBase
 const AbilityAttachFromDeckEffect = preload("res://scripts/effects/pokemon_effects/AbilityAttachFromDeck.gd")
 const AttackSearchDeckToTopEffect = preload("res://scripts/effects/pokemon_effects/AttackSearchDeckToTop.gd")
 const AttackBenchCountDamageEffect = preload("res://scripts/effects/pokemon_effects/AttackBenchCountDamage.gd")
+const AttackGreninjaExMirageBarrageEffect = preload("res://scripts/effects/pokemon_effects/AttackGreninjaExMirageBarrage.gd")
 
 
 class ScriptedRuleValidator extends RuleValidator:
@@ -408,6 +409,55 @@ func test_retreat_uses_effective_cost_modifier() -> String:
 		assert_eq(result, true, "Zero-cost retreat should succeed"),
 		assert_eq(player.active_pokemon, bench_slot, "Bench Pokemon should become active"),
 		assert_eq(player.discard_pile.size(), 0, "A retreat with cost 0 should not discard Energy"),
+	])
+
+
+func test_dreepy_rescue_board_allows_zero_cost_retreat_after_attachment() -> String:
+	var gsm := _make_gsm_with_decks()
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	gsm.game_state.turn_number = 2
+
+	var player: PlayerState = gsm.game_state.players[0]
+	player.hand.clear()
+	player.discard_pile.clear()
+
+	var dreepy_cd: CardData = CardDatabase.get_card("CSV8C", "157")
+	var rescue_board_cd: CardData = CardDatabase.get_card("CSV7C", "185")
+
+	var active_slot := PokemonSlot.new()
+	if dreepy_cd != null:
+		active_slot.pokemon_stack.append(CardInstance.create(dreepy_cd, 0))
+	player.active_pokemon = active_slot
+
+	var bench_cd := CardData.new()
+	bench_cd.name = "Bench"
+	bench_cd.card_type = "Pokemon"
+	bench_cd.stage = "Basic"
+	bench_cd.hp = 70
+	bench_cd.energy_type = "P"
+	var bench_slot := PokemonSlot.new()
+	bench_slot.pokemon_stack.append(CardInstance.create(bench_cd, 0))
+	player.bench = [bench_slot]
+
+	var rescue_board: CardInstance = null
+	if rescue_board_cd != null:
+		rescue_board = CardInstance.create(rescue_board_cd, 0)
+		player.hand.append(rescue_board)
+
+	var attached: bool = gsm.attach_tool(0, rescue_board, active_slot) if rescue_board != null else false
+	var retreat_cost: int = gsm.effect_processor.get_effective_retreat_cost(active_slot, gsm.game_state)
+	var retreated: bool = gsm.retreat(0, [], bench_slot)
+
+	return run_checks([
+		assert_not_null(dreepy_cd, "CSV8C_157 Dreepy should exist in the card database"),
+		assert_not_null(rescue_board_cd, "CSV7C_185 Rescue Board should exist in the card database"),
+		assert_true(attached, "Rescue Board should attach to Dreepy through the normal tool attachment flow"),
+		assert_eq(retreat_cost, 0, "Rescue Board should reduce Dreepy's retreat cost from 1 to 0"),
+		assert_true(retreated, "Dreepy should be able to retreat for free after Rescue Board attaches"),
+		assert_eq(player.active_pokemon, bench_slot, "The selected Benched Pokemon should become Active after the retreat"),
+		assert_true(active_slot in player.bench, "The former Active Dreepy should move to the Bench after retreating"),
+		assert_eq(active_slot.attached_tool, rescue_board, "Rescue Board should remain attached to Dreepy after it retreats"),
+		assert_eq(player.discard_pile.size(), 0, "A zero-cost Rescue Board retreat should not discard any cards"),
 	])
 
 
@@ -1431,6 +1481,304 @@ func test_action_log_records_actions() -> String:
 	])
 
 
+func test_attack_log_includes_damage_and_target_details() -> String:
+	var gsm := _make_gsm_with_decks()
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	gsm.game_state.turn_number = 2
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+
+	var player: PlayerState = gsm.game_state.players[0]
+	var attacker_cd := CardData.new()
+	attacker_cd.name = "Attacker"
+	attacker_cd.card_type = "Pokemon"
+	attacker_cd.stage = "Basic"
+	attacker_cd.hp = 110
+	attacker_cd.energy_type = "C"
+	attacker_cd.attacks = [{"name": "Quick Bolt", "cost": "C", "damage": "40", "is_vstar_power": false}]
+	var attacker_slot := PokemonSlot.new()
+	attacker_slot.pokemon_stack.append(CardInstance.create(attacker_cd, 0))
+	attacker_slot.attached_energy.append(CardInstance.create(_make_test_energy("C"), 0))
+	player.active_pokemon = attacker_slot
+
+	var defender_cd := CardData.new()
+	defender_cd.name = "Defender"
+	defender_cd.card_type = "Pokemon"
+	defender_cd.stage = "Basic"
+	defender_cd.hp = 100
+	defender_cd.energy_type = "W"
+	var defender_slot := PokemonSlot.new()
+	defender_slot.pokemon_stack.append(CardInstance.create(defender_cd, 1))
+	gsm.game_state.players[1].active_pokemon = defender_slot
+
+	var result: bool = gsm.use_attack(0, 0)
+	var attack_action: GameAction = _get_last_action_of_type(gsm.action_log, GameAction.ActionType.ATTACK)
+
+	return run_checks([
+		assert_eq(result, true, "Attack should resolve successfully"),
+		assert_not_null(attack_action, "Attack should be logged"),
+		assert_eq(str(attack_action.data.get("attack_name", "")), "Quick Bolt", "Attack log should include the attack name"),
+		assert_eq(int(attack_action.data.get("damage", -1)), 40, "Attack log should include the damage dealt"),
+		assert_eq(str(attack_action.data.get("target_pokemon_name", "")), "Defender", "Attack log should include the target Pokemon name"),
+	])
+
+
+func test_attack_log_omits_active_target_when_prompt_targets_are_supplied() -> String:
+	var gsm := _make_gsm_with_decks()
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	gsm.game_state.turn_number = 2
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+
+	var player: PlayerState = gsm.game_state.players[0]
+	player.deck.clear()
+	var chosen_top := CardInstance.create(_make_test_energy("M"), 0)
+	player.deck.append(chosen_top)
+
+	var attacker_cd := CardData.new()
+	attacker_cd.name = "Beldum"
+	attacker_cd.card_type = "Pokemon"
+	attacker_cd.stage = "Basic"
+	attacker_cd.hp = 70
+	attacker_cd.energy_type = "M"
+	attacker_cd.effect_id = "beldum_test_recording"
+	attacker_cd.attacks = [{"name": "Magnetic Lift", "cost": "C", "damage": "", "is_vstar_power": false}]
+	var attacker_slot := PokemonSlot.new()
+	attacker_slot.pokemon_stack.append(CardInstance.create(attacker_cd, 0))
+	attacker_slot.attached_energy.append(CardInstance.create(_make_test_energy("M"), 0))
+	player.active_pokemon = attacker_slot
+	gsm.effect_processor.register_attack_effect("beldum_test_recording", AttackSearchDeckToTopEffect.new(1))
+
+	var defender_cd := CardData.new()
+	defender_cd.name = "Defender"
+	defender_cd.card_type = "Pokemon"
+	defender_cd.stage = "Basic"
+	defender_cd.hp = 100
+	defender_cd.energy_type = "W"
+	var defender_slot := PokemonSlot.new()
+	defender_slot.pokemon_stack.append(CardInstance.create(defender_cd, 1))
+	gsm.game_state.players[1].active_pokemon = defender_slot
+
+	var result: bool = gsm.use_attack(0, 0, [{
+		"search_cards": [chosen_top],
+	}])
+	var attack_action: GameAction = _get_last_action_of_type(gsm.action_log, GameAction.ActionType.ATTACK)
+	var attack_data: Dictionary = attack_action.data if attack_action != null else {}
+
+	return run_checks([
+		assert_eq(result, true, "Prompt-targeted attack should resolve successfully"),
+		assert_not_null(attack_action, "Attack should be logged"),
+		assert_eq(int(attack_data.get("damage", -1)), 0, "Zero-damage attacks should record damage as 0"),
+		assert_eq(attack_data.has("target_pokemon_name"), false, "Prompt-targeted attacks should not guess the opposing Active as the target"),
+	])
+
+
+func test_attack_log_keeps_active_target_for_non_target_prompt_with_damage() -> String:
+	var gsm := _make_gsm_with_decks()
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	gsm.game_state.turn_number = 2
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+
+	var player: PlayerState = gsm.game_state.players[0]
+	player.deck.clear()
+	var chosen_top := CardInstance.create(_make_test_energy("M"), 0)
+	player.deck.append(chosen_top)
+
+	var attacker_cd := CardData.new()
+	attacker_cd.name = "Attacker"
+	attacker_cd.card_type = "Pokemon"
+	attacker_cd.stage = "Basic"
+	attacker_cd.hp = 110
+	attacker_cd.energy_type = "M"
+	attacker_cd.effect_id = "attacker_test_recording"
+	attacker_cd.attacks = [{"name": "Magnetic Bolt", "cost": "C", "damage": "40", "is_vstar_power": false}]
+	var attacker_slot := PokemonSlot.new()
+	attacker_slot.pokemon_stack.append(CardInstance.create(attacker_cd, 0))
+	attacker_slot.attached_energy.append(CardInstance.create(_make_test_energy("M"), 0))
+	player.active_pokemon = attacker_slot
+	gsm.effect_processor.register_attack_effect("attacker_test_recording", AttackSearchDeckToTopEffect.new(1))
+
+	var defender_cd := CardData.new()
+	defender_cd.name = "Defender"
+	defender_cd.card_type = "Pokemon"
+	defender_cd.stage = "Basic"
+	defender_cd.hp = 100
+	defender_cd.energy_type = "W"
+	var defender_slot := PokemonSlot.new()
+	defender_slot.pokemon_stack.append(CardInstance.create(defender_cd, 1))
+	gsm.game_state.players[1].active_pokemon = defender_slot
+
+	var result: bool = gsm.use_attack(0, 0, [{
+		"search_cards": [chosen_top],
+	}])
+	var attack_action: GameAction = _get_last_action_of_type(gsm.action_log, GameAction.ActionType.ATTACK)
+	var attack_data: Dictionary = attack_action.data if attack_action != null else {}
+
+	return run_checks([
+		assert_eq(result, true, "Damage attack with auxiliary prompt should resolve successfully"),
+		assert_not_null(attack_action, "Attack should be logged"),
+		assert_eq(int(attack_data.get("damage", -1)), 40, "Damage attack should record the resolved damage"),
+		assert_eq(str(attack_data.get("target_pokemon_name", "")), "Defender", "Auxiliary prompts should still keep the opposing Active as the target when the attack hits it"),
+	])
+
+
+func test_attack_log_omits_active_target_for_existing_explicit_target_step_ids() -> String:
+	var gsm := _make_gsm_with_decks()
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	gsm.game_state.turn_number = 2
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+
+	var player: PlayerState = gsm.game_state.players[0]
+	var attacker_cd := CardData.new()
+	attacker_cd.name = "Greninja ex"
+	attacker_cd.card_type = "Pokemon"
+	attacker_cd.stage = "Stage 2"
+	attacker_cd.hp = 310
+	attacker_cd.energy_type = "W"
+	attacker_cd.effect_id = "greninja_test_recording"
+	attacker_cd.attacks = [{"name": "Mirage Barrage", "cost": "CC", "damage": "", "is_vstar_power": false}]
+	var attacker_slot := PokemonSlot.new()
+	attacker_slot.pokemon_stack.append(CardInstance.create(attacker_cd, 0))
+	var energy_a := CardInstance.create(_make_test_energy("W"), 0)
+	var energy_b := CardInstance.create(_make_test_energy("W"), 0)
+	attacker_slot.attached_energy = [energy_a, energy_b]
+	player.active_pokemon = attacker_slot
+	gsm.effect_processor.register_attack_effect("greninja_test_recording", AttackGreninjaExMirageBarrageEffect.new(0, 120, 2))
+
+	var active_defender_cd := CardData.new()
+	active_defender_cd.name = "Active Defender"
+	active_defender_cd.card_type = "Pokemon"
+	active_defender_cd.stage = "Basic"
+	active_defender_cd.hp = 120
+	active_defender_cd.energy_type = "W"
+	var active_defender := PokemonSlot.new()
+	active_defender.pokemon_stack.append(CardInstance.create(active_defender_cd, 1))
+	gsm.game_state.players[1].active_pokemon = active_defender
+
+	var bench_defender_cd := CardData.new()
+	bench_defender_cd.name = "Bench Defender"
+	bench_defender_cd.card_type = "Pokemon"
+	bench_defender_cd.stage = "Basic"
+	bench_defender_cd.hp = 120
+	bench_defender_cd.energy_type = "W"
+	var bench_defender := PokemonSlot.new()
+	bench_defender.pokemon_stack.append(CardInstance.create(bench_defender_cd, 1))
+	gsm.game_state.players[1].bench = [bench_defender]
+
+	var result: bool = gsm.use_attack(0, 0, [{
+		"greninja_ex_discard_energy": [energy_a, energy_b],
+		"greninja_ex_targets": [bench_defender],
+	}])
+	var attack_action: GameAction = _get_last_action_of_type(gsm.action_log, GameAction.ActionType.ATTACK)
+	var attack_data: Dictionary = attack_action.data if attack_action != null else {}
+
+	return run_checks([
+		assert_eq(result, true, "Explicit-target attack should resolve successfully"),
+		assert_not_null(attack_action, "Attack should be logged"),
+		assert_eq(bench_defender.damage_counters, 120, "The explicit bench target should take the attack damage"),
+		assert_eq(active_defender.damage_counters, 0, "The opposing Active should not be treated as the resolved target"),
+		assert_eq(attack_data.has("target_pokemon_name"), false, "Explicit target-step attacks should not mislabel the opposing Active as the target"),
+	])
+
+
+func test_take_prize_log_includes_prize_count_and_card_identity() -> String:
+	var gsm := _make_gsm_with_decks()
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	gsm.game_state.turn_number = 2
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+
+	var player: PlayerState = gsm.game_state.players[0]
+	var prize_cd := CardData.new()
+	prize_cd.name = "Prize Target"
+	prize_cd.card_type = "Pokemon"
+	prize_cd.stage = "Basic"
+	prize_cd.hp = 60
+	prize_cd.energy_type = "W"
+	player.prizes.append(CardInstance.create(prize_cd, 0))
+	gsm.set("_pending_prize_player_index", 0)
+	gsm.set("_pending_prize_remaining", 1)
+	gsm.set("_pending_prize_resume_mode", "")
+	gsm.set("_pending_prize_resume_player_index", 0)
+
+	var pending_prize_remaining: int = int(gsm.get("_pending_prize_remaining"))
+	var took_prize: bool = gsm.resolve_take_prize(0, 0)
+	var prize_action: GameAction = _get_last_action_of_type(gsm.action_log, GameAction.ActionType.TAKE_PRIZE)
+	var prize_data: Dictionary = prize_action.data if prize_action != null else {}
+
+	return run_checks([
+		assert_eq(pending_prize_remaining, 1, "Prize fixture should queue exactly one prize"),
+		assert_eq(took_prize, true, "Prize selection should resolve"),
+		assert_not_null(prize_action, "Prize taking should be logged"),
+		assert_eq(int(prize_data.get("prize_count", -1)), 1, "Prize log should include the prize count"),
+		assert_eq(prize_data.get("card_names", []), ["Prize Target"], "Prize log should include the revealed prize list"),
+		assert_eq(str(prize_data.get("card_name", "")), "Prize Target", "Prize log should include the revealed prize identity"),
+	])
+
+
+func test_knockout_without_available_prizes_keeps_knockout_log_intact() -> String:
+	var gsm := _make_gsm_with_decks()
+	gsm.game_state.phase = GameState.GamePhase.POKEMON_CHECK
+	gsm.game_state.turn_number = 2
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+
+	gsm.game_state.players[0].prizes.clear()
+	var knocked_out_cd := CardData.new()
+	knocked_out_cd.name = "Prizeless Target"
+	knocked_out_cd.card_type = "Pokemon"
+	knocked_out_cd.stage = "Basic"
+	knocked_out_cd.hp = 60
+	knocked_out_cd.energy_type = "W"
+	var knocked_out_slot := PokemonSlot.new()
+	knocked_out_slot.pokemon_stack.append(CardInstance.create(knocked_out_cd, 1))
+	gsm.game_state.players[1].bench.append(knocked_out_slot)
+
+	var completed: bool = gsm._finalize_knockout(1, knocked_out_slot, false)
+	var knockout_action: GameAction = _get_last_action_of_type(gsm.action_log, GameAction.ActionType.KNOCKOUT)
+	var take_prize_action: GameAction = _get_last_action_of_type(gsm.action_log, GameAction.ActionType.TAKE_PRIZE)
+	var knockout_data: Dictionary = knockout_action.data if knockout_action != null else {}
+
+	return run_checks([
+		assert_eq(completed, true, "Knockout should still complete when no prizes can be taken"),
+		assert_not_null(knockout_action, "Knockout should be logged"),
+		assert_eq(int(knockout_data.get("prize_count", -1)), 1, "Knockout log should keep the prize count from the defeated Pokemon"),
+		assert_eq(knockout_data.has("card_names"), false, "Knockout log should not be overwritten with prize metadata when no prize was taken"),
+		assert_null(take_prize_action, "No TAKE_PRIZE action should be logged when the attacker has no prizes remaining"),
+	])
+
+
+func test_send_out_log_includes_replacement_pokemon_name() -> String:
+	var gsm := _make_gsm_with_decks()
+	gsm.game_state.phase = GameState.GamePhase.KNOCKOUT_REPLACE
+	gsm.game_state.turn_number = 2
+	gsm.game_state.current_player_index = 1
+	gsm.game_state.first_player_index = 0
+
+	var player: PlayerState = gsm.game_state.players[1]
+	player.active_pokemon = null
+	var replacement_cd := CardData.new()
+	replacement_cd.name = "Replacement"
+	replacement_cd.card_type = "Pokemon"
+	replacement_cd.stage = "Basic"
+	replacement_cd.hp = 120
+	replacement_cd.energy_type = "W"
+	var replacement := PokemonSlot.new()
+	replacement.pokemon_stack.append(CardInstance.create(replacement_cd, 1))
+	player.bench.append(replacement)
+
+	var sent_out: bool = gsm.send_out_pokemon(1, replacement)
+	var send_out_action: GameAction = _get_last_action_of_type(gsm.action_log, GameAction.ActionType.SEND_OUT)
+
+	return run_checks([
+		assert_eq(sent_out, true, "Replacement Pokemon should be sent out"),
+		assert_not_null(send_out_action, "Send-out should be logged"),
+		assert_eq(str(send_out_action.data.get("replacement_pokemon_name", "")), "Replacement", "Send-out log should include the replacement Pokemon name"),
+	])
+
+
 func test_game_action_create() -> String:
 	var action: GameAction = GameAction.create(
 		GameAction.ActionType.DRAW_CARD, 0, {"count": 1}, 2, "鎶?寮犵墝"
@@ -1441,6 +1789,14 @@ func test_game_action_create() -> String:
 		assert_eq(action.turn_number, 2, "Turn number should be recorded"),
 		assert_eq(action.description, "鎶?寮犵墝", "鎻忚堪"),
 	])
+
+
+func _get_last_action_of_type(action_log: Array[GameAction], action_type: GameAction.ActionType) -> GameAction:
+	for i: int in range(action_log.size() - 1, -1, -1):
+		var action: GameAction = action_log[i]
+		if action != null and action.action_type == action_type:
+			return action
+	return null
 
 
 

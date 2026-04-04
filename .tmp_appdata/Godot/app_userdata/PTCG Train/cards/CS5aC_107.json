@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "星耀诞生",
+			"text": "在自己的回合可以使用。选择自己牌库中任意卡牌最多2张，加入手牌。并重洗牌库。[对战中，己方的VSTAR力量只能使用1次。]"
+		}
+	],
+	"ancient_trait": "",
+	"artist": "5ban Graphics",
+	"attacks": [
+		{
+			"cost": "CCC",
+			"damage": "200",
+			"is_vstar_power": false,
+			"name": "三重新星",
+			"text": "选择自己牌库中最多3张基本能量，以任意方式附着于自己的「宝可梦V」身上。并重洗牌库。"
+		}
+	],
+	"card_index": "107",
+	"card_index_en": "123",
+	"card_type": "Pokemon",
+	"description": "特性: 星耀诞生\n在自己的回合可以使用。选择自己牌库中任意卡牌最多2张，加入手牌。并重洗牌库。[对战中，己方的VSTAR力量只能使用1次。]\n\n 三重新星 200\n选择自己牌库中最多3张基本能量，以任意方式附着于自己的「宝可梦V」身上。并重洗牌库。\n\n",
+	"effect_id": "9a0982e46cf9a3aaed89e6d3517e7d58",
+	"energy_provides": "",
+	"energy_type": "C",
+	"evolves_from": "阿尔宙斯V",
+	"hp": 280,
+	"image_local_path": "user://cards/images/CS5aC/107.png",
+	"image_url": "https://tcg.mik.moe/static/img/CS5aC/107.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "V",
+	"name": "阿尔宙斯VSTAR",
+	"name_en": "Arceus VSTAR",
+	"rarity": "RRR",
+	"regulation_expanded": true,
+	"regulation_mark": "F",
+	"regulation_standard": true,
+	"release_date": "2024-06-18T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 2,
+	"set_code": "CS5aC",
+	"set_code_en": "BRS",
+	"stage": "VSTAR",
+	"weakness_energy": "F",
+	"weakness_value": "×2",
+	"yoren_code": "Y1022"
+}
