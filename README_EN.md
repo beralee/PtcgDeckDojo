@@ -7,8 +7,8 @@ A local PTCG practice and rules-simulation project built with Godot 4.6 and GDSc
 This repository is not meant to be an official replacement or a commercial product. The goal is to turn PTCG practice, rules validation, card-effect implementation, and regression testing into an open-source project that can keep evolving.
 
 <p align="center">
-  <img src="assets/demo1.png" alt="PtcgDeckDojo battle demo 1" width="49%" />
-  <img src="assets/demo3.png" alt="PtcgDeckDojo battle demo 2" width="49%" />
+  <img src="assets/demo_menu.png" alt="PtcgDeckDojo main menu" width="49%" />
+  <img src="assets/demo_ai_card.png" alt="PtcgDeckDojo AI deck analysis" width="49%" />
 </p>
 
 ## In One Sentence
@@ -36,9 +36,18 @@ If you want a runnable, readable, and extendable PTCG training codebase, it is a
 - Deck import: supports importing from `tcg.mik.moe` deck links or deck IDs
 - Local cache: card JSON, card images, and deck data are stored in `user://`
 - Battle UI: the main gameplay loop is already playable
+- AI assistance: includes deck analysis, in-battle advice, and post-match review
 - Rules engine: includes turn flow, damage, status, prize cards, retreat, and other core systems
 - Effect system: maps card behavior through reusable effect scripts
 - Test coverage: includes semantic regression tests, batch card audits, encoding audits, and UI regressions
+
+## AI Features
+
+- Deck analysis: the deck editor can suggest concrete swaps instead of only giving vague archetype advice
+- In-battle coaching: the live advice flow uses the visible board, action history, both decklists, and deck strategy notes to suggest a compact best line for the current turn
+- Post-match review: after a match, the AI can identify key turns and generate a Chinese review focused on mistakes, pivots, and swing turns
+- Hidden-info guardrails: advice is designed around public information and does not assume the opponent's hidden hand, prize identities, or deck order
+- Fast regression loop: functional tests and AI/training tests now use separate runners, so day-to-day gameplay verification stays fast
 
 ## Project Structure
 
@@ -93,13 +102,23 @@ This is not a contradiction. It is the current reality of the project.
 
 ### Run Tests
 
-The repository includes a headless Godot test entry:
+The repository includes separate headless Godot test entries:
 
 ```powershell
-& 'D:\ai\godot\Godot_v4.6.1-stable_win64_console.exe' --headless --path 'D:\ai\code\ptcgtrain' 'res://tests/TestRunner.tscn'
+# Functional regression
+& 'D:\ai\godot\Godot_v4.6.1-stable_win64_console.exe' --headless --path 'D:\ai\code\ptcgtrain' -s 'res://tests/FunctionalTestRunner.gd'
+
+# AI / training
+& 'D:\ai\godot\Godot_v4.6.1-stable_win64_console.exe' --headless --path 'D:\ai\code\ptcgtrain' -s 'res://tests/AITrainingTestRunner.gd'
 ```
 
-If your local Godot path is different, replace only the executable path.
+Targeted suite example:
+
+```powershell
+& 'D:\ai\godot\Godot_v4.6.1-stable_win64_console.exe' --headless --path 'D:\ai\code\ptcgtrain' -s 'res://tests/FunctionalTestRunner.gd' -- --suite=RuleValidator,GameStateMachine
+```
+
+The compatibility entry `res://tests/TestRunner.tscn` is still available and also supports `--group=functional` / `--group=ai_training`.
 
 ## Documentation
 

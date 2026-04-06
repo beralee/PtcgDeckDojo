@@ -308,4 +308,15 @@ func build_battle_advice_initial_snapshot(scene: Object) -> Dictionary:
 			"player_index": player.player_index,
 			"decklist": scene.call("_serialize_card_list", player.deck),
 		})
-	return {"players": players}
+	var player_labels: Array[String] = []
+	for deck_id_variant: Variant in GameManager.selected_deck_ids:
+		var deck: DeckData = CardDatabase.get_deck(int(deck_id_variant))
+		if deck != null and deck.deck_name.strip_edges() != "":
+			player_labels.append(deck.deck_name)
+		else:
+			player_labels.append("player_%d" % player_labels.size())
+	return {
+		"players": players,
+		"selected_deck_ids": GameManager.selected_deck_ids.duplicate(),
+		"player_labels": player_labels,
+	}

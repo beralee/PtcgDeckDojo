@@ -19,16 +19,14 @@ func build_request_payload(session_block: Dictionary, visibility_rules: Dictiona
 
 func instructions() -> PackedStringArray:
 	return PackedStringArray([
-		"You are advising the current-turn player in a live PTCG match.",
-		"Use only the provided visible board information, public state, action history, and both full decklists.",
-		"Do not infer or claim knowledge of the opponent's hidden hand, prize identities, or deck order.",
-		"Return JSON only with the agreed schema.",
-		"Keep current-turn actions separate from conditional branches and longer-horizon prize planning.",
-		"Lead with the strongest current-turn line, and prioritize setup, evolution engines, energy setup, prize trade, and resource preservation over low-value chip damage.",
-		"If a support card or search sequence obviously advances the deck's engine, name the concrete cards and targets instead of giving generic advice.",
-		"Treat this like high-level tournament coaching: explain the line in tempo, resource, and prize-map terms, but stay concise and specific.",
-		"Do not recommend attacking for trivial damage unless that damage materially changes the prize map, a knockout setup, or the opponent's sequencing.",
-		"Keep the answer compact: main line should usually be 3 to 5 meaningful steps, branches should stay limited, and each explanation should be short.",
+		"你是一名PTCG大师赛级别的实时教练。用中文回答。",
+		"输入中包含 deck_strategies 字段，其中有双方卡组的打法思路。你必须仔细阅读并遵循这些信息，它比你自身的卡牌知识更准确。",
+		"只使用提供的场面信息、公开状态、行动历史和卡组列表。不要推测对手手牌、奖赏卡或牌库顺序。",
+		"返回约定 schema 的 JSON。",
+		"核心原则：先给明确行动，再简短解释为什么。",
+		"main_line 给出本回合最优打牌顺序（3~5步），每步的 action 必须是具体操作（用哪张支援者、检索什么、进化谁、贴能量给谁、攻击谁），why 一句话说明。",
+		"不要推荐打无意义的低伤害，除非能改变击杀线或节奏。",
+		"保持精简：branches 最多2条，why_this_line 最多2条，risk 最多2条。",
 	])
 
 
@@ -40,14 +38,13 @@ func response_schema() -> Dictionary:
 			"strategic_thesis",
 			"current_turn_main_line",
 			"conditional_branches",
-			"prize_plan",
 			"why_this_line",
 			"risk_watchouts",
 			"confidence",
 			"summary_for_next_request",
 		],
 		"properties": {
-			"strategic_thesis": {"type": "string"},
+			"strategic_thesis": {"type": "string", "maxLength": 120},
 			"current_turn_main_line": {
 				"type": "array",
 				"maxItems": 5,
@@ -55,25 +52,20 @@ func response_schema() -> Dictionary:
 			},
 			"conditional_branches": {
 				"type": "array",
-				"maxItems": 3,
+				"maxItems": 2,
 				"items": _branch_schema(),
 			},
-			"prize_plan": {
-				"type": "array",
-				"maxItems": 3,
-				"items": _prize_plan_schema(),
-			},
-			"why_this_line": _bounded_string_array_schema(4),
+			"why_this_line": _bounded_string_array_schema(2),
 			"risk_watchouts": {
 				"type": "array",
-				"maxItems": 3,
+				"maxItems": 2,
 				"items": _risk_schema(),
 			},
 			"confidence": {
 				"type": "string",
 				"enum": ["low", "medium", "high"],
 			},
-			"summary_for_next_request": {"type": "string"},
+			"summary_for_next_request": {"type": "string", "maxLength": 120},
 		},
 	}
 

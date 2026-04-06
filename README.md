@@ -7,8 +7,8 @@
 这个仓库的目标不是做官方替代品，也不是做商业化产品，而是尽可能把 PTCG 的练牌、规则验证、卡牌效果实现和测试流程做成一个可持续演进的开源项目。
 
 <p align="center">
-  <img src="assets/demo1.png" alt="PtcgDeckDojo battle demo 1" width="49%" />
-  <img src="assets/demo3.png" alt="PtcgDeckDojo battle demo 2" width="49%" />
+  <img src="assets/demo_menu.png" alt="PtcgDeckDojo main menu" width="49%" />
+  <img src="assets/demo_ai_card.png" alt="PtcgDeckDojo AI deck analysis" width="49%" />
 </p>
 
 ## 项目一句话
@@ -36,9 +36,18 @@
 - 卡组导入：支持从 `tcg.mik.moe` 的卡组链接或 deck ID 导入
 - 本地缓存：卡牌 JSON、卡图、卡组数据保存在 `user://`
 - 战斗界面：已经具备完整主流程 UI
+- AI 辅助：支持构筑分析、局中建议和对战结束后的关键回合复盘
 - 规则引擎：包含回合、伤害、状态、奖赏卡、撤退等核心流程
 - 效果系统：通过 `effect_id` 将卡牌行为映射到可复用脚本
 - 测试体系：包含语义回归、批量卡牌审核、编码审计、UI 回归等
+
+## AI 辅助能力
+
+- 构筑分析：在卡组编辑界面给出具体换卡建议，而不是泛泛而谈的思路描述
+- 局中建议：基于当前可见场面、行动历史、双方卡组列表和卡组策略，为当前回合生成简洁的最优行动线
+- 对战复盘：对局结束后自动筛选关键回合，生成中文复盘和失误定位摘要
+- 信息边界：AI 建议默认遵守公开信息范围，不直接假设对手手牌、奖赏卡或牌库顺序
+- 测试隔离：功能回归与 AI / 训练测试已经拆分为独立入口，日常修 bug 时可以保持几秒级功能验证
 
 ## 项目结构
 

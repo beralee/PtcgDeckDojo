@@ -57,6 +57,7 @@ func _current_position(live_snapshot: Dictionary, initial_snapshot: Dictionary, 
 	}
 	position["players"] = _filtered_players(live_snapshot.get("players", []), view_player)
 	position["decklists"] = _decklists_from_initial_snapshot(initial_snapshot)
+	position["deck_strategies"] = _deck_strategies_from_initial_snapshot(initial_snapshot)
 	return position
 
 
@@ -95,6 +96,24 @@ func _decklists_from_initial_snapshot(initial_snapshot: Dictionary) -> Array[Dic
 			"decklist": compact_decklist,
 		})
 	return decklists
+
+
+func _deck_strategies_from_initial_snapshot(initial_snapshot: Dictionary) -> Array[Dictionary]:
+	var strategies: Array[Dictionary] = []
+	var deck_ids: Array = initial_snapshot.get("selected_deck_ids", [])
+	var labels: Array = initial_snapshot.get("player_labels", [])
+	for i: int in deck_ids.size():
+		var deck_id: int = int(deck_ids[i])
+		var deck: DeckData = CardDatabase.get_deck(deck_id) if deck_id > 0 else null
+		var label: String = str(labels[i]) if i < labels.size() else ""
+		var strategy: String = deck.strategy if deck != null else ""
+		if strategy != "":
+			strategies.append({
+				"player_index": i,
+				"deck_name": label,
+				"strategy": strategy,
+			})
+	return strategies
 
 
 func _build_delta(match_dir: String, last_synced_event_index: int) -> Dictionary:
