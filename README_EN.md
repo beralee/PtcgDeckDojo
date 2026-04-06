@@ -8,7 +8,7 @@ This repository is not meant to be an official replacement or a commercial produ
 
 <p align="center">
   <img src="assets/demo_menu.png" alt="PtcgDeckDojo main menu" width="49%" />
-  <img src="assets/demo_ai_card.png" alt="PtcgDeckDojo AI deck analysis" width="49%" />
+  <img src="assets/demo3.png" alt="PtcgDeckDojo battle overview" width="49%" />
 </p>
 
 ## In One Sentence
@@ -48,6 +48,11 @@ If you want a runnable, readable, and extendable PTCG training codebase, it is a
 - Post-match review: after a match, the AI can identify key turns and generate a Chinese review focused on mistakes, pivots, and swing turns
 - Hidden-info guardrails: advice is designed around public information and does not assume the opponent's hidden hand, prize identities, or deck order
 - Fast regression loop: functional tests and AI/training tests now use separate runners, so day-to-day gameplay verification stays fast
+
+<p align="center">
+  <img src="assets/demo_ai_card.png" alt="PtcgDeckDojo AI deck analysis" width="49%" />
+  <img src="assets/demo1.png" alt="PtcgDeckDojo in-battle interface" width="49%" />
+</p>
 
 ## Project Structure
 

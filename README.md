@@ -8,7 +8,7 @@
 
 <p align="center">
   <img src="assets/demo_menu.png" alt="PtcgDeckDojo main menu" width="49%" />
-  <img src="assets/demo_ai_card.png" alt="PtcgDeckDojo AI deck analysis" width="49%" />
+  <img src="assets/demo3.png" alt="PtcgDeckDojo battle overview" width="49%" />
 </p>
 
 ## 项目一句话
@@ -48,6 +48,11 @@
 - 对战复盘：对局结束后自动筛选关键回合，生成中文复盘和失误定位摘要
 - 信息边界：AI 建议默认遵守公开信息范围，不直接假设对手手牌、奖赏卡或牌库顺序
 - 测试隔离：功能回归与 AI / 训练测试已经拆分为独立入口，日常修 bug 时可以保持几秒级功能验证
+
+<p align="center">
+  <img src="assets/demo_ai_card.png" alt="PtcgDeckDojo AI deck analysis" width="49%" />
+  <img src="assets/demo1.png" alt="PtcgDeckDojo in-battle interface" width="49%" />
+</p>
 
 ## 项目结构
 
