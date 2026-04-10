@@ -76,6 +76,7 @@ func refresh_ui(scene: Object) -> void:
 
 	scene.call("_refresh_prize_titles")
 	update_side_previews(scene, opponent, my_player)
+	scene.call("_refresh_deck_shuffle_detection", gs)
 	refresh_field_card_views(scene, gs)
 
 	var is_my_turn: bool = (not bool(scene.call("_is_review_mode"))) and current_player == view_player and gs.phase == GameState.GamePhase.MAIN
@@ -521,6 +522,9 @@ func refresh_bench(container: HBoxContainer, bench: Array[PokemonSlot]) -> void:
 func refresh_hand(scene: Object) -> void:
 	var gsm: Variant = scene.get("_gsm")
 	if gsm == null:
+		return
+	if bool(scene.get("_draw_reveal_active")):
+		scene.set("_draw_reveal_pending_hand_refresh", true)
 		return
 	var hand_container: HBoxContainer = scene.get("_hand_container")
 	clear_container_children(hand_container)

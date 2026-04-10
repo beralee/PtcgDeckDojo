@@ -147,7 +147,7 @@ func _make_battle_scene_stub() -> Control:
 	battle_scene.set("_coin_overlay", Panel.new())
 	battle_scene.set("_detail_overlay", Panel.new())
 	battle_scene.set("_discard_overlay", Panel.new())
-	battle_scene.set("_log_list", ItemList.new())
+	battle_scene.set("_log_list", RichTextLabel.new())
 	battle_scene.set("_lbl_phase", Label.new())
 	battle_scene.set("_lbl_turn", Label.new())
 	battle_scene.set("_opp_prizes", Label.new())
@@ -165,6 +165,8 @@ func _make_battle_scene_stub() -> Control:
 	battle_scene.set("_my_deck_hud_value", Label.new())
 	battle_scene.set("_my_discard_hud_value", Label.new())
 	battle_scene.set("_btn_end_turn", Button.new())
+	battle_scene.set("_btn_ai_advice", Button.new())
+	battle_scene.set("_btn_zeus_help", Button.new())
 	battle_scene.set("_btn_opponent_hand", Button.new())
 	battle_scene.set("_btn_replay_prev_turn", Button.new())
 	battle_scene.set("_btn_replay_next_turn", Button.new())
@@ -179,6 +181,22 @@ func _make_battle_scene_stub() -> Control:
 	battle_scene.set("_my_lost_value", Label.new())
 	battle_scene.set("_hand_container", HBoxContainer.new())
 	return battle_scene
+
+
+func _make_named_deck_cards(owner_index: int, names: Array[String]) -> Array[CardInstance]:
+	var cards: Array[CardInstance] = []
+	for name: String in names:
+		cards.append(CardInstance.create(_make_pokemon_cd(name, 60, "C"), owner_index))
+	return cards
+
+
+func _seed_battle_scene_deck_previews(scene: Control) -> void:
+	var my_preview := BattleCardViewScript.new()
+	var opp_preview := BattleCardViewScript.new()
+	scene.add_child(my_preview)
+	scene.add_child(opp_preview)
+	scene.set("_my_deck_preview", my_preview)
+	scene.set("_opp_deck_preview", opp_preview)
 
 
 func _sample_raw_replay_snapshot() -> Dictionary:
@@ -429,6 +447,137 @@ func test_battle_scene_includes_replay_navigation_buttons() -> String:
 	return run_checks([
 		assert_true(prev_button is Button, "BattleScene should expose BtnReplayPrevTurn"),
 		assert_true(next_button is Button, "BattleScene should expose BtnReplayNextTurn"),
+	])
+
+
+func test_battle_scene_detects_reordered_deck_for_active_player_only() -> String:
+	CardInstance.reset_id_counter()
+	var scene := _make_battle_scene_stub()
+	_seed_battle_scene_deck_previews(scene)
+
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.players = [PlayerState.new(), PlayerState.new()]
+	gsm.game_state.players[0].player_index = 0
+	gsm.game_state.players[1].player_index = 1
+	gsm.game_state.players[0].deck = _make_named_deck_cards(0, ["A", "B", "C"])
+	gsm.game_state.players[1].deck = _make_named_deck_cards(1, ["X", "Y", "Z"])
+	scene._gsm = gsm
+	scene._view_player = 0
+
+	scene.call("_refresh_deck_shuffle_detection", gsm.game_state)
+	# 模拟玩家0洗牌
+	gsm.game_state.players[0].shuffle_deck()
+	scene.call("_refresh_deck_shuffle_detection", gsm.game_state)
+
+	var own_tween: Variant = scene.get("_my_deck_shuffle_tween")
+	var opp_tween: Variant = scene.get("_opp_deck_shuffle_tween")
+	scene.queue_free()
+	return run_checks([
+		assert_not_null(own_tween, "Reordering the viewed player's deck should start a shuffle effect"),
+		assert_null(opp_tween, "Reordering one side should not start the other deck's shuffle effect"),
+	])
+
+
+func test_battle_scene_shuffle_effect_restart_replaces_running_tween() -> String:
+	var scene := _make_battle_scene_stub()
+	_seed_battle_scene_deck_previews(scene)
+
+	scene.call("_play_deck_shuffle_effect", 0)
+	var first_tween: Variant = scene.get("_my_deck_shuffle_tween")
+	scene.call("_play_deck_shuffle_effect", 0)
+	var second_tween: Variant = scene.get("_my_deck_shuffle_tween")
+
+	scene.queue_free()
+	return run_checks([
+		assert_not_null(first_tween, "First shuffle should create a tween"),
+		assert_not_null(second_tween, "Restarted shuffle should still have a tween"),
+		assert_true(first_tween != second_tween, "Restarting the effect should replace the running tween"),
+	])
+
+
+func test_battle_scene_shuffle_effect_keeps_current_preview_base_when_no_tween_is_running() -> String:
+	var scene := _make_battle_scene_stub()
+	_seed_battle_scene_deck_previews(scene)
+	scene.set("_view_player", 0)
+	var my_preview: BattleCardView = scene.get("_my_deck_preview")
+	my_preview.position = Vector2(18, 42)
+	scene.set("_deck_preview_base_positions", {0: Vector2.ZERO, 1: Vector2.ZERO})
+
+	scene.call("_play_deck_shuffle_effect", 0)
+	var stored_base: Vector2 = (scene.get("_deck_preview_base_positions") as Dictionary).get(0, Vector2.ZERO)
+	var preview_position: Vector2 = my_preview.position
+	var tween_marker: Variant = scene.get("_my_deck_shuffle_tween")
+
+	scene.queue_free()
+	return run_checks([
+		assert_eq(preview_position, Vector2(18, 42), "Starting a shuffle effect without an active tween should not snap the preview to a stale cached position"),
+		assert_eq(stored_base, Vector2(18, 42), "Shuffle effect should capture the preview's current layout position as its base position"),
+		assert_not_null(tween_marker, "Shuffle effect should still register an active tween marker"),
+	])
+
+
+func test_battle_scene_stop_deck_shuffle_effect_resets_visual_transform() -> String:
+	var scene := _make_battle_scene_stub()
+	_seed_battle_scene_deck_previews(scene)
+	scene.set("_view_player", 0)
+	var my_preview: BattleCardView = scene.get("_my_deck_preview")
+	my_preview.rotation_degrees = 7.0
+	my_preview.scale = Vector2(1.08, 1.08)
+	scene.set("_my_deck_shuffle_tween", scene.create_tween())
+
+	scene.call("_stop_deck_shuffle_effect", 0)
+	var tween_marker: Variant = scene.get("_my_deck_shuffle_tween")
+	var preview_rotation := my_preview.rotation_degrees
+	var preview_scale := my_preview.scale
+
+	scene.queue_free()
+	return run_checks([
+		assert_eq(preview_rotation, 0.0, "Stopping a shuffle effect should reset preview rotation"),
+		assert_eq(preview_scale, Vector2.ONE, "Stopping a shuffle effect should reset preview scale"),
+		assert_null(tween_marker, "Stopping a shuffle effect should clear the tween marker"),
+	])
+
+
+func test_battle_scene_turn_start_draw_starts_reveal_and_defers_hand_refresh() -> String:
+	var battle_scene = _make_battle_scene_stub()
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	battle_scene.set("_gsm", gsm)
+	battle_scene.set("_view_player", 0)
+
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+
+	var drawn_card := CardInstance.create(_make_pokemon_cd("Reveal Draw", 70, "C"), 0)
+	gsm.game_state.players[0].hand = [drawn_card]
+
+	var action := GameAction.create(
+		GameAction.ActionType.DRAW_CARD,
+		0,
+		{"count": 1, "card_names": ["Reveal Draw"], "card_instance_ids": [drawn_card.instance_id]},
+		1,
+		"draw one"
+	)
+	battle_scene.call("_on_action_logged", action)
+	battle_scene.call("_refresh_hand")
+
+	var reveal_active: Variant = battle_scene.get("_draw_reveal_active")
+	var pending_hand_refresh: Variant = battle_scene.get("_draw_reveal_pending_hand_refresh")
+	var reveal_overlay: Variant = battle_scene.get("_draw_reveal_overlay")
+	var hand_container: HBoxContainer = battle_scene.get("_hand_container")
+
+	return run_checks([
+		assert_eq(reveal_active, true, "DRAW_CARD actions should enter draw reveal state"),
+		assert_eq(pending_hand_refresh, true, "Visible hand refresh should be deferred while draw reveal is active"),
+		assert_not_null(reveal_overlay, "Draw reveal should provision its overlay when the first reveal starts"),
+		assert_eq(hand_container.get_child_count(), 0, "Deferred hand refresh should not render the new hand cards yet"),
 	])
 
 
@@ -1269,8 +1418,12 @@ func test_battle_scene_try_play_trainer_with_interaction_respects_item_play_rule
 	player.deck.append(CardInstance.create(_make_pokemon_cd("Target", 70, "C"), 0))
 
 	battle_scene.call("_try_play_trainer_with_interaction", 0, nest_ball)
-	var log_list: ItemList = battle_scene.get("_log_list")
-	var latest_log := log_list.get_item_text(log_list.item_count - 1) if log_list != null and log_list.item_count > 0 else ""
+	var log_rtl: RichTextLabel = battle_scene.get("_log_list") as RichTextLabel
+	var log_text := log_rtl.get_parsed_text().strip_edges() if log_rtl != null else ""
+	var latest_log := ""
+	if not log_text.is_empty():
+		var lines := log_text.split("\n")
+		latest_log = lines[lines.size() - 1]
 
 	return run_checks([
 		assert_eq(str(battle_scene.get("_pending_choice")), "", "Items should not enter the interaction flow when the play rules currently forbid them"),
@@ -1821,11 +1974,15 @@ func test_battle_scene_mirage_gate_logs_when_the_deck_has_no_basic_energy() -> S
 	var card := CardInstance.create(mirage_gate_cd, 0)
 	gsm.game_state.players[0].hand.append(card)
 	battle_scene.call("_try_play_trainer_with_interaction", 0, card)
-	var log_list: ItemList = battle_scene.get("_log_list")
-	var last_log: String = log_list.get_item_text(log_list.item_count - 1) if log_list.item_count > 0 else ""
+	var log_rtl: RichTextLabel = battle_scene.get("_log_list") as RichTextLabel
+	var log_text := log_rtl.get_parsed_text().strip_edges() if log_rtl != null else ""
+	var last_log := ""
+	if not log_text.is_empty():
+		var lines := log_text.split("\n")
+		last_log = lines[lines.size() - 1]
 
 	return run_checks([
-		assert_eq(log_list.item_count > 0, true, "Mirage Gate should leave a UI log entry when it whiffs"),
+		assert_true(not log_text.is_empty(), "Mirage Gate should leave a UI log entry when it whiffs"),
 		assert_eq(last_log, "牌库里没有可附着的基本能量，幻象之门没有附着任何能量。", "Mirage Gate should explain the whiff to the player"),
 		assert_contains(gsm.game_state.players[0].discard_pile, card, "Mirage Gate should still be discarded after the whiff"),
 	])
@@ -2908,6 +3065,55 @@ func test_battle_scene_search_and_attach_routes_real_attack_to_field_assignment_
 		assert_eq(str(battle_scene.get("_field_interaction_mode")), "assignment", "搜牌库贴能攻击应直接进入场上分配 UI"),
 		assert_eq(str(battle_scene.get("_field_interaction_position")), "top", "给我方宝可梦贴能的 assignment UI 应上移"),
 		assert_eq(int((battle_scene.get("_field_interaction_data") as Dictionary).get("source_items", []).size()), 2, "应展示两张可分配的基础能量"),
+	])
+
+
+func test_battle_scene_gholdengo_single_selected_energy_deals_fifty_to_neutral_target() -> String:
+	var battle_scene = _make_battle_scene_stub()
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+	gsm.game_state.turn_number = 3
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	battle_scene.set("_gsm", gsm)
+	battle_scene.set("_view_player", 0)
+
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+
+	var attacker_cd: CardData = CardDatabase.get_card("CSV4C", "089")
+	var attacker_slot := PokemonSlot.new()
+	attacker_slot.pokemon_stack.append(CardInstance.create(attacker_cd, 0))
+	attacker_slot.attached_energy.append(CardInstance.create(_make_energy_cd("Metal Energy", "M"), 0))
+	gsm.effect_processor.register_pokemon_card(attacker_cd)
+	gsm.game_state.players[0].active_pokemon = attacker_slot
+
+	var defender_cd := _make_pokemon_cd("Neutral Defender", 200, "C")
+	defender_cd.weakness_energy = "W"
+	defender_cd.weakness_value = "×2"
+	var defender_slot := PokemonSlot.new()
+	defender_slot.pokemon_stack.append(CardInstance.create(defender_cd, 1))
+	gsm.game_state.players[1].active_pokemon = defender_slot
+
+	var chosen_water := CardInstance.create(_make_energy_cd("Chosen Water", "W"), 0)
+	var unchosen_psychic := CardInstance.create(_make_energy_cd("Unchosen Psychic", "P"), 0)
+	gsm.game_state.players[0].hand = [chosen_water, unchosen_psychic]
+
+	battle_scene.call("_try_use_attack_with_interaction", 0, attacker_slot, 0)
+	var first_step: Dictionary = (battle_scene.get("_pending_effect_steps") as Array)[0] if not (battle_scene.get("_pending_effect_steps") as Array).is_empty() else {}
+	var first_items: Array = first_step.get("items", [])
+	battle_scene.call("_handle_effect_interaction_choice", PackedInt32Array([0]))
+
+	return run_checks([
+		assert_eq(str(first_step.get("id", "")), "discard_basic_energy", "赛富豪ex应先弹出手牌基础能量弃置选择"),
+		assert_eq(first_items.size(), 2, "赛富豪ex应将每张可弃置的手牌基础能量各展示一次"),
+		assert_eq(str(battle_scene.get("_pending_choice")), "", "选择弃置能量后应完成攻击交互"),
+		assert_true(chosen_water in gsm.game_state.players[0].discard_pile, "选中的水能应进入弃牌区"),
+		assert_true(unchosen_psychic in gsm.game_state.players[0].hand, "未选中的基础能量应保留在手牌"),
+		assert_eq(gsm.game_state.players[1].active_pokemon.damage_counters, 50, "通过 BattleScene 真实入口只弃置 1 张能量时，对无钢弱点目标应只造成 50 伤害"),
 	])
 
 

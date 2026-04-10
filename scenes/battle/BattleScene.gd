@@ -5,6 +5,7 @@ extends Control
 const BENCH_SIZE := 5
 const BATTLE_CARD_VIEW := preload("res://scenes/battle/BattleCardView.gd")
 const AIOpponentScript := preload("res://scripts/ai/AIOpponent.gd")
+const DeckStrategyGardevoirScript := preload("res://scripts/ai/DeckStrategyGardevoir.gd")
 const AIVersionRegistryScript := preload("res://scripts/ai/AIVersionRegistry.gd")
 const AgentVersionStoreScript := preload("res://scripts/ai/AgentVersionStore.gd")
 const BattleRecorderScript := preload("res://scripts/engine/BattleRecorder.gd")
@@ -20,6 +21,7 @@ const BattleAdviceControllerScript := preload("res://scripts/ui/battle/BattleAdv
 const BattleActionControllerScript := preload("res://scripts/ui/battle/BattleActionController.gd")
 const BattleDisplayControllerScript := preload("res://scripts/ui/battle/BattleDisplayController.gd")
 const BattleDialogControllerScript := preload("res://scripts/ui/battle/BattleDialogController.gd")
+const BattleDrawRevealControllerScript := preload("res://scripts/ui/battle/BattleDrawRevealController.gd")
 const BattleEffectInteractionControllerScript := preload("res://scripts/ui/battle/BattleEffectInteractionController.gd")
 const BattleInteractionControllerScript := preload("res://scripts/ui/battle/BattleInteractionController.gd")
 const BattleLayoutControllerScript := preload("res://scripts/ui/battle/BattleLayoutController.gd")
@@ -73,6 +75,16 @@ var _opp_deck_preview: BattleCardView = null
 var _my_deck_preview: BattleCardView = null
 var _opp_discard_preview: BattleCardView = null
 var _my_discard_preview: BattleCardView = null
+var _deck_shuffle_counts: Dictionary = {}
+var _deck_preview_base_positions: Dictionary = {}
+var _deck_shuffle_effect_serial: int = 0
+var _my_deck_shuffle_tween: Variant = null
+var _opp_deck_shuffle_tween: Variant = null
+var _draw_reveal_overlay: Control = null
+var _draw_reveal_queue: Array[GameAction] = []
+var _draw_reveal_active: bool = false
+var _draw_reveal_waiting_for_confirm: bool = false
+var _draw_reveal_pending_hand_refresh: bool = false
 var _pending_prize_player_index: int = -1
 var _pending_prize_remaining: int = 0
 var _pending_prize_animating: bool = false
@@ -133,6 +145,7 @@ var _battle_advice_service: RefCounted = null
 var _battle_action_controller: RefCounted = BattleActionControllerScript.new()
 var _battle_display_controller: RefCounted = BattleDisplayControllerScript.new()
 var _battle_dialog_controller: RefCounted = BattleDialogControllerScript.new()
+var _battle_draw_reveal_controller: RefCounted = BattleDrawRevealControllerScript.new()
 var _battle_effect_interaction_controller: RefCounted = BattleEffectInteractionControllerScript.new()
 var _battle_interaction_controller: RefCounted = BattleInteractionControllerScript.new()
 var _battle_layout_controller: RefCounted = BattleLayoutControllerScript.new()
@@ -449,6 +462,10 @@ func _ready() -> void:
 
 	if not _is_review_mode():
 		_start_battle()
+
+
+func _exit_tree() -> void:
+	_stop_all_deck_shuffle_effects()
 
 
 func _build_game_state_machine() -> GameStateMachine:
@@ -990,6 +1007,7 @@ func _setup_detail_preview() -> void:
 
 
 func _setup_side_previews() -> void:
+	_stop_all_deck_shuffle_effects()
 	_opponent_card_back_texture = _load_card_back_texture(OPPONENT_CARD_BACK_RESOURCE, false)
 	_player_card_back_texture = _load_card_back_texture(PLAYER_CARD_BACK_RESOURCE, true)
 	_opp_prize_hud_host.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -1012,6 +1030,8 @@ func _setup_side_previews() -> void:
 	_opp_discard_preview = _insert_pile_preview(_opp_discard_hud_box, 1, true)
 	_my_deck_preview = _insert_pile_preview(_my_deck_hud_box, 1, false, _player_card_back_texture)
 	_my_discard_preview = _insert_pile_preview(_my_discard_hud_box, 1, true)
+	_deck_preview_base_positions[_view_player] = _my_deck_preview.position if _my_deck_preview != null else Vector2.ZERO
+	_deck_preview_base_positions[1 - _view_player] = _opp_deck_preview.position if _opp_deck_preview != null else Vector2.ZERO
 
 
 func _build_prize_slots(box: VBoxContainer, back_texture: Texture2D) -> Array[BattleCardView]:
@@ -1054,6 +1074,103 @@ func _insert_pile_preview(box: VBoxContainer, child_index: int, clickable: bool,
 	box.move_child(preview, child_index)
 	return preview
 
+
+func _get_deck_preview_for_player(player_index: int) -> BattleCardView:
+	if player_index == _view_player:
+		return _my_deck_preview
+	if player_index == 1 - _view_player:
+		return _opp_deck_preview
+	return null
+
+
+func _get_deck_shuffle_tween_for_player(player_index: int) -> Variant:
+	return _my_deck_shuffle_tween if player_index == _view_player else _opp_deck_shuffle_tween
+
+
+func _set_deck_shuffle_tween_for_player(player_index: int, tween_value: Variant) -> void:
+	if player_index == _view_player:
+		_my_deck_shuffle_tween = tween_value
+	elif player_index == 1 - _view_player:
+		_opp_deck_shuffle_tween = tween_value
+
+
+func _stop_deck_shuffle_effect(player_index: int) -> void:
+	var existing: Variant = _get_deck_shuffle_tween_for_player(player_index)
+	var preview := _get_deck_preview_for_player(player_index)
+	if existing is Tween:
+		(existing as Tween).kill()
+	if preview != null:
+		preview.rotation_degrees = 0.0
+		preview.scale = Vector2.ONE
+	_set_deck_shuffle_tween_for_player(player_index, null)
+
+
+func _stop_all_deck_shuffle_effects() -> void:
+	for player_index: int in [0, 1]:
+		_stop_deck_shuffle_effect(player_index)
+
+
+func _play_deck_shuffle_effect(player_index: int) -> void:
+	var preview := _get_deck_preview_for_player(player_index)
+	if preview == null:
+		return
+	_stop_deck_shuffle_effect(player_index)
+	preview.pivot_offset = preview.size * 0.5
+	_deck_preview_base_positions[player_index] = preview.position
+	_deck_shuffle_effect_serial += 1
+	if not is_inside_tree():
+		_set_deck_shuffle_tween_for_player(player_index, {"serial": _deck_shuffle_effect_serial})
+		return
+	var tween := create_tween()
+	_set_deck_shuffle_tween_for_player(player_index, tween)
+	var rotations := [
+		5.0,
+		-5.0,
+		4.0,
+		-4.0,
+		3.0,
+		-3.0,
+		2.0,
+		-2.0,
+		1.0,
+		0.0,
+	]
+	var scales := [
+		Vector2(1.02, 1.02),
+		Vector2(0.99, 0.99),
+		Vector2(1.02, 1.02),
+		Vector2(0.99, 0.99),
+		Vector2(1.015, 1.015),
+		Vector2(0.995, 0.995),
+		Vector2(1.01, 1.01),
+		Vector2(0.998, 0.998),
+		Vector2(1.005, 1.005),
+		Vector2.ONE,
+	]
+	for step_index: int in rotations.size():
+		tween.tween_property(preview, "rotation_degrees", rotations[step_index], 0.08)
+		tween.parallel().tween_property(preview, "scale", scales[step_index], 0.08)
+	tween.finished.connect(func() -> void:
+		if is_instance_valid(preview):
+			preview.rotation_degrees = 0.0
+			preview.scale = Vector2.ONE
+		_set_deck_shuffle_tween_for_player(player_index, null)
+	)
+
+
+func _refresh_deck_shuffle_detection(gs: GameState) -> void:
+	if gs == null:
+		return
+	for player_index: int in gs.players.size():
+		var player: PlayerState = gs.players[player_index]
+		if player == null:
+			continue
+		var current_count: int = player.shuffle_count
+		var previous_count: int = int(_deck_shuffle_counts.get(player_index, 0))
+		if current_count > previous_count:
+			_play_deck_shuffle_effect(player_index)
+		_deck_shuffle_counts[player_index] = current_count
+
 # ===================== Scene Callbacks =====================
 
 func _on_state_changed(_new_phase: GameState.GamePhase) -> void:
@@ -1070,6 +1187,13 @@ func _on_action_logged(action: GameAction) -> void:
 	_capture_battle_recording_context_if_ready()
 	if action.description != "":
 		_log(action.description)
+	if (
+		action != null
+		and action.action_type == GameAction.ActionType.DRAW_CARD
+		and not _is_review_mode()
+		and not (action.data.get("card_instance_ids", []) as Array).is_empty()
+	):
+		_battle_draw_reveal_controller.call("enqueue_reveal", self, action)
 	_record_battle_event({
 		"event_type": "action_resolved",
 		"action_type": action.action_type,
@@ -1359,6 +1483,10 @@ func _on_slot_input(event: InputEvent, slot_id: String) -> void:
 		return
 
 	if _selected_hand_card != null:
+		# 进化、能量、道具只能操作自己的宝可梦
+		if slot_id.begins_with("opp"):
+			_log("不能对对方的宝可梦使用手牌")
+			return
 		var card := _selected_hand_card
 		var cd := card.card_data
 		if cd.is_pokemon() and cd.stage != "Basic":
@@ -1720,6 +1848,7 @@ func _try_take_prize_from_slot(player_index: int, slot_index: int) -> void:
 			_clear_prize_selection()
 		_refresh_ui()
 		_check_two_player_handover()
+		_maybe_run_ai()
 	)
 
 
@@ -2761,9 +2890,36 @@ func _build_default_ai_opponent() -> AIOpponent:
 		"rollout_max_steps": 30,
 		"time_budget_ms": 2000,
 	}
+	var strategy_label := "Default AI"
+	match GameManager.ai_deck_strategy:
+		"gardevoir_mcts":
+			var strategy := DeckStrategyGardevoirScript.new()
+			ai._deck_strategy = strategy
+			ai._deck_strategy_detected = true
+			ai.use_mcts = true
+			ai._mcts_planner.deck_strategy = strategy
+			ai.mcts_config = strategy.get_mcts_config()
+			# 尝试加载沙奈朵 value net
+			var vnet_path := "user://ai_agents/gardevoir_value_net.json"
+			if strategy.load_gardevoir_value_net(vnet_path):
+				ai._mcts_planner.value_net = strategy.gardevoir_value_net
+				ai._mcts_planner.state_encoder_class = strategy.gardevoir_encoder_class
+				strategy_label = "沙奈朵 v8 ValueNet"
+			else:
+				strategy_label = "沙奈朵 v8 MCTS"
+		"gardevoir_greedy":
+			var strategy := DeckStrategyGardevoirScript.new()
+			ai._deck_strategy = strategy
+			ai._deck_strategy_detected = true
+			ai.use_mcts = false
+			strategy_label = "沙奈朵 %s 规则驱动" % DeckStrategyGardevoirScript.VERSION
+		"gardevoir":
+			# 兼容旧值
+			var strategy_version: String = DeckStrategyGardevoirScript.VERSION
+			strategy_label = "沙奈朵策略 %s" % strategy_version
 	ai.set_meta("ai_source", "default")
 	ai.set_meta("ai_version_id", "")
-	ai.set_meta("ai_display_name", "Default AI")
+	ai.set_meta("ai_display_name", strategy_label)
 
 	return ai
 
@@ -2845,6 +3001,8 @@ func _ai_path_exists(path: String) -> bool:
 
 func _log_ai_loaded(source: String, version_id: String, display_name: String) -> void:
 	_runtime_log("ai_loaded", "source=%s version=%s display=%s" % [source, version_id, display_name])
+	if GameManager.current_mode == GameManager.GameMode.VS_AI:
+		print("[AI] %s" % display_name)
 
 func _reset_ai_action_counter_if_needed() -> void:
 	if _gsm == null or _gsm.game_state == null:
@@ -2924,6 +3082,8 @@ func _is_ai_turn_ready() -> bool:
 	if _gsm == null:
 		return false
 	_ensure_ai_opponent()
+	if _gsm.game_state != null and _gsm.game_state.phase == GameState.GamePhase.SETUP and not _is_ai_setup_prompt():
+		return false
 	if _is_ai_setup_prompt():
 		if _is_ui_blocking_ai():
 			return false
