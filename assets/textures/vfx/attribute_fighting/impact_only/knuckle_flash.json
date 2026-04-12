@@ -1,0 +1,10 @@
+{
+  "asset_name": "knuckle_flash",
+  "generation_method": "local_procedural_raster_synthesis",
+  "output_path": "D:/ai/code/ptcgtrain/assets/textures/vfx/attribute_fighting/impact_only/knuckle_flash.png",
+  "size": [
+    1024,
+    1024
+  ],
+  "prompt": "Create a transparent-background 2D battle VFX asset for Pokemon-style fighting attacks. Show only the effect element, with no character, arena, text, UI, watermark, or frame. Use a tight knuckle flash with a bone-white center, terracotta-red pressure core, short angular strike edges, and a small contained dust pulse. Keep it compact, hard-edged, and battle-readable. Preserve real impact structure but stylize the outline and color. Output a single isolated effect element on transparency. Important constraints: no beam, no travel trail, no fire shapes, no lightning filaments, no oversized symbol ring."
+}

@@ -1,0 +1,52 @@
+{
+  "package_id": "attribute_dragon",
+  "asset_name": "charge_core",
+  "role": "charge_core",
+  "dimensions": [
+    1024,
+    1024
+  ],
+  "seed": 2401,
+  "generation_method": "procedural_pil",
+  "palette": {
+    "core": [
+      91,
+      106,
+      255,
+      255
+    ],
+    "violet": [
+      118,
+      76,
+      215,
+      255
+    ],
+    "ember": [
+      255,
+      185,
+      83,
+      255
+    ],
+    "flare": [
+      255,
+      232,
+      176,
+      255
+    ],
+    "shadow": [
+      20,
+      12,
+      34,
+      255
+    ],
+    "deep": [
+      8,
+      6,
+      18,
+      255
+    ]
+  },
+  "prompt": "Create a transparent-background 2D battle VFX asset for Pokemon-style dragon attacks. Show only the effect element, with no character, arena, text, UI, watermark, or frame. Use a compact draconic burst with a cobalt-violet core, ember-gold rim light, angular scale shards, and tight impact fragments. Make the subject a compact pre-hit charge knot with a slight forward pull, as if dragon energy is coiling before impact. Keep the silhouette tight, premium, and easy to composite over a battle scene. Output a single isolated effect element on transparency.",
+  "negative_prompt": "no background, no arena, no Pokemon body, no trainer, no text, no watermark, no UI, no frame, no checkerboard, no fake transparency pattern, no giant beam, no long travel trail, no fog wall, no elemental fireball",
+  "notes": "Compact pre-hit draconic knot with a slight forward pull."
+}

@@ -63,11 +63,15 @@ func execute(card: CardInstance, targets: Array, state: GameState) -> void:
 				if found.size() >= 3:
 					break
 
-	for found_card: CardInstance in found:
-		player.deck.erase(found_card)
-	for found_card: CardInstance in found:
-		found_card.face_up = true
-		player.hand.append(found_card)
+	_move_public_cards_to_hand_with_log(
+		state,
+		card.owner_index,
+		found,
+		card,
+		"trainer",
+		"search_to_hand",
+		["1阶进化宝可梦"]
+	)
 
 	player.shuffle_deck()
 

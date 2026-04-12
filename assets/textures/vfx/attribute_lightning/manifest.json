@@ -1,0 +1,37 @@
+{
+  "attribute": "lightning",
+  "package_name": "attribute_lightning",
+  "visual_rule": "Lightning should read as one hot electric subject with a white-hot core, cyan outer glow, and thin branching arcs; keep the effect impact-first and readable in battle rather than turning it into a beam-heavy silhouette.",
+  "playback_model": "impact-first",
+  "palette": {
+    "core": "white-hot",
+    "fringe": "cyan-blue",
+    "accent": "violet sparking"
+  },
+  "assets": [
+    {
+      "name": "charge_orb",
+      "role": "charge",
+      "path": "charge/charge_orb.png",
+      "sidecar": "charge/charge_orb.json"
+    },
+    {
+      "name": "travel_core",
+      "role": "travel core",
+      "path": "travel/travel_core.png",
+      "sidecar": "travel/travel_core.json"
+    },
+    {
+      "name": "impact_bloom",
+      "role": "impact bloom",
+      "path": "impact/impact_bloom.png",
+      "sidecar": "impact/impact_bloom.json"
+    },
+    {
+      "name": "residue_sparks",
+      "role": "residue",
+      "path": "residue/residue_sparks.png",
+      "sidecar": "residue/residue_sparks.json"
+    }
+  ]
+}

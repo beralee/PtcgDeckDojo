@@ -150,6 +150,25 @@ func test_cannot_evolve_turn_played_same_turn() -> String:
 	])
 
 
+func test_second_player_first_turn_cannot_evolve_setup_pokemon() -> String:
+	var state := _make_state(2, 0, 1)
+	var v := RuleValidator.new()
+
+	var slot: PokemonSlot = state.players[1].active_pokemon
+	slot.turn_played = 0
+
+	var evo_data := CardData.new()
+	evo_data.card_type = "Pokemon"
+	evo_data.stage = "Stage 1"
+	evo_data.evolves_from = slot.get_pokemon_name()
+	CardInstance.reset_id_counter()
+	var evo := CardInstance.create(evo_data, 1)
+
+	return run_checks([
+		assert_eq(v.can_evolve(state, 1, slot, evo), false, "后攻玩家第一回合不能进化开场放置的宝可梦"),
+	])
+
+
 func test_has_enough_energy_exact() -> String:
 	var v := RuleValidator.new()
 

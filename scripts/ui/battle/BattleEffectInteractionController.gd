@@ -225,7 +225,9 @@ func show_next_effect_interaction_step(scene: Object) -> void:
 		"max_select": int(step.get("max_select", 1)),
 		"allow_cancel": step.get("allow_cancel", true),
 		"presentation": "cards" if use_card_presentation else "list",
-		"card_items": items_raw,
+		"card_items": step.get("card_items", items_raw),
+		"card_indices": step.get("card_indices", []),
+		"card_click_selectable": step.get("card_click_selectable", true),
 		"choice_labels": labels,
 	}
 	if step.has("utility_actions"):

@@ -1,0 +1,19 @@
+{
+  "package_id": "attribute_fire_ember_burst",
+  "asset_name": "residue_embers",
+  "role": "lingering residue",
+  "output_path": "assets/textures/vfx/attribute_fire/source/residue_embers.png",
+  "dimensions": [1024, 1024],
+  "seed": 4104,
+  "generation_method": "procedural_pillow",
+  "palette": {
+    "core": [255, 246, 213, 255],
+    "flame": [255, 154, 47, 255],
+    "ember": [255, 77, 31, 255],
+    "smoke": [57, 32, 29, 255],
+    "highlight": [255, 241, 166, 255]
+  },
+  "prompt": "Create a transparent-background 2D battle VFX asset for Pokemon-style fire attacks. Show only fading ember smoke, soft ash wisps, and a few dim sparks. No character, no Pokemon body, no arena, no UI, no text, no watermark, and no frame. Keep the residue low contrast, elegant, and easy to composite after the hit bloom clears. Use a warm smoky aftermath rather than a flame burst.",
+  "negative_prompt": "no background, no arena, no Pokemon body, no trainer, no text, no watermark, no UI, no frame, no checkerboard, no fake transparency pattern, no solid backdrop, no beam, no lightning arcs, no decorative rings, no bright fireball, no fog wall",
+  "notes": "Lingering aftermath layer for cleanup frames."
+}

@@ -13,6 +13,15 @@ func can_execute(card: CardInstance, state: GameState) -> bool:
 	return not state.players[card.owner_index].discard_pile.is_empty()
 
 
+func get_preview_interaction_steps(_card: CardInstance, _state: GameState) -> Array[Dictionary]:
+	return [{
+		"id": "coin_flip_preview",
+		"title": "Flip 2 coins",
+		"wait_for_coin_animation": true,
+		"preview_only": true,
+	}]
+
+
 func get_interaction_steps(card: CardInstance, state: GameState) -> Array[Dictionary]:
 	_pending_heads_count = _flip_heads_count()
 	if _pending_heads_count <= 0:

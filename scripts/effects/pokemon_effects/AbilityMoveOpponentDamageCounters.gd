@@ -48,6 +48,7 @@ func get_interaction_steps(card: CardInstance, state: GameState) -> Array[Dictio
 			"title": "Choose the destination opponent Pokemon",
 			"items": target_items,
 			"labels": target_labels,
+			"exclude_selected_from_step_ids": ["source_pokemon"],
 			"min_select": 1,
 			"max_select": 1,
 			"allow_cancel": true,

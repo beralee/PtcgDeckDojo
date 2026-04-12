@@ -59,7 +59,7 @@ func execute_ability(
 	if top == null:
 		return
 	var player: PlayerState = state.players[top.owner_index]
-	player.draw_cards(draw_count)
+	_draw_cards_with_log(state, top.owner_index, draw_count, top, "ability")
 
 	var ctx: Dictionary = get_interaction_context(targets)
 	var replacement: PokemonSlot = null

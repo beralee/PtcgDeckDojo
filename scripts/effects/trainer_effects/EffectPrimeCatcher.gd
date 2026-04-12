@@ -2,9 +2,6 @@
 class_name EffectPrimeCatcher
 extends BaseEffect
 
-const AttackSelfLockUntilLeaveActive = preload("res://scripts/effects/pokemon_effects/AttackSelfLockUntilLeaveActive.gd")
-
-
 func get_interaction_steps(card: CardInstance, state: GameState) -> Array[Dictionary]:
 	var pi: int = card.owner_index
 	var player: PlayerState = state.players[pi]
@@ -59,7 +56,7 @@ func execute(card: CardInstance, _targets: Array, state: GameState) -> void:
 			target = opp.bench[0]
 		var old_active: PokemonSlot = opp.active_pokemon
 		opp.bench.erase(target)
-		AttackSelfLockUntilLeaveActive.clear_for_slot(old_active)
+		old_active.clear_on_leave_active()
 		opp.bench.append(old_active)
 		opp.active_pokemon = target
 
@@ -73,7 +70,7 @@ func execute(card: CardInstance, _targets: Array, state: GameState) -> void:
 			my_target = player.bench[0]
 		var my_old: PokemonSlot = player.active_pokemon
 		player.bench.erase(my_target)
-		AttackSelfLockUntilLeaveActive.clear_for_slot(my_old)
+		my_old.clear_on_leave_active()
 		player.bench.append(my_old)
 		player.active_pokemon = my_target
 

@@ -4,8 +4,6 @@
 class_name EffectSwitchPokemon
 extends BaseEffect
 
-const AttackSelfLockUntilLeaveActive = preload("res://scripts/effects/pokemon_effects/AttackSelfLockUntilLeaveActive.gd")
-
 ## 目标: "self"=己方, "opponent"=对方, "both"=双方
 var target_player: String = "self"
 
@@ -91,7 +89,7 @@ func _switch(state: GameState, pi: int, chosen_target: PokemonSlot = null) -> vo
 	var old_active: PokemonSlot = player.active_pokemon
 	var new_active: PokemonSlot = chosen_target if chosen_target != null and chosen_target in player.bench else player.bench[0]
 	player.bench.erase(new_active)
-	AttackSelfLockUntilLeaveActive.clear_for_slot(old_active)
+	old_active.clear_on_leave_active()
 	player.bench.append(old_active)
 	player.active_pokemon = new_active
 

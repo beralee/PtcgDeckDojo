@@ -1,0 +1,55 @@
+{
+  "package_id": "attribute_darkness",
+  "attribute": "darkness",
+  "visual_rule": "Darkness attacks read as a compact eclipse: a near-black violet core, amethyst rim light, thin shard accents, and smoky residue that stays readable in battle.",
+  "playback_model": "impact-only with optional short charge",
+  "palette": {
+    "core": "#8D5CFF",
+    "mid": "#34224F",
+    "smoke": "#09060F",
+    "highlight": "#E2C7FF"
+  },
+  "asset_directory": "assets/textures/vfx/attribute_darkness/source",
+  "assets": [
+    {
+      "id": "charge_core",
+      "role": "pre-hit charge",
+      "file": "source/charge_core.png",
+      "import_file": "source/charge_core.png.import",
+      "sidecar": "source/charge_core.json",
+      "prompt_key": "charge_core",
+      "dimensions": [1024, 1024],
+      "notes": "Compact ignition knot with a slight forward pull."
+    },
+    {
+      "id": "impact_bloom",
+      "role": "contact bloom",
+      "file": "source/impact_bloom.png",
+      "import_file": "source/impact_bloom.png.import",
+      "sidecar": "source/impact_bloom.json",
+      "prompt_key": "impact_bloom",
+      "dimensions": [1024, 1024],
+      "notes": "Primary battle hit asset; the clearest read in the set."
+    },
+    {
+      "id": "shard_slash",
+      "role": "directional streak",
+      "file": "source/shard_slash.png",
+      "import_file": "source/shard_slash.png.import",
+      "sidecar": "source/shard_slash.json",
+      "prompt_key": "shard_slash",
+      "dimensions": [1280, 512],
+      "notes": "Fast attack support layer with a narrow slash silhouette."
+    },
+    {
+      "id": "residue_smoke",
+      "role": "lingering residue",
+      "file": "source/residue_smoke.png",
+      "import_file": "source/residue_smoke.png.import",
+      "sidecar": "source/residue_smoke.json",
+      "prompt_key": "residue_smoke",
+      "dimensions": [1024, 1024],
+      "notes": "Soft aftermath layer to keep impact frames from feeling empty."
+    }
+  ]
+}

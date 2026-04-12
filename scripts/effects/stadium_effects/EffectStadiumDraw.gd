@@ -23,8 +23,7 @@ func can_use_as_stadium_action(_card: CardInstance, _state: GameState) -> bool:
 ## 竞技场效果通过手动使用触发（玩家选择"使用竞技场效果"）
 func execute(card: CardInstance, _targets: Array, state: GameState) -> void:
 	var pi: int = state.current_player_index
-	var player: PlayerState = state.players[pi]
-	player.draw_cards(draw_count)
+	_draw_cards_with_log(state, pi, draw_count, card, "stadium")
 
 
 func get_description() -> String:

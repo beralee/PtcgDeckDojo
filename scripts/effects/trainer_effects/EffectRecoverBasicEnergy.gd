@@ -70,9 +70,7 @@ func execute(card: CardInstance, targets: Array, state: GameState) -> void:
 	var ctx: Dictionary = get_interaction_context(targets)
 
 	var discarded_cost_cards: Array[CardInstance] = _resolve_discard_cost(card, player, ctx)
-	for discarded: CardInstance in discarded_cost_cards:
-		player.hand.erase(discarded)
-		player.discard_pile.append(discarded)
+	discarded_cost_cards = _discard_cards_from_hand_with_log(state, card.owner_index, discarded_cost_cards, card, "trainer")
 
 	var selected_raw: Array = ctx.get("recover_energy", [])
 	var has_explicit_selection: bool = ctx.has("recover_energy")

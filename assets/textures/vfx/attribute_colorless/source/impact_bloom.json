@@ -1,0 +1,40 @@
+{
+  "package_id": "attribute_colorless",
+  "asset_name": "impact_bloom",
+  "role": "impact bloom",
+  "dimensions": [
+    1024,
+    1024
+  ],
+  "seed": 4203,
+  "generation_method": "procedural_pillow",
+  "palette": {
+    "core": [
+      255,
+      253,
+      248,
+      255
+    ],
+    "mid": [
+      224,
+      219,
+      210,
+      255
+    ],
+    "accent": [
+      233,
+      214,
+      165,
+      255
+    ],
+    "shadow": [
+      66,
+      63,
+      60,
+      255
+    ]
+  },
+  "prompt": "Create a transparent-background 2D battle VFX asset for Pokemon-style colorless attacks. Show only the effect element, with no character, arena, text, UI, watermark, or frame. Use a compact target-hit bloom with a bright ivory-white flash core, polished silver petals, champagne rim highlights, and a few crisp neutral shard fragments. Make it the clearest and most premium-read layer in the set, readable at small size and strong in battle hit-stop. Preserve a neutral battle-energy feel without leaning into fire, water, lightning, psychic, or darkness. Output a single isolated effect element on transparency.",
+  "negative_prompt": "no background, no arena, no Pokemon body, no trainer, no text, no watermark, no UI, no frame, no checkerboard, no fake transparency pattern, no oversized blast cloud, no neon overload, no elemental color cast",
+  "notes": "Hero impact bloom for the shared colorless style."
+}

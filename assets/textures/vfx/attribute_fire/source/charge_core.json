@@ -1,0 +1,19 @@
+{
+  "package_id": "attribute_fire_ember_burst",
+  "asset_name": "charge_core",
+  "role": "pre-fire ignition knot",
+  "output_path": "assets/textures/vfx/attribute_fire/source/charge_core.png",
+  "dimensions": [1024, 1024],
+  "seed": 4101,
+  "generation_method": "procedural_pillow",
+  "palette": {
+    "core": [255, 246, 213, 255],
+    "flame": [255, 154, 47, 255],
+    "ember": [255, 77, 31, 255],
+    "smoke": [57, 32, 29, 255],
+    "highlight": [255, 241, 166, 255]
+  },
+  "prompt": "Create a transparent-background 2D battle VFX asset for Pokemon-style fire attacks. Show only a compact ignition knot with a bright white-yellow core, orange-red shell tongues, and a few ember sparks. No character, no Pokemon body, no arena, no UI, no text, no watermark, and no frame. Keep the silhouette tight, readable, premium, and easy to composite in a battle overlay. Use a hot ignition pulse rather than fireworks.",
+  "negative_prompt": "no background, no arena, no Pokemon body, no trainer, no text, no watermark, no UI, no frame, no checkerboard, no fake transparency pattern, no solid backdrop, no beam, no lightning arcs, no decorative rings, no giant fireball head",
+  "notes": "Compact pre-fire knot with a strong hot core."
+}

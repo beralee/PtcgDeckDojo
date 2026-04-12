@@ -43,6 +43,7 @@ const COLOR_BORDER_SELECTED := Color(0.4, 0.7, 1.0, 1.0)
 
 var _deck: DeckData = null
 var _original_deck_id: int = -1
+var _return_context: Dictionary = {}
 var _dirty: bool = false
 
 ## 左侧选中的卡 UID（展开后每张卡一个 flat 索引）
@@ -92,13 +93,14 @@ func _ready() -> void:
 	%UnsavedDialog.confirmed.connect(_do_go_back)
 
 	_original_deck_id = GameManager.consume_deck_editor_id()
+	_return_context = GameManager.consume_deck_editor_return_context()
 	if _original_deck_id < 0:
-		GameManager.goto_deck_manager()
+		_go_back_to_return_scene()
 		return
 
 	var source_deck := CardDatabase.get_deck(_original_deck_id)
 	if source_deck == null:
-		GameManager.goto_deck_manager()
+		_go_back_to_return_scene()
 		return
 
 	_deck = DeckData.from_dict(source_deck.to_dict())
@@ -1417,4 +1419,11 @@ func _on_back_pressed() -> void:
 
 
 func _do_go_back() -> void:
+	_go_back_to_return_scene()
+
+
+func _go_back_to_return_scene() -> void:
+	if str(_return_context.get("return_scene", "")) == "battle_setup":
+		GameManager.goto_battle_setup()
+		return
 	GameManager.goto_deck_manager()

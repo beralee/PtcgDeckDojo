@@ -25,10 +25,12 @@ static func check_gift_energy_on_knockout(slot: PokemonSlot) -> bool:
 
 
 ## 执行昏厥时的抽卡效果
-static func trigger_on_knockout(player: PlayerState) -> void:
-	var draw_count: int = maxi(0, 7 - player.hand.size())
-	if draw_count > 0:
-		player.draw_cards(draw_count)
+static func trigger_on_knockout(player: PlayerState) -> int:
+	return get_draw_count(player)
+
+
+static func get_draw_count(player: PlayerState) -> int:
+	return maxi(0, 7 - player.hand.size())
 
 
 func get_description() -> String:

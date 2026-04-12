@@ -5,6 +5,7 @@ const HeadlessMatchBridgeScript = preload("res://scripts/ai/HeadlessMatchBridge.
 const AIOpponentScript = preload("res://scripts/ai/AIOpponent.gd")
 const DeckIdentityTrackerScript = preload("res://scripts/ai/DeckIdentityTracker.gd")
 const BenchmarkEvaluatorScript = preload("res://scripts/ai/BenchmarkEvaluator.gd")
+const AutoloadResolverScript = preload("res://scripts/engine/AutoloadResolver.gd")
 const PHASE2_DEFAULT_SEED_SET: Array[int] = [11, 29, 47, 83]
 const PHASE2_IDENTITY_KEYS: Array[String] = [
 	"miraidon_bench_developed",
@@ -315,6 +316,11 @@ func run_headless_duel(
 ) -> Dictionary:
 	if gsm == null or gsm.game_state == null:
 		return _make_failed_match_result("invalid_state_transition", 0, gsm)
+	if decision_exporter != null:
+		if player_0_ai != null and player_0_ai.has_method("set_decision_exporter"):
+			player_0_ai.set_decision_exporter(decision_exporter)
+		if player_1_ai != null and player_1_ai.has_method("set_decision_exporter"):
+			player_1_ai.set_decision_exporter(decision_exporter)
 	var bridge := HeadlessMatchBridgeScript.new()
 	bridge.bind(gsm)
 	bridge.bootstrap_pending_setup()
@@ -333,9 +339,12 @@ func run_headless_duel(
 					break
 			else:
 				var pending_choice: String = bridge.get_pending_prompt_type()
-				if pending_choice == "effect_interaction":
+				if pending_choice == "effect_interaction" or pending_choice == "heavy_baton_target":
 					if not bridge.has_method("supports_effect_interaction_execution") \
 							or not bool(bridge.call("supports_effect_interaction_execution")):
+						if pending_choice != "effect_interaction":
+							result = _make_failed_match_result("unsupported_prompt", steps + 1, gsm)
+							break
 						result = _make_failed_match_result("unsupported_interaction_step", steps + 1, gsm)
 						break
 					var prompt_owner: int = bridge.get_pending_prompt_owner()
@@ -348,6 +357,9 @@ func run_headless_duel(
 						break
 					progressed = prompt_ai.run_single_step(bridge, gsm)
 					if not progressed:
+						if pending_choice == "heavy_baton_target":
+							result = _make_failed_match_result("unsupported_prompt", steps + 1, gsm)
+							break
 						result = _make_failed_match_result("unsupported_interaction_step", steps + 1, gsm)
 						break
 					_record_decision_trace_if_available(decision_exporter, prompt_ai)
@@ -364,12 +376,17 @@ func run_headless_duel(
 				result = _make_failed_match_result("invalid_state_transition", steps + 1, gsm)
 				break
 			progressed = current_ai.run_single_step(bridge, gsm)
-			if not progressed:
-				if _has_interactive_legal_action(current_ai, gsm):
-					result = _make_failed_match_result("unsupported_interaction_step", steps + 1, gsm)
-					break
-				result = _make_failed_match_result("stalled_no_progress", steps + 1, gsm)
+			if not progressed and gsm.game_state != null and gsm.game_state.phase == GameState.GamePhase.MAIN and _has_interactive_legal_action(current_ai, gsm):
+				result = _make_failed_match_result("unsupported_interaction_step", steps + 1, gsm)
 				break
+			if not progressed:
+				# AI 无法选择动作时尝试强制 end_turn（可能有交互式合法动作但 AI 不会用）
+				if gsm.game_state != null and gsm.game_state.phase == GameState.GamePhase.MAIN:
+					gsm.end_turn(current_player)
+					progressed = true
+				if not progressed:
+					result = _make_failed_match_result("stalled_no_progress", steps + 1, gsm)
+					break
 			_record_decision_trace_if_available(decision_exporter, current_ai)
 		if step_callback.is_valid():
 			step_callback.call(gsm)
@@ -499,6 +516,9 @@ func _make_benchmark_agent(player_index: int, agent_config: Dictionary, comparis
 	var action_scorer_path := str(agent_config.get("action_scorer_path", ""))
 	if action_scorer_path != "":
 		agent.action_scorer_path = action_scorer_path
+	var interaction_scorer_path := str(agent_config.get("interaction_scorer_path", ""))
+	if interaction_scorer_path != "":
+		agent.interaction_scorer_path = interaction_scorer_path
 	return agent
 
 
@@ -579,7 +599,10 @@ func _get_match_agent_configs(benchmark_case, matchup: Dictionary) -> Dictionary
 func _load_benchmark_deck(deck_id: int) -> DeckData:
 	if deck_id <= 0:
 		return null
-	return CardDatabase.get_deck(deck_id)
+	var card_database = AutoloadResolverScript.get_card_database()
+	if card_database == null:
+		return null
+	return card_database.get_deck(deck_id)
 
 
 func _run_one_match(agent: AIOpponent, matchup: Dictionary) -> Dictionary:

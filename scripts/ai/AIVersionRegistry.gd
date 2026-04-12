@@ -82,8 +82,21 @@ func list_playable_versions() -> Array[Dictionary]:
 	return versions
 
 
+func list_playable_versions_for_strategy(strategy_id: String) -> Array[Dictionary]:
+	var filtered: Array[Dictionary] = []
+	for version: Dictionary in list_playable_versions():
+		if _is_version_compatible_with_strategy(version, strategy_id):
+			filtered.append(version)
+	return filtered
+
+
 func get_latest_playable_version() -> Dictionary:
 	var versions := list_playable_versions()
+	return {} if versions.is_empty() else versions.back().duplicate(true)
+
+
+func get_latest_playable_version_for_strategy(strategy_id: String) -> Dictionary:
+	var versions := list_playable_versions_for_strategy(strategy_id)
 	return {} if versions.is_empty() else versions.back().duplicate(true)
 
 
@@ -102,6 +115,7 @@ func get_latest_approved_artifacts() -> Dictionary:
 		"agent_config_path": str(latest.get("agent_config_path", "")),
 		"value_net_path": str(latest.get("value_net_path", "")),
 		"action_scorer_path": str(latest.get("action_scorer_path", "")),
+		"interaction_scorer_path": str(latest.get("interaction_scorer_path", "")),
 		"source_run_id": str(latest.get("source_run_id", "")),
 		"lane_recipe_id": str(latest.get("lane_recipe_id", "")),
 		"parent_approved_baseline_id": str(latest.get("parent_approved_baseline_id", "")),
@@ -156,3 +170,12 @@ func _next_save_order(index: Dictionary) -> int:
 		if value is Dictionary:
 			next_order = maxi(next_order, int((value as Dictionary).get("save_order", 0)))
 	return next_order + 1
+
+
+func _is_version_compatible_with_strategy(version: Dictionary, strategy_id: String) -> bool:
+	var compatible_strategy_id := str(version.get("compatible_strategy_id", ""))
+	if compatible_strategy_id == "":
+		return true
+	if strategy_id == "":
+		return false
+	return compatible_strategy_id == strategy_id

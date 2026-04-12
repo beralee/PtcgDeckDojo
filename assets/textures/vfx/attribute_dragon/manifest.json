@@ -1,0 +1,52 @@
+{
+  "package_id": "attribute_dragon",
+  "attribute": "dragon",
+  "visual_rule": "Dragon attacks read as a compact draconic burst: a cobalt-violet core, ember-gold rim light, angular scale shards, and tight impact fragments. Impact-first, no long travel beam.",
+  "playback_model": "impact-only with optional short charge",
+  "palette": {
+    "core": "#5B6AFF",
+    "violet": "#764CD7",
+    "ember": "#FFB953",
+    "flare": "#FFE8B0",
+    "shadow": "#140C22"
+  },
+  "asset_directory": "assets/textures/vfx/attribute_dragon/source",
+  "assets": [
+    {
+      "id": "charge_core",
+      "role": "pre-hit charge",
+      "file": "source/charge_core.png",
+      "sidecar": "source/charge_core.json",
+      "prompt_key": "charge_core",
+      "dimensions": [1024, 1024],
+      "notes": "Compact pre-hit draconic knot with a slight forward pull."
+    },
+    {
+      "id": "impact_bloom",
+      "role": "contact bloom",
+      "file": "source/impact_bloom.png",
+      "sidecar": "source/impact_bloom.json",
+      "prompt_key": "impact_bloom",
+      "dimensions": [1024, 1024],
+      "notes": "Primary battle hit asset; the clearest read in the set."
+    },
+    {
+      "id": "scale_slash",
+      "role": "directional support slash",
+      "file": "source/scale_slash.png",
+      "sidecar": "source/scale_slash.json",
+      "prompt_key": "scale_slash",
+      "dimensions": [1280, 512],
+      "notes": "Short fractured scale slash; not a travel beam."
+    },
+    {
+      "id": "residue_embers",
+      "role": "lingering residue",
+      "file": "source/residue_embers.png",
+      "sidecar": "source/residue_embers.json",
+      "prompt_key": "residue_embers",
+      "dimensions": [1024, 1024],
+      "notes": "Low-alpha aftermath smoke, embers, and broken scale fragments."
+    }
+  ]
+}

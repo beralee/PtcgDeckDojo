@@ -13,12 +13,20 @@ func get_interaction_steps(card: CardInstance, state: GameState) -> Array[Dictio
 	var top_card: CardInstance = player.deck[0]
 	return [{
 		"id": "trekking_choice",
-		"title": "Top card: %s" % top_card.card_data.name,
+		"title": "健行鞋：查看牌库顶的卡",
 		"items": ["take", "discard"],
-		"labels": ["Put it into hand", "Discard it and draw 1 card"],
+		"labels": [top_card.card_data.name],
 		"min_select": 1,
 		"max_select": 1,
 		"allow_cancel": true,
+		"presentation": "cards",
+		"card_items": [top_card],
+		"card_indices": [0],
+		"card_click_selectable": false,
+		"utility_actions": [
+			{"label": "加入手牌", "index": 0},
+			{"label": "丢弃并再抽1张", "index": 1},
+		],
 	}]
 
 
@@ -36,7 +44,7 @@ func execute(card: CardInstance, targets: Array, state: GameState) -> void:
 	if choice == "discard":
 		top_card.face_up = true
 		player.discard_pile.append(top_card)
-		player.draw_cards(1)
+		_draw_cards_with_log(state, card.owner_index, 1, card, "trainer")
 		return
 
 	top_card.face_up = true
@@ -44,4 +52,4 @@ func execute(card: CardInstance, targets: Array, state: GameState) -> void:
 
 
 func get_description() -> String:
-	return "Look at the top card of your deck. Put it into your hand, or discard it and draw a card."
+	return "查看自己牌库顶的 1 张卡。你可以将那张卡加入手牌；若不加入，则将其丢弃并抽 1 张牌。"

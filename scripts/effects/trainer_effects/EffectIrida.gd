@@ -46,15 +46,23 @@ func execute(card: CardInstance, targets: Array, state: GameState) -> void:
 		if found_water_pokemon != null and found_item != null:
 			break
 
+	var revealed_cards: Array[CardInstance] = []
+	var public_labels: Array[String] = []
 	if found_water_pokemon != null:
-		player.deck.erase(found_water_pokemon)
-		found_water_pokemon.face_up = true
-		player.hand.append(found_water_pokemon)
-
+		revealed_cards.append(found_water_pokemon)
+		public_labels.append("水属性宝可梦")
 	if found_item != null:
-		player.deck.erase(found_item)
-		found_item.face_up = true
-		player.hand.append(found_item)
+		revealed_cards.append(found_item)
+		public_labels.append("物品")
+	_move_public_cards_to_hand_with_log(
+		state,
+		card.owner_index,
+		revealed_cards,
+		card,
+		"trainer",
+		"search_to_hand",
+		public_labels
+	)
 
 	player.shuffle_deck()
 

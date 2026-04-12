@@ -40,9 +40,9 @@ func execute(card: CardInstance, targets: Array, state: GameState) -> void:
 		if discarded >= 2:
 			break
 		if item is CardInstance and item in opp.hand and item.card_data.card_type == "Item":
-			opp.remove_from_hand(item)
-			opp.discard_card(item)
-			discarded += 1
+			var resolved: Array[CardInstance] = _discard_cards_from_hand_with_log(state, opp.player_index, [item], card, "trainer")
+			if not resolved.is_empty():
+				discarded += 1
 
 
 func get_description() -> String:

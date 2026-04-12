@@ -69,10 +69,10 @@ func execute_ability(
 			return
 		card_to_discard = player.hand[0]
 
-	if not player.remove_from_hand(card_to_discard):
+	var discarded_cards: Array[CardInstance] = _discard_cards_from_hand_with_log(state, top.owner_index, [card_to_discard], top, "ability")
+	if discarded_cards.is_empty():
 		return
-	player.discard_card(card_to_discard)
-	player.draw_cards(draw_count)
+	_draw_cards_with_log(state, top.owner_index, draw_count, top, "ability")
 
 	pokemon.effects.append({
 		"type": USED_KEY,

@@ -1,0 +1,19 @@
+{
+  "package_id": "attribute_fire_ember_burst",
+  "asset_name": "travel_core",
+  "role": "directional flame streak",
+  "output_path": "assets/textures/vfx/attribute_fire/source/travel_core.png",
+  "dimensions": [1280, 512],
+  "seed": 4102,
+  "generation_method": "procedural_pillow",
+  "palette": {
+    "core": [255, 246, 213, 255],
+    "flame": [255, 154, 47, 255],
+    "ember": [255, 77, 31, 255],
+    "smoke": [57, 32, 29, 255],
+    "highlight": [255, 241, 166, 255]
+  },
+  "prompt": "Create a transparent-background 2D battle VFX asset for Pokemon-style fire attacks. Show only a short directional flame streak with a white-yellow spine, orange-red outer tongues, and a tapered tail. No character, no Pokemon body, no arena, no UI, no text, no watermark, and no frame. Keep the shape readable in a side-on battle overlay and make it clearly fire, not lightning or a beam. Use controlled combustion motion rather than fireworks.",
+  "negative_prompt": "no background, no arena, no Pokemon body, no trainer, no text, no watermark, no UI, no frame, no checkerboard, no fake transparency pattern, no solid backdrop, no laser beam, no electric arcs, no decorative rings, no giant fireball head",
+  "notes": "Directional support layer for attacks that need a readable launch path."
+}

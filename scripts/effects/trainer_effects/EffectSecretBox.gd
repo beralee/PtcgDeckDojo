@@ -80,34 +80,48 @@ func execute(card: CardInstance, targets: Array, state: GameState) -> void:
 	var ctx: Dictionary = get_interaction_context(targets)
 
 	var discard_raw: Array = ctx.get("discard_cards", [])
-	var discarded: int = 0
+	var selected_discards: Array[CardInstance] = []
 	for entry: Variant in discard_raw:
-		if not (entry is CardInstance):
-			continue
-		var discard_card: CardInstance = entry
-		if discard_card in player.hand:
-			player.remove_from_hand(discard_card)
-			player.discard_card(discard_card)
-			discarded += 1
-			if discarded >= DISCARD_COUNT:
+		if entry is CardInstance and entry in player.hand and entry not in selected_discards:
+			selected_discards.append(entry)
+			if selected_discards.size() >= DISCARD_COUNT:
 				break
-	while discarded < DISCARD_COUNT and not player.hand.is_empty():
-		var fallback_card: CardInstance = player.hand[0]
-		player.remove_from_hand(fallback_card)
-		player.discard_card(fallback_card)
-		discarded += 1
+	if selected_discards.size() < DISCARD_COUNT:
+		for hand_card: CardInstance in player.hand:
+			if selected_discards.size() >= DISCARD_COUNT:
+				break
+			if hand_card not in selected_discards:
+				selected_discards.append(hand_card)
+	_discard_cards_from_hand_with_log(state, card.owner_index, selected_discards, card, "trainer")
 
 	var search_keys: Array[String] = ["search_item", "search_tool", "search_supporter", "search_stadium"]
 	var search_types: Array[String] = ["Item", "Tool", "Supporter", "Stadium"]
+	var public_labels_map := {
+		"Item": "物品",
+		"Tool": "宝可梦道具",
+		"Supporter": "支援者",
+		"Stadium": "竞技场卡",
+	}
+	var revealed_cards: Array[CardInstance] = []
+	var public_labels: Array[String] = []
 	for i: int in search_keys.size():
 		var raw: Array = ctx.get(search_keys[i], [])
 		if raw.is_empty() or not (raw[0] is CardInstance):
 			continue
 		var found_card: CardInstance = raw[0]
 		if found_card in player.deck and found_card.card_data != null and found_card.card_data.card_type == search_types[i]:
-			player.deck.erase(found_card)
-			found_card.face_up = true
-			player.hand.append(found_card)
+			revealed_cards.append(found_card)
+			public_labels.append(str(public_labels_map.get(search_types[i], "")))
+
+	_move_public_cards_to_hand_with_log(
+		state,
+		card.owner_index,
+		revealed_cards,
+		card,
+		"trainer",
+		"search_to_hand",
+		public_labels
+	)
 
 	player.shuffle_deck()
 

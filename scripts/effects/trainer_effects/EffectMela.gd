@@ -64,8 +64,8 @@ func execute(card: CardInstance, targets: Array, state: GameState) -> void:
 		player.discard_pile.erase(energy)
 		target.attached_energy.append(energy)
 		attached_count += 1
-	while player.hand.size() < 6 and not player.deck.is_empty():
-		player.draw_card()
+	var draw_count := maxi(0, 6 - player.hand.size())
+	_draw_cards_with_log(state, card.owner_index, draw_count, card, "trainer")
 
 
 func _get_fire_energy(player: PlayerState) -> Array:

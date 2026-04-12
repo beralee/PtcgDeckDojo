@@ -20,122 +20,293 @@ grow_horizontal = 2
 grow_vertical = 2
 color = Color(0.12, 0.14, 0.2, 1)
 
-[node name="VBoxContainer" type="VBoxContainer" parent="."]
+[node name="SafeArea" type="MarginContainer" parent="."]
 layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -260.0
-offset_top = -300.0
-offset_right = 260.0
-offset_bottom = 300.0
-grow_horizontal = 2
-grow_vertical = 2
-theme_override_constants/separation = 16
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 36.0
+offset_top = 28.0
+offset_right = -36.0
+offset_bottom = -28.0
 
-[node name="Title" type="Label" parent="VBoxContainer"]
+[node name="SetupFrame" type="PanelContainer" parent="SafeArea"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="FrameMargin" type="MarginContainer" parent="SafeArea/SetupFrame"]
+layout_mode = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 22
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 22
+
+[node name="RootVBox" type="VBoxContainer" parent="SafeArea/SetupFrame/FrameMargin"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 18
+
+[node name="Title" type="Label" parent="SafeArea/SetupFrame/FrameMargin/RootVBox"]
 layout_mode = 2
 text = "对战设置"
 horizontal_alignment = 1
 
-[node name="ModeLabel" type="Label" parent="VBoxContainer"]
+[node name="ContentColumns" type="HBoxContainer" parent="SafeArea/SetupFrame/FrameMargin/RootVBox"]
 layout_mode = 2
-text = "模式:"
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 18
 
-[node name="ModeOption" type="OptionButton" parent="VBoxContainer"]
+[node name="LeftColumn" type="PanelContainer" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+size_flags_stretch_ratio = 1.18
+
+[node name="LeftMargin" type="MarginContainer" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns/LeftColumn"]
+layout_mode = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 18
+
+[node name="LeftVBox" type="VBoxContainer" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns/LeftColumn/LeftMargin"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 10
+
+[node name="BasicSectionTitle" type="Label" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns/LeftColumn/LeftMargin/LeftVBox"]
+layout_mode = 2
+text = "基础设置"
+
+[node name="ModeLabel" type="Label" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns/LeftColumn/LeftMargin/LeftVBox"]
+layout_mode = 2
+text = "模式"
+
+[node name="ModeOption" type="OptionButton" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns/LeftColumn/LeftMargin/LeftVBox"]
 unique_name_in_owner = true
 layout_mode = 2
-custom_minimum_size = Vector2(300, 35)
+custom_minimum_size = Vector2(320, 38)
 
-[node name="AISourceLabel" type="Label" parent="VBoxContainer"]
+[node name="Deck1Label" type="Label" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns/LeftColumn/LeftMargin/LeftVBox"]
+layout_mode = 2
+text = "玩家1 卡组"
+
+[node name="Deck1Row" type="HBoxContainer" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns/LeftColumn/LeftMargin/LeftVBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="Deck1Option" type="OptionButton" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns/LeftColumn/LeftMargin/LeftVBox/Deck1Row"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "AI 来源:"
+size_flags_horizontal = 3
+custom_minimum_size = Vector2(320, 38)
 
-[node name="AISourceOption" type="OptionButton" parent="VBoxContainer"]
+[node name="Deck1ViewButton" type="Button" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns/LeftColumn/LeftMargin/LeftVBox/Deck1Row"]
 unique_name_in_owner = true
 layout_mode = 2
-custom_minimum_size = Vector2(300, 35)
+custom_minimum_size = Vector2(76, 38)
+text = "查看"
 
-[node name="AIVersionLabel" type="Label" parent="VBoxContainer"]
+[node name="Deck1EditButton" type="Button" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns/LeftColumn/LeftMargin/LeftVBox/Deck1Row"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "AI 版本:"
+custom_minimum_size = Vector2(76, 38)
+text = "编辑"
 
-[node name="AIVersionOption" type="OptionButton" parent="VBoxContainer"]
+[node name="Deck2Label" type="Label" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns/LeftColumn/LeftMargin/LeftVBox"]
 unique_name_in_owner = true
 layout_mode = 2
-custom_minimum_size = Vector2(300, 35)
+text = "玩家2 卡组"
 
-[node name="Deck1Label" type="Label" parent="VBoxContainer"]
+[node name="Deck2Row" type="HBoxContainer" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns/LeftColumn/LeftMargin/LeftVBox"]
 layout_mode = 2
-text = "玩家1 卡组:"
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
 
-[node name="Deck1Option" type="OptionButton" parent="VBoxContainer"]
+[node name="Deck2Option" type="OptionButton" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns/LeftColumn/LeftMargin/LeftVBox/Deck2Row"]
 unique_name_in_owner = true
 layout_mode = 2
-custom_minimum_size = Vector2(300, 35)
+size_flags_horizontal = 3
+custom_minimum_size = Vector2(320, 38)
 
-[node name="Deck2Label" type="Label" parent="VBoxContainer"]
-layout_mode = 2
-text = "玩家2 卡组:"
-
-[node name="Deck2Option" type="OptionButton" parent="VBoxContainer"]
+[node name="Deck2ViewButton" type="Button" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns/LeftColumn/LeftMargin/LeftVBox/Deck2Row"]
 unique_name_in_owner = true
 layout_mode = 2
-custom_minimum_size = Vector2(300, 35)
+custom_minimum_size = Vector2(76, 38)
+text = "查看"
 
-[node name="FirstPlayerLabel" type="Label" parent="VBoxContainer"]
-layout_mode = 2
-text = "开始先后攻:"
-
-[node name="FirstPlayerOption" type="OptionButton" parent="VBoxContainer"]
+[node name="Deck2EditButton" type="Button" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns/LeftColumn/LeftMargin/LeftVBox/Deck2Row"]
 unique_name_in_owner = true
 layout_mode = 2
-custom_minimum_size = Vector2(300, 35)
+custom_minimum_size = Vector2(76, 38)
+text = "编辑"
 
-[node name="BackgroundLabel" type="Label" parent="VBoxContainer"]
+[node name="FirstPlayerLabel" type="Label" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns/LeftColumn/LeftMargin/LeftVBox"]
 layout_mode = 2
-text = "对战场地:"
+text = "先后手"
 
-[node name="BackgroundGallery" type="ScrollContainer" parent="VBoxContainer"]
+[node name="FirstPlayerOption" type="OptionButton" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns/LeftColumn/LeftMargin/LeftVBox"]
 unique_name_in_owner = true
 layout_mode = 2
-custom_minimum_size = Vector2(420, 210)
+custom_minimum_size = Vector2(320, 38)
+
+[node name="LeftSpacer" type="Control" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns/LeftColumn/LeftMargin/LeftVBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 6)
+
+[node name="BackgroundLabel" type="Label" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns/LeftColumn/LeftMargin/LeftVBox"]
+layout_mode = 2
+text = "对战场地"
+
+[node name="BackgroundGallery" type="ScrollContainer" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns/LeftColumn/LeftMargin/LeftVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(0, 230)
+size_flags_horizontal = 3
+size_flags_vertical = 3
 horizontal_scroll_mode = 1
 vertical_scroll_mode = 2
 
-[node name="BackgroundGalleryRow" type="HBoxContainer" parent="VBoxContainer/BackgroundGallery"]
+[node name="BackgroundGalleryRow" type="HBoxContainer" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns/LeftColumn/LeftMargin/LeftVBox/BackgroundGallery"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 12
 
-[node name="NoDeckWarning" type="Label" parent="VBoxContainer"]
+[node name="RightColumn" type="PanelContainer" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="RightMargin" type="MarginContainer" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns/RightColumn"]
+layout_mode = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 18
+
+[node name="RightVBox" type="VBoxContainer" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns/RightColumn/RightMargin"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 10
+
+[node name="AdvancedSectionTitle" type="Label" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns/RightColumn/RightMargin/RightVBox"]
+layout_mode = 2
+text = "AI 与高级设置"
+
+[node name="AISourceLabel" type="Label" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns/RightColumn/RightMargin/RightVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "AI 来源"
+
+[node name="AISourceOption" type="OptionButton" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns/RightColumn/RightMargin/RightVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(320, 38)
+
+[node name="AIVersionLabel" type="Label" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns/RightColumn/RightMargin/RightVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "AI 版本"
+
+[node name="AIVersionOption" type="OptionButton" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns/RightColumn/RightMargin/RightVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(320, 38)
+
+[node name="AIStrategyLabel" type="Label" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns/RightColumn/RightMargin/RightVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "AI 策略"
+
+[node name="AIStrategyOption" type="OptionButton" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns/RightColumn/RightMargin/RightVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(320, 38)
+
+[node name="AiHelp" type="Label" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns/RightColumn/RightMargin/RightVBox"]
+layout_mode = 2
+autowrap_mode = 3
+text = "AI 相关选项只会在 AI 对战模式下显示和生效。"
+
+[node name="BgmSpacer" type="Control" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns/RightColumn/RightMargin/RightVBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 6)
+
+[node name="BgmLabel" type="Label" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns/RightColumn/RightMargin/RightVBox"]
+layout_mode = 2
+text = "对战音乐"
+
+[node name="BgmOption" type="OptionButton" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns/RightColumn/RightMargin/RightVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(320, 38)
+
+[node name="BgmVolumeRow" type="HBoxContainer" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns/RightColumn/RightMargin/RightVBox"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="BgmVolumeLabel" type="Label" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns/RightColumn/RightMargin/RightVBox/BgmVolumeRow"]
+layout_mode = 2
+text = "音量"
+
+[node name="BgmVolumeSlider" type="HSlider" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns/RightColumn/RightMargin/RightVBox/BgmVolumeRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+min_value = 0.0
+max_value = 100.0
+step = 1.0
+value = 70.0
+
+[node name="BgmVolumeValue" type="Label" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns/RightColumn/RightMargin/RightVBox/BgmVolumeRow"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(52, 0)
+text = "70%"
+horizontal_alignment = 2
+
+[node name="BgmHint" type="Label" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns/RightColumn/RightMargin/RightVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 3
+text = ""
+
+[node name="BtnPreviewBgm" type="Button" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns/RightColumn/RightMargin/RightVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(140, 38)
+text = "试听"
+
+[node name="NoDeckWarning" type="Label" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns/RightColumn/RightMargin/RightVBox"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "请先在卡组管理中导入至少两个卡组"
 horizontal_alignment = 1
 visible = false
 
-[node name="Spacer" type="Control" parent="VBoxContainer"]
+[node name="RightSpacer" type="Control" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns/RightColumn/RightMargin/RightVBox"]
 layout_mode = 2
-custom_minimum_size = Vector2(0, 10)
+size_flags_vertical = 3
 
-[node name="HBox" type="HBoxContainer" parent="VBoxContainer"]
+[node name="ActionRow" type="HBoxContainer" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns/RightColumn/RightMargin/RightVBox"]
 layout_mode = 2
 alignment = 1
 theme_override_constants/separation = 20
 
-[node name="BtnStart" type="Button" parent="VBoxContainer/HBox"]
+[node name="BtnStart" type="Button" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns/RightColumn/RightMargin/RightVBox/ActionRow"]
 unique_name_in_owner = true
 layout_mode = 2
-custom_minimum_size = Vector2(140, 40)
+custom_minimum_size = Vector2(150, 44)
 text = "开始对战"
 
-[node name="BtnBack" type="Button" parent="VBoxContainer/HBox"]
+[node name="BtnBack" type="Button" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns/RightColumn/RightMargin/RightVBox/ActionRow"]
 unique_name_in_owner = true
 layout_mode = 2
-custom_minimum_size = Vector2(140, 40)
+custom_minimum_size = Vector2(150, 44)
 text = "返回"

@@ -6,12 +6,14 @@ const BattleSceneScript = preload("res://scenes/battle/BattleScene.gd")
 const BattleCardViewScript = preload("res://scenes/battle/BattleCardView.gd")
 const BattleSetupScript = preload("res://scenes/battle_setup/BattleSetup.gd")
 const BattleSetupScene = preload("res://scenes/battle_setup/BattleSetup.tscn")
+const AIOpponentScript = preload("res://scripts/ai/AIOpponent.gd")
 const EffectBossOrdersScript = preload("res://scripts/effects/trainer_effects/EffectBossOrders.gd")
 const EffectCounterCatcherScript = preload("res://scripts/effects/trainer_effects/EffectCounterCatcher.gd")
 const EffectElectricGeneratorScript = preload("res://scripts/effects/trainer_effects/EffectElectricGenerator.gd")
 const EffectPrimeCatcherScript = preload("res://scripts/effects/trainer_effects/EffectPrimeCatcher.gd")
 const EffectEnergySwitchScript = preload("res://scripts/effects/trainer_effects/EffectEnergySwitch.gd")
 const EffectPokemonCatcherScript = preload("res://scripts/effects/trainer_effects/EffectPokemonCatcher.gd")
+const EffectCapturingAromaScript = preload("res://scripts/effects/trainer_effects/EffectCapturingAroma.gd")
 const EffectMirageGateScript = preload("res://scripts/effects/trainer_effects/EffectMirageGate.gd")
 const EffectSwitchCartScript = preload("res://scripts/effects/trainer_effects/EffectSwitchCart.gd")
 const EffectSwitchPokemonScript = preload("res://scripts/effects/trainer_effects/EffectSwitchPokemon.gd")
@@ -81,6 +83,35 @@ class SpyRetreatGameStateMachine extends GameStateMachine:
 		last_energy_to_discard = energy_to_discard.duplicate()
 		last_bench_target = bench_target
 		return retreat_result
+
+
+class SetupThenEndTurnAIOpponent extends RefCounted:
+	var player_index: int = 1
+	var difficulty: int = 1
+	var run_count: int = 0
+	var end_turn_calls: int = 0
+	var _delegate = AIOpponentScript.new()
+
+	func _init(next_player_index: int = 1) -> void:
+		player_index = next_player_index
+		_delegate.configure(next_player_index, difficulty)
+
+	func should_control_turn(game_state: GameState, ui_blocked: bool) -> bool:
+		return _delegate.should_control_turn(game_state, ui_blocked)
+
+	func run_single_step(battle_scene: Control, gsm: GameStateMachine) -> bool:
+		run_count += 1
+		if (
+			gsm != null
+			and gsm.game_state != null
+			and gsm.game_state.phase == GameState.GamePhase.MAIN
+			and gsm.game_state.current_player_index == player_index
+			and str(battle_scene.get("_pending_choice")) == ""
+		):
+			end_turn_calls += 1
+			battle_scene.call("_on_end_turn")
+			return true
+		return _delegate.run_single_step(battle_scene, gsm)
 
 
 
@@ -165,6 +196,7 @@ func _make_battle_scene_stub() -> Control:
 	battle_scene.set("_my_deck_hud_value", Label.new())
 	battle_scene.set("_my_discard_hud_value", Label.new())
 	battle_scene.set("_btn_end_turn", Button.new())
+	battle_scene.set("_btn_attack_vfx_preview", Button.new())
 	battle_scene.set("_btn_ai_advice", Button.new())
 	battle_scene.set("_btn_zeus_help", Button.new())
 	battle_scene.set("_btn_opponent_hand", Button.new())
@@ -180,6 +212,7 @@ func _make_battle_scene_stub() -> Control:
 	battle_scene.set("_enemy_lost_value", Label.new())
 	battle_scene.set("_my_lost_value", Label.new())
 	battle_scene.set("_hand_container", HBoxContainer.new())
+	(battle_scene.get("_handover_panel") as Panel).visible = false
 	return battle_scene
 
 
@@ -197,6 +230,85 @@ func _seed_battle_scene_deck_previews(scene: Control) -> void:
 	scene.add_child(opp_preview)
 	scene.set("_my_deck_preview", my_preview)
 	scene.set("_opp_deck_preview", opp_preview)
+
+
+func _seed_battle_scene_discard_previews(scene: Control) -> void:
+	var my_preview := BattleCardViewScript.new()
+	var opp_preview := BattleCardViewScript.new()
+	scene.add_child(my_preview)
+	scene.add_child(opp_preview)
+	scene.set("_my_discard_preview", my_preview)
+	scene.set("_opp_discard_preview", opp_preview)
+
+
+func _attach_test_center_field(scene: Control, position: Vector2, size: Vector2) -> Control:
+	var main_area := Control.new()
+	main_area.name = "MainArea"
+	main_area.position = Vector2.ZERO
+	main_area.size = Vector2(1280, 720)
+	scene.add_child(main_area)
+
+	var center_field := Control.new()
+	center_field.name = "CenterField"
+	center_field.position = position
+	center_field.size = size
+	main_area.add_child(center_field)
+	return center_field
+
+
+func _attach_test_field_area(scene: Control, center_field_position: Vector2, center_field_size: Vector2, field_area_position: Vector2, field_area_size: Vector2) -> Control:
+	var center_field := _attach_test_center_field(scene, center_field_position, center_field_size)
+	var field_area := Control.new()
+	field_area.name = "FieldArea"
+	field_area.position = field_area_position
+	field_area.size = field_area_size
+	center_field.add_child(field_area)
+	return field_area
+
+
+func _attach_test_main_area_with_hand_area(
+	scene: Control,
+	main_area_position: Vector2,
+	main_area_size: Vector2,
+	center_field_position: Vector2,
+	center_field_size: Vector2,
+	hand_area_position: Vector2,
+	hand_area_size: Vector2,
+	log_panel_position: Vector2 = Vector2(-1, -1),
+	log_panel_size: Vector2 = Vector2.ZERO
+) -> Dictionary:
+	var main_area := Control.new()
+	main_area.name = "MainArea"
+	main_area.position = main_area_position
+	main_area.size = main_area_size
+	scene.add_child(main_area)
+
+	var center_field := Control.new()
+	center_field.name = "CenterField"
+	center_field.position = center_field_position
+	center_field.size = center_field_size
+	main_area.add_child(center_field)
+
+	var hand_area := Control.new()
+	hand_area.name = "HandArea"
+	hand_area.position = hand_area_position
+	hand_area.size = hand_area_size
+	center_field.add_child(hand_area)
+
+	var log_panel: Control = null
+	if log_panel_position.x >= 0.0 and log_panel_position.y >= 0.0:
+		log_panel = Control.new()
+		log_panel.name = "LogPanel"
+		log_panel.position = log_panel_position
+		log_panel.size = log_panel_size
+		main_area.add_child(log_panel)
+
+	return {
+		"main_area": main_area,
+		"center_field": center_field,
+		"hand_area": hand_area,
+		"log_panel": log_panel,
+	}
 
 
 func _sample_raw_replay_snapshot() -> Dictionary:
@@ -439,6 +551,22 @@ func test_battle_scene_includes_zeus_help_button() -> String:
 	])
 
 
+func test_battle_scene_includes_attack_vfx_preview_button_left_of_ai_advice() -> String:
+	var scene: Control = load("res://scenes/battle/BattleScene.tscn").instantiate()
+	var preview_button := scene.find_child("BtnAttackVfxPreview", true, false)
+	var ai_advice_button := scene.find_child("BtnAiAdvice", true, false)
+	var preview_index := preview_button.get_index() if preview_button is Button else -1
+	var ai_index := ai_advice_button.get_index() if ai_advice_button is Button else -1
+	var preview_text: String = preview_button.text if preview_button is Button else ""
+
+	return run_checks([
+		assert_true(preview_button is Button, "BattleScene 顶栏应包含放烟花按钮"),
+		assert_true(ai_advice_button is Button, "BattleScene 顶栏应保留 AI 建议按钮"),
+		assert_eq(preview_text, "放烟花", "放烟花按钮文案应为纯中文"),
+		assert_true(preview_index >= 0 and ai_index >= 0 and preview_index < ai_index, "放烟花按钮应位于 AI 建议左侧"),
+	])
+
+
 func test_battle_scene_includes_replay_navigation_buttons() -> String:
 	var scene: Control = load("res://scenes/battle/BattleScene.tscn").instantiate()
 	var prev_button := scene.find_child("BtnReplayPrevTurn", true, false)
@@ -447,6 +575,134 @@ func test_battle_scene_includes_replay_navigation_buttons() -> String:
 	return run_checks([
 		assert_true(prev_button is Button, "BattleScene should expose BtnReplayPrevTurn"),
 		assert_true(next_button is Button, "BattleScene should expose BtnReplayNextTurn"),
+	])
+
+
+func test_battle_scene_attack_vfx_preview_dialog_lists_profiles_and_plays_selected_effect() -> String:
+	var battle_scene = _make_battle_scene_stub()
+	var center_field := _attach_test_center_field(battle_scene, Vector2(80, 20), Vector2(1200, 760))
+	var my_active := BattleCardViewScript.new()
+	my_active.custom_minimum_size = Vector2(130, 182)
+	my_active.position = Vector2(180, 440)
+	center_field.add_child(my_active)
+	var opp_active := BattleCardViewScript.new()
+	opp_active.custom_minimum_size = Vector2(130, 182)
+	opp_active.position = Vector2(780, 120)
+	center_field.add_child(opp_active)
+	battle_scene.set("_my_active", my_active)
+	battle_scene.set("_opp_active", opp_active)
+	battle_scene.set("_view_player", 0)
+
+	battle_scene.call("_on_attack_vfx_preview_pressed")
+	var pending_choice_before: String = str(battle_scene.get("_pending_choice"))
+	var dialog_items: Array = battle_scene.get("_dialog_items_data")
+	battle_scene.call("_handle_dialog_choice", PackedInt32Array([0]))
+	var overlay: Control = battle_scene.get("_attack_vfx_overlay") as Control
+	var burst: Control = overlay.get_child(0) as Control if overlay != null and overlay.get_child_count() > 0 else null
+
+	return run_checks([
+		assert_eq(pending_choice_before, "attack_vfx_preview", "放烟花按钮应进入 attack_vfx_preview 对话流程"),
+		assert_gte(dialog_items.size(), 1, "放烟花对话框应至少列出一个已实现特效"),
+		assert_not_null(overlay, "选择预览特效后应创建攻击特效 overlay"),
+		assert_not_null(burst, "选择预览特效后应立刻生成一个 burst 节点"),
+		assert_eq(str(burst.get_meta("profile_id", "")), "hero_dragapult_ex", "第一个预览项应播放首个已实现英雄特效"),
+	])
+
+
+func test_battle_scene_attack_vfx_preview_uses_overlay_local_coordinates() -> String:
+	var battle_scene = _make_battle_scene_stub()
+	var main_area := Control.new()
+	main_area.name = "MainArea"
+	main_area.position = Vector2(48, 36)
+	main_area.size = Vector2(1280, 720)
+	battle_scene.add_child(main_area)
+
+	var center_field := Control.new()
+	center_field.name = "CenterField"
+	center_field.position = Vector2(80, 20)
+	center_field.size = Vector2(1200, 760)
+	main_area.add_child(center_field)
+
+	var my_active := BattleCardViewScript.new()
+	my_active.custom_minimum_size = Vector2(130, 182)
+	my_active.position = Vector2(180, 440)
+	center_field.add_child(my_active)
+	var opp_active := BattleCardViewScript.new()
+	opp_active.custom_minimum_size = Vector2(130, 182)
+	opp_active.position = Vector2(780, 120)
+	center_field.add_child(opp_active)
+	battle_scene.set("_my_active", my_active)
+	battle_scene.set("_opp_active", opp_active)
+	battle_scene.set("_view_player", 0)
+
+	battle_scene.call("_on_attack_vfx_preview_pressed")
+	battle_scene.call("_handle_dialog_choice", PackedInt32Array([0]))
+	var overlay: Control = battle_scene.get("_attack_vfx_overlay") as Control
+	var sequence: Control = overlay.get_child(0) as Control if overlay != null and overlay.get_child_count() > 0 else null
+	var cast_node: Control = sequence.get_node_or_null("AttackVfxCast") as Control if sequence != null else null
+	var expected_local := my_active.global_position + my_active.size * 0.5
+
+	return run_checks([
+		assert_not_null(overlay, "应创建攻击特效 overlay"),
+		assert_eq(overlay.get_parent(), battle_scene, "Attack VFX overlay should attach to the scene root instead of MainArea"),
+		assert_not_null(sequence, "应创建攻击特效序列节点"),
+		assert_not_null(cast_node, "应创建攻击特效施法节点"),
+		assert_eq(cast_node.position, expected_local, "攻击特效节点应落在 overlay 的正确局部坐标"),
+	])
+
+
+func test_vs_ai_ai_first_turn_returns_view_and_controls_to_human_after_setup() -> String:
+	var previous_mode: int = GameManager.current_mode
+	var scene = _make_battle_scene_stub()
+	scene._setup_ai_for_tests()
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.phase = GameState.GamePhase.SETUP
+	gsm.game_state.current_player_index = 1
+	gsm.game_state.first_player_index = 1
+	scene._gsm = gsm
+	scene._view_player = 0
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+	var human: PlayerState = gsm.game_state.players[0]
+	var ai_player: PlayerState = gsm.game_state.players[1]
+	human.hand = [CardInstance.create(_make_pokemon_cd("Human Lead", 60, "C"), 0)]
+	ai_player.hand = [CardInstance.create(_make_pokemon_cd("AI Lead", 60, "C"), 1)]
+	for pi: int in 2:
+		for deck_idx: int in 8:
+			gsm.game_state.players[pi].deck.append(CardInstance.create(_make_pokemon_cd("Deck %d-%d" % [pi, deck_idx], 60, "C"), pi))
+	gsm.state_changed.connect(scene._on_state_changed)
+	gsm.action_logged.connect(scene._on_action_logged)
+	gsm.player_choice_required.connect(scene._on_player_choice_required)
+	gsm.game_over.connect(scene._on_game_over)
+	gsm.coin_flipper.coin_flipped.connect(scene._on_coin_flipped)
+	var ai := SetupThenEndTurnAIOpponent.new(1)
+	GameManager.current_mode = GameManager.GameMode.VS_AI
+	scene.set("_ai_opponent", ai)
+
+	scene._begin_setup_flow()
+	scene._handle_dialog_choice(PackedInt32Array([0]))
+	var guard_steps: int = 0
+	while bool(scene.get("_ai_step_scheduled")) and guard_steps < 6:
+		scene._run_ai_step()
+		guard_steps += 1
+
+	var current_player_after_ai_turn: int = gsm.game_state.current_player_index
+	var phase_after_ai_turn: int = gsm.game_state.phase
+	var view_player_after_ai_turn: int = int(scene.get("_view_player"))
+	var end_turn_disabled: bool = bool((scene.get("_btn_end_turn") as Button).disabled)
+	var pending_choice_after_ai_turn: String = str(scene.get("_pending_choice"))
+	GameManager.current_mode = previous_mode
+	return run_checks([
+		assert_true(ai.run_count >= 2, "AI-first setup should run through setup resolution and the opening turn"),
+		assert_eq(ai.end_turn_calls, 1, "The AI test double should end exactly one opening turn"),
+		assert_eq(current_player_after_ai_turn, 0, "After the AI opening turn ends, control should return to the human player"),
+		assert_eq(phase_after_ai_turn, GameState.GamePhase.MAIN, "After the AI opening turn ends, the human should be in MAIN phase"),
+		assert_eq(view_player_after_ai_turn, 0, "VS_AI should keep the visible side on the human player after the AI opening turn"),
+		assert_false(end_turn_disabled, "The local player should regain an enabled end-turn button after the AI opening turn"),
+		assert_eq(pending_choice_after_ai_turn, "", "No stale setup or AI prompt should remain after the AI opening turn"),
 	])
 
 
@@ -579,6 +835,1295 @@ func test_battle_scene_turn_start_draw_starts_reveal_and_defers_hand_refresh() -
 		assert_not_null(reveal_overlay, "Draw reveal should provision its overlay when the first reveal starts"),
 		assert_eq(hand_container.get_child_count(), 0, "Deferred hand refresh should not render the new hand cards yet"),
 	])
+
+
+func test_battle_scene_turn_start_draw_waits_for_player_click_before_hand_refresh() -> String:
+	var previous_mode: int = GameManager.current_mode
+	GameManager.current_mode = GameManager.GameMode.TWO_PLAYER
+
+	var battle_scene = _make_battle_scene_stub()
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	battle_scene.set("_gsm", gsm)
+	battle_scene.set("_view_player", 0)
+
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+
+	var drawn_card := CardInstance.create(_make_pokemon_cd("Player Reveal", 70, "C"), 0)
+	gsm.game_state.players[0].hand = [drawn_card]
+
+	var action := GameAction.create(
+		GameAction.ActionType.DRAW_CARD,
+		0,
+		{"count": 1, "card_names": ["Player Reveal"], "card_instance_ids": [drawn_card.instance_id]},
+		1,
+		"draw one"
+	)
+	battle_scene.call("_on_action_logged", action)
+	battle_scene.call("_refresh_hand")
+
+	var waiting_before: Variant = battle_scene.get("_draw_reveal_waiting_for_confirm")
+	var hand_container: HBoxContainer = battle_scene.get("_hand_container")
+	var controller: RefCounted = battle_scene.get("_battle_draw_reveal_controller")
+	var has_confirm := controller != null and controller.has_method("confirm_current_reveal")
+	if has_confirm:
+		controller.call("confirm_current_reveal", battle_scene)
+
+	var reveal_active_after: Variant = battle_scene.get("_draw_reveal_active")
+	var pending_after: Variant = battle_scene.get("_draw_reveal_pending_hand_refresh")
+	GameManager.current_mode = previous_mode
+
+	return run_checks([
+		assert_eq(waiting_before, true, "Human-controlled draw reveal should pause for click confirmation"),
+		assert_eq(has_confirm, true, "Draw reveal controller should expose a confirm_current_reveal entrypoint"),
+		assert_eq(reveal_active_after, false, "Reveal should finish after player confirmation"),
+		assert_eq(pending_after, false, "Hand refresh deferral should clear after the reveal completes"),
+		assert_eq(hand_container.get_child_count(), 1, "Confirmed draw reveal should finally render the drawn hand card"),
+	])
+
+
+func test_battle_scene_turn_start_draw_auto_continues_for_ai_side() -> String:
+	var previous_mode: int = GameManager.current_mode
+	GameManager.current_mode = GameManager.GameMode.VS_AI
+
+	var battle_scene = _make_battle_scene_stub()
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 1
+	gsm.game_state.first_player_index = 0
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	battle_scene.set("_gsm", gsm)
+	battle_scene.set("_view_player", 1)
+
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+
+	var drawn_card := CardInstance.create(_make_pokemon_cd("AI Reveal", 70, "C"), 1)
+	gsm.game_state.players[1].hand = [drawn_card]
+
+	var action := GameAction.create(
+		GameAction.ActionType.DRAW_CARD,
+		1,
+		{"count": 1, "card_names": ["AI Reveal"], "card_instance_ids": [drawn_card.instance_id]},
+		1,
+		"draw one"
+	)
+	battle_scene.call("_on_action_logged", action)
+	battle_scene.call("_refresh_hand")
+
+	var auto_pending_before: Variant = battle_scene.get("_draw_reveal_auto_continue_pending")
+	var controller: RefCounted = battle_scene.get("_battle_draw_reveal_controller")
+	var has_auto_continue := controller != null and controller.has_method("run_auto_continue")
+	if has_auto_continue:
+		controller.call("run_auto_continue", battle_scene)
+	var reveal_active_after: Variant = battle_scene.get("_draw_reveal_active")
+	var pending_after: Variant = battle_scene.get("_draw_reveal_pending_hand_refresh")
+	var hand_container: HBoxContainer = battle_scene.get("_hand_container")
+	GameManager.current_mode = previous_mode
+
+	return run_checks([
+		assert_eq(auto_pending_before, true, "AI-controlled draw reveal should arm auto-continue instead of waiting for click"),
+		assert_eq(has_auto_continue, true, "Draw reveal controller should expose a run_auto_continue entrypoint"),
+		assert_eq(reveal_active_after, false, "Auto-continued AI reveal should finish cleanly"),
+		assert_eq(pending_after, false, "AI auto-continue should flush the deferred hand refresh"),
+		assert_eq(hand_container.get_child_count(), 1, "Auto-continued AI reveal should render the drawn hand card"),
+	])
+
+
+func test_battle_scene_professors_research_reveals_batch_until_single_confirm() -> String:
+	var previous_mode: int = GameManager.current_mode
+	GameManager.current_mode = GameManager.GameMode.TWO_PLAYER
+
+	var battle_scene = _make_battle_scene_stub()
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	battle_scene.set("_gsm", gsm)
+	battle_scene.set("_view_player", 0)
+
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+
+	var drawn_cards: Array[CardInstance] = []
+	var card_ids: Array[int] = []
+	var card_names: Array[String] = []
+	for card_index: int in 7:
+		var drawn_card := CardInstance.create(_make_pokemon_cd("Research %d" % [card_index + 1], 70, "C"), 0)
+		drawn_cards.append(drawn_card)
+		card_ids.append(drawn_card.instance_id)
+		card_names.append(drawn_card.card_data.name)
+	gsm.game_state.players[0].hand = drawn_cards.duplicate()
+
+	var action := GameAction.create(
+		GameAction.ActionType.DRAW_CARD,
+		0,
+		{"count": 7, "card_names": card_names, "card_instance_ids": card_ids},
+		1,
+		"Professor's Research"
+	)
+	battle_scene.call("_on_action_logged", action)
+	battle_scene.call("_refresh_hand")
+
+	var waiting_before: Variant = battle_scene.get("_draw_reveal_waiting_for_confirm")
+	var reveal_views_before: Array = battle_scene.get("_draw_reveal_card_views")
+	var hand_container: HBoxContainer = battle_scene.get("_hand_container")
+	var controller: RefCounted = battle_scene.get("_battle_draw_reveal_controller")
+	var has_confirm := controller != null and controller.has_method("confirm_current_reveal")
+	if has_confirm:
+		controller.call("confirm_current_reveal", battle_scene)
+
+	var reveal_active_after: Variant = battle_scene.get("_draw_reveal_active")
+	var pending_after: Variant = battle_scene.get("_draw_reveal_pending_hand_refresh")
+	GameManager.current_mode = previous_mode
+
+	return run_checks([
+		assert_eq(waiting_before, true, "Professor's Research should pause once after revealing the full batch"),
+		assert_eq(reveal_views_before.size(), 7, "Professor's Research should stage all seven revealed cards before confirmation"),
+		assert_eq(hand_container.get_child_count(), 7, "The full batch should render into hand after the single confirmation"),
+		assert_eq(has_confirm, true, "Batch reveal should use the same confirm entrypoint"),
+		assert_eq(reveal_active_after, false, "Batch reveal should finish after the single confirmation"),
+		assert_eq(pending_after, false, "Hand refresh deferral should clear after the batch reveal completes"),
+	])
+
+
+func test_battle_scene_professors_research_batch_auto_continues_for_ai_side() -> String:
+	var previous_mode: int = GameManager.current_mode
+	GameManager.current_mode = GameManager.GameMode.VS_AI
+
+	var battle_scene = _make_battle_scene_stub()
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 1
+	gsm.game_state.first_player_index = 0
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	battle_scene.set("_gsm", gsm)
+	battle_scene.set("_view_player", 1)
+
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+
+	var drawn_cards: Array[CardInstance] = []
+	var card_ids: Array[int] = []
+	var card_names: Array[String] = []
+	for card_index: int in 7:
+		var drawn_card := CardInstance.create(_make_pokemon_cd("AI Research %d" % [card_index + 1], 70, "C"), 1)
+		drawn_cards.append(drawn_card)
+		card_ids.append(drawn_card.instance_id)
+		card_names.append(drawn_card.card_data.name)
+	gsm.game_state.players[1].hand = drawn_cards.duplicate()
+
+	var action := GameAction.create(
+		GameAction.ActionType.DRAW_CARD,
+		1,
+		{"count": 7, "card_names": card_names, "card_instance_ids": card_ids},
+		1,
+		"Professor's Research"
+	)
+	battle_scene.call("_on_action_logged", action)
+	battle_scene.call("_refresh_hand")
+
+	var auto_pending_before: Variant = battle_scene.get("_draw_reveal_auto_continue_pending")
+	var reveal_views_before: Array = battle_scene.get("_draw_reveal_card_views")
+	var controller: RefCounted = battle_scene.get("_battle_draw_reveal_controller")
+	var has_auto_continue := controller != null and controller.has_method("run_auto_continue")
+	if has_auto_continue:
+		controller.call("run_auto_continue", battle_scene)
+
+	var reveal_active_after: Variant = battle_scene.get("_draw_reveal_active")
+	var pending_after: Variant = battle_scene.get("_draw_reveal_pending_hand_refresh")
+	var hand_container: HBoxContainer = battle_scene.get("_hand_container")
+	GameManager.current_mode = previous_mode
+
+	return run_checks([
+		assert_eq(auto_pending_before, true, "AI batch reveal should arm auto-continue after the final staged card"),
+		assert_eq(reveal_views_before.size(), 7, "AI batch reveal should still stage all seven cards before continuing"),
+		assert_eq(has_auto_continue, true, "Batch reveal should expose the auto-continue entrypoint"),
+		assert_eq(reveal_active_after, false, "AI batch reveal should finish after auto-continue"),
+		assert_eq(pending_after, false, "AI batch reveal should clear deferred hand refresh when complete"),
+		assert_eq(hand_container.get_child_count(), 7, "AI batch reveal should render the full batch into hand once complete"),
+	])
+
+
+func test_battle_scene_professors_research_hides_drawn_cards_while_discard_reveal_is_running() -> String:
+	var previous_mode: int = GameManager.current_mode
+	GameManager.current_mode = GameManager.GameMode.VS_AI
+
+	var battle_scene = _make_battle_scene_stub()
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	gsm.game_state.turn_number = 2
+	battle_scene.set("_gsm", gsm)
+	battle_scene.set("_view_player", 0)
+	gsm.action_logged.connect(battle_scene._on_action_logged)
+
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+
+	var professor_cd := CardData.new()
+	professor_cd.name = "Professor's Research"
+	professor_cd.card_type = "Supporter"
+	professor_cd.effect_id = "aecd80ca2722885c3d062a2255346f3e"
+	var professor := CardInstance.create(professor_cd, 0)
+	var filler := CardInstance.create(_make_pokemon_cd("Discard Filler", 70, "C"), 0)
+	gsm.game_state.players[0].hand = [professor, filler]
+	for draw_index: int in 7:
+		gsm.game_state.players[0].deck.append(CardInstance.create(_make_pokemon_cd("Research Draw %d" % [draw_index + 1], 70, "C"), 0))
+
+	battle_scene.call("_refresh_hand")
+	var hand_container: HBoxContainer = battle_scene.get("_hand_container")
+	var before_play_count := hand_container.get_child_count()
+	var played: bool = gsm.play_trainer(0, professor, [])
+	var current_reveal: GameAction = battle_scene.get("_draw_reveal_current_action") as GameAction
+	var queued_reveals: Array = battle_scene.get("_draw_reveal_queue")
+	battle_scene.call("_refresh_hand")
+	var during_discard_reveal_count := hand_container.get_child_count()
+	GameManager.current_mode = previous_mode
+
+	return run_checks([
+		assert_eq(before_play_count, 2, "Precondition: the original hand should be visible before Professor's Research resolves"),
+		assert_true(played, "Professor's Research should resolve successfully"),
+		assert_not_null(current_reveal, "Professor's Research should start a reveal immediately"),
+		assert_eq(current_reveal.action_type, GameAction.ActionType.DISCARD, "The first reveal should be the hand discard"),
+		assert_true(queued_reveals.size() >= 1, "Professor's Research should queue the draw reveal behind the discard reveal"),
+		assert_eq(during_discard_reveal_count, 0, "Freshly drawn cards should stay hidden while the discard reveal is still running"),
+	])
+
+
+func test_battle_scene_two_player_opponent_redraw_stays_face_down_and_targets_top_hand_area() -> String:
+	var previous_mode: int = GameManager.current_mode
+	GameManager.current_mode = GameManager.GameMode.TWO_PLAYER
+
+	var battle_scene = _make_battle_scene_stub()
+	var layout := _attach_test_main_area_with_hand_area(
+		battle_scene,
+		Vector2.ZERO,
+		Vector2(1600, 872),
+		Vector2(72, 0),
+		Vector2(1268, 872),
+		Vector2(0, 762),
+		Vector2(1268, 110),
+		Vector2(1420, 0),
+		Vector2(180, 872)
+	)
+	var center_field: Control = layout.get("center_field")
+	var hand_area: Control = layout.get("hand_area")
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	battle_scene.set("_gsm", gsm)
+	battle_scene.set("_view_player", 0)
+
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+
+	var drawn_cards: Array[CardInstance] = []
+	var card_ids: Array[int] = []
+	var card_names: Array[String] = []
+	for card_index: int in 2:
+		var drawn_card := CardInstance.create(_make_pokemon_cd("Hidden Draw %d" % [card_index + 1], 70, "C"), 1)
+		drawn_cards.append(drawn_card)
+		card_ids.append(drawn_card.instance_id)
+		card_names.append(drawn_card.card_data.name)
+	gsm.game_state.players[1].hand = drawn_cards.duplicate()
+
+	var action := GameAction.create(
+		GameAction.ActionType.DRAW_CARD,
+		1,
+		{"count": 2, "card_names": card_names, "card_instance_ids": card_ids},
+		3,
+		"Judge redraw"
+	)
+	battle_scene.call("_on_action_logged", action)
+
+	var controller: RefCounted = battle_scene.get("_battle_draw_reveal_controller")
+	var reveal_views: Array = battle_scene.get("_draw_reveal_card_views")
+	var top_anchor: Variant = controller.call("_hand_target_anchor", battle_scene, 1)
+	var bottom_anchor: Variant = controller.call("_hand_target_anchor", battle_scene, 0)
+	var probe := BattleCardViewScript.new()
+	probe.custom_minimum_size = Vector2(130, 182)
+	var top_target: Vector2 = controller.call("_hand_target_position", battle_scene, probe, 1, 0, 1)
+	var bottom_target: Vector2 = controller.call("_hand_target_position", battle_scene, probe, 0, 0, 1)
+	var expected_top := Vector2(
+		center_field.global_position.x + (center_field.size.x - 130.0) * 0.5,
+		center_field.global_position.y + 16.0
+	)
+	var expected_bottom := Vector2(
+		hand_area.global_position.x + (hand_area.size.x - 130.0) * 0.5,
+		hand_area.global_position.y + (hand_area.size.y - 182.0) * 0.5
+	)
+	GameManager.current_mode = previous_mode
+
+	return run_checks([
+		assert_eq(battle_scene.get("_draw_reveal_auto_continue_pending"), true, "Hidden opponent redraw should auto-continue instead of waiting for local confirmation"),
+		assert_eq(reveal_views.size(), 2, "Opponent redraw should still stage both cards"),
+		assert_eq(top_anchor, center_field, "Opponent redraw should anchor to the center field instead of the hand strip"),
+		assert_eq(bottom_anchor, hand_area, "Local redraw should anchor to the hand area"),
+		assert_eq(top_target, expected_top, "Opponent redraw should fly to the upper middle of CenterField"),
+		assert_eq(bottom_target, expected_bottom, "Local redraw should fly to the middle of HandArea"),
+		assert_true(bool(reveal_views[0].get("_face_down")), "Opponent redraw should keep the first staged card face down"),
+		assert_true(bool(reveal_views[1].get("_face_down")), "Opponent redraw should keep the second staged card face down"),
+	])
+
+
+func test_battle_scene_vs_ai_opponent_draw_targets_top_center_instead_of_my_hand() -> String:
+	var previous_mode: int = GameManager.current_mode
+	GameManager.current_mode = GameManager.GameMode.VS_AI
+
+	var battle_scene = _make_battle_scene_stub()
+	var layout := _attach_test_main_area_with_hand_area(
+		battle_scene,
+		Vector2.ZERO,
+		Vector2(1600, 900),
+		Vector2(80, 20),
+		Vector2(1200, 760),
+		Vector2(0, 650),
+		Vector2(1200, 110)
+	)
+	var center_field: Control = layout.get("center_field")
+	var hand_area: Control = layout.get("hand_area")
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 1
+	gsm.game_state.first_player_index = 0
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	battle_scene.set("_gsm", gsm)
+	battle_scene.set("_view_player", 0)
+
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+
+	var drawn_card := CardInstance.create(_make_pokemon_cd("AI Draw", 70, "C"), 1)
+	gsm.game_state.players[1].hand = [drawn_card]
+	var action := GameAction.create(
+		GameAction.ActionType.DRAW_CARD,
+		1,
+		{"count": 1, "card_names": [drawn_card.card_data.name], "card_instance_ids": [drawn_card.instance_id]},
+		3,
+		"AI draw"
+	)
+	battle_scene.call("_on_action_logged", action)
+
+	var controller: RefCounted = battle_scene.get("_battle_draw_reveal_controller")
+	var probe := BattleCardViewScript.new()
+	probe.custom_minimum_size = Vector2(130, 182)
+	var anchor: Variant = controller.call("_hand_target_anchor", battle_scene, 1)
+	var target: Vector2 = controller.call("_hand_target_position", battle_scene, probe, 1, 0, 1)
+	var expected_top := Vector2(
+		center_field.global_position.x + (center_field.size.x - 130.0) * 0.5,
+		center_field.global_position.y + 16.0
+	)
+	var wrong_bottom := Vector2(
+		hand_area.global_position.x + (hand_area.size.x - 130.0) * 0.5,
+		hand_area.global_position.y + (hand_area.size.y - 182.0) * 0.5
+	)
+	GameManager.current_mode = previous_mode
+
+	return run_checks([
+		assert_eq(anchor, center_field, "VS AI opponent draw should anchor to CenterField rather than the local hand area"),
+		assert_eq(target, expected_top, "VS AI opponent draw should target the upper middle of CenterField"),
+		assert_true(target != wrong_bottom, "VS AI opponent draw must not target the local hand area"),
+	])
+
+
+func test_battle_scene_batch_draw_progressively_refreshes_visible_hand_cards() -> String:
+	var previous_mode: int = GameManager.current_mode
+	GameManager.current_mode = GameManager.GameMode.TWO_PLAYER
+
+	var battle_scene = _make_battle_scene_stub()
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	battle_scene.set("_gsm", gsm)
+	battle_scene.set("_view_player", 0)
+
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+
+	var drawn_cards: Array[CardInstance] = []
+	var card_ids: Array[int] = []
+	var card_names: Array[String] = []
+	for card_index: int in 3:
+		var drawn_card := CardInstance.create(_make_pokemon_cd("Visible Draw %d" % [card_index + 1], 70, "C"), 0)
+		drawn_cards.append(drawn_card)
+		card_ids.append(drawn_card.instance_id)
+		card_names.append(drawn_card.card_data.name)
+	gsm.game_state.players[0].hand = drawn_cards.duplicate()
+
+	var action := GameAction.create(
+		GameAction.ActionType.DRAW_CARD,
+		0,
+		{"count": 3, "card_names": card_names, "card_instance_ids": card_ids},
+		4,
+		"Batch draw"
+	)
+	battle_scene.call("_on_action_logged", action)
+
+	var controller: RefCounted = battle_scene.get("_battle_draw_reveal_controller")
+	var hand_container: HBoxContainer = battle_scene.get("_hand_container")
+
+	controller.call("_set_visible_reveal_count", battle_scene, 1)
+	battle_scene.call("_refresh_hand")
+	var count_after_first := hand_container.get_child_count()
+
+	controller.call("_set_visible_reveal_count", battle_scene, 2)
+	battle_scene.call("_refresh_hand")
+	var count_after_second := hand_container.get_child_count()
+
+	controller.call("_set_visible_reveal_count", battle_scene, 3)
+	battle_scene.call("_refresh_hand")
+	var count_after_third := hand_container.get_child_count()
+	GameManager.current_mode = previous_mode
+
+	return run_checks([
+		assert_eq(count_after_first, 1, "The first landed card should immediately appear in hand"),
+		assert_eq(count_after_second, 2, "The second landed card should increment the visible hand size"),
+		assert_eq(count_after_third, 3, "The final landed card should complete the visible hand size"),
+	])
+
+
+func test_battle_scene_draw_reveal_hides_new_cards_before_the_first_fly_in() -> String:
+	var previous_mode: int = GameManager.current_mode
+	GameManager.current_mode = GameManager.GameMode.TWO_PLAYER
+
+	var battle_scene = _make_battle_scene_stub()
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	battle_scene.set("_gsm", gsm)
+	battle_scene.set("_view_player", 0)
+
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+
+	var original_hand := CardInstance.create(_make_pokemon_cd("Existing Hand Card", 70, "C"), 0)
+	var drawn_a := CardInstance.create(_make_pokemon_cd("Visible Draw 1", 70, "C"), 0)
+	var drawn_b := CardInstance.create(_make_pokemon_cd("Visible Draw 2", 70, "C"), 0)
+	gsm.game_state.players[0].hand = [original_hand, drawn_a, drawn_b]
+	battle_scene.call("_refresh_hand")
+	var hand_container: HBoxContainer = battle_scene.get("_hand_container")
+	var before_action_count := hand_container.get_child_count()
+
+	var action := GameAction.create(
+		GameAction.ActionType.DRAW_CARD,
+		0,
+		{
+			"count": 2,
+			"card_names": [drawn_a.card_data.name, drawn_b.card_data.name],
+			"card_instance_ids": [drawn_a.instance_id, drawn_b.instance_id],
+		},
+		4,
+		"Batch draw"
+	)
+	battle_scene.call("_on_action_logged", action)
+	var after_action_count := hand_container.get_child_count()
+	GameManager.current_mode = previous_mode
+
+	return run_checks([
+		assert_eq(before_action_count, 3, "Precondition: the already-updated hand is visible before the draw reveal begins"),
+		assert_eq(after_action_count, 1, "Draw reveal should hide the freshly drawn cards until they start flying into hand"),
+	])
+
+
+func test_battle_scene_hand_discard_action_starts_discard_reveal() -> String:
+	var previous_mode: int = GameManager.current_mode
+	GameManager.current_mode = GameManager.GameMode.TWO_PLAYER
+
+	var battle_scene = _make_battle_scene_stub()
+	_seed_battle_scene_discard_previews(battle_scene)
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	battle_scene.set("_gsm", gsm)
+	battle_scene.set("_view_player", 0)
+
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+
+	var discarded_a := CardInstance.create(_make_pokemon_cd("Discard Reveal A", 70, "C"), 0)
+	var discarded_b := CardInstance.create(_make_pokemon_cd("Discard Reveal B", 70, "C"), 0)
+	gsm.game_state.players[0].discard_pile = [discarded_a, discarded_b]
+
+	var action := GameAction.create(
+		GameAction.ActionType.DISCARD,
+		0,
+		{
+			"count": 2,
+			"source_zone": "hand",
+			"card_names": [discarded_a.card_data.name, discarded_b.card_data.name],
+			"card_instance_ids": [discarded_a.instance_id, discarded_b.instance_id],
+		},
+		4,
+		"discard two"
+	)
+	battle_scene.call("_on_action_logged", action)
+
+	var reveal_active: Variant = battle_scene.get("_draw_reveal_active")
+	var reveal_views: Array = battle_scene.get("_draw_reveal_card_views")
+	GameManager.current_mode = previous_mode
+
+	return run_checks([
+		assert_eq(reveal_active, true, "Hand-origin DISCARD actions should reuse the reveal pipeline"),
+		assert_eq(reveal_views.size(), 2, "Discard reveal should stage each discarded hand card"),
+	])
+
+
+func test_battle_scene_hand_discard_reveal_uses_slower_flight_duration_than_draw_reveal() -> String:
+	var battle_scene = _make_battle_scene_stub()
+	var controller: RefCounted = battle_scene.get("_battle_draw_reveal_controller")
+	var discard_duration: Variant = controller.call("_discard_fly_duration_seconds")
+	var draw_duration: Variant = controller.call("_draw_fly_duration_seconds")
+
+	return run_checks([
+		assert_eq(discard_duration, 0.14, "Hand discard reveal should use the tuned slower discard flight duration"),
+		assert_eq(draw_duration, 0.08, "Draw reveal should keep its faster flight duration"),
+		assert_true(float(discard_duration) > float(draw_duration), "Discard reveal should stay slower than draw reveal"),
+	])
+
+
+func test_battle_scene_hand_discard_reveal_removes_cards_from_hand_before_flying() -> String:
+	var previous_mode: int = GameManager.current_mode
+	GameManager.current_mode = GameManager.GameMode.TWO_PLAYER
+
+	var battle_scene = _make_battle_scene_stub()
+	_seed_battle_scene_discard_previews(battle_scene)
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	battle_scene.set("_gsm", gsm)
+	battle_scene.set("_view_player", 0)
+
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+
+	var discarded_a := CardInstance.create(_make_pokemon_cd("Discard Reveal A", 70, "C"), 0)
+	var discarded_b := CardInstance.create(_make_pokemon_cd("Discard Reveal B", 70, "C"), 0)
+	var remaining := CardInstance.create(_make_pokemon_cd("Remaining Hand Card", 70, "C"), 0)
+	gsm.game_state.players[0].hand = [discarded_a, discarded_b, remaining]
+	battle_scene.call("_refresh_hand")
+	var hand_container: HBoxContainer = battle_scene.get("_hand_container")
+	var before_action_count := hand_container.get_child_count()
+
+	gsm.game_state.players[0].hand = [remaining]
+	gsm.game_state.players[0].discard_pile = [discarded_a, discarded_b]
+	var action := GameAction.create(
+		GameAction.ActionType.DISCARD,
+		0,
+		{
+			"count": 2,
+			"source_zone": "hand",
+			"card_names": [discarded_a.card_data.name, discarded_b.card_data.name],
+			"card_instance_ids": [discarded_a.instance_id, discarded_b.instance_id],
+		},
+		4,
+		"discard two"
+	)
+	battle_scene.call("_on_action_logged", action)
+	var after_action_count := hand_container.get_child_count()
+	GameManager.current_mode = previous_mode
+
+	return run_checks([
+		assert_eq(before_action_count, 3, "Precondition: the original hand should still be visible before the discard action is logged"),
+		assert_eq(after_action_count, 1, "Discard reveal should remove discarded cards from the hand immediately before the flight starts"),
+	])
+
+
+func test_battle_scene_hand_discard_reveal_updates_visible_discard_count_one_by_one() -> String:
+	var previous_mode: int = GameManager.current_mode
+	GameManager.current_mode = GameManager.GameMode.TWO_PLAYER
+
+	var battle_scene = _make_battle_scene_stub()
+	_seed_battle_scene_discard_previews(battle_scene)
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	battle_scene.set("_gsm", gsm)
+	battle_scene.set("_view_player", 0)
+
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+
+	var existing := CardInstance.create(_make_pokemon_cd("Existing Discard", 70, "C"), 0)
+	var discarded_a := CardInstance.create(_make_pokemon_cd("Discard Reveal A", 70, "C"), 0)
+	var discarded_b := CardInstance.create(_make_pokemon_cd("Discard Reveal B", 70, "C"), 0)
+	gsm.game_state.players[0].discard_pile = [existing, discarded_a, discarded_b]
+
+	var action := GameAction.create(
+		GameAction.ActionType.DISCARD,
+		0,
+		{
+			"count": 2,
+			"source_zone": "hand",
+			"card_names": [discarded_a.card_data.name, discarded_b.card_data.name],
+			"card_instance_ids": [discarded_a.instance_id, discarded_b.instance_id],
+		},
+		5,
+		"discard two"
+	)
+	battle_scene.call("_on_action_logged", action)
+
+	var display: RefCounted = battle_scene.get("_battle_display_controller")
+	var before_visible: Array = display.call("_visible_discard_pile", battle_scene, 0, gsm.game_state.players[0].discard_pile)
+	var reveal_views: Array = battle_scene.get("_draw_reveal_card_views")
+	var controller: RefCounted = battle_scene.get("_battle_draw_reveal_controller")
+	controller.call("_mark_discard_card_landed", battle_scene, reveal_views[0], 0, 1)
+	var after_first_visible: Array = display.call("_visible_discard_pile", battle_scene, 0, gsm.game_state.players[0].discard_pile)
+	controller.call("_mark_discard_card_landed", battle_scene, reveal_views[1], 0, 2)
+	var after_second_visible: Array = display.call("_visible_discard_pile", battle_scene, 0, gsm.game_state.players[0].discard_pile)
+	GameManager.current_mode = previous_mode
+
+	return run_checks([
+		assert_eq(before_visible.size(), 1, "Before any discard card lands, only the pre-existing discard pile should be visible"),
+		assert_eq(after_first_visible.size(), 2, "After the first discard lands, the visible discard pile should grow by one"),
+		assert_eq(after_second_visible.size(), 3, "After the second discard lands, the visible discard pile should reach the full final size"),
+	])
+
+
+func test_battle_scene_attack_action_starts_fireworks_vfx_burst() -> String:
+	var battle_scene = _make_battle_scene_stub()
+	var center_field := _attach_test_center_field(battle_scene, Vector2(80, 20), Vector2(1200, 760))
+	var my_active := BattleCardViewScript.new()
+	my_active.custom_minimum_size = Vector2(130, 182)
+	my_active.position = Vector2(180, 440)
+	center_field.add_child(my_active)
+	var opp_active := BattleCardViewScript.new()
+	opp_active.custom_minimum_size = Vector2(130, 182)
+	opp_active.position = Vector2(780, 120)
+	center_field.add_child(opp_active)
+	battle_scene.set("_my_active", my_active)
+	battle_scene.set("_opp_active", opp_active)
+	battle_scene.set("_view_player", 0)
+
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	battle_scene.set("_gsm", gsm)
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+	var attacker_slot := PokemonSlot.new()
+	attacker_slot.pokemon_stack.append(CardInstance.create(_make_pokemon_cd("Dragapult ex", 320, "P"), 0))
+	gsm.game_state.players[0].active_pokemon = attacker_slot
+	var defender_slot := PokemonSlot.new()
+	defender_slot.pokemon_stack.append(CardInstance.create(_make_pokemon_cd("Target", 220, "C"), 1))
+	gsm.game_state.players[1].active_pokemon = defender_slot
+
+	var action := GameAction.create(
+		GameAction.ActionType.ATTACK,
+		0,
+		{"attack_name": "Phantom Dive", "target_pokemon_name": "Target", "damage": 200},
+		3,
+		"attack"
+	)
+	battle_scene.call("_on_action_logged", action)
+
+	var overlay: Control = battle_scene.get("_attack_vfx_overlay") as Control
+	var overlay_child_count: int = overlay.get_child_count() if overlay != null else 0
+	var burst: Control = overlay.get_child(0) as Control if overlay != null and overlay_child_count > 0 else null
+
+	return run_checks([
+		assert_not_null(overlay, "Attack action should lazily create the attack VFX overlay"),
+		assert_eq(overlay_child_count, 1, "Attack action should spawn exactly one burst container"),
+		assert_not_null(burst, "Attack burst container should exist"),
+		assert_eq(str(burst.get_meta("profile_id", "")) if burst != null else "", "hero_dragapult_ex", "Hero attack should resolve its dedicated VFX profile"),
+	])
+
+
+func test_battle_scene_attack_vfx_targets_opponent_active_center() -> String:
+	var battle_scene = _make_battle_scene_stub()
+	var center_field := _attach_test_center_field(battle_scene, Vector2(80, 20), Vector2(1200, 760))
+	var my_active := BattleCardViewScript.new()
+	my_active.custom_minimum_size = Vector2(130, 182)
+	my_active.position = Vector2(200, 440)
+	center_field.add_child(my_active)
+	var opp_active := BattleCardViewScript.new()
+	opp_active.custom_minimum_size = Vector2(130, 182)
+	opp_active.position = Vector2(760, 110)
+	center_field.add_child(opp_active)
+	battle_scene.set("_my_active", my_active)
+	battle_scene.set("_opp_active", opp_active)
+	battle_scene.set("_view_player", 0)
+
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	battle_scene.set("_gsm", gsm)
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+	var attacker_slot := PokemonSlot.new()
+	attacker_slot.pokemon_stack.append(CardInstance.create(_make_pokemon_cd("Charizard ex", 330, "R"), 0))
+	gsm.game_state.players[0].active_pokemon = attacker_slot
+	var defender_slot := PokemonSlot.new()
+	defender_slot.pokemon_stack.append(CardInstance.create(_make_pokemon_cd("Target", 220, "C"), 1))
+	gsm.game_state.players[1].active_pokemon = defender_slot
+
+	var action := GameAction.create(
+		GameAction.ActionType.ATTACK,
+		0,
+		{"attack_name": "Burning Darkness", "target_pokemon_name": "Target", "damage": 180},
+		3,
+		"attack"
+	)
+	var controller: RefCounted = battle_scene.get("_battle_attack_vfx_controller")
+	var target: Vector2 = controller.call("resolve_impact_position", battle_scene, action) if controller != null else Vector2.ZERO
+	var expected := opp_active.global_position + opp_active.size * 0.5
+
+	return run_checks([
+		assert_not_null(controller, "BattleScene should expose an attack VFX controller"),
+		assert_eq(target, expected, "Attack VFX should target the opponent active center by default"),
+	])
+
+
+func test_battle_scene_attack_vfx_does_not_block_live_actions() -> String:
+	var battle_scene = _make_battle_scene_stub()
+	var center_field := _attach_test_center_field(battle_scene, Vector2(80, 20), Vector2(1200, 760))
+	var my_active := BattleCardViewScript.new()
+	my_active.custom_minimum_size = Vector2(130, 182)
+	center_field.add_child(my_active)
+	var opp_active := BattleCardViewScript.new()
+	opp_active.custom_minimum_size = Vector2(130, 182)
+	center_field.add_child(opp_active)
+	battle_scene.set("_my_active", my_active)
+	battle_scene.set("_opp_active", opp_active)
+	battle_scene.set("_view_player", 0)
+
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	battle_scene.set("_gsm", gsm)
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+	var attacker_slot := PokemonSlot.new()
+	attacker_slot.pokemon_stack.append(CardInstance.create(_make_pokemon_cd("Raging Bolt ex", 240, "L"), 0))
+	gsm.game_state.players[0].active_pokemon = attacker_slot
+	var defender_slot := PokemonSlot.new()
+	defender_slot.pokemon_stack.append(CardInstance.create(_make_pokemon_cd("Target", 220, "C"), 1))
+	gsm.game_state.players[1].active_pokemon = defender_slot
+
+	var action := GameAction.create(
+		GameAction.ActionType.ATTACK,
+		0,
+		{"attack_name": "Burst Roar", "target_pokemon_name": "Target", "damage": 70},
+		3,
+		"attack"
+	)
+	battle_scene.call("_on_action_logged", action)
+
+	return run_checks([
+		assert_eq(battle_scene.call("_can_accept_live_action"), true, "Attack fireworks should not block the next live action gate"),
+	])
+
+
+func test_battle_scene_attack_vfx_overlay_does_not_shift_hand_area_layout() -> String:
+	var battle_scene = _make_battle_scene_stub()
+	var layout := _attach_test_main_area_with_hand_area(
+		battle_scene,
+		Vector2.ZERO,
+		Vector2(1600, 872),
+		Vector2(72, 0),
+		Vector2(1268, 872),
+		Vector2(0, 762),
+		Vector2(1268, 110),
+		Vector2(1420, 0),
+		Vector2(180, 872)
+	)
+	var center_field: Control = layout.get("center_field")
+	var hand_area: Control = layout.get("hand_area")
+	var my_active := BattleCardViewScript.new()
+	my_active.custom_minimum_size = Vector2(130, 182)
+	my_active.position = Vector2(180, 440)
+	center_field.add_child(my_active)
+	var opp_active := BattleCardViewScript.new()
+	opp_active.custom_minimum_size = Vector2(130, 182)
+	opp_active.position = Vector2(780, 120)
+	center_field.add_child(opp_active)
+	battle_scene.set("_my_active", my_active)
+	battle_scene.set("_opp_active", opp_active)
+	battle_scene.set("_view_player", 0)
+
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	battle_scene.set("_gsm", gsm)
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		for di: int in 3:
+			player.deck.append(CardInstance.create(_make_pokemon_cd("Deck %d-%d" % [pi, di], 60, "C"), pi))
+		gsm.game_state.players.append(player)
+	var attacker_slot := PokemonSlot.new()
+	attacker_slot.pokemon_stack.append(CardInstance.create(_make_pokemon_cd("Gouging Fire ex", 230, "R"), 0))
+	gsm.game_state.players[0].active_pokemon = attacker_slot
+	var defender_slot := PokemonSlot.new()
+	defender_slot.pokemon_stack.append(CardInstance.create(_make_pokemon_cd("Charmander", 70, "R"), 1))
+	gsm.game_state.players[1].active_pokemon = defender_slot
+
+	var before_position := hand_area.global_position
+	var action := GameAction.create(
+		GameAction.ActionType.ATTACK,
+		0,
+		{"attack_name": "Burning Charge", "target_pokemon_name": "Charmander", "damage": 260},
+		3,
+		"attack"
+	)
+	battle_scene.call("_on_action_logged", action)
+	var after_position := hand_area.global_position
+
+	return run_checks([
+		assert_eq(after_position, before_position, "Attack VFX overlay should not perturb HandArea layout after an attack"),
+	])
+
+
+func test_battle_scene_fire_attack_spawns_real_impact_vfx_in_live_action() -> String:
+	var battle_scene = _make_battle_scene_stub()
+	var center_field := _attach_test_center_field(battle_scene, Vector2(80, 20), Vector2(1200, 760))
+	var my_active := BattleCardViewScript.new()
+	my_active.custom_minimum_size = Vector2(130, 182)
+	my_active.position = Vector2(180, 440)
+	center_field.add_child(my_active)
+	var opp_active := BattleCardViewScript.new()
+	opp_active.custom_minimum_size = Vector2(130, 182)
+	opp_active.position = Vector2(780, 120)
+	center_field.add_child(opp_active)
+	battle_scene.set("_my_active", my_active)
+	battle_scene.set("_opp_active", opp_active)
+	battle_scene.set("_view_player", 0)
+
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	battle_scene.set("_gsm", gsm)
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+	var attacker_slot := PokemonSlot.new()
+	attacker_slot.pokemon_stack.append(CardInstance.create(_make_pokemon_cd("Gouging Fire ex", 230, "R"), 0))
+	gsm.game_state.players[0].active_pokemon = attacker_slot
+	var defender_slot := PokemonSlot.new()
+	defender_slot.pokemon_stack.append(CardInstance.create(_make_pokemon_cd("Charmander", 70, "R"), 1))
+	gsm.game_state.players[1].active_pokemon = defender_slot
+
+	var action := GameAction.create(
+		GameAction.ActionType.ATTACK,
+		0,
+		{"attack_name": "Burning Charge", "target_pokemon_name": "Charmander", "damage": 260},
+		3,
+		"attack"
+	)
+	battle_scene.call("_on_action_logged", action)
+
+	var overlay: Control = battle_scene.get("_attack_vfx_overlay") as Control
+	var sequence: Control = overlay.get_child(0) as Control if overlay != null and overlay.get_child_count() > 0 else null
+	var impact_node: Node = sequence.get_node_or_null("AttackVfxImpact0") if sequence != null else null
+	var residue_node: Node = sequence.get_node_or_null("AttackVfxResidue0") if sequence != null else null
+
+	return run_checks([
+		assert_not_null(overlay, "Fire live attack should create the attack VFX overlay"),
+		assert_not_null(sequence, "Fire live attack should create a VFX sequence"),
+		assert_eq(str(sequence.get_meta("profile_id", "")) if sequence != null else "", "fallback_fire", "Fire live attack should resolve the fire impact-only VFX profile"),
+		assert_not_null(impact_node, "Fire live attack should create an impact node"),
+		assert_not_null(residue_node, "Fire live attack should create a residue node"),
+	])
+
+
+func test_battle_scene_batch_draw_layout_wraps_after_four_cards() -> String:
+	var battle_scene = _make_battle_scene_stub()
+	var layout := _attach_test_main_area_with_hand_area(
+		battle_scene,
+		Vector2.ZERO,
+		Vector2(1600, 872),
+		Vector2(72, 0),
+		Vector2(1268, 872),
+		Vector2(0, 762),
+		Vector2(1268, 110),
+		Vector2(1420, 0),
+		Vector2(180, 872)
+	)
+	var main_area: Control = layout.get("main_area")
+	var log_panel: Control = layout.get("log_panel")
+	var controller: RefCounted = battle_scene.get("_battle_draw_reveal_controller")
+	var positions: Array[Vector2] = []
+	var scale_probe := BattleCardViewScript.new()
+	scale_probe.custom_minimum_size = Vector2(130, 182)
+	var scale: Vector2 = controller.call("_batch_reveal_scale", battle_scene, scale_probe, 7)
+	var scaled_width: float = 130.0 * scale.x
+	var scaled_height: float = 182.0 * scale.y
+	for index: int in 7:
+		var card_view := BattleCardViewScript.new()
+		card_view.custom_minimum_size = Vector2(130, 182)
+		positions.append(controller.call("_batch_stack_position", battle_scene, card_view, index, 7))
+
+	var center_x: float = main_area.global_position.x + (log_panel.global_position.x - main_area.global_position.x) * 0.5
+	var first_row_y: float = positions[0].y
+	var second_row_y: float = positions[4].y
+	var first_row_center_x := (positions[0].x + positions[3].x + scaled_width) * 0.5
+	var second_row_center_x := (positions[4].x + positions[6].x + scaled_width) * 0.5
+
+	return run_checks([
+		assert_eq(scale, Vector2(2.0, 2.0), "Professor's Research batch reveal should keep the same 2x scale as the single-card reveal"),
+		assert_eq(positions[0].y, first_row_y, "First batch card should stay on the first row"),
+		assert_eq(positions[1].y, first_row_y, "Second batch card should stay on the first row"),
+		assert_eq(positions[2].y, first_row_y, "Third batch card should stay on the first row"),
+		assert_eq(positions[3].y, first_row_y, "Fourth batch card should stay on the first row"),
+		assert_eq(positions[4].y, second_row_y, "Fifth batch card should start the second row"),
+		assert_eq(positions[5].y, second_row_y, "Sixth batch card should stay on the second row"),
+		assert_eq(positions[6].y, second_row_y, "Seventh batch card should stay on the second row"),
+		assert_true(absf(second_row_y - (first_row_y + scaled_height)) < 0.01, "Cards after the first four should move to a lower second row with no extra vertical gap"),
+		assert_true(absf(positions[1].x - (positions[0].x + scaled_width)) < 0.01, "First-row cards should touch without extra horizontal gap"),
+		assert_true(absf(positions[2].x - (positions[1].x + scaled_width)) < 0.01, "First-row cards should touch without extra horizontal gap"),
+		assert_true(absf(positions[3].x - (positions[2].x + scaled_width)) < 0.01, "First-row cards should touch without extra horizontal gap"),
+		assert_true(absf(positions[5].x - (positions[4].x + scaled_width)) < 0.01, "Second-row cards should touch without extra horizontal gap"),
+		assert_true(absf(positions[6].x - (positions[5].x + scaled_width)) < 0.01, "Second-row cards should touch without extra horizontal gap"),
+		assert_true(absf(first_row_center_x - center_x) < 0.01, "The first row should stay centered inside MainArea without using FieldArea"),
+		assert_true(absf(second_row_center_x - center_x) < 0.01, "The second row should also be centered inside MainArea without using FieldArea"),
+	])
+
+
+func test_battle_scene_batch_draw_layout_centers_short_second_row_independently() -> String:
+	var battle_scene = _make_battle_scene_stub()
+	var layout := _attach_test_main_area_with_hand_area(
+		battle_scene,
+		Vector2.ZERO,
+		Vector2(1600, 872),
+		Vector2(72, 0),
+		Vector2(1268, 872),
+		Vector2(0, 762),
+		Vector2(1268, 110),
+		Vector2(1420, 0),
+		Vector2(180, 872)
+	)
+	var main_area: Control = layout.get("main_area")
+	var log_panel: Control = layout.get("log_panel")
+	var controller: RefCounted = battle_scene.get("_battle_draw_reveal_controller")
+	var card_view := BattleCardViewScript.new()
+	card_view.custom_minimum_size = Vector2(130, 182)
+	var scale: Vector2 = controller.call("_batch_reveal_scale", battle_scene, card_view, 7)
+	var scaled_width: float = 130.0 * scale.x
+
+	var first_row_left: Vector2 = controller.call("_batch_stack_position", battle_scene, card_view, 0, 7)
+	var second_row_left: Vector2 = controller.call("_batch_stack_position", battle_scene, card_view, 4, 7)
+	var first_row_right: Vector2 = controller.call("_batch_stack_position", battle_scene, card_view, 3, 7)
+	var second_row_right: Vector2 = controller.call("_batch_stack_position", battle_scene, card_view, 6, 7)
+	var center_x: float = main_area.global_position.x + (log_panel.global_position.x - main_area.global_position.x) * 0.5
+	var second_row_center_x := (second_row_left.x + second_row_right.x + scaled_width) * 0.5
+
+	return run_checks([
+		assert_true(second_row_left.x > first_row_left.x, "A three-card second row should not left-align with the four-card first row"),
+		assert_true(second_row_right.x + scaled_width < first_row_right.x + scaled_width, "A three-card second row should end earlier than the four-card first row"),
+		assert_true(absf(second_row_center_x - center_x) < 0.01, "A shorter second row should still be independently centered inside MainArea"),
+	])
+
+
+func test_battle_scene_draw_reveal_blocks_live_actions() -> String:
+	var battle_scene := _make_battle_scene_stub()
+	battle_scene.set("_draw_reveal_active", true)
+	var can_act: Variant = battle_scene.call("_can_accept_live_action")
+
+	return run_checks([
+		assert_eq(can_act, false, "Draw reveal should temporarily block live clicks until the reveal is resolved"),
+	])
+
+
+func test_battle_scene_draw_reveal_blocks_ai_progression() -> String:
+	var previous_mode: int = GameManager.current_mode
+	GameManager.current_mode = GameManager.GameMode.VS_AI
+	var battle_scene := _make_battle_scene_stub()
+	battle_scene.set("_draw_reveal_active", true)
+	var ai_blocked: Variant = battle_scene.call("_is_ui_blocking_ai")
+	GameManager.current_mode = previous_mode
+
+	return run_checks([
+		assert_eq(ai_blocked, true, "Active draw reveal should block AI progression until the reveal finishes"),
+	])
+
+
+func test_battle_scene_draw_reveal_shade_does_not_swallow_confirm_click() -> String:
+	var battle_scene = _make_battle_scene_stub()
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	battle_scene.set("_gsm", gsm)
+	battle_scene.set("_view_player", 0)
+
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+
+	var drawn_card := CardInstance.create(_make_pokemon_cd("Shade Click", 70, "C"), 0)
+	gsm.game_state.players[0].hand = [drawn_card]
+
+	var action := GameAction.create(
+		GameAction.ActionType.DRAW_CARD,
+		0,
+		{"count": 1, "card_names": ["Shade Click"], "card_instance_ids": [drawn_card.instance_id]},
+		1,
+		"draw one"
+	)
+	battle_scene.call("_on_action_logged", action)
+	var overlay: Control = battle_scene.get("_draw_reveal_overlay")
+	var shade: ColorRect = overlay.get_child(0) as ColorRect
+
+	return run_checks([
+		assert_not_null(overlay, "Draw reveal should build an overlay for confirm state"),
+		assert_not_null(shade, "Draw reveal overlay should include a dimming shade layer"),
+		assert_eq(shade.mouse_filter, Control.MOUSE_FILTER_PASS, "The dimming shade must pass clicks through so the parent overlay can confirm the reveal"),
+	])
+
+
+func test_battle_scene_draw_reveal_centers_on_mainarea_without_handarea_instead_of_fieldarea_or_viewport() -> String:
+	var battle_scene = _make_battle_scene_stub()
+	var layout := _attach_test_main_area_with_hand_area(
+		battle_scene,
+		Vector2.ZERO,
+		Vector2(1600, 872),
+		Vector2(72, 0),
+		Vector2(1268, 872),
+		Vector2(0, 762),
+		Vector2(1268, 110),
+		Vector2(1420, 0),
+		Vector2(180, 872)
+	)
+	var main_area: Control = layout.get("main_area")
+	var hand_area: Control = layout.get("hand_area")
+	var log_panel: Control = layout.get("log_panel")
+	var controller: RefCounted = battle_scene.get("_battle_draw_reveal_controller")
+	var card_view := BattleCardViewScript.new()
+	card_view.custom_minimum_size = Vector2(130, 182)
+
+	var centered_position: Variant = controller.call("_center_position", battle_scene, card_view)
+	var reveal_height := hand_area.global_position.y - main_area.global_position.y
+	var reveal_width := log_panel.global_position.x - main_area.global_position.x
+	var expected := Vector2(
+		main_area.global_position.x + (reveal_width - 130.0) * 0.5,
+		main_area.global_position.y + (reveal_height - 182.0) * 0.5
+	)
+
+	return run_checks([
+		assert_eq(centered_position, expected, "Draw reveals should center within MainArea while excluding both the bottom HandArea and the right LogPanel"),
+	])
+
+
+func test_battle_scene_two_player_turn_start_draw_waits_for_handover_before_reveal() -> String:
+	var previous_mode: int = GameManager.current_mode
+	GameManager.current_mode = GameManager.GameMode.TWO_PLAYER
+
+	var battle_scene = _make_battle_scene_stub()
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 1
+	gsm.game_state.first_player_index = 0
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	battle_scene.set("_gsm", gsm)
+	battle_scene.set("_view_player", 0)
+
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+
+	var drawn_card := CardInstance.create(_make_pokemon_cd("Deferred Draw", 70, "C"), 1)
+	gsm.game_state.players[1].hand = [drawn_card]
+	battle_scene.call("_check_two_player_handover")
+
+	var action := GameAction.create(
+		GameAction.ActionType.DRAW_CARD,
+		1,
+		{"count": 1, "card_names": ["Deferred Draw"], "card_instance_ids": [drawn_card.instance_id]},
+		2,
+		"draw one"
+	)
+	battle_scene.call("_on_action_logged", action)
+
+	var handover_visible_before: bool = bool(battle_scene.get("_handover_panel").visible)
+	var reveal_active_before: Variant = battle_scene.get("_draw_reveal_active")
+	battle_scene.call("_on_handover_confirmed")
+	var reveal_active_after: Variant = battle_scene.get("_draw_reveal_active")
+	GameManager.current_mode = previous_mode
+
+	return run_checks([
+		assert_true(handover_visible_before, "Two-player turn start should still be waiting on the handover confirmation"),
+		assert_eq(reveal_active_before, false, "Turn-start draw reveal should stay deferred until the handover is confirmed"),
+		assert_eq(reveal_active_after, true, "After the handover confirmation, the deferred draw reveal should begin"),
+	])
+
+
+func test_battle_scene_repeated_two_player_turn_start_draws_clear_reveal_state_between_turns() -> String:
+	var previous_mode: int = GameManager.current_mode
+	GameManager.current_mode = GameManager.GameMode.TWO_PLAYER
+
+	var battle_scene = _make_battle_scene_stub()
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 1
+	gsm.game_state.first_player_index = 0
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	battle_scene.set("_gsm", gsm)
+	battle_scene.set("_view_player", 0)
+
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+
+	var controller: RefCounted = battle_scene.get("_battle_draw_reveal_controller")
+	var checks: Array[String] = []
+	for turn_index: int in 4:
+		var current_player: int = 1 if turn_index % 2 == 0 else 0
+		gsm.game_state.current_player_index = current_player
+		battle_scene.call("_check_two_player_handover")
+
+		var drawn_card := CardInstance.create(_make_pokemon_cd("Loop Draw %d" % [turn_index + 1], 70, "C"), current_player)
+		gsm.game_state.players[current_player].hand = [drawn_card]
+		var action := GameAction.create(
+			GameAction.ActionType.DRAW_CARD,
+			current_player,
+			{"count": 1, "card_names": [drawn_card.card_data.name], "card_instance_ids": [drawn_card.instance_id]},
+			turn_index + 1,
+			"loop draw"
+		)
+		battle_scene.call("_on_action_logged", action)
+		checks.append(assert_eq(battle_scene.get("_draw_reveal_active"), false, "Deferred turn-start reveal should not start before handover confirmation on turn %d" % [turn_index + 1]))
+
+		battle_scene.call("_on_handover_confirmed")
+		checks.append(assert_eq(battle_scene.get("_draw_reveal_waiting_for_confirm"), true, "After handover confirmation, the reveal should enter click-to-continue state on turn %d" % [turn_index + 1]))
+		checks.append(assert_not_null(battle_scene.get("_draw_reveal_current_action"), "After handover confirmation, the reveal should have a current action on turn %d" % [turn_index + 1]))
+		var overlay_after_confirm: Control = battle_scene.get("_draw_reveal_overlay")
+		var stage_after_confirm: Control = overlay_after_confirm.get_node_or_null("Stage") as Control if overlay_after_confirm != null else null
+		checks.append(assert_not_null(stage_after_confirm, "Draw reveal overlay should keep its stage after handover confirmation on turn %d" % [turn_index + 1]))
+		checks.append(assert_eq(battle_scene.get("_draw_reveal_card_views").size(), 1, "Each repeated turn-start draw should stage exactly one reveal card on turn %d" % [turn_index + 1]))
+
+		controller.call("confirm_current_reveal", battle_scene)
+
+		var overlay: Control = battle_scene.get("_draw_reveal_overlay")
+		checks.append(assert_eq(battle_scene.get("_draw_reveal_active"), false, "Reveal active state should clear after confirmation on turn %d" % [turn_index + 1]))
+		checks.append(assert_eq(battle_scene.get("_draw_reveal_waiting_for_confirm"), false, "Waiting-for-confirm should clear after confirmation on turn %d" % [turn_index + 1]))
+		checks.append(assert_eq(battle_scene.get("_draw_reveal_queue").size(), 0, "Reveal queue should be empty after completion on turn %d" % [turn_index + 1]))
+		checks.append(assert_eq(battle_scene.get("_draw_reveal_card_views").size(), 0, "Staged reveal cards should be cleared after completion on turn %d" % [turn_index + 1]))
+		checks.append(assert_null(battle_scene.get("_draw_reveal_current_action"), "Current reveal action should clear after completion on turn %d" % [turn_index + 1]))
+		checks.append(assert_eq(battle_scene.get("_draw_reveal_pending_hand_refresh"), false, "Deferred hand refresh should flush after completion on turn %d" % [turn_index + 1]))
+		checks.append(assert_not_null(overlay, "Repeated reveal flow should provision an overlay by turn %d" % [turn_index + 1]))
+		if overlay != null:
+			checks.append(assert_eq(overlay.visible, false, "Reveal overlay should hide after completion on turn %d" % [turn_index + 1]))
+			var hint: Label = overlay.get_node_or_null("Hint") as Label
+			checks.append(assert_not_null(hint, "Reveal overlay should keep a hint label on turn %d" % [turn_index + 1]))
+			if hint != null:
+				checks.append(assert_eq(hint.text, "", "Reveal hint text should clear after completion on turn %d" % [turn_index + 1]))
+				checks.append(assert_eq(hint.visible, false, "Reveal hint should hide after completion on turn %d" % [turn_index + 1]))
+
+	GameManager.current_mode = previous_mode
+	return run_checks(checks)
+
+
+func test_battle_scene_repeated_vs_ai_draw_reveals_reset_after_human_and_ai_turns() -> String:
+	var previous_mode: int = GameManager.current_mode
+	GameManager.current_mode = GameManager.GameMode.VS_AI
+
+	var battle_scene = _make_battle_scene_stub()
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	battle_scene.set("_gsm", gsm)
+	battle_scene.set("_view_player", 0)
+
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+
+	var controller: RefCounted = battle_scene.get("_battle_draw_reveal_controller")
+	var turn_players: Array[int] = [0, 1, 0, 1, 0]
+	var checks: Array[String] = []
+	for turn_index: int in turn_players.size():
+		var current_player: int = turn_players[turn_index]
+		gsm.game_state.current_player_index = current_player
+		var drawn_card := CardInstance.create(_make_pokemon_cd("VS AI Draw %d" % [turn_index + 1], 70, "C"), current_player)
+		gsm.game_state.players[current_player].hand = [drawn_card]
+		var action := GameAction.create(
+			GameAction.ActionType.DRAW_CARD,
+			current_player,
+			{"count": 1, "card_names": [drawn_card.card_data.name], "card_instance_ids": [drawn_card.instance_id]},
+			turn_index + 1,
+			"vs ai draw"
+		)
+		battle_scene.call("_on_action_logged", action)
+
+		if current_player == 0:
+			checks.append(assert_eq(battle_scene.get("_draw_reveal_waiting_for_confirm"), true, "Player draw should wait for click on turn %d" % [turn_index + 1]))
+			controller.call("confirm_current_reveal", battle_scene)
+		else:
+			checks.append(assert_eq(battle_scene.get("_draw_reveal_auto_continue_pending"), true, "AI draw should arm auto-continue on turn %d" % [turn_index + 1]))
+			controller.call("run_auto_continue", battle_scene)
+
+		var overlay: Control = battle_scene.get("_draw_reveal_overlay")
+		checks.append(assert_eq(battle_scene.get("_draw_reveal_active"), false, "Reveal active state should clear after turn %d" % [turn_index + 1]))
+		checks.append(assert_eq(battle_scene.get("_draw_reveal_waiting_for_confirm"), false, "Waiting-for-confirm should be reset after turn %d" % [turn_index + 1]))
+		checks.append(assert_eq(battle_scene.get("_draw_reveal_auto_continue_pending"), false, "Auto-continue flag should be reset after turn %d" % [turn_index + 1]))
+		checks.append(assert_eq(battle_scene.get("_draw_reveal_card_views").size(), 0, "Staged reveal cards should clear after turn %d" % [turn_index + 1]))
+		checks.append(assert_eq(battle_scene.get("_draw_reveal_queue").size(), 0, "Reveal queue should stay empty after turn %d" % [turn_index + 1]))
+		checks.append(assert_null(battle_scene.get("_draw_reveal_current_action"), "Current reveal action should clear after turn %d" % [turn_index + 1]))
+		checks.append(assert_eq(battle_scene.get("_draw_reveal_pending_hand_refresh"), false, "Deferred hand refresh should clear after turn %d" % [turn_index + 1]))
+		checks.append(assert_not_null(overlay, "VS AI repeated reveal flow should provision an overlay by turn %d" % [turn_index + 1]))
+		if overlay != null:
+			checks.append(assert_eq(overlay.visible, false, "Reveal overlay should hide after turn %d" % [turn_index + 1]))
+
+	GameManager.current_mode = previous_mode
+	return run_checks(checks)
 
 
 func test_battle_scene_replay_mode_blocks_live_hand_actions() -> String:
@@ -1227,6 +2772,151 @@ func test_battle_scene_buddy_poffin_card_dialog_clicks_select_distinct_candidate
 	])
 
 
+func test_battle_scene_trekking_shoes_shows_revealed_card_with_two_bottom_buttons() -> String:
+	var battle_scene = _make_battle_scene_stub()
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+	gsm.game_state.turn_number = 3
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	battle_scene.set("_gsm", gsm)
+	battle_scene.set("_view_player", 0)
+
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+
+	var shoes_card := CardInstance.create(_make_trainer_cd("Trekking Shoes", "Item", ""), 0)
+	var effect := preload("res://scripts/effects/trainer_effects/EffectTrekkingShoes.gd").new()
+	var revealed := CardInstance.create(_make_pokemon_cd("Top Deck Pokemon", 70, "G"), 0)
+	gsm.game_state.players[0].deck = [revealed]
+	var steps: Array[Dictionary] = effect.get_interaction_steps(shoes_card, gsm.game_state)
+
+	battle_scene.call("_start_effect_interaction", "trainer", 0, steps, shoes_card)
+
+	var dialog_title := (battle_scene.get("_dialog_title") as Label).text
+	var card_row: HBoxContainer = battle_scene.get("_dialog_card_row")
+	var utility_row: HBoxContainer = battle_scene.get("_dialog_utility_row")
+	var card_view := card_row.get_child(0) as BattleCardView if card_row.get_child_count() > 0 else null
+	var button_texts: Array[String] = []
+	for child: Node in utility_row.get_children():
+		if child is Button:
+			button_texts.append((child as Button).text)
+
+	return run_checks([
+		assert_true(bool(battle_scene.get("_dialog_card_mode")), "Trekking Shoes should switch the effect interaction into card mode"),
+		assert_eq(card_row.get_child_count(), 1, "Trekking Shoes should reveal exactly one top-deck card"),
+		assert_eq(card_view.card_instance.card_data.name if card_view != null and card_view.card_instance != null else "", "Top Deck Pokemon", "Trekking Shoes should present the exact top-deck card"),
+		assert_eq(utility_row.get_child_count(), 2, "Trekking Shoes should put both outcomes on bottom buttons"),
+		assert_eq(button_texts, ["加入手牌", "丢弃并再抽1张"], "Trekking Shoes should use direct action labels instead of a generic choice list"),
+		assert_false((battle_scene.get("_dialog_confirm") as Button).visible, "Trekking Shoes should not require an extra confirm click"),
+		assert_str_contains(dialog_title, "健行鞋", "Trekking Shoes dialog title should identify the card effect"),
+	])
+
+
+func test_battle_scene_trekking_shoes_discard_branch_draws_exactly_one_replacement_card_on_first_turn() -> String:
+	var battle_scene = _make_battle_scene_stub()
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+	gsm.game_state.turn_number = 1
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	battle_scene.set("_gsm", gsm)
+	battle_scene.set("_view_player", 0)
+	gsm.action_logged.connect(battle_scene._on_action_logged)
+
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+
+	var shoes := CardInstance.create(_make_trainer_cd("Trekking Shoes", "Item", ""), 0)
+	shoes.card_data.effect_id = "70d14b4a5a9c15581b8a0c8dfd325717"
+	var top_discard := CardInstance.create(_make_pokemon_cd("Top Discard", 60, "C"), 0)
+	var draw_one := CardInstance.create(_make_pokemon_cd("Draw One", 60, "C"), 0)
+	var draw_two := CardInstance.create(_make_pokemon_cd("Draw Two", 60, "C"), 0)
+	gsm.game_state.players[0].hand = [shoes]
+	gsm.game_state.players[0].deck = [top_discard, draw_one, draw_two]
+
+	battle_scene.call("_try_play_trainer_with_interaction", 0, shoes)
+	battle_scene.call("_handle_effect_interaction_choice", PackedInt32Array([1]))
+
+	var reveal_controller: RefCounted = battle_scene.get("_battle_draw_reveal_controller")
+	if reveal_controller != null and bool(battle_scene.get("_draw_reveal_waiting_for_confirm")):
+		reveal_controller.call("confirm_current_reveal", battle_scene)
+
+	var hand_names: Array[String] = []
+	for card: CardInstance in gsm.game_state.players[0].hand:
+		hand_names.append(card.card_data.name)
+	var discard_names: Array[String] = []
+	for card: CardInstance in gsm.game_state.players[0].discard_pile:
+		discard_names.append(card.card_data.name)
+	var deck_names: Array[String] = []
+	for card: CardInstance in gsm.game_state.players[0].deck:
+		deck_names.append(card.card_data.name)
+
+	return run_checks([
+		assert_eq(hand_names, ["Draw One"], "Discarding with Trekking Shoes should leave exactly the first replacement draw in hand"),
+		assert_eq(discard_names, ["Top Discard", "Trekking Shoes"], "Trekking Shoes should discard only the revealed top card and then itself"),
+		assert_eq(deck_names, ["Draw Two"], "Trekking Shoes should not consume a second replacement card"),
+		assert_eq((battle_scene.get("_draw_reveal_queue") as Array).size(), 0, "The replacement draw reveal queue should drain after confirmation"),
+	])
+
+
+func test_battle_scene_trekking_shoes_discard_button_path_keeps_first_replacement_visible_in_hand() -> String:
+	var battle_scene = _make_battle_scene_stub()
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+	gsm.game_state.turn_number = 1
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	battle_scene.set("_gsm", gsm)
+	battle_scene.set("_view_player", 0)
+	gsm.action_logged.connect(battle_scene._on_action_logged)
+
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+
+	var shoes := CardInstance.create(_make_trainer_cd("Trekking Shoes", "Item", ""), 0)
+	shoes.card_data.effect_id = "70d14b4a5a9c15581b8a0c8dfd325717"
+	var top_discard := CardInstance.create(_make_pokemon_cd("Top Discard", 60, "C"), 0)
+	var draw_one := CardInstance.create(_make_pokemon_cd("Draw One", 60, "C"), 0)
+	var draw_two := CardInstance.create(_make_pokemon_cd("Draw Two", 60, "C"), 0)
+	gsm.game_state.players[0].hand = [shoes]
+	gsm.game_state.players[0].deck = [top_discard, draw_one, draw_two]
+
+	battle_scene.call("_try_play_trainer_with_interaction", 0, shoes)
+	var utility_row: HBoxContainer = battle_scene.get("_dialog_utility_row")
+	var discard_button := utility_row.get_child(1) as Button if utility_row.get_child_count() > 1 else null
+	if discard_button != null:
+		discard_button.pressed.emit()
+
+	var reveal_controller: RefCounted = battle_scene.get("_battle_draw_reveal_controller")
+	if reveal_controller != null and bool(battle_scene.get("_draw_reveal_waiting_for_confirm")):
+		reveal_controller.call("confirm_current_reveal", battle_scene)
+
+	var hand_names: Array[String] = []
+	for card: CardInstance in gsm.game_state.players[0].hand:
+		hand_names.append(card.card_data.name)
+	var rendered_names: Array[String] = []
+	var hand_container: HBoxContainer = battle_scene.get("_hand_container")
+	for child: Node in hand_container.get_children():
+		if child is BattleCardView and (child as BattleCardView).card_data != null:
+			rendered_names.append((child as BattleCardView).card_data.name)
+
+	return run_checks([
+		assert_not_null(discard_button, "Trekking Shoes should render a discard button in the utility row"),
+		assert_eq(hand_names, ["Draw One"], "Pressing the discard button should still draw only the first replacement card"),
+		assert_eq(rendered_names, ["Draw One"], "After the reveal resolves, the visible hand should show the first replacement draw instead of skipping to the next card"),
+	])
+
+
 func test_battle_scene_nest_ball_without_target_can_preview_deck_then_consume() -> String:
 	var battle_scene = _make_battle_scene_stub()
 	var gsm := GameStateMachine.new()
@@ -1830,6 +3520,7 @@ func test_battle_scene_pokemon_catcher_heads_route_to_field_slots() -> String:
 
 func test_battle_scene_pokemon_catcher_waits_for_coin_animation_before_field_slots() -> String:
 	var battle_scene = _make_battle_scene_stub()
+	(battle_scene.get("_dialog_overlay") as Panel).visible = false
 	var gsm := GameStateMachine.new()
 	gsm.game_state = GameState.new()
 	battle_scene.set("_gsm", gsm)
@@ -1872,6 +3563,67 @@ func test_battle_scene_pokemon_catcher_waits_for_coin_animation_before_field_slo
 		assert_eq(delayed_coin_results, [true], "Pokemon Catcher should start the coin animation immediately after the shared flipper emits"),
 		assert_eq(str(battle_scene.get("_field_interaction_mode")), "slot_select", "Pokemon Catcher should show field slot selection after the coin animation finishes"),
 		assert_eq(int((battle_scene.get("_field_interaction_data") as Dictionary).get("items", []).size()), 2, "Pokemon Catcher should still expose opponent bench targets after the coin animation"),
+	])
+
+
+func test_battle_scene_ai_owned_coin_followup_resumes_after_animation() -> String:
+	var previous_mode: int = GameManager.current_mode
+	var battle_scene = _make_battle_scene_stub()
+	battle_scene._setup_ai_for_tests()
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	gsm.game_state.current_player_index = 1
+	gsm.game_state.turn_number = 2
+	battle_scene.set("_gsm", gsm)
+	battle_scene.set("_view_player", 0)
+	var coin_animator := FakeCoinAnimator.new()
+	battle_scene.set("_coin_animator", coin_animator)
+	var ai := AIOpponentScript.new()
+	ai.configure(1, 1)
+	battle_scene.set("_ai_opponent", ai)
+	GameManager.current_mode = GameManager.GameMode.VS_AI
+
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+	var ai_player: PlayerState = gsm.game_state.players[1]
+	var aroma_card := CardInstance.create(_make_trainer_cd("Capturing Aroma", "Item", ""), 1)
+	aroma_card.card_data.effect_id = "7c0b20e121c9d0e0d2d8a43524f7494e"
+	ai_player.hand.append(aroma_card)
+	var evolution := CardData.new()
+	evolution.name = "AI Evolution"
+	evolution.card_type = "Pokemon"
+	evolution.stage = "Stage1"
+	evolution.hp = 90
+	ai_player.deck.append(CardInstance.create(evolution, 1))
+
+	var flipper := RiggedCoinFlipper.new([true])
+	flipper.coin_flipped.connect(func(result: bool) -> void:
+		battle_scene.call("_on_coin_flipped", result)
+	)
+	var effect := EffectCapturingAromaScript.new(flipper)
+	gsm.effect_processor.register_effect("7c0b20e121c9d0e0d2d8a43524f7494e", effect)
+	var steps: Array[Dictionary] = effect.get_interaction_steps(aroma_card, gsm.game_state)
+	battle_scene.call("_start_effect_interaction", "trainer", 1, steps, aroma_card)
+	battle_scene.call("_maybe_run_ai")
+
+	var scheduled_before_finish: bool = bool(battle_scene.get("_ai_step_scheduled"))
+	var pending_before_finish: String = str(battle_scene.get("_pending_choice"))
+	battle_scene.call("_on_coin_animation_finished")
+	var scheduled_after_finish: bool = bool(battle_scene.get("_ai_step_scheduled"))
+	if scheduled_after_finish:
+		battle_scene.call("_run_ai_step")
+
+	var pending_after_resume: String = str(battle_scene.get("_pending_choice"))
+	GameManager.current_mode = previous_mode
+	return run_checks([
+		assert_eq(pending_before_finish, "effect_interaction", "AI-owned coin follow-up should remain pending while the coin animation is still running"),
+		assert_false(scheduled_before_finish, "AI should not be scheduled before the coin animation finishes"),
+		assert_eq(coin_animator.played_results, [true], "Capturing Aroma should enqueue exactly one shared coin animation"),
+		assert_true(scheduled_after_finish, "When the coin animation finishes, BattleScene should schedule the AI-owned follow-up step"),
+		assert_eq(pending_after_resume, "", "After the AI resolves the resumed Capturing Aroma step, the interaction should complete"),
 	])
 
 
@@ -3400,6 +5152,271 @@ func test_battle_scene_iron_hands_ui_prize_and_turn_flow() -> String:
 	return run_checks([
 		assert_true(handover_visible, "Arm Press knockout should prompt a handover to the opponent"),
 		assert_eq(arm_current_after_send_out, 1, "After Arm Press knockout and replacement, the turn should pass to the opponent"),
+	])
+
+
+func test_battle_scene_radiant_charizard_attack_uses_prize_cost_reduction_without_discarding_energy() -> String:
+	var battle_scene = _make_battle_scene_stub()
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+	gsm.game_state.turn_number = 2
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	battle_scene.set("_gsm", gsm)
+	battle_scene.set("_view_player", 0)
+	gsm.state_changed.connect(battle_scene._on_state_changed)
+	gsm.action_logged.connect(battle_scene._on_action_logged)
+
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+
+	var radiant_charizard_cd: CardData = CardDatabase.get_card("CS5.5C", "007")
+	var attacker_slot := PokemonSlot.new()
+	attacker_slot.pokemon_stack.append(CardInstance.create(radiant_charizard_cd, 0))
+	attacker_slot.attached_energy.append(CardInstance.create(_make_energy_cd("Fire Energy", "R"), 0))
+	gsm.effect_processor.register_pokemon_card(radiant_charizard_cd)
+	gsm.game_state.players[0].active_pokemon = attacker_slot
+
+	var target_slot := PokemonSlot.new()
+	target_slot.pokemon_stack.append(CardInstance.create(_make_pokemon_cd("Bulky Target", 330, "G"), 1))
+	gsm.game_state.players[1].active_pokemon = target_slot
+	gsm.game_state.players[1].prizes.clear()
+	for i: int in 2:
+		gsm.game_state.players[1].prizes.append(CardInstance.create(_make_pokemon_cd("Opp Prize %d" % i, 60, "C"), 1))
+
+	battle_scene.call("_try_use_attack_with_interaction", 0, attacker_slot, 0)
+
+	return run_checks([
+		assert_not_null(radiant_charizard_cd, "CS5.5C_007 should exist in the card database"),
+		assert_eq(target_slot.damage_counters, 250, "Radiant Charizard should still deal 250 damage through the BattleScene attack flow"),
+		assert_eq(attacker_slot.attached_energy.size(), 1, "Radiant Charizard should keep its only Fire Energy after Combustion Blast"),
+	])
+
+
+func test_battle_scene_dragapult_double_knockout_without_live_replacement_stays_on_prizes() -> String:
+	var previous_mode: int = GameManager.current_mode
+	GameManager.current_mode = GameManager.GameMode.TWO_PLAYER
+
+	var battle_scene = _make_battle_scene_stub()
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+	gsm.game_state.turn_number = 2
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	battle_scene.set("_gsm", gsm)
+	battle_scene.set("_view_player", 0)
+	gsm.state_changed.connect(battle_scene._on_state_changed)
+	gsm.player_choice_required.connect(battle_scene._on_player_choice_required)
+	gsm.action_logged.connect(battle_scene._on_action_logged)
+
+	var my_prize_slots: Array[BattleCardView] = []
+	var opp_prize_slots: Array[BattleCardView] = []
+	for _i: int in 6:
+		my_prize_slots.append(BattleCardView.new())
+		opp_prize_slots.append(BattleCardView.new())
+	battle_scene.set("_my_prize_slots", my_prize_slots)
+	battle_scene.set("_opp_prize_slots", opp_prize_slots)
+
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		for di: int in 3:
+			player.deck.append(CardInstance.create(_make_pokemon_cd("Deck %d-%d" % [pi, di], 60, "C"), pi))
+		gsm.game_state.players.append(player)
+
+	var dragapult_cd: CardData = CardDatabase.get_card("CSV8C", "159")
+	var attacker_slot := PokemonSlot.new()
+	attacker_slot.pokemon_stack.append(CardInstance.create(dragapult_cd, 0))
+	for energy_type: String in ["R", "P"]:
+		attacker_slot.attached_energy.append(CardInstance.create(_make_energy_cd("Energy %s" % energy_type, energy_type), 0))
+	gsm.effect_processor.register_pokemon_card(dragapult_cd)
+	gsm.game_state.players[0].active_pokemon = attacker_slot
+
+	var active_target := PokemonSlot.new()
+	active_target.pokemon_stack.append(CardInstance.create(_make_pokemon_cd("Active Prize Target", 200, "W"), 1))
+	gsm.game_state.players[1].active_pokemon = active_target
+	var bench_target := PokemonSlot.new()
+	bench_target.pokemon_stack.append(CardInstance.create(_make_pokemon_cd("Only Bench Target", 60, "W"), 1))
+	gsm.game_state.players[1].bench = [bench_target]
+	for i: int in 2:
+		gsm.game_state.players[0].prizes.append(CardInstance.create(_make_pokemon_cd("My Prize %d" % i, 60, "C"), 0))
+	for i: int in 6:
+		gsm.game_state.players[1].prizes.append(CardInstance.create(_make_pokemon_cd("Opp Prize %d" % i, 60, "C"), 1))
+
+	battle_scene.call("_try_use_attack_with_interaction", 0, attacker_slot, 1)
+	battle_scene.call("_on_counter_distribution_amount_chosen", 6)
+	battle_scene.call("_handle_counter_distribution_target", 0)
+	var first_pending_choice: String = str(battle_scene.get("_pending_choice"))
+	battle_scene.call("_try_take_prize_from_slot", 0, 0)
+	var second_pending_choice: String = str(battle_scene.get("_pending_choice"))
+	var second_pending_count: int = int(battle_scene.get("_pending_prize_remaining"))
+	var handover_visible_after_first: bool = bool(battle_scene.get("_handover_panel").visible)
+	battle_scene.call("_try_take_prize_from_slot", 0, 1)
+	var final_phase: int = gsm.game_state.phase
+	var winner_index: int = gsm.game_state.winner_index
+
+	GameManager.current_mode = previous_mode
+	return run_checks([
+		assert_not_null(dragapult_cd, "CSV8C_159 should exist in the card database"),
+		assert_eq(first_pending_choice, "take_prize", "The first Dragapult ex knockout should enter prize selection"),
+		assert_eq(second_pending_choice, "take_prize", "When no live replacement remains, the second prize should queue immediately"),
+		assert_eq(second_pending_count, 1, "Exactly one follow-up prize should still be pending after the first take"),
+		assert_false(handover_visible_after_first, "There should be no send-out handover when the only Bench Pokemon is already knocked out"),
+		assert_eq(gsm.game_state.players[0].hand.size(), 2, "The player should still be able to take both prizes through the BattleScene flow"),
+		assert_eq(final_phase, GameState.GamePhase.GAME_OVER, "Taking the second queued prize should end the game"),
+		assert_eq(winner_index, 0, "The attacking player should win after taking both remaining prizes"),
+	])
+
+
+func test_battle_scene_dragapult_active_only_knockout_keeps_prize_selection_clickable() -> String:
+	var previous_mode: int = GameManager.current_mode
+	GameManager.current_mode = GameManager.GameMode.TWO_PLAYER
+
+	var battle_scene = _make_battle_scene_stub()
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+	gsm.game_state.turn_number = 2
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	battle_scene.set("_gsm", gsm)
+	battle_scene.set("_view_player", 0)
+	gsm.state_changed.connect(battle_scene._on_state_changed)
+	gsm.player_choice_required.connect(battle_scene._on_player_choice_required)
+	gsm.action_logged.connect(battle_scene._on_action_logged)
+
+	var my_prize_slots: Array[BattleCardView] = []
+	var opp_prize_slots: Array[BattleCardView] = []
+	for _i: int in 6:
+		my_prize_slots.append(BattleCardView.new())
+		opp_prize_slots.append(BattleCardView.new())
+	battle_scene.set("_my_prize_slots", my_prize_slots)
+	battle_scene.set("_opp_prize_slots", opp_prize_slots)
+
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+
+	var dragapult_cd: CardData = CardDatabase.get_card("CSV8C", "159")
+	var attacker_slot := PokemonSlot.new()
+	attacker_slot.pokemon_stack.append(CardInstance.create(dragapult_cd, 0))
+	for energy_type: String in ["R", "P"]:
+		attacker_slot.attached_energy.append(CardInstance.create(_make_energy_cd("Energy %s" % energy_type, energy_type), 0))
+	gsm.effect_processor.register_pokemon_card(dragapult_cd)
+	gsm.game_state.players[0].active_pokemon = attacker_slot
+
+	var active_target := PokemonSlot.new()
+	active_target.pokemon_stack.append(CardInstance.create(_make_pokemon_cd("Active Only Target", 200, "W"), 1))
+	gsm.game_state.players[1].active_pokemon = active_target
+	var replacement_slot := PokemonSlot.new()
+	replacement_slot.pokemon_stack.append(CardInstance.create(_make_pokemon_cd("Surviving Bench", 120, "W"), 1))
+	gsm.game_state.players[1].bench = [replacement_slot]
+	for i: int in 2:
+		gsm.game_state.players[0].prizes.append(CardInstance.create(_make_pokemon_cd("My Prize %d" % i, 60, "C"), 0))
+	for i: int in 6:
+		gsm.game_state.players[1].prizes.append(CardInstance.create(_make_pokemon_cd("Opp Prize %d" % i, 60, "C"), 1))
+
+	battle_scene.call("_try_use_attack_with_interaction", 0, attacker_slot, 1)
+	battle_scene.call("_on_counter_distribution_amount_chosen", 6)
+	battle_scene.call("_handle_counter_distribution_target", 0)
+	var attack_vfx_overlay: Control = battle_scene.get("_attack_vfx_overlay") as Control
+	var attack_vfx_mouse_filter: int = attack_vfx_overlay.mouse_filter if attack_vfx_overlay != null else Control.MOUSE_FILTER_IGNORE
+	var first_pending_choice: String = str(battle_scene.get("_pending_choice"))
+	var bench_remaining_hp: int = replacement_slot.get_remaining_hp()
+	battle_scene.call("_try_take_prize_from_slot", 0, 0)
+	var pending_choice_after_take: String = str(battle_scene.get("_pending_choice"))
+	var pending_prize_remaining_after_take: int = int(battle_scene.get("_pending_prize_remaining"))
+	var handover_visible_after_take: bool = bool(battle_scene.get("_handover_panel").visible)
+	battle_scene.call("_on_handover_confirmed")
+	var send_out_mode: String = str(battle_scene.get("_field_interaction_mode"))
+
+	GameManager.current_mode = previous_mode
+	return run_checks([
+		assert_not_null(dragapult_cd, "CSV8C_159 should exist in the card database"),
+		assert_eq(attack_vfx_mouse_filter, Control.MOUSE_FILTER_IGNORE, "Attack VFX overlay must not intercept prize clicks"),
+		assert_eq(first_pending_choice, "take_prize", "Dragging through Phantom Dive should still enter prize selection after the Active knockout"),
+		assert_eq(bench_remaining_hp, 60, "The benched replacement should survive the counter placement in this fixture"),
+		assert_eq(pending_choice_after_take, "send_out", "After taking the prize, the flow should advance to the replacement prompt"),
+		assert_eq(pending_prize_remaining_after_take, 0, "The prize selection state should be fully cleared after the prize is taken"),
+		assert_true(handover_visible_after_take, "Two-player mode should hand over to the defending player after the prize is taken"),
+		assert_eq(send_out_mode, "slot_select", "After handover confirmation, the defending player should be prompted to send out a replacement"),
+	])
+
+
+func test_battle_scene_human_prize_prompt_blocks_field_actions_until_prize_taken() -> String:
+	var previous_mode: int = GameManager.current_mode
+	GameManager.current_mode = GameManager.GameMode.TWO_PLAYER
+
+	var battle_scene = _make_battle_scene_stub()
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+	gsm.game_state.turn_number = 4
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	battle_scene.set("_gsm", gsm)
+	battle_scene.set("_view_player", 0)
+	gsm.state_changed.connect(battle_scene._on_state_changed)
+	gsm.player_choice_required.connect(battle_scene._on_player_choice_required)
+	gsm.action_logged.connect(battle_scene._on_action_logged)
+
+	var my_prize_slots: Array[BattleCardView] = []
+	var opp_prize_slots: Array[BattleCardView] = []
+	for _i: int in 6:
+		my_prize_slots.append(BattleCardView.new())
+		opp_prize_slots.append(BattleCardView.new())
+	battle_scene.set("_my_prize_slots", my_prize_slots)
+	battle_scene.set("_opp_prize_slots", opp_prize_slots)
+
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+
+	var attacker_cd := _make_pokemon_cd("Prize Taker", 220, "L")
+	var my_active := PokemonSlot.new()
+	my_active.pokemon_stack.append(CardInstance.create(attacker_cd, 0))
+	my_active.attached_energy.append(CardInstance.create(_make_energy_cd("Energy R", "R"), 0))
+	my_active.attached_energy.append(CardInstance.create(_make_energy_cd("Energy C", "C"), 0))
+	gsm.effect_processor.register_pokemon_card(attacker_cd)
+	gsm.game_state.players[0].active_pokemon = my_active
+	var opp_active := PokemonSlot.new()
+	opp_active.pokemon_stack.append(CardInstance.create(_make_pokemon_cd("Knocked Out Target", 30, "C"), 1))
+	gsm.game_state.players[1].active_pokemon = opp_active
+	var opp_bench := PokemonSlot.new()
+	opp_bench.pokemon_stack.append(CardInstance.create(_make_pokemon_cd("Replacement", 120, "C"), 1))
+	gsm.game_state.players[1].bench = [opp_bench]
+	gsm.game_state.players[0].prizes.append(CardInstance.create(_make_pokemon_cd("My Prize", 60, "C"), 0))
+	gsm.game_state.players[1].prizes.append(CardInstance.create(_make_pokemon_cd("Opp Prize", 60, "C"), 1))
+
+	battle_scene.call("_try_use_attack_with_interaction", 0, my_active, 0)
+	var pending_before_field_click: String = str(battle_scene.get("_pending_choice"))
+	var dialog_visible_before_field_click: bool = bool((battle_scene.get("_dialog_overlay") as Panel).visible)
+	var click := InputEventMouseButton.new()
+	click.button_index = MOUSE_BUTTON_LEFT
+	click.pressed = true
+	battle_scene.call("_on_slot_input", click, "my_active")
+	var pending_after_field_click: String = str(battle_scene.get("_pending_choice"))
+	var dialog_visible_after_field_click: bool = bool((battle_scene.get("_dialog_overlay") as Panel).visible)
+	var hand_before_take: int = gsm.game_state.players[0].hand.size()
+	battle_scene.call("_on_prize_slot_input", click, 0, "己方奖赏", 0)
+	var hand_after_take: int = gsm.game_state.players[0].hand.size()
+	var pending_after_take: String = str(battle_scene.get("_pending_choice"))
+	var prize_count_after_take: int = gsm.game_state.players[0].prizes.size()
+
+	GameManager.current_mode = previous_mode
+	return run_checks([
+		assert_eq(pending_before_field_click, "take_prize", "Knocking out the AI active Pokemon should enter a human-owned prize prompt"),
+		assert_eq(pending_after_field_click, "take_prize", "Human prize prompts should ignore field clicks instead of opening other actions"),
+		assert_eq(dialog_visible_after_field_click, dialog_visible_before_field_click, "Field clicks during prize selection must not change the dialog overlay state"),
+		assert_eq(hand_after_take, hand_before_take + 1, "Clicking the prize slot should still take exactly one prize card"),
+		assert_eq(prize_count_after_take, 0, "Taking the prize through the prize-slot input path should remove it from the prize area"),
+		assert_false(pending_after_take == "take_prize", "After the prize is taken, the prize prompt should be cleared so the battle can continue"),
 	])
 
 

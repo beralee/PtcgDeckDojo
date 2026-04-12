@@ -1,0 +1,8 @@
+{
+  "asset_name": "charge_orb",
+  "role": "charge",
+  "output_path": "assets/textures/vfx/attribute_lightning/charge/charge_orb.png",
+  "generation_method": "procedural_pillow",
+  "visual_rule": "Compact electric pre-strike orb with a bright nucleus, cyan shell, and contained branching arcs.",
+  "prompt": "Create a transparent-background 2D battle VFX asset for Pokemon-style lightning attacks. Show only the effect element, with no character, arena, text, UI, watermark, or frame. Use a compact pre-strike orb with a white-hot core, cyan outer glow, and a few thin branching arcs that feel charged and contained. Keep the shape clean and readable in a game battle overlay. Preserve real electric energy structure but stylize the outline and color. Output a single isolated effect element on transparency."
+}

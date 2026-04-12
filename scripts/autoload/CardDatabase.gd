@@ -146,6 +146,28 @@ func _resolve_bundled_target_path(target_dir_path: String, entry_name: String) -
 	return target_dir_path.path_join(entry_name)
 
 
+func _copy_missing_files_recursive(source_dir_path: String, target_dir_path: String) -> void:
+	var dir := DirAccess.open(source_dir_path)
+	if dir == null:
+		return
+	if not DirAccess.dir_exists_absolute(target_dir_path):
+		DirAccess.make_dir_recursive_absolute(target_dir_path)
+	dir.list_dir_begin()
+	var entry := dir.get_next()
+	while entry != "":
+		if entry == "." or entry == "..":
+			entry = dir.get_next()
+			continue
+		var source_path := source_dir_path.path_join(entry)
+		if dir.current_is_dir():
+			_copy_missing_files_recursive(source_path, target_dir_path.path_join(entry))
+		elif not entry.ends_with(".import"):
+			var target_path := _resolve_bundled_target_path(target_dir_path, entry)
+			_copy_file_if_missing(source_path, target_path)
+		entry = dir.get_next()
+	dir.list_dir_end()
+
+
 func _copy_file_if_missing(source_path: String, target_path: String) -> void:
 	if FileAccess.file_exists(target_path):
 		return

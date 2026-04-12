@@ -71,19 +71,31 @@ func execute(card: CardInstance, targets: Array, state: GameState) -> void:
 	var player: PlayerState = state.players[card.owner_index]
 	var ctx: Dictionary = get_interaction_context(targets)
 
+	var revealed_cards: Array[CardInstance] = []
+	var public_labels: Array[String] = []
 	var stadium_raw: Array = ctx.get("search_stadium", [])
 	if not stadium_raw.is_empty() and stadium_raw[0] is CardInstance:
 		var selected_stadium: CardInstance = stadium_raw[0]
 		if selected_stadium in player.deck and selected_stadium.card_data.card_type == "Stadium":
-			player.deck.erase(selected_stadium)
-			player.hand.append(selected_stadium)
+			revealed_cards.append(selected_stadium)
+			public_labels.append("竞技场卡")
 
 	var energy_raw: Array = ctx.get("search_energy", [])
 	if not energy_raw.is_empty() and energy_raw[0] is CardInstance:
 		var selected_energy: CardInstance = energy_raw[0]
 		if selected_energy in player.deck and selected_energy.card_data.is_energy():
-			player.deck.erase(selected_energy)
-			player.hand.append(selected_energy)
+			revealed_cards.append(selected_energy)
+			public_labels.append("能量卡")
+
+	_move_public_cards_to_hand_with_log(
+		state,
+		card.owner_index,
+		revealed_cards,
+		card,
+		"trainer",
+		"search_to_hand",
+		public_labels
+	)
 
 	player.shuffle_deck()
 

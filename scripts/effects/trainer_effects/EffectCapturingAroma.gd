@@ -19,6 +19,15 @@ func can_execute(card: CardInstance, state: GameState) -> bool:
 	return false
 
 
+func get_preview_interaction_steps(_card: CardInstance, _state: GameState) -> Array[Dictionary]:
+	return [{
+		"id": "coin_flip_preview",
+		"title": "Flip a coin",
+		"wait_for_coin_animation": true,
+		"preview_only": true,
+	}]
+
+
 func get_interaction_steps(card: CardInstance, state: GameState) -> Array[Dictionary]:
 	var player: PlayerState = state.players[card.owner_index]
 	_pending_flip_heads = coin_flipper.flip()
@@ -86,9 +95,15 @@ func execute(card: CardInstance, targets: Array, state: GameState) -> void:
 		player.shuffle_deck()
 		return
 
-	player.deck.erase(found)
-	found.face_up = true
-	player.hand.append(found)
+	_move_public_cards_to_hand_with_log(
+		state,
+		card.owner_index,
+		[found],
+		card,
+		"trainer",
+		"search_to_hand",
+		["进化宝可梦" if _pending_flip_heads else "基础宝可梦"]
+	)
 	_has_pending_flip = false
 	player.shuffle_deck()
 

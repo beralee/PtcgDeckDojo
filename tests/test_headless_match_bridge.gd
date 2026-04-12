@@ -28,6 +28,22 @@ func _make_filler_card(name: String) -> CardInstance:
 	return CardInstance.create(card, 0)
 
 
+func _make_tool_card(name: String, effect_id: String, owner: int = 0) -> CardInstance:
+	var card := CardData.new()
+	card.name = name
+	card.card_type = "Tool"
+	card.effect_id = effect_id
+	return CardInstance.create(card, owner)
+
+
+func _make_energy_card(name: String, provides: String, owner: int = 0, card_type: String = "Basic Energy") -> CardInstance:
+	var card := CardData.new()
+	card.name = name
+	card.card_type = card_type
+	card.energy_provides = provides
+	return CardInstance.create(card, owner)
+
+
 func _make_slot(card: CardInstance) -> PokemonSlot:
 	var slot := PokemonSlot.new()
 	slot.pokemon_stack.append(card)
@@ -238,4 +254,38 @@ func test_bridge_resolves_send_out_prompt() -> String:
 		assert_true(handled, "The bridge should resolve send_out prompts"),
 		assert_eq(gsm.game_state.players[1].active_pokemon, replacement, "send_out should move the chosen bench Pokemon into the active slot"),
 		assert_eq(str(bridge.get("_pending_choice")), "", "send_out should clear the pending prompt"),
+	])
+
+
+func test_bridge_starts_granted_attack_effect_interaction_for_tm_turbo_energize() -> String:
+	var bridge := HeadlessMatchBridgeScript.new()
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.players = [PlayerState.new(), PlayerState.new()]
+	gsm.game_state.players[0].player_index = 0
+	gsm.game_state.players[1].player_index = 1
+	var attacker := _make_slot(_make_basic_card("Iron Thorns ex"))
+	attacker.attached_energy.append(_make_energy_card("Lightning Energy", "L"))
+	attacker.attached_tool = _make_tool_card("Technical Machine: Turbo Energize", "2614722b9b28d9df8fd769b926ec82f2")
+	var bench_target := _make_slot(_make_basic_card("Bench Future"))
+	var defender := _make_slot(_make_basic_card("Defender"))
+	gsm.game_state.players[0].active_pokemon = attacker
+	gsm.game_state.players[0].bench = [bench_target]
+	gsm.game_state.players[0].deck = [
+		_make_energy_card("Lightning Energy", "L"),
+		_make_energy_card("Fighting Energy", "F"),
+	]
+	gsm.game_state.players[1].active_pokemon = defender
+	bridge.bind(gsm)
+	var granted_attacks: Array[Dictionary] = gsm.effect_processor.get_granted_attacks(attacker, gsm.game_state)
+	var handled := false
+	if not granted_attacks.is_empty():
+		handled = bridge._try_use_granted_attack_with_interaction(0, attacker, granted_attacks[0])
+	return run_checks([
+		assert_eq(granted_attacks.size(), 1, "TM Turbo Energize should grant exactly one attack"),
+		assert_true(handled, "Headless bridge should start granted-attack interaction when TM Turbo Energize needs assignments"),
+		assert_eq(str(bridge.get("_pending_choice")), "effect_interaction", "Granted attack interaction should enter effect_interaction mode"),
+		assert_eq(bridge.get_pending_prompt_owner(), 0, "Granted attack interaction should belong to the acting player"),
 	])

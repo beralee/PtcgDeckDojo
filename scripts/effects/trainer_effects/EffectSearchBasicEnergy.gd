@@ -86,9 +86,7 @@ func execute(card: CardInstance, targets: Array, state: GameState) -> void:
 				break
 			if hand_card != card and hand_card not in discard_cards:
 				discard_cards.append(hand_card)
-	for discarded: CardInstance in discard_cards:
-		player.hand.erase(discarded)
-		player.discard_pile.append(discarded)
+	_discard_cards_from_hand_with_log(state, card.owner_index, discard_cards, card, "trainer")
 
 	var selected_energy: Array[CardInstance] = []
 	var selected_raw: Array = ctx.get("search_energy", [])
@@ -104,10 +102,15 @@ func execute(card: CardInstance, targets: Array, state: GameState) -> void:
 			if selected_energy.size() >= search_count:
 				break
 
-	for energy_card: CardInstance in selected_energy:
-		player.deck.erase(energy_card)
-		energy_card.face_up = true
-		player.hand.append(energy_card)
+	_move_public_cards_to_hand_with_log(
+		state,
+		card.owner_index,
+		selected_energy,
+		card,
+		"trainer",
+		"search_to_hand",
+		["基本能量"]
+	)
 
 	player.shuffle_deck()
 

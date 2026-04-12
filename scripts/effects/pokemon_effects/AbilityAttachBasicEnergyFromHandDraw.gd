@@ -70,7 +70,7 @@ func execute_ability(
 		return
 	player.hand.erase(energy)
 	pokemon.attached_energy.append(energy)
-	player.draw_cards(draw_count)
+	_draw_cards_with_log(state, top.owner_index, draw_count, top, "ability")
 	pokemon.effects.append({"type": USED_FLAG_TYPE, "turn": state.turn_number})
 
 

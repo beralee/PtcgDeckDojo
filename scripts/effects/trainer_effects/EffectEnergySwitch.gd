@@ -11,7 +11,6 @@ func get_interaction_steps(card: CardInstance, state: GameState) -> Array[Dictio
 	var player: PlayerState = state.players[card.owner_index]
 	var all_pokemon: Array = player.get_all_pokemon()
 
-	# 收集所有宝可梦上的基本能量，并按宝可梦分组
 	var energy_items: Array = []
 	var energy_labels: Array[String] = []
 	var source_groups: Array[Dictionary] = []
@@ -25,14 +24,12 @@ func get_interaction_steps(card: CardInstance, state: GameState) -> Array[Dictio
 		if not group_indices.is_empty():
 			source_groups.append({"slot": slot, "energy_indices": group_indices})
 
-	# 所有宝可梦作为目标
 	var target_items: Array = []
 	var target_labels: Array[String] = []
 	for slot: PokemonSlot in all_pokemon:
 		target_items.append(slot)
 		target_labels.append(slot.get_pokemon_name())
 
-	# 构建排除映射：每张能量不能转移给自己所在的宝可梦
 	var exclude_map: Dictionary = {}
 	for group: Dictionary in source_groups:
 		var slot: PokemonSlot = group["slot"]
@@ -103,4 +100,4 @@ func _find_slot_for_energy(player: PlayerState, energy: CardInstance) -> Pokemon
 
 
 func get_description() -> String:
-	return "将你的1只宝可梦上的1个基本能量转移到另1只宝可梦上。"
+	return "将你的 1 只宝可梦身上的 1 个基本能量转移到另一只宝可梦身上。"

@@ -21,6 +21,7 @@ config/features=PackedStringArray("4.6")
 
 [autoload]
 
+BattleMusicManager="*res://scripts/autoload/BattleMusicManager.gd"
 CardDatabase="*res://scripts/autoload/CardDatabase.gd"
 GameManager="*res://scripts/autoload/GameManager.gd"
 

@@ -1,0 +1,40 @@
+{
+  "package_id": "attribute_colorless",
+  "asset_name": "travel_sheen",
+  "role": "travel core",
+  "dimensions": [
+    1280,
+    512
+  ],
+  "seed": 4202,
+  "generation_method": "procedural_pillow",
+  "palette": {
+    "core": [
+      255,
+      251,
+      243,
+      255
+    ],
+    "mid": [
+      217,
+      214,
+      206,
+      255
+    ],
+    "accent": [
+      223,
+      202,
+      149,
+      255
+    ],
+    "shadow": [
+      77,
+      74,
+      70,
+      255
+    ]
+  },
+  "prompt": "Create a transparent-background 2D battle VFX asset for Pokemon-style colorless attacks. Show only the effect element, with no character, arena, text, UI, watermark, or frame. Use a directional neutral streak with an ivory-white core, silver pearl shell, and a soft champagne edge, like a clean wind-sheen or refined slash trail. Keep the subject compact and readable, with elegant motion and no heavy smoke or beam clutter. Preserve a neutral battle-energy feel without leaning into fire, water, lightning, psychic, or darkness. Output a single isolated effect element on transparency.",
+  "negative_prompt": "no background, no arena, no Pokemon body, no trainer, no text, no watermark, no UI, no frame, no checkerboard, no fake transparency pattern, no oversized smoke cloud, no beam wall, no saturated elemental colors",
+  "notes": "Directional support streak with a polished neutral motion read."
+}

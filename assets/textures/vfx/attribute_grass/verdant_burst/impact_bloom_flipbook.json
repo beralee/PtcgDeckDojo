@@ -1,0 +1,9 @@
+{
+  "generator": "local_procedural_raster_synthesis",
+  "package_name": "attribute_grass_verdant_burst",
+  "asset_name": "impact_bloom_flipbook",
+  "output_path": "assets/textures/vfx/attribute_grass/verdant_burst/impact_bloom_flipbook.png",
+  "role": "primary impact bloom",
+  "format": "4-frame horizontal strip",
+  "prompt": "Use case: stylized-concept\nAsset type: 2D battle VFX texture for a Pokemon-style grass attack\nPrimary request: create a 4-frame horizontal flipbook sprite sheet of a compact emerald impact bloom\nScene/backdrop: transparent background, isolated effect only, no background\nSubject: effect only, no Pokemon body, no arena, no UI\nStyle/medium: premium polished game VFX asset with crisp botanical motion and readable energy structure\nComposition/framing: compact centered impact burst with clean transparent alpha, tightly framed for compositing, exactly 4 frames in one horizontal strip\nLighting/mood: bright verdant flash, punchy impact, battle-ready and readable\nColor palette: luminous emerald core, fresh leaf-green highlights, pale yellow-green pollen accents, deeper forest-green outer tones\nMaterials/textures: leaf shard edges, soft pollen haze, vine-like fracture lines, subtle glow, crisp silhouettes\nConstraints: transparent background, no text, no watermark, no Pokemon body, no trainer, no environment, no card frame\nAvoid: travel streaks, beams, generic energy rays, black background, checkerboard, transparent-preview pattern, solid backdrop, cluttered composition\nImportant negative constraints: keep it impact-only, keep the bloom compact, do not add a launch trail or projectile body, avoid decorative rings that compete with the bloom\n"
+}

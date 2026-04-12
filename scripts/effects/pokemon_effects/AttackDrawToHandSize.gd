@@ -28,7 +28,7 @@ func execute_attack(
 	var player: PlayerState = state.players[top.owner_index]
 	if player.hand.size() >= target_hand_size:
 		return
-	player.draw_cards(target_hand_size - player.hand.size())
+	_draw_cards_with_log(state, top.owner_index, target_hand_size - player.hand.size(), top, "attack")
 
 
 func get_description() -> String:

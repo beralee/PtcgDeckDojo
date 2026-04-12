@@ -2,6 +2,7 @@ class_name DeckBenchmarkCase
 extends RefCounted
 
 const PHASE2_DECK_ID_TO_KEY: Dictionary = {
+	569061: "arceus_giratina",
 	575720: "miraidon",
 	578647: "gardevoir",
 	575716: "charizard_ex",
@@ -10,6 +11,8 @@ const PHASE2_DEFAULT_SEED_SET: Array[int] = [11, 29, 47, 83]
 const VALID_COMPARISON_MODES: Array[String] = ["shared_agent_mirror", "version_regression"]
 const PIPELINE_FIXED_THREE_DECK := "fixed_three_deck_training"
 const PIPELINE_MIRAIDON_FOCUS := "miraidon_focus_training"
+const PIPELINE_GARDEVOIR_FOCUS := "gardevoir_focus_training"
+const PIPELINE_GARDEVOIR_MIRROR := "gardevoir_mirror_training"
 const PHASE1_DEFAULT_PAIRINGS: Array[Array] = [
 	[575720, 578647],
 	[575720, 575716],
@@ -18,6 +21,15 @@ const PHASE1_DEFAULT_PAIRINGS: Array[Array] = [
 const MIRAIDON_FOCUS_PAIRINGS: Array[Array] = [
 	[575720, 578647],
 	[575720, 575716],
+	[575720, 569061],
+]
+const GARDEVOIR_FOCUS_PAIRINGS: Array[Array] = [
+	[578647, 575720],
+	[578647, 575716],
+	[578647, 569061],
+]
+const GARDEVOIR_MIRROR_PAIRINGS: Array[Array] = [
+	[578647, 578647],
 ]
 
 var deck_a_id: int = 0
@@ -29,6 +41,7 @@ var agent_a_config: Dictionary = {"agent_id": "shared-heuristic", "version_tag":
 var agent_b_config: Dictionary = {"agent_id": "shared-heuristic", "version_tag": "baseline-v1"}
 var seed_set: Array = []
 var match_count: int = 0
+var allow_mirror_pairing: bool = false
 
 
 func get_effective_seed_set() -> Array:
@@ -68,7 +81,7 @@ func validate() -> PackedStringArray:
 			errors.append("deck_b_id %d is not a pinned Phase 2 deck" % deck_b_id)
 		elif deck_b_key != "" and deck_b_key != expected_b:
 			errors.append("deck_b_key must match pinned deck id %d (%s)" % [deck_b_id, expected_b])
-	if deck_a_id > 0 and deck_b_id > 0 and deck_a_id == deck_b_id:
+	if not allow_mirror_pairing and deck_a_id > 0 and deck_b_id > 0 and deck_a_id == deck_b_id:
 		errors.append("Phase 2 benchmark cases must compare two distinct deck ids")
 
 	for seed_variant: Variant in effective_seed_set:
@@ -108,43 +121,67 @@ func get_pairing_name() -> String:
 	return "%s_vs_%s" % [left_label, right_label]
 
 
-static func make_phase2_default_cases() -> Array:
+static func make_phase2_default_cases(seed_override: Array = []) -> Array:
 	return [
-		_make_phase2_case(575720, 578647),
-		_make_phase2_case(575720, 575716),
-		_make_phase2_case(578647, 575716),
+		_make_phase2_case(575720, 578647, false, seed_override),
+		_make_phase2_case(575720, 575716, false, seed_override),
+		_make_phase2_case(578647, 575716, false, seed_override),
 	]
 
 
-static func make_miraidon_focus_cases() -> Array:
+static func make_miraidon_focus_cases(seed_override: Array = []) -> Array:
 	return [
-		_make_phase2_case(575720, 578647),
-		_make_phase2_case(575720, 575716),
+		_make_phase2_case(575720, 578647, false, seed_override),
+		_make_phase2_case(575720, 575716, false, seed_override),
+		_make_phase2_case(575720, 569061, false, seed_override),
 	]
 
 
-static func make_phase2_cases_for_pipeline(pipeline_name: String) -> Array:
+static func make_gardevoir_focus_cases(seed_override: Array = []) -> Array:
+	return [
+		_make_phase2_case(578647, 575720, false, seed_override),
+		_make_phase2_case(578647, 575716, false, seed_override),
+		_make_phase2_case(578647, 569061, false, seed_override),
+	]
+
+
+static func make_gardevoir_mirror_cases(seed_override: Array = []) -> Array:
+	return [
+		_make_phase2_case(578647, 578647, true, seed_override),
+	]
+
+
+static func make_phase2_cases_for_pipeline(pipeline_name: String, seed_override: Array = []) -> Array:
 	match pipeline_name:
 		PIPELINE_MIRAIDON_FOCUS:
-			return make_miraidon_focus_cases()
+			return make_miraidon_focus_cases(seed_override)
+		PIPELINE_GARDEVOIR_FOCUS:
+			return make_gardevoir_focus_cases(seed_override)
+		PIPELINE_GARDEVOIR_MIRROR:
+			return make_gardevoir_mirror_cases(seed_override)
 		_:
-			return make_phase2_default_cases()
+			return make_phase2_default_cases(seed_override)
 
 
 static func get_training_deck_pairings(pipeline_name: String) -> Array[Array]:
 	match pipeline_name:
 		PIPELINE_MIRAIDON_FOCUS:
 			return _duplicate_pairings(MIRAIDON_FOCUS_PAIRINGS)
+		PIPELINE_GARDEVOIR_FOCUS:
+			return _duplicate_pairings(GARDEVOIR_FOCUS_PAIRINGS)
+		PIPELINE_GARDEVOIR_MIRROR:
+			return _duplicate_pairings(GARDEVOIR_MIRROR_PAIRINGS)
 		_:
 			return _duplicate_pairings(PHASE1_DEFAULT_PAIRINGS)
 
 
-static func _make_phase2_case(deck_a: int, deck_b: int):
+static func _make_phase2_case(deck_a: int, deck_b: int, allow_mirror: bool = false, seed_override: Array = []):
 	var benchmark_case_script = load("res://scripts/ai/DeckBenchmarkCase.gd")
 	var benchmark_case = benchmark_case_script.new()
 	benchmark_case.deck_a_id = deck_a
 	benchmark_case.deck_b_id = deck_b
-	benchmark_case.seed_set = PHASE2_DEFAULT_SEED_SET.duplicate()
+	benchmark_case.seed_set = seed_override.duplicate() if not seed_override.is_empty() else PHASE2_DEFAULT_SEED_SET.duplicate()
+	benchmark_case.allow_mirror_pairing = allow_mirror
 	benchmark_case.resolve_decks()
 	return benchmark_case
 

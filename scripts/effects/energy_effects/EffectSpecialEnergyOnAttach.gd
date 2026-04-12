@@ -25,7 +25,7 @@ func execute(card: CardInstance, _targets: Array, state: GameState) -> void:
 		slot.damage_counters = maxi(0, slot.damage_counters - heal_amount)
 
 	if draw_count > 0:
-		player.draw_cards(draw_count)
+		_draw_cards_with_log(state, pi, draw_count, card, "energy")
 
 
 func get_description() -> String:

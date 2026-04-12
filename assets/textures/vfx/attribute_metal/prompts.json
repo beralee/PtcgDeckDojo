@@ -1,0 +1,37 @@
+{
+  "package_name": "attribute_metal_forged_impact",
+  "visual_rule": "Metal should read as a forged-steel collision: silver-white core, gunmetal plates, sharp shard edges, and a few hot orange sparks. Keep it compact, premium, and impact-only.",
+  "global_constraints": [
+    "transparent background",
+    "no characters",
+    "no arena",
+    "no UI",
+    "no watermark",
+    "no frame",
+    "single isolated effect element",
+    "clean silhouette",
+    "battle-ready compositing"
+  ],
+  "assets": [
+    {
+      "asset_name": "impact_bloom_flipbook",
+      "role": "primary impact bloom",
+      "prompt": "Create a transparent-background 2D battle VFX asset for Pokemon-style metal attacks. Show only the effect element, with no character, arena, text, UI, watermark, or frame. Use a compact forged-steel impact style: a bright silver-white core, brushed gunmetal plates, fractured shard edges, and a few hot orange sparks. Make the subject a compact hit bloom at the moment of contact, with a dense metallic center, sharp plate fragments radiating outward, and a premium readable silhouette. Keep it impact-only and never turn it into a beam or travel streak. Output a single isolated effect element on transparency."
+    },
+    {
+      "asset_name": "plate_shard_cluster",
+      "role": "support shard cluster",
+      "prompt": "Create a transparent-background 2D battle VFX asset for Pokemon-style metal attacks. Show only the effect element, with no character, arena, text, UI, watermark, or frame. Use a compact forged-steel collision style: overlapping steel plates, fractured shard edges, brushed gunmetal shadows, and a bright silver highlight. Make the subject a tight cluster of broken metal fragments that reads as a premium support accent, not a beam or projectile. Keep the silhouette clean and readable on transparency. Output a single isolated effect element on transparency."
+    },
+    {
+      "asset_name": "spark_residue",
+      "role": "support spark residue",
+      "prompt": "Create a transparent-background 2D battle VFX asset for Pokemon-style metal attacks. Show only the effect element, with no character, arena, text, UI, watermark, or frame. Use a compact forged-steel collision style: hot orange sparks, tiny ember fragments, and a few bright silver flecks fading away from impact. Make the subject a residue layer that feels energetic and metallic, but never turns into a beam or long trail. Keep the silhouette clean and readable on transparency. Output a single isolated effect element on transparency."
+    },
+    {
+      "asset_name": "steel_dust_mist",
+      "role": "support dust mist",
+      "prompt": "Create a transparent-background 2D battle VFX asset for Pokemon-style metal attacks. Show only the effect element, with no character, arena, text, UI, watermark, or frame. Use a compact forged-steel collision style: low-alpha metallic dust, faint gray smoke, and a few glinting flecks suspended after impact. Make the subject a soft residue layer that supports the hit bloom without competing with it. Keep the silhouette clean, compact, and readable on transparency. Output a single isolated effect element on transparency."
+    }
+  ]
+}

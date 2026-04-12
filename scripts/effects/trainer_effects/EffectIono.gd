@@ -11,12 +11,12 @@ func can_execute(_card: CardInstance, _state: GameState) -> bool:
 func execute(card: CardInstance, _targets: Array, state: GameState) -> void:
 	var pi: int = card.owner_index
 	## 双方同时执行：将手牌放回牌库下方洗牌，再按奖赏卡数量抽牌
-	_shuffle_hand_and_draw_by_prizes(state, pi)
-	_shuffle_hand_and_draw_by_prizes(state, 1 - pi)
+	_shuffle_hand_and_draw_by_prizes(state, pi, card)
+	_shuffle_hand_and_draw_by_prizes(state, 1 - pi, card)
 
 
 ## 将指定玩家的手牌放回牌库下方洗牌，再按剩余奖赏卡数量抽牌
-func _shuffle_hand_and_draw_by_prizes(state: GameState, pi: int) -> void:
+func _shuffle_hand_and_draw_by_prizes(state: GameState, pi: int, source_card: CardInstance) -> void:
 	var player: PlayerState = state.players[pi]
 
 	## 将手牌放回牌库（放到底部）
@@ -33,7 +33,7 @@ func _shuffle_hand_and_draw_by_prizes(state: GameState, pi: int) -> void:
 	var draw_count: int = player.prizes.size()
 
 	## 抽牌
-	player.draw_cards(draw_count)
+	_draw_cards_with_log(state, pi, draw_count, source_card, "trainer")
 
 
 func get_description() -> String:

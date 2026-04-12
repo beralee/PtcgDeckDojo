@@ -25,18 +25,18 @@ func execute(card: CardInstance, _targets: Array, state: GameState) -> void:
 	## TODO: 模式1需要UI交互让玩家选择弃哪些手牌（最多3张）
 	## TODO: 模式2需要UI交互让玩家选择对手备战区的宝可梦V目标
 
-	_execute_mode_draw(player)
+	_execute_mode_draw(player, state, card)
 
 
 ## 模式1：弃最多3张手牌，然后抽牌直到手牌达到5张
-func _execute_mode_draw(player: PlayerState) -> void:
+func _execute_mode_draw(player: PlayerState, state: GameState, source_card: CardInstance) -> void:
 	## 计算当前手牌数与目标数的差值
 	var current_hand: int = player.hand.size()
 
 	## 若手牌不足目标数，不需要弃牌，直接抽牌
 	if current_hand < DRAW_UP_TO:
 		var draw_count: int = DRAW_UP_TO - current_hand
-		player.draw_cards(draw_count)
+		_draw_cards_with_log(state, player.player_index, draw_count, source_card, "trainer")
 		return
 
 	## 手牌已达到或超过目标数时，弃置最多3张手牌后再抽同等数量
@@ -50,14 +50,13 @@ func _execute_mode_draw(player: PlayerState) -> void:
 	for _i: int in discard_count:
 		if player.hand.is_empty():
 			break
-		var discarded: CardInstance = player.hand.pop_back()
-		discarded.face_up = true
-		player.discard_pile.append(discarded)
+		var discarded: CardInstance = player.hand.back()
+		_discard_cards_from_hand_with_log(state, player.player_index, [discarded], source_card, "trainer")
 
 	## 抽牌直到手牌达到5张
 	var new_hand: int = player.hand.size()
 	if new_hand < DRAW_UP_TO:
-		player.draw_cards(DRAW_UP_TO - new_hand)
+		_draw_cards_with_log(state, player.player_index, DRAW_UP_TO - new_hand, source_card, "trainer")
 
 
 func get_description() -> String:

@@ -1,0 +1,269 @@
+{
+  "schema_version": 1,
+  "regions": {
+    "res://assets/textures/vfx/attribute_colorless/source/charge_glint.png": [
+      296,
+      296,
+      433,
+      433
+    ],
+    "res://assets/textures/vfx/attribute_colorless/source/impact_bloom.png": [
+      260,
+      275,
+      483,
+      468
+    ],
+    "res://assets/textures/vfx/attribute_colorless/source/residue_motes.png": [
+      370,
+      331,
+      353,
+      326
+    ],
+    "res://assets/textures/vfx/attribute_colorless/source/travel_sheen.png": [
+      54,
+      21,
+      1226,
+      307
+    ],
+    "res://assets/textures/vfx/attribute_darkness/source/charge_core.png": [
+      298,
+      300,
+      416,
+      429
+    ],
+    "res://assets/textures/vfx/attribute_darkness/source/impact_bloom.png": [
+      257,
+      267,
+      544,
+      546
+    ],
+    "res://assets/textures/vfx/attribute_darkness/source/residue_smoke.png": [
+      345,
+      327,
+      367,
+      477
+    ],
+    "res://assets/textures/vfx/attribute_darkness/source/shard_slash.png": [
+      112,
+      2,
+      1055,
+      452
+    ],
+    "res://assets/textures/vfx/attribute_dragon/source/charge_core.png": [
+      368,
+      369,
+      309,
+      275
+    ],
+    "res://assets/textures/vfx/attribute_dragon/source/impact_bloom.png": [
+      297,
+      300,
+      461,
+      433
+    ],
+    "res://assets/textures/vfx/attribute_dragon/source/residue_embers.png": [
+      314,
+      295,
+      425,
+      465
+    ],
+    "res://assets/textures/vfx/attribute_dragon/source/scale_slash.png": [
+      343,
+      169,
+      566,
+      184
+    ],
+    "res://assets/textures/vfx/attribute_fighting/impact_only/dust_shatter.png": [
+      407,
+      495,
+      202,
+      163
+    ],
+    "res://assets/textures/vfx/attribute_fighting/impact_only/impact_bloom_flipbook.png": [
+      95,
+      105,
+      837,
+      91
+    ],
+    "res://assets/textures/vfx/attribute_fighting/impact_only/knuckle_flash.png": [
+      442,
+      478,
+      152,
+      149
+    ],
+    "res://assets/textures/vfx/attribute_fighting/impact_only/residue_grit.png": [
+      425,
+      502,
+      189,
+      165
+    ],
+    "res://assets/textures/vfx/attribute_fire/source/charge_core.png": [
+      293,
+      415,
+      421,
+      293
+    ],
+    "res://assets/textures/vfx/attribute_fire/source/impact_bloom.png": [
+      99,
+      137,
+      799,
+      778
+    ],
+    "res://assets/textures/vfx/attribute_fire/source/residue_embers.png": [
+      292,
+      449,
+      457,
+      303
+    ],
+    "res://assets/textures/vfx/attribute_fire/source/travel_core.png": [
+      13,
+      131,
+      1220,
+      258
+    ],
+    "res://assets/textures/vfx/attribute_grass/verdant_burst/impact_bloom_flipbook.png": [
+      42,
+      41,
+      1197,
+      238
+    ],
+    "res://assets/textures/vfx/attribute_grass/verdant_burst/leaf_shard_cluster.png": [
+      263,
+      303,
+      498,
+      459
+    ],
+    "res://assets/textures/vfx/attribute_grass/verdant_burst/pollen_haze.png": [
+      204,
+      220,
+      671,
+      587
+    ],
+    "res://assets/textures/vfx/attribute_grass/verdant_burst/vine_fracture_accents.png": [
+      295,
+      248,
+      493,
+      677
+    ],
+    "res://assets/textures/vfx/attribute_lightning/charge/charge_orb.png": [
+      378,
+      375,
+      296,
+      270
+    ],
+    "res://assets/textures/vfx/attribute_lightning/impact/impact_bloom.png": [
+      281,
+      234,
+      511,
+      499
+    ],
+    "res://assets/textures/vfx/attribute_lightning/residue/residue_sparks.png": [
+      298,
+      394,
+      453,
+      315
+    ],
+    "res://assets/textures/vfx/attribute_lightning/travel/travel_core.png": [
+      117,
+      273,
+      786,
+      411
+    ],
+    "res://assets/textures/vfx/attribute_metal/impact_only/impact_bloom_flipbook.png": [
+      57,
+      26,
+      945,
+      206
+    ],
+    "res://assets/textures/vfx/attribute_metal/impact_only/plate_shard_cluster.png": [
+      174,
+      177,
+      170,
+      172
+    ],
+    "res://assets/textures/vfx/attribute_metal/impact_only/spark_residue.png": [
+      195,
+      198,
+      130,
+      111
+    ],
+    "res://assets/textures/vfx/attribute_metal/impact_only/steel_dust_mist.png": [
+      191,
+      180,
+      165,
+      178
+    ],
+    "res://assets/textures/vfx/attribute_psychic/source/psychic_charge_orb.png": [
+      292,
+      290,
+      437,
+      443
+    ],
+    "res://assets/textures/vfx/attribute_psychic/source/psychic_impact_bloom.png": [
+      246,
+      246,
+      535,
+      549
+    ],
+    "res://assets/textures/vfx/attribute_psychic/source/psychic_residue_motes.png": [
+      230,
+      230,
+      550,
+      557
+    ],
+    "res://assets/textures/vfx/attribute_psychic/source/psychic_travel_core.png": [
+      63,
+      435,
+      873,
+      119
+    ],
+    "res://assets/textures/vfx/attribute_psychic/source/psychic_travel_outer.png": [
+      50,
+      392,
+      915,
+      196
+    ],
+    "res://assets/textures/vfx/attribute_water/impact_only/water_impact_flipbook.png": [
+      54,
+      52,
+      921,
+      146
+    ],
+    "res://assets/textures/vfx/attribute_water/impact_only/water_residue_mist.png": [
+      119,
+      243,
+      275,
+      119
+    ],
+    "res://assets/textures/vfx/attribute_water/impact_only/water_ripple_ring.png": [
+      106,
+      170,
+      301,
+      188
+    ],
+    "res://assets/textures/vfx/attribute_water/impact_only/water_spray_droplets.png": [
+      141,
+      127,
+      279,
+      199
+    ],
+    "res://assets/textures/vfx/charizard_ex/mid_stream/embers_smoke_flipbook.png": [
+      7,
+      56,
+      764,
+      206
+    ],
+    "res://assets/textures/vfx/charizard_ex/mid_stream/flame_stream_core.png": [
+      0,
+      0,
+      1408,
+      768
+    ],
+    "res://assets/textures/vfx/charizard_ex/mid_stream/impact_bloom_flipbook.png": [
+      13,
+      17,
+      1948,
+      369
+    ]
+  }
+}

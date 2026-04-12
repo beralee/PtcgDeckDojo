@@ -1,0 +1,40 @@
+{
+  "package_id": "attribute_colorless",
+  "asset_name": "charge_glint",
+  "role": "charge",
+  "dimensions": [
+    1024,
+    1024
+  ],
+  "seed": 4201,
+  "generation_method": "procedural_pillow",
+  "palette": {
+    "core": [
+      255,
+      249,
+      239,
+      255
+    ],
+    "mid": [
+      225,
+      220,
+      209,
+      255
+    ],
+    "accent": [
+      229,
+      209,
+      163,
+      255
+    ],
+    "shadow": [
+      72,
+      69,
+      66,
+      255
+    ]
+  },
+  "prompt": "Create a transparent-background 2D battle VFX asset for Pokemon-style colorless attacks. Show only the effect element, with no character, arena, text, UI, watermark, or frame. Use a compact pre-strike glint with an ivory-white core, brushed-silver glow, champagne highlights, and a few restrained feathered fragments. Keep the shape premium, clean, and readable in a game battle overlay. Preserve a neutral battle-energy feel without leaning into fire, water, lightning, psychic, or darkness. Output a single isolated effect element on transparency.",
+  "negative_prompt": "no background, no arena, no Pokemon body, no trainer, no text, no watermark, no UI, no frame, no checkerboard, no fake transparency pattern, no decorative magical symbols, no oversized fog bank, no neon overload, no saturated elemental colors",
+  "notes": "Compact pre-strike glint with a polished neutral read."
+}

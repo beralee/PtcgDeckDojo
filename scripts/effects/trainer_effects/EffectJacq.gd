@@ -37,10 +37,15 @@ func execute(card: CardInstance, targets: Array, state: GameState) -> void:
 			if deck_card.card_data.is_evolution_pokemon():
 				found.append(deck_card)
 
-	for found_card: CardInstance in found:
-		player.deck.erase(found_card)
-		found_card.face_up = true
-		player.hand.append(found_card)
+	_move_public_cards_to_hand_with_log(
+		state,
+		card.owner_index,
+		found,
+		card,
+		"trainer",
+		"search_to_hand",
+		["进化宝可梦"]
+	)
 
 	player.shuffle_deck()
 

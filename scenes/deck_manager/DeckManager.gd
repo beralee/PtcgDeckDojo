@@ -1,6 +1,7 @@
 extends Control
 
 const CARD_IMAGE_DOWNLOADER := preload("res://scripts/network/CardImageDownloader.gd")
+const DeckViewDialogScript := preload("res://scripts/ui/decks/DeckViewDialog.gd")
 
 const CARD_TILE_WIDTH := 100
 const CARD_TILE_HEIGHT := 140
@@ -27,6 +28,7 @@ var _rename_context: String = ""
 var _rename_forced: bool = false
 var _texture_cache: Dictionary = {}
 var _failed_texture_paths: Dictionary = {}
+var _deck_view_dialog: RefCounted = DeckViewDialogScript.new()
 
 
 func _ready() -> void:
@@ -409,63 +411,7 @@ func _on_edit_deck(deck: DeckData) -> void:
 
 
 func _on_view_deck(deck: DeckData) -> void:
-	var dialog := AcceptDialog.new()
-	dialog.title = deck.deck_name
-	dialog.ok_button_text = "关闭"
-
-	var margin := MarginContainer.new()
-	margin.anchors_preset = Control.PRESET_FULL_RECT
-	margin.offset_left = 8
-	margin.offset_top = 8
-	margin.offset_right = -8
-	margin.offset_bottom = -8
-	margin.add_theme_constant_override("margin_top", 8)
-	dialog.add_child(margin)
-
-	var outer := VBoxContainer.new()
-	outer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	outer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	outer.add_theme_constant_override("separation", 8)
-	margin.add_child(outer)
-
-	var info_label := Label.new()
-	info_label.text = "ID: %d | %d 张卡牌" % [deck.id, deck.total_cards]
-	info_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
-	outer.add_child(info_label)
-
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	outer.add_child(scroll)
-
-	var grid := GridContainer.new()
-	grid.columns = VIEW_GRID_COLUMNS
-	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	grid.add_theme_constant_override("h_separation", 6)
-	grid.add_theme_constant_override("v_separation", 6)
-	scroll.add_child(grid)
-
-	# 按分类排序后展开
-	var sorted_entries := _sort_entries_by_category(deck.cards)
-	for entry: Dictionary in sorted_entries:
-		var card_name: String = entry.get("name", "?")
-		var set_code: String = entry.get("set_code", "")
-		var card_index: String = entry.get("card_index", "")
-		var count: int = entry.get("count", 0)
-		for _i: int in count:
-			var tile := _create_view_tile(card_name, set_code, card_index)
-			tile.gui_input.connect(_on_view_tile_input.bind(set_code, card_index))
-			grid.add_child(tile)
-
-	# 根据卡牌数量自动计算弹窗大小
-	var cols := VIEW_GRID_COLUMNS
-	var rows := ceili(float(deck.total_cards) / cols)
-	var w := mini(cols * (CARD_TILE_WIDTH + 6) + 60, 800)
-	var h := mini(rows * (CARD_TILE_HEIGHT + 26) + 100, 700)
-	dialog.size = Vector2i(w, h)
-
-	add_child(dialog)
-	dialog.popup_centered()
-	dialog.confirmed.connect(dialog.queue_free)
+	_deck_view_dialog.call("show_deck", self, deck)
 
 
 const VIEW_CATEGORY_ORDER: Dictionary = {

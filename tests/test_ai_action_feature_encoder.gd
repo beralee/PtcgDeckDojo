@@ -180,3 +180,65 @@ func test_ai_feature_extractor_exposes_action_vector_for_existing_context_calls(
 		assert_false(action_vector.is_empty(), "Feature extractor should expose a reusable action vector for downstream learning"),
 		assert_true(bool(features.get("improves_attack_readiness", false)), "Existing heuristic-facing fields should remain intact"),
 	])
+
+
+func test_action_feature_encoder_marks_bench_attack_readiness_when_attach_unlocks_bench_attacker() -> String:
+	var encoder = AIActionFeatureEncoderScript.new()
+	var gsm := _make_ai_manual_gsm()
+	var player: PlayerState = gsm.game_state.players[0]
+	var active_slot := _make_slot(CardInstance.create(_make_pokemon_card("Miraidon ex", "Basic", "", [], "ex", "L"), 0))
+	var bench_slot := _make_slot(CardInstance.create(_make_pokemon_card("Raikou V", "Basic", "", [{
+		"name": "Lightning Rondo",
+		"cost": "LL",
+		"damage": "20+",
+	}], "V", "L"), 0))
+	bench_slot.attached_energy = [_make_energy_card("Lightning Energy", "L")]
+	player.active_pokemon = active_slot
+	player.bench = [bench_slot]
+
+	var features: Dictionary = encoder.build_features(gsm, 0, {
+		"kind": "attach_energy",
+		"card": _make_energy_card("Lightning Energy", "L"),
+		"target_slot": bench_slot,
+	})
+
+	return run_checks([
+		assert_true(bool(features.get("is_bench_target", false)), "Bench attach should still mark bench targets"),
+		assert_true(bool(features.get("improves_bench_attack_readiness", false)), "Bench attach should expose when it unlocks a bench attacker"),
+	])
+
+
+func test_action_feature_encoder_marks_search_productivity_and_churn_pressure() -> String:
+	var encoder = AIActionFeatureEncoderScript.new()
+	var gsm := _make_ai_manual_gsm()
+	var player: PlayerState = gsm.game_state.players[0]
+	player.active_pokemon = _make_slot(CardInstance.create(_make_pokemon_card("Miraidon ex", "Basic", "", [{
+		"name": "Photon Blaster",
+		"cost": "LL",
+		"damage": "220",
+	}], "ex", "L"), 0))
+	player.active_pokemon.attached_energy = [_make_energy_card("L", "L"), _make_energy_card("L", "L")]
+	player.deck = [
+		_make_energy_card("Lightning Energy", "L"),
+		_make_energy_card("Lightning Energy", "L"),
+		_make_trainer_card("Switch"),
+		_make_trainer_card("Switch"),
+	]
+	var nest_ball := _make_trainer_card("Nest Ball", "Item", "1af63a7e2cb7a79215474ad8db8fd8fd")
+	player.hand = [nest_ball, _make_trainer_card("Professor's Research", "Supporter")]
+	player.deck.append(CardInstance.create(_make_pokemon_card("Iron Hands ex", "Basic", "", [], "ex", "L"), 0))
+
+	var nest_ball_features: Dictionary = encoder.build_features(gsm, 0, {
+		"kind": "play_trainer",
+		"card": nest_ball,
+	})
+	var churn_features: Dictionary = encoder.build_features(gsm, 0, {
+		"kind": "play_trainer",
+		"card": player.hand[1],
+	})
+
+	return run_checks([
+		assert_true(bool(nest_ball_features.get("search_productive", false)), "Search trainers should expose when legal targets still exist"),
+		assert_true(bool(churn_features.get("deck_out_pressure", false)), "Small-deck ready boards should expose deck-out pressure"),
+		assert_true(bool(churn_features.get("creates_churn_risk", false)), "Draw churn trainers should expose late-turn churn risk under deck pressure"),
+	])

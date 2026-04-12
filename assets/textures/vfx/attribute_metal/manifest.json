@@ -1,0 +1,51 @@
+{
+  "package_name": "attribute_metal_forged_impact",
+  "attribute": "metal",
+  "visual_rule": "Metal attacks read as a forged-steel collision: a bright silver-white impact core, brushed gunmetal plates, sharp shard edges, and a few hot orange sparks. Keep the effect compact, premium, and never beam-like.",
+  "playback_model": "impact-only",
+  "package_root": "assets/textures/vfx/attribute_metal",
+  "variants": [
+    {
+      "id": "impact_only",
+      "description": "Shared battle impact package for metal attacks.",
+      "assets": [
+        {
+          "role": "impact_bloom_flipbook",
+          "file": "impact_only/impact_bloom_flipbook.png",
+          "format": "png",
+          "frames": 4,
+          "layout": "horizontal_strip",
+          "size": "1024x256",
+          "notes": "Primary hit bloom and the dominant battle read."
+        },
+        {
+          "role": "plate_shard_cluster",
+          "file": "impact_only/plate_shard_cluster.png",
+          "format": "png",
+          "size": "512x512",
+          "notes": "Support layer for fractured steel plates and shard accents."
+        },
+        {
+          "role": "spark_residue",
+          "file": "impact_only/spark_residue.png",
+          "format": "png",
+          "size": "512x512",
+          "notes": "Hot spark residue and ember cleanup layer."
+        },
+        {
+          "role": "steel_dust_mist",
+          "file": "impact_only/steel_dust_mist.png",
+          "format": "png",
+          "size": "512x512",
+          "notes": "Low-alpha metallic dust and fade residue."
+        }
+      ]
+    }
+  ],
+  "usage_notes": [
+    "Use the impact bloom as the dominant subject.",
+    "Keep the shared style compact and forged-steel in feel.",
+    "Disable travel and beam language for the fallback package.",
+    "Prefer clean anchors and tight compositing over wide-screen effects."
+  ]
+}

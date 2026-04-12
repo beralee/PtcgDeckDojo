@@ -11,8 +11,17 @@ const STAGE_ONE_BASIC_NAME_OVERRIDES := {
 }
 
 
+func _get_card_database() -> Node:
+	var loop := Engine.get_main_loop()
+	if loop is SceneTree:
+		return (loop as SceneTree).root.get_node_or_null("CardDatabase")
+	return null
+
+
 func _can_rare_candy_evolve(stage2_card: CardInstance, target_slot: PokemonSlot, state: GameState) -> bool:
 	if stage2_card == null or target_slot == null or state == null:
+		return false
+	if state.is_first_turn_for_player(stage2_card.owner_index):
 		return false
 	if not stage2_card.card_data.is_pokemon() or stage2_card.card_data.stage != "Stage 2":
 		return false
@@ -50,15 +59,17 @@ func _can_rare_candy_evolve(stage2_card: CardInstance, target_slot: PokemonSlot,
 				if _matches_stage_one_reference(ref_card, evolves_from, target_slot.get_pokemon_name()):
 					return true
 
-	for card_data: CardData in CardDatabase.get_all_cards():
-		if card_data == null or not card_data.is_pokemon():
-			continue
-		if card_data.stage != "Stage 1":
-			continue
-		if card_data.name != evolves_from:
-			continue
-		if card_data.evolves_from == target_slot.get_pokemon_name():
-			return true
+	var card_database := _get_card_database()
+	if card_database != null:
+		for card_data: CardData in card_database.get_all_cards():
+			if card_data == null or not card_data.is_pokemon():
+				continue
+			if card_data.stage != "Stage 1":
+				continue
+			if card_data.name != evolves_from:
+				continue
+			if card_data.evolves_from == target_slot.get_pokemon_name():
+				return true
 	return _matches_stage_one_basic_override(evolves_from, target_slot.get_pokemon_name())
 
 
@@ -138,7 +149,7 @@ func get_interaction_steps(card: CardInstance, state: GameState) -> Array[Dictio
 func can_execute(card: CardInstance, state: GameState) -> bool:
 	var pi: int = card.owner_index
 	var player: PlayerState = state.players[pi]
-	if state.turn_number <= 1:
+	if state.is_first_turn_for_player(pi):
 		return false
 
 	for c: CardInstance in player.hand:

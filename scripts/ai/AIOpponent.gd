@@ -11,23 +11,34 @@ const MCTSPlannerScript = preload("res://scripts/ai/MCTSPlanner.gd")
 const NeuralNetInferenceScript = preload("res://scripts/ai/NeuralNetInference.gd")
 const StateEncoderScript = preload("res://scripts/ai/StateEncoder.gd")
 const AIActionScorerScript = preload("res://scripts/ai/AIActionScorer.gd")
+const AIInteractionScorerScript = preload("res://scripts/ai/AIInteractionScorer.gd")
+const AutoloadResolverScript = preload("res://scripts/engine/AutoloadResolver.gd")
+const DeckStrategyGardevoirScript = preload("res://scripts/ai/DeckStrategyGardevoir.gd")
+const DeckStrategyMiraidonScript = preload("res://scripts/ai/DeckStrategyMiraidon.gd")
+const DeckStrategyRegistryScript = preload("res://scripts/ai/DeckStrategyRegistry.gd")
 
 const ACTION_SCORER_SUPPORTED_KINDS := {
 	"play_trainer": true,
+	"play_stadium": true,
+	"play_basic_to_bench": true,
+	"evolve": true,
 	"use_ability": true,
 	"attach_tool": true,
 	"attach_energy": true,
+	"retreat": true,
 	"attack": true,
+	"granted_attack": true,
+	"end_turn": true,
 }
-const ACTION_SCORER_SCORE_SCALE: float = 200.0
-
 var player_index: int = 1
 var difficulty: int = 1
 var heuristic_weights: Dictionary = {}
 var value_net_path: String = ""
 var action_scorer_path: String = ""
+var interaction_scorer_path: String = ""
 var _value_net: RefCounted = null
 var _action_scorer: RefCounted = null
+var _interaction_scorer: RefCounted = null
 var _setup_planner = AISetupPlannerScript.new()
 var _legal_action_builder = AILegalActionBuilderScript.new()
 var _feature_extractor = AIFeatureExtractorScript.new()
@@ -42,11 +53,56 @@ var _mcts_planner = MCTSPlannerScript.new()
 var _mcts_planned_sequence: Array = []
 var _mcts_sequence_index: int = 0
 var _event_counters: Dictionary = {}
+var _deck_strategy = null
+var _deck_strategy_detected: bool = false
+var _deck_strategy_registry = DeckStrategyRegistryScript.new()
+var _decision_exporter = null
 
 
 func configure(next_player_index: int, next_difficulty: int) -> void:
 	player_index = next_player_index
 	difficulty = next_difficulty
+
+
+func set_deck_strategy(strategy: RefCounted) -> void:
+	_deck_strategy = strategy
+	_deck_strategy_detected = strategy != null
+	if _step_resolver != null and _step_resolver.has_method("set_deck_strategy"):
+		_step_resolver.set_deck_strategy(strategy)
+	elif _step_resolver != null:
+		_step_resolver.deck_strategy = strategy
+	if _legal_action_builder != null and _legal_action_builder.has_method("set_deck_strategy"):
+		_legal_action_builder.set_deck_strategy(strategy)
+	elif _legal_action_builder != null:
+		_legal_action_builder._deck_strategy = strategy
+		_legal_action_builder._deck_strategy_detected = strategy != null
+	if _heuristics != null:
+		_heuristics.deck_strategy = strategy
+	if _mcts_planner != null:
+		_mcts_planner.deck_strategy = strategy
+		_mcts_planner.state_encoder_class = _get_state_encoder_class()
+	if _step_resolver != null:
+		_step_resolver.interaction_scorer = _interaction_scorer
+		_step_resolver.decision_exporter = _decision_exporter
+
+
+func _get_state_encoder_class():
+	if _deck_strategy != null and _deck_strategy.has_method("get_state_encoder_class"):
+		var encoder_class = _deck_strategy.get_state_encoder_class()
+		if encoder_class != null:
+			return encoder_class
+	return StateEncoderScript
+
+
+func _encode_state_features(game_state: GameState) -> Array:
+	if game_state == null:
+		return []
+	var encoder_class = _get_state_encoder_class()
+	if encoder_class != null and encoder_class.has_method("encode"):
+		var encoded: Variant = encoder_class.call("encode", game_state, player_index)
+		if encoded is Array:
+			return (encoded as Array).duplicate(true)
+	return StateEncoderScript.encode(game_state, player_index)
 
 
 func _ensure_action_scorer_loaded() -> void:
@@ -56,6 +112,23 @@ func _ensure_action_scorer_loaded() -> void:
 	if not _action_scorer.load_weights(action_scorer_path):
 		push_warning("[AIOpponent] 无法加载动作评分器: %s" % action_scorer_path)
 		_action_scorer = null
+
+
+func _ensure_interaction_scorer_loaded() -> void:
+	if _interaction_scorer != null or interaction_scorer_path == "":
+		return
+	_interaction_scorer = AIInteractionScorerScript.new()
+	if not _interaction_scorer.load_weights(interaction_scorer_path):
+		push_warning("[AIOpponent] 无法加载交互评分器: %s" % interaction_scorer_path)
+		_interaction_scorer = null
+	if _step_resolver != null:
+		_step_resolver.interaction_scorer = _interaction_scorer
+
+
+func set_decision_exporter(exporter) -> void:
+	_decision_exporter = exporter
+	if _step_resolver != null:
+		_step_resolver.decision_exporter = exporter
 
 
 func should_control_turn(game_state: GameState, ui_blocked: bool) -> bool:
@@ -101,6 +174,8 @@ func run_single_step(battle_scene: Control, gsm: GameStateMachine) -> bool:
 		if bridge_handles_prompts and _is_bridge_owned_prompt(pending_choice):
 			return false
 		return _run_take_prize_step(battle_scene, gsm)
+	if pending_choice == "heavy_baton_target":
+		return _run_heavy_baton_step(battle_scene, gsm)
 	if pending_choice == "send_out":
 		if bridge_handles_prompts and _is_bridge_owned_prompt(pending_choice):
 			return false
@@ -117,7 +192,16 @@ func run_single_step(battle_scene: Control, gsm: GameStateMachine) -> bool:
 		_clear_consumed_prompt(battle_scene)
 		return _run_setup_bench_step(battle_scene, gsm, pending_choice, dialog_data)
 	if pending_choice == "effect_interaction":
-		return _step_resolver.resolve_pending_step(battle_scene, gsm, player_index)
+		_ensure_interaction_scorer_loaded()
+		if _step_resolver != null:
+			_step_resolver.interaction_scorer = _interaction_scorer
+			_step_resolver.decision_exporter = _decision_exporter
+		return _step_resolver.resolve_pending_step(
+			battle_scene,
+			gsm,
+			player_index,
+			_encode_state_features(gsm.game_state)
+		)
 	var action := _choose_best_action(gsm)
 	if action.is_empty():
 		return false
@@ -137,7 +221,12 @@ func _run_setup_active_step(battle_scene: Control, gsm: GameStateMachine, pendin
 	if pi != player_index or pi >= gsm.game_state.players.size():
 		return false
 	var player: PlayerState = gsm.game_state.players[pi]
-	var choice: Dictionary = _setup_planner.plan_opening_setup(player)
+	_detect_and_load_deck_strategy(player)
+	var choice: Dictionary
+	if _deck_strategy != null and _deck_strategy.has_method("plan_opening_setup"):
+		choice = _deck_strategy.plan_opening_setup(player)
+	else:
+		choice = _setup_planner.plan_opening_setup(player)
 	var active_hand_index: int = int(choice.get("active_hand_index", -1))
 	if active_hand_index < 0 or active_hand_index >= player.hand.size():
 		return false
@@ -150,6 +239,7 @@ func _run_setup_active_step(battle_scene: Control, gsm: GameStateMachine, pendin
 		return false
 	if battle_scene.has_method("_after_setup_active"):
 		battle_scene.call("_after_setup_active", pi)
+	_request_followup_ai_step_if_ready(battle_scene, gsm)
 	return true
 
 
@@ -172,6 +262,7 @@ func _run_setup_bench_step(
 	if planned_card == null:
 		if battle_scene.has_method("_after_setup_bench"):
 			battle_scene.call("_after_setup_bench", pi)
+		_request_followup_ai_step_if_ready(battle_scene, gsm)
 		return true
 	if not gsm.setup_place_bench_pokemon(pi, planned_card):
 		return false
@@ -181,6 +272,20 @@ func _run_setup_bench_step(
 	if battle_scene.has_method("_show_setup_bench_dialog"):
 		battle_scene.call("_show_setup_bench_dialog", pi)
 	return true
+
+
+func _request_followup_ai_step_if_ready(battle_scene: Control, gsm: GameStateMachine) -> void:
+	if battle_scene == null or gsm == null or gsm.game_state == null:
+		return
+	if str(battle_scene.get("_pending_choice")) != "":
+		return
+	if gsm.game_state.current_player_index != player_index:
+		return
+	if gsm.game_state.phase == GameState.GamePhase.SETUP:
+		return
+	if not bool(battle_scene.get("_ai_step_scheduled")):
+		battle_scene.set("_ai_step_scheduled", true)
+		battle_scene.call_deferred("_run_ai_step")
 
 
 func _find_next_planned_bench_card(player: PlayerState, available_cards: Array[CardInstance]) -> CardInstance:
@@ -201,9 +306,18 @@ func _find_next_planned_bench_card(player: PlayerState, available_cards: Array[C
 
 
 func _choose_best_action(gsm: GameStateMachine) -> Dictionary:
-	## MCTS 模式：使用预规划序列
+	## 优先级 1：MCTS + 策略评估（v8）
+	if _deck_strategy != null and use_mcts:
+		return _choose_mcts_action(gsm)
+	## 优先级 2：贪心策略（v7.2）
+	if _deck_strategy != null and _deck_strategy.has_method("score_action_absolute"):
+		var result: Dictionary = _choose_greedy_strategy_action(gsm)
+		if not result.is_empty():
+			return result
+	## 优先级 3：纯 MCTS（rollout）
 	if use_mcts:
 		return _choose_mcts_action(gsm)
+	## 优先级 4：启发式
 	return _choose_heuristic_action(gsm)
 	## 同步权重到 heuristics
 	_heuristics.weights = heuristic_weights
@@ -213,7 +327,7 @@ func _choose_best_action(gsm: GameStateMachine) -> Dictionary:
 	trace.turn_number = int(gsm.game_state.turn_number) if gsm != null and gsm.game_state != null else -1
 	trace.phase = str(gsm.game_state.phase) if gsm != null and gsm.game_state != null else ""
 	trace.player_index = player_index
-	trace.state_features = StateEncoderScript.encode(gsm.game_state, player_index) if gsm != null and gsm.game_state != null else []
+	trace.state_features = _encode_state_features(gsm.game_state if gsm != null else null)
 	trace.used_mcts = false
 	trace.legal_actions = actions.duplicate(true)
 	if actions.is_empty():
@@ -273,8 +387,11 @@ func _augment_action_for_scoring(gsm: GameStateMachine, action: Dictionary) -> D
 
 func _build_trace_scored_actions(gsm: GameStateMachine, actions: Array[Dictionary]) -> Array[Dictionary]:
 	_heuristics.weights = heuristic_weights
-	var state_features: Array = StateEncoderScript.encode(gsm.game_state, player_index) if gsm != null and gsm.game_state != null else []
+	var state_features: Array = _encode_state_features(gsm.game_state if gsm != null else null)
 	var scored_actions: Array[Dictionary] = []
+	var teacher_estimates: Array[Dictionary] = []
+	if _should_collect_action_teachers():
+		teacher_estimates = _estimate_action_teachers(gsm, actions)
 	for action: Dictionary in actions:
 		var scored_action: Dictionary = _augment_action_for_scoring(gsm, action)
 		var score_context := {
@@ -295,6 +412,7 @@ func _build_trace_scored_actions(gsm: GameStateMachine, actions: Array[Dictionar
 		trace_scored_action["learned_action_score"] = learned_action_score
 		trace_scored_action["features"] = score_context["features"].duplicate(true)
 		scored_actions.append(trace_scored_action)
+	_annotate_scored_actions_with_teacher(scored_actions, teacher_estimates)
 	return scored_actions
 
 
@@ -305,10 +423,43 @@ func _score_action_with_action_scorer(action_kind: String, state_features: Array
 	if not (action_vector_variant is Array) or (action_vector_variant as Array).is_empty():
 		return 0.0
 	_ensure_action_scorer_loaded()
-	if _action_scorer == null or not _action_scorer.has_method("score"):
+	if _action_scorer == null or not _action_scorer.has_method("score_delta"):
 		return 0.0
-	var prediction: float = float(_action_scorer.call("score", state_features, action_vector_variant))
-	return (prediction - 0.5) * ACTION_SCORER_SCORE_SCALE
+	return float(_action_scorer.call("score_delta", state_features, action_vector_variant, action_kind))
+
+
+func _should_collect_action_teachers() -> bool:
+	return _decision_exporter != null
+
+
+func _estimate_action_teachers(gsm: GameStateMachine, actions: Array[Dictionary]) -> Array[Dictionary]:
+	if gsm == null or gsm.game_state == null or _mcts_planner == null:
+		return []
+	_mcts_planner.deck_strategy = _deck_strategy
+	_mcts_planner.value_net = _value_net
+	_mcts_planner.state_encoder_class = _get_state_encoder_class()
+	if not _mcts_planner.has_method("estimate_action_teachers"):
+		return []
+	return _mcts_planner.call("estimate_action_teachers", gsm, player_index, actions)
+
+
+func _annotate_scored_actions_with_teacher(scored_actions: Array[Dictionary], teacher_estimates: Array[Dictionary]) -> void:
+	if scored_actions.is_empty() or teacher_estimates.is_empty():
+		return
+	for index: int in mini(scored_actions.size(), teacher_estimates.size()):
+		var estimate: Dictionary = teacher_estimates[index]
+		if estimate.is_empty():
+			continue
+		scored_actions[index]["teacher_available"] = bool(estimate.get("available", false))
+		scored_actions[index]["teacher_baseline_value"] = float(estimate.get("baseline_value", 0.5))
+		if bool(estimate.get("available", false)):
+			scored_actions[index]["teacher_post_value"] = float(estimate.get("post_value", 0.5))
+			scored_actions[index]["teacher_value_delta"] = float(estimate.get("value_delta", 0.0))
+			scored_actions[index]["teacher_game_over_after"] = bool(estimate.get("game_over_after", false))
+			scored_actions[index]["teacher_turn_number_after"] = int(estimate.get("turn_number_after", -1))
+			scored_actions[index]["teacher_current_player_after"] = int(estimate.get("current_player_after", -1))
+		else:
+			scored_actions[index]["teacher_reason"] = str(estimate.get("reason", ""))
 
 
 func _record_decision_trace_from_choice(
@@ -322,7 +473,7 @@ func _record_decision_trace_from_choice(
 	trace.turn_number = int(gsm.game_state.turn_number) if gsm != null and gsm.game_state != null else -1
 	trace.phase = str(gsm.game_state.phase) if gsm != null and gsm.game_state != null else ""
 	trace.player_index = player_index
-	trace.state_features = StateEncoderScript.encode(gsm.game_state, player_index) if gsm != null and gsm.game_state != null else []
+	trace.state_features = _encode_state_features(gsm.game_state if gsm != null else null)
 	trace.used_mcts = used_mcts
 	trace.legal_actions = actions.duplicate(true)
 	trace.scored_actions = scored_actions.duplicate(true)
@@ -420,8 +571,8 @@ func _execute_action(battle_scene: Control, gsm: GameStateMachine, action: Dicti
 		"play_trainer":
 			if bool(action.get("requires_interaction", false)):
 				if battle_scene != null and battle_scene.has_method("_try_play_trainer_with_interaction"):
-					battle_scene.call("_try_play_trainer_with_interaction", player_index, action.get("card"))
-					return true
+					var trainer_result: Variant = battle_scene.call("_try_play_trainer_with_interaction", player_index, action.get("card"))
+					return bool(trainer_result) if typeof(trainer_result) == TYPE_BOOL else true
 				return false
 			if gsm.play_trainer(player_index, action.get("card"), action.get("targets", [])):
 				_after_successful_action(battle_scene)
@@ -429,8 +580,8 @@ func _execute_action(battle_scene: Control, gsm: GameStateMachine, action: Dicti
 		"play_stadium":
 			if bool(action.get("requires_interaction", false)):
 				if battle_scene != null and battle_scene.has_method("_try_play_stadium_with_interaction"):
-					battle_scene.call("_try_play_stadium_with_interaction", player_index, action.get("card"))
-					return true
+					var stadium_result: Variant = battle_scene.call("_try_play_stadium_with_interaction", player_index, action.get("card"))
+					return bool(stadium_result) if typeof(stadium_result) == TYPE_BOOL else true
 				return false
 			if gsm.play_stadium(player_index, action.get("card"), action.get("targets", [])):
 				_after_successful_action(battle_scene)
@@ -438,13 +589,13 @@ func _execute_action(battle_scene: Control, gsm: GameStateMachine, action: Dicti
 		"use_ability":
 			if bool(action.get("requires_interaction", false)):
 				if battle_scene != null and battle_scene.has_method("_try_use_ability_with_interaction"):
-					battle_scene.call(
+					var ability_result: Variant = battle_scene.call(
 						"_try_use_ability_with_interaction",
 						player_index,
 						action.get("source_slot"),
 						int(action.get("ability_index", 0))
 					)
-					return true
+					return bool(ability_result) if typeof(ability_result) == TYPE_BOOL else true
 				return false
 			if gsm.use_ability(player_index, action.get("source_slot"), int(action.get("ability_index", 0)), action.get("targets", [])):
 				_after_successful_action(battle_scene, true)
@@ -457,15 +608,28 @@ func _execute_action(battle_scene: Control, gsm: GameStateMachine, action: Dicti
 			if bool(action.get("requires_interaction", false)):
 				if battle_scene != null and battle_scene.has_method("_try_use_attack_with_interaction"):
 					var player: PlayerState = gsm.game_state.players[player_index]
-					battle_scene.call(
+					var attack_result: Variant = battle_scene.call(
 						"_try_use_attack_with_interaction",
 						player_index,
 						player.active_pokemon,
 						int(action.get("attack_index", -1))
 					)
-					return true
+					return bool(attack_result) if typeof(attack_result) == TYPE_BOOL else true
 				return false
 			if gsm.use_attack(player_index, int(action.get("attack_index", -1)), action.get("targets", [])):
+				_after_successful_action(battle_scene, true)
+				return true
+		"granted_attack":
+			var ga_data: Dictionary = action.get("granted_attack_data", {})
+			var ga_slot: PokemonSlot = action.get("source_slot")
+			if ga_slot == null:
+				ga_slot = gsm.game_state.players[player_index].active_pokemon
+			if bool(action.get("requires_interaction", false)):
+				if battle_scene != null and battle_scene.has_method("_try_use_granted_attack_with_interaction"):
+					var granted_result: Variant = battle_scene.call("_try_use_granted_attack_with_interaction", player_index, ga_slot, ga_data)
+					return bool(granted_result) if typeof(granted_result) == TYPE_BOOL else true
+				return false
+			if gsm.use_granted_attack(player_index, ga_slot, ga_data, action.get("targets", [])):
 				_after_successful_action(battle_scene, true)
 				return true
 		"end_turn":
@@ -522,17 +686,93 @@ func _run_send_out_step(battle_scene: Control, gsm: GameStateMachine) -> bool:
 			bench_slots.append(slot_variant)
 	if bench_slots.is_empty():
 		bench_slots = gsm.game_state.players[send_out_player_index].bench.duplicate()
-	for bench_slot: PokemonSlot in bench_slots:
-		if gsm.send_out_pokemon(send_out_player_index, bench_slot):
-			_clear_consumed_prompt(battle_scene)
-			if GameManager.current_mode != GameManager.GameMode.VS_AI:
+	# 选最优后备宝可梦上前场：就绪攻击手 > 有能量的 > 其他
+	var best_slot: PokemonSlot = _pick_best_send_out(bench_slots, gsm)
+	if best_slot != null:
+		if gsm.send_out_pokemon(send_out_player_index, best_slot):
+			if str(battle_scene.get("_pending_choice")) == "send_out":
+				_clear_consumed_prompt(battle_scene)
+			var game_manager = AutoloadResolverScript.get_game_manager()
+			if game_manager != null and game_manager.current_mode != game_manager.GameMode.VS_AI:
 				battle_scene.set("_view_player", gsm.game_state.current_player_index)
 			if battle_scene.has_method("_refresh_ui_after_successful_action"):
 				battle_scene.call("_refresh_ui_after_successful_action", true)
 			elif battle_scene.has_method("_refresh_ui"):
 				battle_scene.call("_refresh_ui")
 			return true
+	# 兜底：按顺序尝试
+	for bench_slot: PokemonSlot in bench_slots:
+		if gsm.send_out_pokemon(send_out_player_index, bench_slot):
+			if str(battle_scene.get("_pending_choice")) == "send_out":
+				_clear_consumed_prompt(battle_scene)
+			if battle_scene.has_method("_refresh_ui_after_successful_action"):
+				battle_scene.call("_refresh_ui_after_successful_action", true)
+			return true
 	return false
+
+
+func _run_heavy_baton_step(battle_scene: Control, gsm: GameStateMachine) -> bool:
+	if battle_scene == null or gsm == null or gsm.game_state == null:
+		return false
+	var dialog_data: Dictionary = battle_scene.get("_dialog_data")
+	var player_index_hb: int = int(dialog_data.get("player", -1))
+	if player_index_hb != player_index or player_index_hb >= gsm.game_state.players.size():
+		return false
+	var bench_raw: Array = dialog_data.get("bench", [])
+	var bench_slots: Array[PokemonSlot] = []
+	for slot_variant: Variant in bench_raw:
+		if slot_variant is PokemonSlot:
+			bench_slots.append(slot_variant)
+	if bench_slots.is_empty():
+		return false
+	var best_slot: PokemonSlot = _pick_best_send_out(bench_slots, gsm)
+	if best_slot == null:
+		best_slot = bench_slots[0]
+	if str(battle_scene.get("_pending_choice")) == "heavy_baton_target":
+		_clear_consumed_prompt(battle_scene)
+	if gsm.resolve_heavy_baton_choice(player_index_hb, best_slot):
+		if battle_scene.has_method("_refresh_ui_after_successful_action"):
+			battle_scene.call("_refresh_ui_after_successful_action")
+		elif battle_scene.has_method("_refresh_ui"):
+			battle_scene.call("_refresh_ui")
+		return true
+	return false
+
+
+func _pick_best_send_out(bench_slots: Array[PokemonSlot], gsm: GameStateMachine) -> PokemonSlot:
+	## 选最优宝可梦上前场：有攻击力的攻击手 > 有能量的 > 引擎 > 辅助
+	var best: PokemonSlot = null
+	var best_score: float = -1.0
+	for slot: PokemonSlot in bench_slots:
+		if slot == null or slot.get_top_card() == null:
+			continue
+		var score: float = 0.0
+		var name: String = slot.get_pokemon_name()
+		# 攻击手有攻击力 → 最高优先
+		if _deck_strategy != null and _deck_strategy.has_method("predict_attacker_damage"):
+			var pred: Dictionary = _deck_strategy.predict_attacker_damage(slot)
+			var dmg: int = int(pred.get("damage", 0))
+			var can_atk: bool = bool(pred.get("can_attack", false))
+			if dmg > 0 and can_atk:
+				score = 500.0 + float(dmg)  # 攻击力越高越优先
+			elif slot.attached_energy.size() >= 1:
+				score = 200.0 + float(slot.attached_energy.size()) * 20.0
+		elif slot.attached_energy.size() >= 1:
+			score = 200.0 + float(slot.attached_energy.size()) * 20.0
+		# 非攻击手基础分
+		if score <= 0.0:
+			# 控制型 > 引擎 > 辅助（不想把核心引擎放前场挨打）
+			var cd: CardData = slot.get_card_data()
+			if cd != null and (cd.mechanic == "ex" or cd.mechanic == "V"):
+				score = 10.0  # ex/V 尽量不上前场（被击倒丢2张奖品）
+			elif name == "钥圈儿" or name == "振翼发":
+				score = 80.0  # 控制型可以挡
+			else:
+				score = 50.0  # 其他
+		if score > best_score:
+			best_score = score
+			best = slot
+	return best
 
 
 func _clear_consumed_prompt(battle_scene: Control) -> void:
@@ -553,7 +793,7 @@ func _choose_mcts_action(gsm: GameStateMachine) -> Dictionary:
 		_mcts_planner.value_net = _value_net
 		_ensure_action_scorer_loaded()
 		_mcts_planner.action_scorer = _action_scorer
-		_mcts_planner.state_encoder_class = StateEncoderScript
+		_mcts_planner.state_encoder_class = _get_state_encoder_class()
 	## 如果还有预规划的序列动作，继续执行
 	if _mcts_sequence_index < _mcts_planned_sequence.size():
 		var planned_action: Dictionary = _mcts_planned_sequence[_mcts_sequence_index]
@@ -631,6 +871,83 @@ func _choose_mcts_action(gsm: GameStateMachine) -> Dictionary:
 	_mcts_planned_sequence.clear()
 	_mcts_sequence_index = 0
 	return _choose_heuristic_action(gsm)
+
+
+func _choose_greedy_strategy_action(gsm: GameStateMachine) -> Dictionary:
+	## v7.2 统一评估循环：所有动作（setup/attack/retreat）在同一标尺竞争
+	## 不再分 setup → attack 两阶段，避免低价值 setup 阻挡高价值 attack
+	var actions: Array[Dictionary] = get_legal_actions(gsm)
+	var end_turn_action: Dictionary = {}
+	var scoreable_actions: Array[Dictionary] = []
+	for a: Dictionary in actions:
+		if str(a.get("kind", "")) == "end_turn":
+			end_turn_action = a
+		else:
+			scoreable_actions.append(a)
+	# 统一评估：所有动作竞争，选最高分
+	var best: Dictionary = _pick_best_absolute(scoreable_actions, gsm)
+	if float(best.get("score", 0.0)) > 0.0:
+		var chosen: Dictionary = best.get("action", {})
+		# 攻击/granted_attack 是终结动作 — 执行前记录 trace
+		var scored_actions: Array[Dictionary] = _build_trace_scored_actions(gsm, actions)
+		_record_decision_trace_from_choice(gsm, actions, scored_actions, chosen, false)
+		return chosen
+	# 所有动作 ≤ 0 → end_turn
+	if not end_turn_action.is_empty():
+		var scored_actions: Array[Dictionary] = _build_trace_scored_actions(gsm, actions)
+		_record_decision_trace_from_choice(gsm, actions, scored_actions, end_turn_action, false)
+		return end_turn_action
+	return {}
+
+
+func _pick_best_absolute(candidate_actions: Array[Dictionary], gsm: GameStateMachine) -> Dictionary:
+	## 返回 {action, score}，score = 绝对分
+	var scored_candidates: Array[Dictionary] = []
+	var state_features: Array = _encode_state_features(gsm.game_state if gsm != null else null)
+	for a: Dictionary in candidate_actions:
+		var augmented: Dictionary = _augment_action_for_scoring(gsm, a)
+		var absolute_score: float = _deck_strategy.score_action_absolute(augmented, gsm.game_state, player_index)
+		var features: Dictionary = _feature_extractor.build_context(gsm, player_index, augmented)
+		var learned_action_score: float = _score_action_with_action_scorer(
+			str(augmented.get("kind", "")),
+			state_features,
+			features
+		)
+		scored_candidates.append({
+			"action": a,
+			"score": absolute_score + learned_action_score,
+			"absolute_score": absolute_score,
+			"learned_action_score": learned_action_score,
+		})
+	return _pick_best_scored_absolute(scored_candidates)
+
+
+func _pick_best_scored_absolute(scored_candidates: Array[Dictionary]) -> Dictionary:
+	var best: Dictionary = {"action": {}, "score": 0.0}
+	if scored_candidates.is_empty():
+		return best
+	var positive_setup_count: int = 0
+	for entry: Dictionary in scored_candidates:
+		var action: Dictionary = entry.get("action", {})
+		var score: float = float(entry.get("score", 0.0))
+		if score > 0.0 and _is_combo_setup_action(str(action.get("kind", ""))):
+			positive_setup_count += 1
+	for entry: Dictionary in scored_candidates:
+		var action: Dictionary = entry.get("action", {})
+		var score: float = float(entry.get("score", 0.0))
+		var effective_score: float = score
+		var kind: String = str(action.get("kind", ""))
+		if positive_setup_count >= 2 and kind in ["play_trainer", "evolve", "use_ability"]:
+			effective_score += 40.0
+		if positive_setup_count >= 3 and kind in ["play_trainer", "evolve"]:
+			effective_score += 20.0
+		if best.get("action", {}).is_empty() or effective_score > float(best.get("score", 0.0)):
+			best = {"action": action, "score": effective_score}
+	return best
+
+
+func _is_combo_setup_action(kind: String) -> bool:
+	return kind in ["play_trainer", "evolve", "use_ability", "attach_energy", "play_basic_to_bench"]
 
 
 func _choose_heuristic_action(gsm: GameStateMachine) -> Dictionary:
@@ -771,3 +1088,53 @@ func _mcts_log_to_file(msg: String) -> void:
 		file.seek_end()
 		file.store_line(msg)
 		file.close()
+
+
+func _detect_and_load_deck_strategy(player: PlayerState) -> void:
+	if _deck_strategy_detected:
+		return
+	_deck_strategy_detected = true
+	if player == null:
+		return
+	set_deck_strategy(_deck_strategy_registry.create_strategy_for_player(player))
+	return
+	if player == null:
+		return
+	# 检查手牌 + 牌库中是否有沙奈朵卡组签名卡
+	var has_gardevoir_sig: bool = false
+	for card: CardInstance in player.hand:
+		if card != null and card.card_data != null:
+			var name: String = str(card.card_data.name)
+			if name == "沙奈朵ex" or name == "奇鲁莉安" or name == "拉鲁拉丝":
+				has_gardevoir_sig = true
+				break
+	if not has_gardevoir_sig:
+		for card: CardInstance in player.deck:
+			if card != null and card.card_data != null:
+				var name: String = str(card.card_data.name)
+				if name == "沙奈朵ex" or name == "奇鲁莉安":
+					has_gardevoir_sig = true
+					break
+	if has_gardevoir_sig:
+		_deck_strategy = DeckStrategyGardevoirScript.new()
+		return
+	# 检查密勒顿卡组签名卡
+	var has_miraidon_sig: bool = false
+	for card: CardInstance in player.hand:
+		if card != null and card.card_data != null:
+			var name: String = str(card.card_data.name)
+			if name == "密勒顿ex" or name == "Miraidon ex":
+				has_miraidon_sig = true
+				break
+	if not has_miraidon_sig:
+		for card: CardInstance in player.deck:
+			if card != null and card.card_data != null:
+				var name: String = str(card.card_data.name)
+				if name == "密勒顿ex" or name == "Miraidon ex":
+					has_miraidon_sig = true
+					break
+	if has_miraidon_sig:
+		_deck_strategy = DeckStrategyMiraidonScript.new()
+	# 同步策略到 step_resolver，指导交互选择（搜索目标、贴能目标等）
+	if _deck_strategy != null:
+		_step_resolver.deck_strategy = _deck_strategy

@@ -14,6 +14,15 @@ func can_execute(card: CardInstance, state: GameState) -> bool:
 	return not state.players[1 - card.owner_index].bench.is_empty()
 
 
+func get_preview_interaction_steps(_card: CardInstance, _state: GameState) -> Array[Dictionary]:
+	return [{
+		"id": "coin_flip_preview",
+		"title": "Flip a coin",
+		"wait_for_coin_animation": true,
+		"preview_only": true,
+	}]
+
+
 func get_interaction_steps(card: CardInstance, state: GameState) -> Array[Dictionary]:
 	_pending_heads = coin_flipper.flip()
 	_has_pending_flip = true
@@ -57,6 +66,7 @@ func execute(card: CardInstance, targets: Array, state: GameState) -> void:
 
 	var old_active: PokemonSlot = opponent.active_pokemon
 	opponent.bench.erase(chosen)
+	old_active.clear_on_leave_active()
 	opponent.bench.append(old_active)
 	opponent.active_pokemon = chosen
 	_has_pending_flip = false

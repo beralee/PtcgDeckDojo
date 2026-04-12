@@ -70,6 +70,7 @@ func execute_ability(
 	opponent.bench.erase(target_slot)
 	opponent.active_pokemon = target_slot
 	if old_active != null:
+		old_active.clear_on_leave_active()
 		opponent.bench.append(old_active)
 
 	player.bench.erase(pokemon)

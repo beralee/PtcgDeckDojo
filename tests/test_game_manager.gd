@@ -53,10 +53,10 @@ func test_battle_review_api_config_uses_defaults_when_file_is_missing() -> Strin
 
 	return run_checks([
 		assert_eq(str(manager.call("get_battle_review_api_config_path")), CONFIG_PATH, "GameManager should expose the fixed user:// config path"),
-		assert_eq(str(config.get("endpoint", "")), "", "missing config file should keep default endpoint"),
+		assert_eq(str(config.get("endpoint", "")), "https://zenmux.ai/api/v1", "missing config file should keep default endpoint"),
 		assert_eq(str(config.get("api_key", "")), "", "missing config file should keep default api_key"),
-		assert_eq(str(config.get("model", "")), "", "missing config file should keep default model"),
-		assert_eq(float(config.get("timeout_seconds", 0.0)), 30.0, "missing config file should keep default timeout"),
+		assert_eq(str(config.get("model", "")), "openai/gpt-5.4", "missing config file should keep default model"),
+		assert_eq(float(config.get("timeout_seconds", 0.0)), 60.0, "missing config file should keep default timeout"),
 	])
 
 
@@ -96,4 +96,24 @@ func test_battle_replay_launch_request_is_one_shot() -> String:
 		assert_eq(str(launch.get("match_dir", "")), "user://match_records/match_a", "Replay launch should preserve match_dir"),
 		assert_eq(int(launch.get("entry_turn_number", 0)), 6, "Replay launch should preserve entry turn"),
 		assert_true((manager.call("consume_battle_replay_launch") as Dictionary).is_empty(), "Replay launch should be one-shot"),
+	])
+
+
+func test_deck_editor_return_context_is_one_shot() -> String:
+	var manager: Node = _load_game_manager_script().new()
+	if not manager.has_method("set_deck_editor_return_context") or not manager.has_method("consume_deck_editor_return_context"):
+		return "GameManager should provide deck editor return context helpers"
+
+	manager.call("set_deck_editor_return_context", {
+		"return_scene": "battle_setup",
+		"deck1_id": 101,
+		"deck2_id": 202,
+	})
+	var context: Dictionary = manager.call("consume_deck_editor_return_context")
+
+	return run_checks([
+		assert_eq(str(context.get("return_scene", "")), "battle_setup", "Deck editor return context should preserve return scene"),
+		assert_eq(int(context.get("deck1_id", 0)), 101, "Deck editor return context should preserve deck1 id"),
+		assert_eq(int(context.get("deck2_id", 0)), 202, "Deck editor return context should preserve deck2 id"),
+		assert_true((manager.call("consume_deck_editor_return_context") as Dictionary).is_empty(), "Deck editor return context should be one-shot"),
 	])

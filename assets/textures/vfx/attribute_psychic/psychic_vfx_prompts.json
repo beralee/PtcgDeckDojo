@@ -1,0 +1,101 @@
+{
+  "attribute": "psychic",
+  "version": "psychic_vfx_prompt_v1",
+  "visual_rule": "Psychic should read as compressed mind pressure: a luminous violet-white core, a cool cyan edge, and thin geometric psionic rings or shard petals. The subject should always stay readable and premium, with no competing lightning, flame, smoke, or fog layers.",
+  "prompts": [
+    {
+      "name": "psychic_charge_orb",
+      "role": "charge",
+      "prompt": "Create a transparent-background 2D battle VFX asset for Pokemon-style Psychic attacks. Show only a compact psionic charge knot: a luminous violet-white core with a cool cyan edge, thin concentric rings, and a few restrained orbiting motes. No character, no Pokemon body, no arena, no UI, no text, no watermark, and no frame. Keep the silhouette compact, centered, premium, and easy to composite in a battle overlay. Use compressed mind pressure rather than fireworks.",
+      "negative_prompt": [
+        "black background",
+        "checkerboard preview pattern",
+        "solid backdrop",
+        "heavy smoke",
+        "fire",
+        "lightning bolt",
+        "lens flare clutter",
+        "character",
+        "arena",
+        "UI",
+        "text",
+        "watermark"
+      ]
+    },
+    {
+      "name": "psychic_travel_core",
+      "role": "travel core",
+      "prompt": "Create a transparent-background 2D battle VFX asset for Pokemon-style Psychic attacks. Show only the main traveling psychic core: a narrow forward-directed psionic stream with a white-violet spine, a cyan rim glow, and subtle pulse segmentation. No character, no Pokemon body, no arena, no UI, no text, no watermark, and no frame. Keep the beam clean, readable, and battle-ready for side-on compositing. Use controlled mind pressure rather than fireworks.",
+      "negative_prompt": [
+        "black background",
+        "checkerboard preview pattern",
+        "solid backdrop",
+        "thick lightning",
+        "flame tongues",
+        "smoke",
+        "muzzle flash",
+        "character",
+        "arena",
+        "UI",
+        "text",
+        "watermark"
+      ]
+    },
+    {
+      "name": "psychic_travel_outer",
+      "role": "travel outer",
+      "prompt": "Create a transparent-background 2D battle VFX asset for Pokemon-style Psychic attacks. Show only the outer psychic shell around a separate core layer: translucent violet and magenta ribbons, soft cyan rim light, and a few broken geometric shards. Leave the center open enough for a separate travel core. No character, no Pokemon body, no arena, no UI, no text, no watermark, and no frame. Keep the shape elegant and readable, not noisy. Use compressed mind pressure rather than fireworks.",
+      "negative_prompt": [
+        "black background",
+        "checkerboard preview pattern",
+        "solid backdrop",
+        "dense fog",
+        "lightning bolt",
+        "fire",
+        "full beam core",
+        "character",
+        "arena",
+        "UI",
+        "text",
+        "watermark"
+      ]
+    },
+    {
+      "name": "psychic_impact_bloom",
+      "role": "impact bloom",
+      "prompt": "Create a transparent-background 2D battle VFX asset for Pokemon-style Psychic attacks. Show only a compact psychic impact bloom: a circular psionic flash with a bright violet-white center, cyan edge glow, thin broken rings, and a few shard-like petals radiating outward. No character, no Pokemon body, no arena, no UI, no text, no watermark, and no frame. Keep the burst concentrated and readable, with a premium battle-hit silhouette. Use compressed mind pressure rather than fireworks.",
+      "negative_prompt": [
+        "black background",
+        "checkerboard preview pattern",
+        "solid backdrop",
+        "fire explosion",
+        "lightning bolt",
+        "smoke cloud",
+        "character",
+        "arena",
+        "UI",
+        "text",
+        "watermark"
+      ]
+    },
+    {
+      "name": "psychic_residue_motes",
+      "role": "residue",
+      "prompt": "Create a transparent-background 2D battle VFX asset for Pokemon-style Psychic attacks. Show only the fading psychic residue: small floating motes, faint broken rings, and thin afterimage wisps in violet, magenta, and cyan. No character, no Pokemon body, no arena, no UI, no text, no watermark, and no frame. Keep the afterglow subtle and elegant, suitable for quick cleanup after impact. Use compressed mind pressure rather than fireworks.",
+      "negative_prompt": [
+        "black background",
+        "checkerboard preview pattern",
+        "solid backdrop",
+        "dense smoke",
+        "fire embers",
+        "lightning bolt",
+        "character",
+        "arena",
+        "UI",
+        "text",
+        "watermark"
+      ]
+    }
+  ]
+}
+

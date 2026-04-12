@@ -52,14 +52,11 @@ func execute_ability(
 	var player: PlayerState = state.players[pi]
 
 	# 将手牌全部弃置（放入弃牌区）
-	var hand_copy: Array[CardInstance] = []
-	hand_copy.append_array(player.hand)
-	player.hand.clear()
-	for card: CardInstance in hand_copy:
-		player.discard_card(card)
+	var hand_copy: Array[CardInstance] = player.hand.duplicate()
+	_discard_cards_from_hand_with_log(state, pi, hand_copy, top, "ability")
 
 	# 从牌库抽指定数量的牌
-	player.draw_cards(draw_count)
+	_draw_cards_with_log(state, top.owner_index, draw_count, top, "ability")
 
 	# 标记此特性已使用（整局生效，不限回合号）
 	pokemon.effects.append({

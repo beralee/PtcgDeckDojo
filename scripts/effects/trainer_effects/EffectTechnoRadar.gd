@@ -77,10 +77,7 @@ func execute(card: CardInstance, targets: Array, state: GameState) -> void:
 				break
 			if hand_card != card and hand_card not in discard_cards:
 				discard_cards.append(hand_card)
-	for discarded: CardInstance in discard_cards:
-		if discarded in player.hand:
-			player.hand.erase(discarded)
-			player.discard_pile.append(discarded)
+	_discard_cards_from_hand_with_log(state, card.owner_index, discard_cards, card, "trainer")
 
 	var selected_raw: Array = ctx.get("search_future_pokemon", [])
 	var has_explicit_selection: bool = ctx.has("search_future_pokemon")
@@ -97,11 +94,15 @@ func execute(card: CardInstance, targets: Array, state: GameState) -> void:
 			if selected_cards.size() >= 2:
 				break
 
-	for selected_card: CardInstance in selected_cards:
-		if selected_card in player.deck:
-			player.deck.erase(selected_card)
-			selected_card.face_up = true
-			player.hand.append(selected_card)
+	_move_public_cards_to_hand_with_log(
+		state,
+		card.owner_index,
+		selected_cards,
+		card,
+		"trainer",
+		"search_to_hand",
+		["未来宝可梦"]
+	)
 
 	player.shuffle_deck()
 

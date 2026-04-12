@@ -1,0 +1,8 @@
+{
+  "asset_name": "residue_sparks",
+  "role": "residue",
+  "output_path": "assets/textures/vfx/attribute_lightning/residue/residue_sparks.png",
+  "generation_method": "procedural_pillow",
+  "visual_rule": "Fading electric residue with small motes, soft arcs, and a compact lingering center.",
+  "prompt": "Create a transparent-background 2D battle VFX asset for Pokemon-style lightning attacks. Show only the effect element, with no character, arena, text, UI, watermark, or frame. Use a fading spark residue made of small electric motes, soft arcs, and a few lingering bright fragments around a compact center. Keep contrast lower than the impact bloom but still crisp enough to read in battle. Preserve real electric energy structure but stylize the outline and color. Output a single isolated effect element on transparency."
+}

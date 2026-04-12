@@ -2,9 +2,6 @@
 class_name AttackSwitchSelfToBench
 extends BaseEffect
 
-const AttackSelfLockUntilLeaveActive = preload("res://scripts/effects/pokemon_effects/AttackSelfLockUntilLeaveActive.gd")
-
-
 func get_attack_interaction_steps(
 	card: CardInstance,
 	_attack: Dictionary,
@@ -57,7 +54,7 @@ func execute_attack(
 	var bench_idx: int = player.bench.find(target)
 	if bench_idx < 0:
 		return
-	AttackSelfLockUntilLeaveActive.clear_for_slot(attacker)
+	attacker.clear_on_leave_active()
 	player.bench[bench_idx] = attacker
 	player.active_pokemon = target
 

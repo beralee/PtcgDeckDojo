@@ -4,6 +4,7 @@ class_name GameStateMachine
 extends RefCounted
 
 const BenchLimit = preload("res://scripts/engine/BenchLimitHelper.gd")
+const AutoloadResolverScript = preload("res://scripts/engine/AutoloadResolver.gd")
 
 const AbilityAttachFromDeckEffect = preload("res://scripts/effects/pokemon_effects/AbilityAttachFromDeck.gd")
 
@@ -41,12 +42,15 @@ var _pending_prize_knockout_is_active: bool = false
 var _pending_prize_resume_mode: String = ""
 var _pending_prize_resume_player_index: int = -1
 
+const MAX_SETUP_MULLIGAN_LOOPS: int = 64
+
 
 func _init() -> void:
 	coin_flipper = CoinFlipper.new()
 	rule_validator = RuleValidator.new()
 	damage_calculator = DamageCalculator.new()
 	effect_processor = EffectProcessor.new(coin_flipper)
+	effect_processor.bind_game_state_machine(self)
 	game_state = GameState.new()
 
 
@@ -59,6 +63,7 @@ func start_game(deck_1: DeckData, deck_2: DeckData, force_first: int = -1) -> vo
 	action_log.clear()
 	_mulligan_counts = [0, 0]
 	effect_processor = EffectProcessor.new(coin_flipper)
+	effect_processor.bind_game_state_machine(self)
 	_clear_pending_prize_choice()
 
 	# 决定先攻
@@ -125,12 +130,16 @@ func _assert_card_totals(context: String) -> void:
 ## 根据 DeckData 构建 CardInstance 牌库并洗牌
 func _build_deck(player_index: int, deck_data: DeckData) -> void:
 	var player: PlayerState = game_state.players[player_index]
+	var card_database = AutoloadResolverScript.get_card_database()
+	if card_database == null:
+		push_error("GameStateMachine: CardDatabase autoload unavailable while building deck")
+		return
 	CardInstance.reset_id_counter()
 	for entry: Dictionary in deck_data.cards:
 		var set_code: String = entry.get("set_code", "")
 		var card_index: String = entry.get("card_index", "")
 		var count: int = entry.get("count", 1)
-		var card_data: CardData = CardDatabase.get_card(set_code, card_index)
+		var card_data: CardData = card_database.get_card(set_code, card_index)
 		if card_data == null:
 			push_warning("GameStateMachine: 找不到卡牌 %s_%s" % [set_code, card_index])
 			continue
@@ -160,36 +169,49 @@ func _deal_initial_hands() -> void:
 
 
 func _check_mulligan() -> void:
-	var needs_mulligan: Array[bool] = [false, false]
-	for pi: int in 2:
-		if not rule_validator.has_basic_pokemon_in_hand(game_state.players[pi]):
-			needs_mulligan[pi] = true
-
-	# 双方都无基础宝可梦：都重来
-	if needs_mulligan[0] and needs_mulligan[1]:
+	var loop_count: int = 0
+	while true:
+		var needs_mulligan: Array[bool] = [false, false]
 		for pi: int in 2:
-			_do_mulligan(pi)
-		_check_mulligan()
-		return
+			if not rule_validator.has_basic_pokemon_in_hand(game_state.players[pi]):
+				needs_mulligan[pi] = true
 
-	# 处理单方Mulligan
-	for pi: int in 2:
-		if needs_mulligan[pi]:
+		if not needs_mulligan[0] and not needs_mulligan[1]:
+			player_choice_required.emit("setup_ready", {})
+			return
+
+		if needs_mulligan[0] and needs_mulligan[1]:
+			if not _player_can_recover_from_mulligan(0) and not _player_can_recover_from_mulligan(1):
+				_abort_invalid_setup(-1, "双方牌库与手牌中均无基础宝可梦，无法完成开局")
+				return
+			if not _player_can_recover_from_mulligan(0):
+				_abort_invalid_setup(1, "玩家1的牌库与手牌中均无基础宝可梦")
+				return
+			if not _player_can_recover_from_mulligan(1):
+				_abort_invalid_setup(0, "玩家2的牌库与手牌中均无基础宝可梦")
+				return
+			for pi: int in 2:
+				_do_mulligan(pi)
+			loop_count += 1
+			if loop_count >= MAX_SETUP_MULLIGAN_LOOPS:
+				_abort_invalid_setup(-1, "Mulligan 次数异常过多，终止无效开局")
+				return
+			continue
+
+		for pi: int in 2:
+			if not needs_mulligan[pi]:
+				continue
+			if not _player_can_recover_from_mulligan(pi):
+				_abort_invalid_setup(1 - pi, "玩家%d的牌库与手牌中均无基础宝可梦" % (pi + 1))
+				return
 			_do_mulligan(pi)
 			var opp_index: int = 1 - pi
 			_mulligan_counts[pi] += 1
-			# 对手可选择额外抽1张
-			if _mulligan_counts[pi] > 0:
-				# 通知UI让对手选择是否额外抽牌
-				player_choice_required.emit("mulligan_extra_draw", {
-					"beneficiary": opp_index,
-					"mulligan_count": _mulligan_counts[pi]
-				})
-				# 注意：实际等待玩家选择后由 resolve_mulligan_choice() 继续
-				return
-
-	# 所有玩家手牌中都有基础宝可梦，等待UI调用 begin_setup_placement()
-	player_choice_required.emit("setup_ready", {})
+			player_choice_required.emit("mulligan_extra_draw", {
+				"beneficiary": opp_index,
+				"mulligan_count": _mulligan_counts[pi]
+			})
+			return
 
 
 ## 执行Mulligan：将手牌放回牌库，重新洗牌并抽7张
@@ -217,6 +239,9 @@ func resolve_mulligan_choice(beneficiary: int, draw_extra: bool) -> void:
 	# 检查重抽后是否还需要Mulligan
 	var mulligan_player: int = 1 - beneficiary
 	if not rule_validator.has_basic_pokemon_in_hand(game_state.players[mulligan_player]):
+		if not _player_can_recover_from_mulligan(mulligan_player):
+			_abort_invalid_setup(beneficiary, "玩家%d的牌库与手牌中均无基础宝可梦" % (mulligan_player + 1))
+			return
 		_do_mulligan(mulligan_player)
 		_mulligan_counts[mulligan_player] += 1
 		player_choice_required.emit("mulligan_extra_draw", {
@@ -319,6 +344,10 @@ func _start_turn() -> void:
 		{"turn": game_state.turn_number}, "第%d回合开始，玩家%d行动" % [game_state.turn_number, cp + 1])
 
 	_enter_phase(GameState.GamePhase.DRAW)
+
+	if game_state.is_first_turn_of_first_player():
+		_enter_phase(GameState.GamePhase.MAIN)
+		return
 
 	# 抽牌
 	var drawn: Array[CardInstance] = game_state.players[cp].draw_cards(1)
@@ -431,12 +460,12 @@ func _finalize_knockout(player_index: int, slot: PokemonSlot, is_active: bool) -
 
 	# 馈赠能量：附着宝可梦昏厥时，拥有者抽卡到手牌7张
 	if EffectGiftEnergy.check_gift_energy_on_knockout(slot):
-		var hand_before: int = player.hand.size()
-		EffectGiftEnergy.trigger_on_knockout(player)
-		var drawn: int = player.hand.size() - hand_before
-		if drawn > 0:
-			_log_action(GameAction.ActionType.DRAW_CARD, player_index,
-				{"count": drawn}, "馈赠能量生效：抽取%d张卡牌（手牌到7张）" % drawn)
+		var gift_energy: CardInstance = null
+		for energy: CardInstance in slot.attached_energy:
+			if energy != null and energy.card_data != null and energy.card_data.effect_id == "dbb3f3d2ef2f3372bc8b21336e6c9bc6":
+				gift_energy = energy
+				break
+		draw_cards_for_effect(player_index, EffectGiftEnergy.get_draw_count(player), gift_energy, "energy")
 
 	# 学习装置：战斗位昏厥时转移1张基本能量到持有学习装置的备战宝可梦
 	if is_active:
@@ -454,6 +483,9 @@ func _finalize_knockout(player_index: int, slot: PokemonSlot, is_active: bool) -
 		{"pokemon_name": pokemon_name, "prize_count": prize_count},
 		"玩家%d的 %s 昏厥" % [player_index + 1, pokemon_name])
 
+	var has_live_replacement: bool = _has_available_replacement(player_index)
+	var has_other_pending_knockouts: bool = _has_pending_knockouts()
+
 	# 对手拿取奖赏卡
 	var prizes_taken: Array[CardInstance] = []
 	var available_prizes: int = game_state.players[opp_index].prizes.size()
@@ -464,12 +496,15 @@ func _finalize_knockout(player_index: int, slot: PokemonSlot, is_active: bool) -
 		_pending_prize_knocked_out_player_index = player_index
 		_pending_prize_knockout_is_active = is_active
 		if is_active:
-			if game_state.players[player_index].bench.is_empty():
-				_pending_prize_resume_mode = "game_over"
-				_pending_prize_resume_player_index = opp_index
-			else:
+			if has_live_replacement:
 				_pending_prize_resume_mode = "send_out"
 				_pending_prize_resume_player_index = player_index
+			elif has_other_pending_knockouts:
+				_pending_prize_resume_mode = "resume_check"
+				_pending_prize_resume_player_index = player_index
+			else:
+				_pending_prize_resume_mode = "game_over"
+				_pending_prize_resume_player_index = opp_index
 		elif _knockout_return_to_main:
 			_pending_prize_resume_mode = "resume_main"
 			_pending_prize_resume_player_index = player_index
@@ -511,15 +546,17 @@ func _finalize_knockout(player_index: int, slot: PokemonSlot, is_active: bool) -
 
 	# 战斗宝可梦昏厥需要派出替换宝可梦
 	if is_active:
-		if game_state.players[player_index].bench.is_empty():
-			# 无备战宝可梦，对手获胜
-			_trigger_game_over(opp_index, "对手无宝可梦可派出")
-		else:
+		if has_live_replacement:
 			_enter_phase(GameState.GamePhase.KNOCKOUT_REPLACE)
 			player_choice_required.emit("send_out_pokemon", {
 				"player": player_index,
 				"description": "请选择1只备战宝可梦派出"
 			})
+		elif has_other_pending_knockouts:
+			_enter_phase(GameState.GamePhase.POKEMON_CHECK)
+			_check_all_knockouts()
+		else:
+			_trigger_game_over(opp_index, "对手无宝可梦可派出")
 
 
 	return true
@@ -593,6 +630,16 @@ func _clear_pending_prize_choice() -> void:
 	_pending_prize_knockout_is_active = false
 	_pending_prize_resume_mode = ""
 	_pending_prize_resume_player_index = -1
+
+
+func _has_available_replacement(player_index: int) -> bool:
+	if player_index < 0 or player_index >= game_state.players.size():
+		return false
+	var player: PlayerState = game_state.players[player_index]
+	for bench_slot: PokemonSlot in player.bench:
+		if bench_slot != null and not effect_processor.is_effectively_knocked_out(bench_slot, game_state):
+			return true
+	return false
 
 
 func _resolve_prize_take_effect(taken_prize: CardInstance, player: PlayerState) -> int:
@@ -743,6 +790,8 @@ func send_out_pokemon(player_index: int, bench_slot: PokemonSlot) -> bool:
 		return false
 	if not bench_slot in player.bench:
 		return false
+	if effect_processor.is_effectively_knocked_out(bench_slot, game_state):
+		return false
 	if player.active_pokemon != null:
 		return false
 
@@ -789,6 +838,108 @@ func draw_card(player_index: int, count: int = 1) -> Array[CardInstance]:
 		_log_action(GameAction.ActionType.DRAW_CARD, player_index,
 			{"count": drawn.size()}, "玩家%d抽%d张牌" % [player_index + 1, drawn.size()])
 	return drawn
+
+
+func draw_cards_for_effect(
+	player_index: int,
+	count: int,
+	source_card: CardInstance = null,
+	source_kind: String = ""
+) -> Array[CardInstance]:
+	if count <= 0:
+		return []
+	var drawn: Array[CardInstance] = game_state.players[player_index].draw_cards(count)
+	if drawn.is_empty():
+		return drawn
+	_log_action(
+		GameAction.ActionType.DRAW_CARD,
+		player_index,
+		{
+			"count": drawn.size(),
+			"card_names": _card_names_from_cards(drawn),
+			"card_instance_ids": _card_ids_from_cards(drawn),
+			"source_kind": source_kind,
+			"source_card_name": source_card.card_data.name if source_card != null and source_card.card_data != null else "",
+		},
+		"玩家%d从牌库抽了%d张牌" % [player_index + 1, drawn.size()]
+	)
+	return drawn
+
+
+func discard_cards_from_hand_for_effect(
+	player_index: int,
+	cards: Array[CardInstance],
+	source_card: CardInstance = null,
+	source_kind: String = ""
+) -> Array[CardInstance]:
+	if game_state == null or player_index < 0 or player_index >= game_state.players.size():
+		return []
+	var player: PlayerState = game_state.players[player_index]
+	var discarded: Array[CardInstance] = []
+	var seen_ids: Dictionary = {}
+	for card: CardInstance in cards:
+		if card == null or seen_ids.has(card.instance_id) or not (card in player.hand):
+			continue
+		seen_ids[card.instance_id] = true
+		player.remove_from_hand(card)
+		player.discard_card(card)
+		discarded.append(card)
+	if discarded.is_empty():
+		return discarded
+	_log_action(
+		GameAction.ActionType.DISCARD,
+		player_index,
+		{
+			"count": discarded.size(),
+			"card_names": _card_names_from_cards(discarded),
+			"card_instance_ids": _card_ids_from_cards(discarded),
+			"source_zone": "hand",
+			"source_kind": source_kind,
+			"source_card_name": source_card.card_data.name if source_card != null and source_card.card_data != null else "",
+		},
+		"玩家%d从手牌弃置了%d张牌" % [player_index + 1, discarded.size()]
+	)
+	return discarded
+
+
+func move_public_cards_to_hand_for_effect(
+	player_index: int,
+	cards: Array[CardInstance],
+	source_card: CardInstance = null,
+	source_kind: String = "",
+	public_result_kind: String = "search_to_hand",
+	public_result_labels: Array[String] = []
+) -> Array[CardInstance]:
+	if game_state == null or player_index < 0 or player_index >= game_state.players.size():
+		return []
+	var player: PlayerState = game_state.players[player_index]
+	var moved: Array[CardInstance] = []
+	var seen_ids: Dictionary = {}
+	for card: CardInstance in cards:
+		if card == null or seen_ids.has(card.instance_id) or not (card in player.deck):
+			continue
+		seen_ids[card.instance_id] = true
+		player.deck.erase(card)
+		card.face_up = true
+		player.hand.append(card)
+		moved.append(card)
+	if moved.is_empty():
+		return moved
+	_log_action(
+		GameAction.ActionType.PUBLIC_REVEAL,
+		player_index,
+		{
+			"count": moved.size(),
+			"card_names": _card_names_from_cards(moved),
+			"card_instance_ids": _card_ids_from_cards(moved),
+			"source_kind": source_kind,
+			"source_card_name": source_card.card_data.name if source_card != null and source_card.card_data != null else "",
+			"public_result_kind": public_result_kind,
+			"public_result_labels": public_result_labels.duplicate(),
+		},
+		_build_public_cards_to_hand_description(player_index, source_card, moved, public_result_labels)
+	)
+	return moved
 
 
 ## 从手牌放出基础宝可梦到备战区
@@ -892,7 +1043,7 @@ func _try_auto_resolve_on_bench_enter_ability(player_index: int, slot: PokemonSl
 		ability_name = slot.get_pokemon_name()
 	_log_action(GameAction.ActionType.USE_ABILITY, player_index,
 		{"pokemon_name": slot.get_pokemon_name(), "ability_name": ability_name},
-		"Used ability: %s" % ability_name)
+		"玩家%d使用特性「%s」" % [player_index + 1, ability_name])
 
 
 ## 检查目标槽位是否属于指定玩家（活跃或备战区）
@@ -1074,6 +1225,7 @@ func use_stadium_effect(player_index: int, targets: Array = []) -> bool:
 	if effect == null:
 		return false
 
+	game_state.shared_turn_flags["_draw_effect_processor"] = effect_processor
 	effect.execute(stadium_card, targets, game_state)
 	game_state.stadium_effect_used_turn = game_state.turn_number
 	game_state.stadium_effect_used_player = player_index
@@ -1381,6 +1533,30 @@ func _trigger_game_over(winner_index: int, reason: String) -> void:
 	game_over.emit(winner_index, reason)
 
 
+func _abort_invalid_setup(winner_index: int, reason: String) -> void:
+	_enter_phase(GameState.GamePhase.GAME_OVER)
+	game_state.set_game_over(winner_index, reason)
+	if winner_index >= 0:
+		_log_action(GameAction.ActionType.GAME_END, winner_index,
+			{"reason": reason}, "游戏结束，玩家%d获胜（%s）" % [winner_index + 1, reason])
+	else:
+		_log_action(GameAction.ActionType.GAME_END, -1,
+			{"reason": reason}, "游戏终止（%s）" % reason)
+	game_over.emit(winner_index, reason)
+
+
+func _player_can_recover_from_mulligan(player_index: int) -> bool:
+	if game_state == null or player_index < 0 or player_index >= game_state.players.size():
+		return false
+	var player: PlayerState = game_state.players[player_index]
+	if rule_validator.has_basic_pokemon_in_hand(player):
+		return true
+	for card: CardInstance in player.deck:
+		if card != null and card.card_data != null and card.card_data.is_basic_pokemon():
+			return true
+	return false
+
+
 # ===================== 工具方法 =====================
 
 func _enter_phase(phase: GameState.GamePhase) -> void:
@@ -1428,6 +1604,57 @@ func _normalize_draw_action_data(player_index: int, data: Dictionary) -> Diction
 	normalized["card_names"] = card_names
 	normalized["card_instance_ids"] = card_instance_ids
 	return normalized
+
+
+func _card_names_from_cards(cards: Array[CardInstance]) -> Array[String]:
+	var card_names: Array[String] = []
+	for card: CardInstance in cards:
+		card_names.append(card.card_data.name if card != null and card.card_data != null else "")
+	return card_names
+
+
+func _card_ids_from_cards(cards: Array[CardInstance]) -> Array[int]:
+	var card_instance_ids: Array[int] = []
+	for card: CardInstance in cards:
+		card_instance_ids.append(card.instance_id if card != null else -1)
+	return card_instance_ids
+
+
+func _build_public_cards_to_hand_description(
+	player_index: int,
+	source_card: CardInstance,
+	cards: Array[CardInstance],
+	public_result_labels: Array[String]
+) -> String:
+	var source_name: String = source_card.card_data.name if source_card != null and source_card.card_data != null else "效果"
+	return "玩家%d通过%s公开加入手牌：%s" % [
+		player_index + 1,
+		source_name,
+		_format_public_reveal_entries(cards, public_result_labels),
+	]
+
+
+func _format_public_reveal_entries(cards: Array[CardInstance], public_result_labels: Array[String]) -> String:
+	var entries: Array[String] = []
+	for index: int in cards.size():
+		var card: CardInstance = cards[index]
+		var card_name: String = card.card_data.name if card != null and card.card_data != null else ""
+		var label: String = _public_result_label_for_index(public_result_labels, index)
+		if label == "":
+			entries.append(card_name)
+		else:
+			entries.append("%s「%s」" % [label, card_name])
+	return "、".join(entries)
+
+
+func _public_result_label_for_index(public_result_labels: Array[String], index: int) -> String:
+	if public_result_labels.is_empty():
+		return ""
+	if public_result_labels.size() == 1:
+		return public_result_labels[0]
+	if index < public_result_labels.size():
+		return public_result_labels[index]
+	return ""
 
 
 ## 获取当前游戏状态（只读引用）
@@ -1478,7 +1705,7 @@ func use_ability(
 
 	_log_action(GameAction.ActionType.USE_ABILITY, player_index,
 		{"pokemon_name": pokemon.get_pokemon_name(), "ability_name": ability_name},
-		"Used ability: %s" % ability_name)
+		"玩家%d使用特性「%s」" % [player_index + 1, ability_name])
 	if _resolve_mid_turn_knockouts():
 		return true
 	if _should_end_turn_after_ability(player_index, pokemon, ability_index):

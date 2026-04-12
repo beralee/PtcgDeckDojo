@@ -43,10 +43,12 @@ func test_training_run_registry_persists_action_scorer_path() -> String:
 		"candidate_agent_config_path": "user://ai_agents/candidate.json",
 		"candidate_value_net_path": "user://ai_models/value_net_candidate.json",
 		"candidate_action_scorer_path": "user://ai_models/action_scorer_candidate.json",
+		"candidate_interaction_scorer_path": "user://ai_models/interaction_scorer_candidate.json",
 	})
 	var loaded := registry.get_run("run_action_scorer")
 	var result := run_checks([
 		assert_eq(str(loaded.get("candidate_action_scorer_path", "")), "user://ai_models/action_scorer_candidate.json", "run registry should persist candidate action scorer artifacts"),
+		assert_eq(str(loaded.get("candidate_interaction_scorer_path", "")), "user://ai_models/interaction_scorer_candidate.json", "run registry should persist candidate interaction scorer artifacts"),
 	])
 	_cleanup_tree(TEST_RUN_BASE_DIR)
 	return result
@@ -62,12 +64,15 @@ func test_ai_version_registry_preserves_action_scorer_artifacts() -> String:
 		"agent_config_path": "user://ai_agents/agent.json",
 		"value_net_path": "user://ai_models/value_net.json",
 		"action_scorer_path": "user://ai_models/action_scorer.json",
+		"interaction_scorer_path": "user://ai_models/interaction_scorer.json",
 	})
 	var loaded := registry.get_version("AI-action-01")
 	var latest := registry.get_latest_approved_artifacts()
 	var result := run_checks([
 		assert_eq(str(loaded.get("action_scorer_path", "")), "user://ai_models/action_scorer.json", "version registry should persist action scorer artifacts"),
 		assert_eq(str(latest.get("action_scorer_path", "")), "user://ai_models/action_scorer.json", "approved artifact lookup should expose action scorer artifacts"),
+		assert_eq(str(loaded.get("interaction_scorer_path", "")), "user://ai_models/interaction_scorer.json", "version registry should persist interaction scorer artifacts"),
+		assert_eq(str(latest.get("interaction_scorer_path", "")), "user://ai_models/interaction_scorer.json", "approved artifact lookup should expose interaction scorer artifacts"),
 	])
 	_cleanup_tree(TEST_VERSION_BASE_DIR)
 	return result

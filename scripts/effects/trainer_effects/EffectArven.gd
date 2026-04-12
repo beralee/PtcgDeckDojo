@@ -86,15 +86,23 @@ func execute(card: CardInstance, targets: Array, state: GameState) -> void:
 		if found_item != null and found_tool != null:
 			break
 
+	var revealed_cards: Array[CardInstance] = []
+	var public_labels: Array[String] = []
 	if found_item != null:
-		player.deck.erase(found_item)
-		found_item.face_up = true
-		player.hand.append(found_item)
-
+		revealed_cards.append(found_item)
+		public_labels.append("物品")
 	if found_tool != null:
-		player.deck.erase(found_tool)
-		found_tool.face_up = true
-		player.hand.append(found_tool)
+		revealed_cards.append(found_tool)
+		public_labels.append("宝可梦道具")
+	_move_public_cards_to_hand_with_log(
+		state,
+		card.owner_index,
+		revealed_cards,
+		card,
+		"trainer",
+		"search_to_hand",
+		public_labels
+	)
 
 	player.shuffle_deck()
 

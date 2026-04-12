@@ -73,6 +73,12 @@ func is_first_turn_of_first_player() -> bool:
 	return turn_number == 1 and current_player_index == first_player_index
 
 
+func is_first_turn_for_player(player_index: int) -> bool:
+	if player_index == first_player_index:
+		return turn_number == 1
+	return turn_number == 2
+
+
 ## 重置回合内状态（新回合开始时调用）
 func reset_turn_flags() -> void:
 	energy_attached_this_turn = false

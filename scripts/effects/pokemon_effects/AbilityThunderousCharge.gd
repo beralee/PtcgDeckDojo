@@ -46,7 +46,7 @@ func execute_ability(
 	var player: PlayerState = state.players[pi]
 
 	# 抽1张卡
-	player.draw_card()
+	_draw_cards_with_log(state, pi, 1, top, "ability")
 
 	# 记录本回合已使用标记，防止同一回合重复使用
 	var used_flag: Dictionary = {

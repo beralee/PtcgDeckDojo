@@ -168,6 +168,9 @@ func on_handover_confirmed(scene: Object) -> void:
 		var current_player: int = gsm.game_state.current_player_index
 		scene.set("_view_player", current_player)
 		scene.call("_refresh_ui")
+	var draw_reveal_controller: RefCounted = scene.get("_battle_draw_reveal_controller")
+	if draw_reveal_controller != null and draw_reveal_controller.has_method("resume_if_ready"):
+		draw_reveal_controller.call("resume_if_ready", scene)
 	scene.call("_maybe_run_ai")
 	scene.call("_runtime_log", "handover_confirmed", scene.call("_state_snapshot"))
 

@@ -1,0 +1,22 @@
+{
+	"tracks": [
+		{
+			"id": "pokemon_sv_battle_zeiyu",
+			"label": "宝可梦 朱／紫：战斗！ゼイユ",
+			"path": "res://assets/audio/bgm/pokemon_sv_battle_zeiyu.mp3",
+			"source": "builtin"
+		},
+		{
+			"id": "pokemon_sv_battle_gym_leader",
+			"label": "宝可梦 朱／紫：战斗！ジムリーダー",
+			"path": "res://assets/audio/bgm/pokemon_sv_battle_gym_leader.mp3",
+			"source": "builtin"
+		},
+		{
+			"id": "pokemon_sv_battle_star_barrage",
+			"label": "宝可梦 朱／紫：战斗！スター団",
+			"path": "res://assets/audio/bgm/pokemon_sv_battle_star_barrage.mp3",
+			"source": "builtin"
+		}
+	]
+}

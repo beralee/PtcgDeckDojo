@@ -22,6 +22,7 @@ var deck_pairings: Array[Array] = [
 ]
 var value_net_path: String = ""
 var action_scorer_path: String = ""
+var interaction_scorer_path: String = ""
 var progress_output_path: String = ""
 var anomaly_output_path: String = ""
 var export_training_data: bool = false
@@ -69,6 +70,8 @@ static func get_default_config() -> Dictionary:
 			"time_budget_ms": 3000,
 		},
 		"value_net_path": "",
+		"action_scorer_path": "",
+		"interaction_scorer_path": "",
 	}
 
 
@@ -88,6 +91,9 @@ func run(initial_config: Dictionary = {}) -> Dictionary:
 			current_best = {
 				"heuristic_weights": latest.get("heuristic_weights", {}),
 				"mcts_config": latest.get("mcts_config", {}),
+				"value_net_path": str(latest.get("value_net_path", "")),
+				"action_scorer_path": str(latest.get("action_scorer_path", "")),
+				"interaction_scorer_path": str(latest.get("interaction_scorer_path", "")),
 			}
 
 	var generation_log: Array[Dictionary] = []
@@ -126,6 +132,9 @@ func run(initial_config: Dictionary = {}) -> Dictionary:
 		if action_scorer_path != "":
 			mutant_config["action_scorer_path"] = action_scorer_path
 			current_best["action_scorer_path"] = action_scorer_path
+		if interaction_scorer_path != "":
+			mutant_config["interaction_scorer_path"] = interaction_scorer_path
+			current_best["interaction_scorer_path"] = interaction_scorer_path
 		## 导出训练数据时使用更大的步数上限确保对局能完成
 		var effective_max_steps: int = 500 if export_training_data else max_steps_per_match
 		var result: Dictionary = _runner.run_batch(

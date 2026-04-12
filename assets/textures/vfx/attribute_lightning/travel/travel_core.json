@@ -1,0 +1,8 @@
+{
+  "asset_name": "travel_core",
+  "role": "travel core",
+  "output_path": "assets/textures/vfx/attribute_lightning/travel/travel_core.png",
+  "generation_method": "procedural_pillow",
+  "visual_rule": "Short directional lightning streak with a hot core and controlled branching filaments.",
+  "prompt": "Create a transparent-background 2D battle VFX asset for Pokemon-style lightning attacks. Show only the effect element, with no character, arena, text, UI, watermark, or frame. Use a short directional lightning streak with a white-hot center line, cyan glow, and a few controlled branching filaments. Keep the subject compact and readable, not beam-heavy or smoky. Preserve real electric energy structure but stylize the outline and color. Output a single isolated effect element on transparency."
+}

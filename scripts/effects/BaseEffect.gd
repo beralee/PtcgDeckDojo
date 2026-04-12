@@ -32,6 +32,10 @@ func get_interaction_steps(_card: CardInstance, _state: GameState) -> Array[Dict
 	return []
 
 
+func get_preview_interaction_steps(card: CardInstance, state: GameState) -> Array[Dictionary]:
+	return get_interaction_steps(card, state)
+
+
 func get_empty_interaction_message(_card: CardInstance, _state: GameState) -> String:
 	return ""
 
@@ -66,6 +70,83 @@ func get_interaction_context(targets: Array) -> Dictionary:
 		return {}
 	var ctx: Variant = targets[0]
 	return ctx.duplicate(false) if ctx is Dictionary else {}
+
+
+func _draw_cards_with_log(
+	state: GameState,
+	player_index: int,
+	count: int,
+	source_card: CardInstance = null,
+	source_kind: String = ""
+) -> Array[CardInstance]:
+	if state == null:
+		return []
+	var draw_processor: Variant = state.shared_turn_flags.get("_draw_effect_processor", null)
+	if draw_processor != null and draw_processor.has_method("draw_cards_with_log"):
+		return draw_processor.call("draw_cards_with_log", player_index, count, state, source_card, source_kind)
+	if count <= 0:
+		return []
+	return state.players[player_index].draw_cards(count)
+
+
+func _discard_cards_from_hand_with_log(
+	state: GameState,
+	player_index: int,
+	cards: Array[CardInstance],
+	source_card: CardInstance = null,
+	source_kind: String = ""
+) -> Array[CardInstance]:
+	if state == null or cards.is_empty():
+		return []
+	var draw_processor: Variant = state.shared_turn_flags.get("_draw_effect_processor", null)
+	if draw_processor != null and draw_processor.has_method("discard_cards_from_hand_with_log"):
+		return draw_processor.call("discard_cards_from_hand_with_log", player_index, cards, state, source_card, source_kind)
+	var player: PlayerState = state.players[player_index]
+	var discarded: Array[CardInstance] = []
+	for card: CardInstance in cards:
+		if card == null or not (card in player.hand):
+			continue
+		player.remove_from_hand(card)
+		player.discard_card(card)
+		discarded.append(card)
+	return discarded
+
+
+func _move_public_cards_to_hand_with_log(
+	state: GameState,
+	player_index: int,
+	cards: Array[CardInstance],
+	source_card: CardInstance = null,
+	source_kind: String = "",
+	public_result_kind: String = "search_to_hand",
+	public_result_labels: Array[String] = []
+) -> Array[CardInstance]:
+	if state == null or cards.is_empty():
+		return []
+	var draw_processor: Variant = state.shared_turn_flags.get("_draw_effect_processor", null)
+	if draw_processor != null and draw_processor.has_method("move_public_cards_to_hand_with_log"):
+		return draw_processor.call(
+			"move_public_cards_to_hand_with_log",
+			player_index,
+			cards,
+			state,
+			source_card,
+			source_kind,
+			public_result_kind,
+			public_result_labels
+		)
+	var player: PlayerState = state.players[player_index]
+	var moved: Array[CardInstance] = []
+	var seen_ids: Dictionary = {}
+	for card: CardInstance in cards:
+		if card == null or seen_ids.has(card.instance_id) or not (card in player.deck):
+			continue
+		seen_ids[card.instance_id] = true
+		player.deck.erase(card)
+		card.face_up = true
+		player.hand.append(card)
+		moved.append(card)
+	return moved
 
 
 func set_attack_interaction_context(targets: Array) -> void:

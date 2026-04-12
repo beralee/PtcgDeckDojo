@@ -1,0 +1,9 @@
+{
+  "generator": "local_procedural_raster_synthesis",
+  "package_name": "attribute_grass_verdant_burst",
+  "asset_name": "leaf_shard_cluster",
+  "output_path": "assets/textures/vfx/attribute_grass/verdant_burst/leaf_shard_cluster.png",
+  "role": "supporting leaf shard accent",
+  "format": "single layer",
+  "prompt": "Use case: stylized-concept\nAsset type: 2D battle VFX texture for a Pokemon-style grass attack\nPrimary request: create a compact cluster of sharp leaf shard accents for a grass impact burst\nScene/backdrop: transparent background, isolated effect only, no background\nSubject: effect only, no Pokemon body, no arena, no UI\nStyle/medium: premium polished game VFX asset with crisp botanical motion and readable energy structure\nComposition/framing: clustered leaf blades fanning outward from a small center, tightly framed for overlay use, isolated accent layer\nLighting/mood: fresh impact spark, energetic and clean\nColor palette: emerald, lime, pale yellow-green, muted forest-green shadows\nMaterials/textures: sharp leaf edges, subtle vein detail, thin highlights, clean alpha\nConstraints: transparent background, no text, no watermark, no Pokemon body, no trainer, no environment, no card frame\nAvoid: beams, trails, petals, flowers, black background, checkerboard, solid backdrop, overly soft mist\nImportant negative constraints: keep the shards readable at small size, avoid a full bloom explosion, keep the element as a support accent rather than the main subject\n"
+}

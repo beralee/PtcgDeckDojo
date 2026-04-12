@@ -602,11 +602,8 @@ static func _get_attack_effects(processor: EffectProcessor, attack_name: String)
 			# 喷火龙ex：基础180，按对手已拿走的奖赏卡数额外+30/张
 			return [AttackPrizeCountDamage.new(30)]
 		"炎爆":
-			# 弃掉1个火能量，下回合无法使用此招式
-			return [
-				EffectDiscardEnergy.new(1, "R"),
-				AttackSelfLockNextTurn.new()
-			]
+			# 光辉喷火龙：下回合无法使用此招式
+			return [AttackSelfLockNextTurn.new()]
 		"棱镜利刃":
 			# 下回合无法使用此招式
 			return [AttackSelfLockNextTurn.new()]
@@ -624,7 +621,7 @@ static func _get_attack_effects(processor: EffectProcessor, attack_name: String)
 			return [AttackReturnToDeck.new()]
 		"强劲电光":
 			# 弃掉闪电能量，每个额外+60伤害（内部处理弃牌）
-			return [AttackDiscardEnergyMultiDamage.new("L", 60)]
+			return [AttackDiscardBasicEnergyFromFieldDamage.new(70)]
 		"雷电回旋曲":
 			# 双方备战区每只宝可梦+20伤害
 			return [AttackBenchCountDamage.new(20, "both")]

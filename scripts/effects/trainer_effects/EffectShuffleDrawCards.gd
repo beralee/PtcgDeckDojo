@@ -20,12 +20,12 @@ func _init(count: int = -1, by_prizes: bool = false, opp: bool = false) -> void:
 
 func execute(card: CardInstance, _targets: Array, state: GameState) -> void:
 	var pi: int = card.owner_index
-	_shuffle_and_draw(state, pi)
+	_shuffle_and_draw(state, pi, card)
 	if affect_opponent:
-		_shuffle_and_draw(state, 1 - pi)
+		_shuffle_and_draw(state, 1 - pi, card)
 
 
-func _shuffle_and_draw(state: GameState, pi: int) -> void:
+func _shuffle_and_draw(state: GameState, pi: int, source_card: CardInstance) -> void:
 	var player: PlayerState = state.players[pi]
 
 	# 将手牌放回牌库
@@ -47,7 +47,7 @@ func _shuffle_and_draw(state: GameState, pi: int) -> void:
 		count = hand_size
 
 	# 抽牌
-	player.draw_cards(count)
+	_draw_cards_with_log(state, pi, count, source_card, "trainer")
 
 
 func get_description() -> String:

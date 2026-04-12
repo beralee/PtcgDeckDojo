@@ -5,11 +5,16 @@ var _effect_registry: Dictionary = {}
 var _attack_effect_registry: Dictionary = {}
 var _registered_pokemon_effect_ids: Dictionary = {}
 var coin_flipper: CoinFlipper = null
+var game_state_machine: Object = null
 
 
 func _init(flipper: CoinFlipper = null) -> void:
 	coin_flipper = flipper if flipper != null else CoinFlipper.new()
 	EffectRegistry.register_all(self)
+
+
+func bind_game_state_machine(gsm: Object) -> void:
+	game_state_machine = gsm
 
 
 func register_effect(effect_id: String, effect: BaseEffect) -> void:
@@ -50,6 +55,74 @@ func get_effect(effect_id: String) -> BaseEffect:
 	return _effect_registry.get(effect_id, null)
 
 
+func draw_cards_with_log(
+	player_index: int,
+	count: int,
+	state: GameState,
+	source_card: CardInstance = null,
+	source_kind: String = ""
+) -> Array[CardInstance]:
+	if game_state_machine != null and game_state_machine.has_method("draw_cards_for_effect"):
+		if game_state_machine.get("game_state") == state:
+			return game_state_machine.call("draw_cards_for_effect", player_index, count, source_card, source_kind)
+	return state.players[player_index].draw_cards(count)
+
+
+func discard_cards_from_hand_with_log(
+	player_index: int,
+	cards: Array[CardInstance],
+	state: GameState,
+	source_card: CardInstance = null,
+	source_kind: String = ""
+) -> Array[CardInstance]:
+	if game_state_machine != null and game_state_machine.has_method("discard_cards_from_hand_for_effect"):
+		if game_state_machine.get("game_state") == state:
+			return game_state_machine.call("discard_cards_from_hand_for_effect", player_index, cards, source_card, source_kind)
+	var player: PlayerState = state.players[player_index]
+	var discarded: Array[CardInstance] = []
+	for card: CardInstance in cards:
+		if card == null or not (card in player.hand):
+			continue
+		player.remove_from_hand(card)
+		player.discard_card(card)
+		discarded.append(card)
+	return discarded
+
+
+func move_public_cards_to_hand_with_log(
+	player_index: int,
+	cards: Array[CardInstance],
+	state: GameState,
+	source_card: CardInstance = null,
+	source_kind: String = "",
+	public_result_kind: String = "search_to_hand",
+	public_result_labels: Array[String] = []
+) -> Array[CardInstance]:
+	if game_state_machine != null and game_state_machine.has_method("move_public_cards_to_hand_for_effect"):
+		if game_state_machine.get("game_state") == state:
+			return game_state_machine.call(
+				"move_public_cards_to_hand_for_effect",
+				player_index,
+				cards,
+				source_card,
+				source_kind,
+				public_result_kind,
+				public_result_labels
+			)
+	var player: PlayerState = state.players[player_index]
+	var moved: Array[CardInstance] = []
+	var seen_ids: Dictionary = {}
+	for card: CardInstance in cards:
+		if card == null or seen_ids.has(card.instance_id) or not (card in player.deck):
+			continue
+		seen_ids[card.instance_id] = true
+		player.deck.erase(card)
+		card.face_up = true
+		player.hand.append(card)
+		moved.append(card)
+	return moved
+
+
 func register_pokemon_card(card: CardData) -> void:
 	if card == null or not card.is_pokemon():
 		return
@@ -87,6 +160,7 @@ func execute_card_effect(card: CardInstance, targets: Array, state: GameState) -
 	var effect: BaseEffect = _effect_registry[effect_id]
 	if not effect.can_execute(card, state):
 		return false
+	state.shared_turn_flags["_draw_effect_processor"] = self
 	effect.execute(card, targets, state)
 	return true
 
@@ -107,6 +181,7 @@ func execute_attack_effect(
 
 	if _effect_registry.has(effect_id):
 		var card_effect: BaseEffect = _effect_registry[effect_id]
+		state.shared_turn_flags["_draw_effect_processor"] = self
 		card_effect.set_attack_interaction_context(targets)
 		card_effect.execute_attack(attacker, defender, attack_index, state)
 		card_effect.clear_attack_interaction_context()
@@ -115,6 +190,7 @@ func execute_attack_effect(
 		for effect: BaseEffect in _attack_effect_registry[effect_id]:
 			if effect.has_method("applies_to_attack_index") and not bool(effect.call("applies_to_attack_index", attack_index)):
 				continue
+			state.shared_turn_flags["_draw_effect_processor"] = self
 			effect.set_attack_interaction_context(targets)
 			effect.execute_attack(attacker, defender, attack_index, state)
 			effect.clear_attack_interaction_context()
@@ -183,6 +259,7 @@ func execute_ability_effect(
 		return false
 	if not can_use_ability(pokemon, state, ability_index):
 		return false
+	state.shared_turn_flags["_draw_effect_processor"] = self
 	effect.execute_ability(pokemon, ability_index, targets, state)
 	return true
 
@@ -599,6 +676,11 @@ func get_energy_type(energy: CardInstance, state: GameState = null) -> String:
 func is_ability_disabled(slot: PokemonSlot, state: GameState = null) -> bool:
 	if slot == null:
 		return false
+	# 清除古龙水等通过 effects 数组标记的特性消除
+	if state != null:
+		for eff: Dictionary in slot.effects:
+			if eff.get("type", "") == "ability_disabled" and int(eff.get("turn", -999)) == state.turn_number:
+				return true
 	if state != null:
 		if AbilityBasicLock.is_locked_by_basic_lock(slot, state):
 			return true

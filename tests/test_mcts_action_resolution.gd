@@ -3,6 +3,7 @@ extends TestBase
 
 const MCTSPlannerScript = preload("res://scripts/ai/MCTSPlanner.gd")
 const GameStateClonerScript = preload("res://scripts/ai/GameStateCloner.gd")
+const EffectTMDevolutionScript = preload("res://scripts/effects/trainer_effects/EffectTMDevolution.gd")
 
 
 func _make_basic_card_data(card_name: String, hp: int = 100) -> CardData:
@@ -19,6 +20,14 @@ func _make_energy_card_data(card_name: String, energy_type: String = "L") -> Car
 	card.name = card_name
 	card.card_type = "Basic Energy"
 	card.energy_provides = energy_type
+	return card
+
+
+func _make_tool_card_data(card_name: String, effect_id: String) -> CardData:
+	var card := CardData.new()
+	card.name = card_name
+	card.card_type = "Tool"
+	card.effect_id = effect_id
 	return card
 
 
@@ -204,4 +213,82 @@ func test_try_execute_action_supports_attach_tool_on_cloned_state() -> String:
 		assert_true(executed, "MCTS planner simulation should execute attach_tool actions"),
 		assert_eq(active.attached_tool, tool, "Successful simulated attach_tool should attach the tool to the target slot"),
 		assert_false(tool in player.hand, "Successful simulated attach_tool should remove the tool from hand"),
+	])
+
+
+func test_serialize_action_preserves_granted_attack_payload() -> String:
+	var planner := MCTSPlannerScript.new()
+	var gsm := _make_manual_gsm()
+	var player: PlayerState = gsm.game_state.players[0]
+	var active := PokemonSlot.new()
+	active.pokemon_stack.append(CardInstance.create(_make_basic_card_data("Lead"), 0))
+	player.active_pokemon = active
+	var granted_attack := {
+		"id": "tm_devolution",
+		"name": "Devolution",
+		"cost": "C",
+		"damage": "",
+	}
+
+	var serialized: Dictionary = planner._serialize_action({
+		"kind": "granted_attack",
+		"source_slot": active,
+		"granted_attack_data": granted_attack,
+	})
+
+	return run_checks([
+		assert_eq(str(serialized.get("kind", "")), "granted_attack", "Serialized action should preserve the granted_attack kind"),
+		assert_eq(int(serialized.get("source_slot_card_id", -1)), active.get_top_card().instance_id, "Serialized granted attacks should keep source slot ids"),
+		assert_eq(
+			str((serialized.get("granted_attack_data", {}) as Dictionary).get("id", "")),
+			"tm_devolution",
+			"Serialized granted attacks should preserve the granted attack payload"
+		),
+	])
+
+
+func test_try_execute_action_supports_granted_attack_on_cloned_state() -> String:
+	var planner := MCTSPlannerScript.new()
+	var cloner := GameStateClonerScript.new()
+	var gsm := _make_manual_gsm()
+	var player: PlayerState = gsm.game_state.players[0]
+	var opponent: PlayerState = gsm.game_state.players[1]
+	var effect_id := "test_tm_devolution_effect"
+	gsm.effect_processor.register_effect(effect_id, EffectTMDevolutionScript.new())
+
+	var attacker := PokemonSlot.new()
+	attacker.pokemon_stack.append(CardInstance.create(_make_basic_card_data("TM User"), 0))
+	attacker.attached_tool = CardInstance.create(_make_tool_card_data("TM Devolution", effect_id), 0)
+	attacker.attached_energy.append(CardInstance.create(_make_energy_card_data("Colorless Energy", "C"), 0))
+	player.active_pokemon = attacker
+
+	var base_card := CardInstance.create(_make_basic_card_data("Base Defender", 90), 1)
+	var stage1_data := _make_basic_card_data("Stage1 Defender", 120)
+	stage1_data.stage = "Stage 1"
+	stage1_data.evolves_from = "Base Defender"
+	var stage1_card := CardInstance.create(stage1_data, 1)
+	var defender := PokemonSlot.new()
+	defender.pokemon_stack.append(base_card)
+	defender.pokemon_stack.append(stage1_card)
+	opponent.active_pokemon = defender
+
+	var granted_attack: Dictionary = gsm.effect_processor.get_granted_attacks(attacker, gsm.game_state)[0]
+	var serialized: Dictionary = planner._serialize_action({
+		"kind": "granted_attack",
+		"source_slot": attacker,
+		"granted_attack_data": granted_attack,
+	})
+	var cloned_gsm: GameStateMachine = cloner.clone_gsm(gsm)
+	cloned_gsm.effect_processor.register_effect(effect_id, EffectTMDevolutionScript.new())
+	var resolved: Dictionary = planner._resolve_action_for_gsm(serialized, cloned_gsm, 0)
+	var executed: bool = planner._try_execute_action(cloned_gsm, 0, resolved)
+	var cloned_opponent: PlayerState = cloned_gsm.game_state.players[1]
+	var evolved_cards_returned := cloned_opponent.hand.any(func(card: CardInstance) -> bool:
+		return card != null and card.card_data != null and card.card_data.name == "Stage1 Defender"
+	)
+
+	return run_checks([
+		assert_true(executed, "MCTS planner simulation should execute granted_attack actions"),
+		assert_eq(cloned_opponent.active_pokemon.pokemon_stack.size(), 1, "Successful simulated granted attacks should apply their tool effect"),
+		assert_true(evolved_cards_returned, "Successful simulated granted attacks should preserve the granted attack payload and devolve the target"),
 	])

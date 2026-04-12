@@ -23,10 +23,10 @@ func instructions() -> PackedStringArray:
 		"输入中包含 deck_strategies 字段，其中有双方卡组的打法思路。你必须仔细阅读并遵循这些信息，它比你自身的卡牌知识更准确。",
 		"只使用提供的场面信息、公开状态、行动历史和卡组列表。不要推测对手手牌、奖赏卡或牌库顺序。",
 		"返回约定 schema 的 JSON。",
-		"核心原则：先给明确行动，再简短解释为什么。",
+		"核心原则：先给明确行动，再简短解释为什么。Prioritize setup and engine development early.",
 		"main_line 给出本回合最优打牌顺序（3~5步），每步的 action 必须是具体操作（用哪张支援者、检索什么、进化谁、贴能量给谁、攻击谁），why 一句话说明。",
-		"不要推荐打无意义的低伤害，除非能改变击杀线或节奏。",
-		"保持精简：branches 最多2条，why_this_line 最多2条，risk 最多2条。",
+		"不要推荐打无意义的低伤害（chip damage），除非能改变击杀线或节奏。Prize trade planning is critical.",
+		"保持精简且 concise：branches 最多2条，why_this_line 最多2条，risk 最多2条。",
 	])
 
 
@@ -38,6 +38,7 @@ func response_schema() -> Dictionary:
 			"strategic_thesis",
 			"current_turn_main_line",
 			"conditional_branches",
+			"prize_plan",
 			"why_this_line",
 			"risk_watchouts",
 			"confidence",
@@ -54,6 +55,11 @@ func response_schema() -> Dictionary:
 				"type": "array",
 				"maxItems": 2,
 				"items": _branch_schema(),
+			},
+			"prize_plan": {
+				"type": "array",
+				"maxItems": 3,
+				"items": _prize_plan_schema(),
 			},
 			"why_this_line": _bounded_string_array_schema(2),
 			"risk_watchouts": {

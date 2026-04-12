@@ -69,6 +69,16 @@ func _make_real_test_deck_data(deck_id: int, set_code: String = "CSV6C", card_in
 	return deck
 
 
+func _make_basic_pokemon_card_data(name: String) -> CardData:
+	var cd := CardData.new()
+	cd.name = name
+	cd.card_type = "Pokemon"
+	cd.stage = "Basic"
+	cd.hp = 60
+	cd.energy_type = "C"
+	return cd
+
+
 func _make_gsm_with_decks() -> GameStateMachine:
 	var gsm := GameStateMachine.new()
 	# 直接注入 PlayerState 和牌库，绕过 DeckData -> CardDatabase 流程。
@@ -195,9 +205,9 @@ func test_draw_card_action_includes_all_drawn_card_names() -> String:
 func test_turn_start_draw_action_includes_drawn_card_names() -> String:
 	var gsm := GameStateMachine.new()
 	gsm.game_state = GameState.new()
-	gsm.game_state.current_player_index = 0
+	gsm.game_state.current_player_index = 1
 	gsm.game_state.first_player_index = 0
-	gsm.game_state.turn_number = 0
+	gsm.game_state.turn_number = 1
 
 	for pi: int in 2:
 		var player := PlayerState.new()
@@ -210,7 +220,7 @@ func test_turn_start_draw_action_includes_drawn_card_names() -> String:
 	top_cd.stage = "Basic"
 	top_cd.hp = 60
 	top_cd.energy_type = "C"
-	gsm.game_state.players[0].deck = [CardInstance.create(top_cd, 0)]
+	gsm.game_state.players[1].deck = [CardInstance.create(top_cd, 1)]
 
 	gsm._start_turn()
 	var draw_action := _get_last_action_of_type(gsm.action_log, GameAction.ActionType.DRAW_CARD)
@@ -219,6 +229,493 @@ func test_turn_start_draw_action_includes_drawn_card_names() -> String:
 		assert_not_null(draw_action, "Turn-start draw should log a DRAW_CARD action"),
 		assert_eq(draw_action.data.get("count", 0), 1, "Turn-start draw count should remain 1"),
 		assert_eq(draw_action.data.get("card_names", []), ["Turn Start Draw"], "Turn-start draw should record the drawn card name"),
+	])
+
+
+func test_first_player_first_turn_skips_turn_start_draw() -> String:
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+	gsm.game_state.turn_number = 0
+
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+
+	var top_cd := CardData.new()
+	top_cd.name = "Should Stay In Deck"
+	top_cd.card_type = "Pokemon"
+	top_cd.stage = "Basic"
+	top_cd.hp = 60
+	top_cd.energy_type = "C"
+	gsm.game_state.players[0].deck = [CardInstance.create(top_cd, 0)]
+
+	gsm._start_turn()
+	var draw_action := _get_last_action_of_type(gsm.action_log, GameAction.ActionType.DRAW_CARD)
+
+	return run_checks([
+		assert_null(draw_action, "First player's first turn should not log a DRAW_CARD action"),
+		assert_eq(gsm.game_state.players[0].hand.size(), 0, "First player's first turn should not add a card to hand"),
+		assert_eq(gsm.game_state.players[0].deck.size(), 1, "First player's first turn should leave the deck unchanged"),
+		assert_eq(gsm.game_state.phase, GameState.GamePhase.MAIN, "Skipping the draw should still advance into main phase"),
+		assert_eq(gsm.game_state.turn_number, 1, "Turn number should still advance to the first turn"),
+	])
+
+
+func test_professors_research_play_trainer_logs_drawn_cards_for_reveal_animation() -> String:
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	gsm.game_state.turn_number = 2
+
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+
+	var professor_cd := CardData.new()
+	professor_cd.name = "Professor's Research"
+	professor_cd.card_type = "Supporter"
+	professor_cd.effect_id = "aecd80ca2722885c3d062a2255346f3e"
+	var professor := CardInstance.create(professor_cd, 0)
+
+	var filler_cd := CardData.new()
+	filler_cd.name = "Discard Filler"
+	filler_cd.card_type = "Pokemon"
+	filler_cd.stage = "Basic"
+	filler_cd.hp = 60
+	filler_cd.energy_type = "C"
+	var filler := CardInstance.create(filler_cd, 0)
+	gsm.game_state.players[0].hand = [professor, filler]
+
+	var expected_names: Array[String] = []
+	for draw_index: int in 7:
+		var deck_cd := CardData.new()
+		deck_cd.name = "Research Draw %d" % [draw_index + 1]
+		deck_cd.card_type = "Pokemon"
+		deck_cd.stage = "Basic"
+		deck_cd.hp = 60
+		deck_cd.energy_type = "C"
+		var deck_card := CardInstance.create(deck_cd, 0)
+		expected_names.append(deck_cd.name)
+		gsm.game_state.players[0].deck.append(deck_card)
+
+	var played: bool = gsm.play_trainer(0, professor, [])
+	var draw_action := _get_last_action_of_type(gsm.action_log, GameAction.ActionType.DRAW_CARD)
+	var logged_count: int = int(draw_action.data.get("count", -1)) if draw_action != null else -1
+	var logged_names: Array = draw_action.data.get("card_names", []) if draw_action != null else []
+
+	return run_checks([
+		assert_true(played, "Professor's Research should resolve successfully in main phase"),
+		assert_not_null(draw_action, "Professor's Research should emit a DRAW_CARD action for reveal animation"),
+		assert_eq(logged_count, 7, "Professor's Research should log a seven-card draw"),
+		assert_eq(logged_names, expected_names, "Professor's Research should log the exact drawn card order"),
+	])
+
+
+func test_professors_research_logs_hand_discard_action_for_reveal_animation() -> String:
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	gsm.game_state.turn_number = 2
+
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+
+	var professor_cd := CardData.new()
+	professor_cd.name = "Professor's Research"
+	professor_cd.card_type = "Supporter"
+	professor_cd.effect_id = "aecd80ca2722885c3d062a2255346f3e"
+	var professor := CardInstance.create(professor_cd, 0)
+	var filler_a := CardInstance.create(_make_basic_pokemon_card_data("Discard A"), 0)
+	var filler_b := CardInstance.create(_make_basic_pokemon_card_data("Discard B"), 0)
+	gsm.game_state.players[0].hand = [professor, filler_a, filler_b]
+
+	for draw_index: int in 7:
+		gsm.game_state.players[0].deck.append(CardInstance.create(_make_basic_pokemon_card_data("Draw %d" % [draw_index + 1]), 0))
+
+	var played: bool = gsm.play_trainer(0, professor, [])
+	var discard_action := _get_last_action_of_type(gsm.action_log, GameAction.ActionType.DISCARD)
+
+	return run_checks([
+		assert_true(played, "Professor's Research should still resolve"),
+		assert_not_null(discard_action, "Professor's Research should emit a DISCARD action for the hand cards"),
+		assert_eq(discard_action.data.get("source_zone", ""), "hand", "Discard reveal should mark the cards as coming from hand"),
+		assert_eq(discard_action.data.get("count", 0), 2, "Professor's Research should log the two discarded hand cards"),
+		assert_eq(discard_action.data.get("card_names", []), ["Discard A", "Discard B"], "Professor's Research should log the discarded hand cards in order"),
+	])
+
+
+func test_ultra_ball_logs_hand_discard_action_for_reveal_animation() -> String:
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	gsm.game_state.turn_number = 3
+
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+
+	var ultra_cd := CardData.new()
+	ultra_cd.name = "Ultra Ball"
+	ultra_cd.card_type = "Item"
+	ultra_cd.effect_id = "a337ed34a45e63c6d21d98c3d8e0cb6e"
+	var ultra_ball := CardInstance.create(ultra_cd, 0)
+	var discard_a := CardInstance.create(_make_basic_pokemon_card_data("Ultra Cost A"), 0)
+	var discard_b := CardInstance.create(_make_basic_pokemon_card_data("Ultra Cost B"), 0)
+	var target := CardInstance.create(_make_basic_pokemon_card_data("Search Target"), 0)
+	gsm.game_state.players[0].hand = [ultra_ball, discard_a, discard_b]
+	gsm.game_state.players[0].deck = [target]
+
+	var played: bool = gsm.play_trainer(0, ultra_ball, [{"discard_cards": [discard_a, discard_b], "search_pokemon": [target]}])
+	var discard_action := _get_last_action_of_type(gsm.action_log, GameAction.ActionType.DISCARD)
+
+	return run_checks([
+		assert_true(played, "Ultra Ball should still resolve"),
+		assert_not_null(discard_action, "Ultra Ball should emit a DISCARD action for its paid hand cost"),
+		assert_eq(discard_action.data.get("source_zone", ""), "hand", "Ultra Ball discard animation should be marked as hand-origin"),
+		assert_eq(discard_action.data.get("count", 0), 2, "Ultra Ball should log both discarded cost cards"),
+		assert_eq(discard_action.data.get("card_names", []), ["Ultra Cost A", "Ultra Cost B"], "Ultra Ball should preserve discard order in the reveal metadata"),
+	])
+
+
+func test_arven_logs_public_item_and_tool_names() -> String:
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	gsm.game_state.turn_number = 3
+
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+
+	var arven_cd := CardData.new()
+	arven_cd.name = "派帕"
+	arven_cd.card_type = "Supporter"
+	arven_cd.effect_id = "5bdbc985f9aa2e6f248b53f6f35d1d37"
+	var arven := CardInstance.create(arven_cd, 0)
+	gsm.game_state.players[0].hand = [arven]
+
+	var item_cd := CardData.new()
+	item_cd.name = "高级球"
+	item_cd.card_type = "Item"
+	var item_card := CardInstance.create(item_cd, 0)
+
+	var tool_cd := CardData.new()
+	tool_cd.name = "勇气护符"
+	tool_cd.card_type = "Tool"
+	var tool_card := CardInstance.create(tool_cd, 0)
+	gsm.game_state.players[0].deck = [item_card, tool_card]
+
+	var played: bool = gsm.play_trainer(0, arven, [{
+		"search_item": [item_card],
+		"search_tool": [tool_card],
+	}])
+	var reveal_action := _get_last_action_of_type(gsm.action_log, GameAction.ActionType.PUBLIC_REVEAL)
+
+	return run_checks([
+		assert_true(played, "Arven should resolve successfully"),
+		assert_not_null(reveal_action, "Arven should emit a PUBLIC_REVEAL action for the searched cards"),
+		assert_eq(reveal_action.data.get("card_names", []), ["高级球", "勇气护符"], "Arven should log both revealed card names in order"),
+		assert_eq(reveal_action.data.get("public_result_labels", []), ["物品", "宝可梦道具"], "Arven should record both public category labels"),
+		assert_eq(reveal_action.description, "玩家1通过派帕公开加入手牌：物品「高级球」、宝可梦道具「勇气护符」", "Arven should show the revealed item and tool in readable Chinese"),
+	])
+
+
+func test_draw_cards_for_effect_logs_exact_drawn_card_names() -> String:
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+
+	for card_name: String in ["Effect Draw A", "Effect Draw B", "Effect Draw C"]:
+		var cd := CardData.new()
+		cd.name = card_name
+		cd.card_type = "Pokemon"
+		cd.stage = "Basic"
+		cd.hp = 60
+		cd.energy_type = "C"
+		gsm.game_state.players[0].deck.append(CardInstance.create(cd, 0))
+
+	var source_cd := CardData.new()
+	source_cd.name = "Effect Source"
+	source_cd.card_type = "Supporter"
+	var source_card := CardInstance.create(source_cd, 0)
+
+	var drawn: Array[CardInstance] = gsm.draw_cards_for_effect(0, 3, source_card, "trainer")
+	var draw_action := _get_last_action_of_type(gsm.action_log, GameAction.ActionType.DRAW_CARD)
+
+	return run_checks([
+		assert_eq(drawn.size(), 3, "Shared effect draw helper should draw the requested cards"),
+		assert_not_null(draw_action, "Shared effect draw helper should emit a DRAW_CARD action"),
+		assert_eq(draw_action.data.get("count", 0), 3, "Shared effect draw helper should log the drawn count"),
+		assert_eq(
+			draw_action.data.get("card_names", []),
+			["Effect Draw A", "Effect Draw B", "Effect Draw C"],
+			"Shared effect draw helper should log the exact drawn card order"
+		),
+		assert_eq(draw_action.data.get("source_kind", ""), "trainer", "Shared effect draw helper should preserve source kind metadata"),
+		assert_eq(draw_action.data.get("source_card_name", ""), "Effect Source", "Shared effect draw helper should preserve source card metadata"),
+	])
+
+
+func test_draw_cards_for_effect_uses_chinese_description() -> String:
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+
+	gsm.game_state.players[0].deck.append(CardInstance.create(_make_basic_pokemon_card_data("抽牌测试"), 0))
+
+	var source_cd := CardData.new()
+	source_cd.name = "测试来源"
+	source_cd.card_type = "Supporter"
+	var source_card := CardInstance.create(source_cd, 0)
+
+	gsm.draw_cards_for_effect(0, 1, source_card, "trainer")
+	var draw_action := _get_last_action_of_type(gsm.action_log, GameAction.ActionType.DRAW_CARD)
+
+	return run_checks([
+		assert_not_null(draw_action, "Shared effect draw helper should still log the draw action"),
+		assert_eq(draw_action.description, "玩家1从牌库抽了1张牌", "Shared effect draw helper should use readable Chinese log copy"),
+	])
+
+
+func test_move_public_cards_to_hand_for_effect_logs_public_reveal() -> String:
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+
+	var source_cd := CardData.new()
+	source_cd.name = "高级球"
+	source_cd.card_type = "Item"
+	var source_card := CardInstance.create(source_cd, 0)
+
+	var searched_card := CardInstance.create(_make_basic_pokemon_card_data("喷火龙ex"), 0)
+	gsm.game_state.players[0].deck = [searched_card]
+
+	var moved := gsm.move_public_cards_to_hand_for_effect(0, [searched_card], source_card, "trainer", "search_to_hand", ["宝可梦"])
+	var reveal_action := _get_last_action_of_type(gsm.action_log, GameAction.ActionType.PUBLIC_REVEAL)
+
+	return run_checks([
+		assert_eq(moved.size(), 1, "Public reveal helper should move the selected card to hand"),
+		assert_not_null(reveal_action, "Public reveal helper should emit a PUBLIC_REVEAL action"),
+		assert_eq(reveal_action.data.get("card_names", []), ["喷火龙ex"], "Public reveal helper should record the revealed card name"),
+		assert_eq(reveal_action.data.get("public_result_labels", []), ["宝可梦"], "Public reveal helper should preserve the public label"),
+		assert_eq(reveal_action.description, "玩家1通过高级球公开加入手牌：宝可梦「喷火龙ex」", "Public reveal helper should produce readable Chinese summary copy"),
+	])
+
+
+func test_draw_cards_for_effect_skips_draw_log_when_count_is_zero() -> String:
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+
+	var source_cd := CardData.new()
+	source_cd.name = "Zero Source"
+	source_cd.card_type = "Supporter"
+	var source_card := CardInstance.create(source_cd, 0)
+	var initial_log_size := gsm.action_log.size()
+	var drawn: Array[CardInstance] = gsm.draw_cards_for_effect(0, 0, source_card, "trainer")
+	var draw_action := _get_last_action_of_type(gsm.action_log, GameAction.ActionType.DRAW_CARD)
+
+	return run_checks([
+		assert_eq(drawn.size(), 0, "Shared effect draw helper should no-op for zero-card draws"),
+		assert_eq(gsm.action_log.size(), initial_log_size, "Shared effect draw helper should not append a DRAW_CARD action for zero-card draws"),
+		assert_null(draw_action, "No DRAW_CARD action should exist after a zero-card effect draw"),
+	])
+
+
+func test_iono_play_trainer_logs_draw_card_actions_for_both_players() -> String:
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	gsm.game_state.turn_number = 2
+
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+
+	var iono_cd := CardData.new()
+	iono_cd.name = "Iono"
+	iono_cd.card_type = "Supporter"
+	iono_cd.effect_id = "af514f82d182aeae5327b2c360df703d"
+	var iono := CardInstance.create(iono_cd, 0)
+	gsm.game_state.players[0].hand = [iono]
+	gsm.game_state.players[0].prizes.resize(4)
+	gsm.game_state.players[1].prizes.resize(3)
+
+	for idx: int in 6:
+		var player_cd := CardData.new()
+		player_cd.name = "Iono Player Deck %d" % [idx + 1]
+		player_cd.card_type = "Pokemon"
+		player_cd.stage = "Basic"
+		player_cd.hp = 60
+		player_cd.energy_type = "C"
+		gsm.game_state.players[0].deck.append(CardInstance.create(player_cd, 0))
+
+	for idx: int in 5:
+		var opponent_cd := CardData.new()
+		opponent_cd.name = "Iono Opponent Deck %d" % [idx + 1]
+		opponent_cd.card_type = "Pokemon"
+		opponent_cd.stage = "Basic"
+		opponent_cd.hp = 60
+		opponent_cd.energy_type = "C"
+		gsm.game_state.players[1].deck.append(CardInstance.create(opponent_cd, 1))
+
+	var played: bool = gsm.play_trainer(0, iono, [])
+	var draw_actions: Array[GameAction] = _get_actions_of_type(gsm.action_log, GameAction.ActionType.DRAW_CARD)
+	var first_draw: GameAction = draw_actions[0] if draw_actions.size() > 0 else null
+	var second_draw: GameAction = draw_actions[1] if draw_actions.size() > 1 else null
+
+	return run_checks([
+		assert_true(played, "Iono should resolve successfully in main phase"),
+		assert_eq(draw_actions.size(), 2, "Iono should log one DRAW_CARD action for each player"),
+		assert_eq(first_draw.player_index if first_draw != null else -1, 0, "The user's Iono draw should be logged first"),
+		assert_eq(second_draw.player_index if second_draw != null else -1, 1, "The opponent's Iono draw should also be logged"),
+		assert_eq(int(first_draw.data.get("count", -1)) if first_draw != null else -1, 4, "Iono should log the user's prize-count draw"),
+		assert_eq(int(second_draw.data.get("count", -1)) if second_draw != null else -1, 3, "Iono should log the opponent's prize-count draw"),
+		assert_eq((first_draw.data.get("card_names", []) as Array).size() if first_draw != null else -1, 4, "Iono should include reveal metadata for the user's draw"),
+		assert_eq((second_draw.data.get("card_names", []) as Array).size() if second_draw != null else -1, 3, "Iono should include reveal metadata for the opponent's draw"),
+	])
+
+
+func test_trekking_shoes_discard_branch_logs_reveal_draw() -> String:
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	gsm.game_state.turn_number = 2
+
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+
+	var shoes_cd := CardData.new()
+	shoes_cd.name = "Trekking Shoes"
+	shoes_cd.card_type = "Item"
+	shoes_cd.effect_id = "70d14b4a5a9c15581b8a0c8dfd325717"
+	var shoes := CardInstance.create(shoes_cd, 0)
+	gsm.game_state.players[0].hand = [shoes]
+
+	var top_cd := CardData.new()
+	top_cd.name = "Top Card"
+	top_cd.card_type = "Pokemon"
+	top_cd.stage = "Basic"
+	top_cd.hp = 60
+	top_cd.energy_type = "C"
+	var draw_cd := CardData.new()
+	draw_cd.name = "Draw After Discard"
+	draw_cd.card_type = "Pokemon"
+	draw_cd.stage = "Basic"
+	draw_cd.hp = 60
+	draw_cd.energy_type = "C"
+	gsm.game_state.players[0].deck = [
+		CardInstance.create(top_cd, 0),
+		CardInstance.create(draw_cd, 0),
+	]
+
+	var played: bool = gsm.play_trainer(0, shoes, [{"trekking_choice": ["discard"]}])
+	var draw_action := _get_last_action_of_type(gsm.action_log, GameAction.ActionType.DRAW_CARD)
+
+	return run_checks([
+		assert_true(played, "Trekking Shoes should resolve when the deck is not empty"),
+		assert_not_null(draw_action, "Discarding the top card with Trekking Shoes should log the replacement draw"),
+		assert_eq(int(draw_action.data.get("count", -1)) if draw_action != null else -1, 1, "Trekking Shoes replacement draw should log one card"),
+		assert_eq(draw_action.data.get("card_names", []) if draw_action != null else [], ["Draw After Discard"], "Trekking Shoes should log the exact replacement draw card"),
+	])
+
+
+func test_gift_energy_knockout_logs_exact_drawn_cards_for_reveal() -> String:
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	gsm.game_state.turn_number = 2
+
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+
+	var knocked_out_player: PlayerState = gsm.game_state.players[1]
+	var active_cd := CardData.new()
+	active_cd.name = "Gift Holder"
+	active_cd.card_type = "Pokemon"
+	active_cd.stage = "Basic"
+	active_cd.hp = 120
+	active_cd.energy_type = "C"
+	var active_slot := PokemonSlot.new()
+	active_slot.pokemon_stack.append(CardInstance.create(active_cd, 1))
+	active_slot.damage_counters = 999
+
+	var gift_cd := CardData.new()
+	gift_cd.name = "Gift Energy"
+	gift_cd.card_type = "Special Energy"
+	gift_cd.energy_provides = "C"
+	gift_cd.effect_id = "dbb3f3d2ef2f3372bc8b21336e6c9bc6"
+	active_slot.attached_energy.append(CardInstance.create(gift_cd, 1))
+	knocked_out_player.active_pokemon = active_slot
+
+	for idx: int in 4:
+		var draw_cd := CardData.new()
+		draw_cd.name = "Gift Draw %d" % [idx + 1]
+		draw_cd.card_type = "Pokemon"
+		draw_cd.stage = "Basic"
+		draw_cd.hp = 60
+		draw_cd.energy_type = "C"
+		knocked_out_player.deck.append(CardInstance.create(draw_cd, 1))
+
+	var resolved: bool = gsm._finalize_knockout(1, active_slot, true)
+	var draw_action := _get_last_action_of_type(gsm.action_log, GameAction.ActionType.DRAW_CARD)
+
+	return run_checks([
+		assert_true(resolved, "Gift Energy knockout fixture should resolve"),
+		assert_not_null(draw_action, "Gift Energy should emit a DRAW_CARD action for reveal"),
+		assert_eq(int(draw_action.data.get("count", -1)) if draw_action != null else -1, 4, "Gift Energy should log the exact number drawn up to seven cards in hand"),
+		assert_eq(draw_action.data.get("card_names", []) if draw_action != null else [], ["Gift Draw 1", "Gift Draw 2", "Gift Draw 3", "Gift Draw 4"], "Gift Energy should log the exact drawn card order"),
 	])
 
 
@@ -252,6 +749,35 @@ func test_both_players_mulligan_do_not_redraw_initial_hands_twice() -> String:
 		assert_eq(gsm.game_state.players[1].hand.size(), 7, "Player 1 should end mulligan with 7 cards"),
 		assert_eq(gsm.game_state.players[0].deck.size(), 7, "Player 0 deck should not double-draw"),
 		assert_eq(gsm.game_state.players[1].deck.size(), 7, "Player 1 deck should not double-draw"),
+	])
+
+
+func test_both_players_impossible_mulligan_stops_without_recursion() -> String:
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+
+	CardInstance.reset_id_counter()
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		for i: int in 7:
+			var hand_cd := CardData.new()
+			hand_cd.name = "Opening%d_%d" % [pi, i]
+			hand_cd.card_type = "Item"
+			player.hand.append(CardInstance.create(hand_cd, pi))
+		for i: int in 7:
+			var deck_cd := CardData.new()
+			deck_cd.name = "Deck%d_%d" % [pi, i]
+			deck_cd.card_type = "Supporter"
+			player.deck.append(CardInstance.create(deck_cd, pi))
+		gsm.game_state.players.append(player)
+
+	gsm._check_mulligan()
+
+	return run_checks([
+		assert_eq(gsm.game_state.phase, GameState.GamePhase.GAME_OVER, "双方都不可能抽到基础宝可梦时应终止无效开局"),
+		assert_eq(gsm.game_state.winner_index, -1, "双方都无基础宝可梦时不应强行指定胜者"),
+		assert_str_contains(gsm.game_state.win_reason, "无基础宝可梦", "应记录无法完成 Mulligan 的原因"),
 	])
 
 
@@ -1355,6 +1881,71 @@ func test_dragapult_phantom_dive_awards_prizes_for_active_and_bench_knockouts() 
 	])
 
 
+func test_dragapult_phantom_dive_does_not_prompt_send_out_when_only_knocked_out_bench_remains() -> String:
+	var gsm := _make_gsm_with_decks()
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	gsm.game_state.turn_number = 2
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+
+	var dragapult_cd: CardData = CardDatabase.get_card("CSV8C", "159")
+	var attacker_slot := PokemonSlot.new()
+	attacker_slot.pokemon_stack.append(CardInstance.create(dragapult_cd, 0))
+	for energy_type: String in ["R", "P"]:
+		attacker_slot.attached_energy.append(CardInstance.create(_make_test_energy(energy_type), 0))
+	gsm.effect_processor.register_pokemon_card(dragapult_cd)
+	gsm.game_state.players[0].active_pokemon = attacker_slot
+
+	var active_target_cd := CardData.new()
+	active_target_cd.name = "Active Prize Target"
+	active_target_cd.card_type = "Pokemon"
+	active_target_cd.stage = "Basic"
+	active_target_cd.hp = 200
+	active_target_cd.energy_type = "W"
+	var active_target := PokemonSlot.new()
+	active_target.pokemon_stack.append(CardInstance.create(active_target_cd, 1))
+	gsm.game_state.players[1].active_pokemon = active_target
+
+	var bench_target_cd := CardData.new()
+	bench_target_cd.name = "Only Bench Target"
+	bench_target_cd.card_type = "Pokemon"
+	bench_target_cd.stage = "Basic"
+	bench_target_cd.hp = 60
+	bench_target_cd.energy_type = "W"
+	var bench_target := PokemonSlot.new()
+	bench_target.pokemon_stack.append(CardInstance.create(bench_target_cd, 1))
+	gsm.game_state.players[1].bench = [bench_target]
+	for i: int in 2:
+		gsm.game_state.players[0].prizes.append(CardInstance.create(active_target_cd, 0))
+	for i: int in 6:
+		gsm.game_state.players[1].prizes.append(CardInstance.create(active_target_cd, 1))
+
+	var attacked: bool = gsm.use_attack(0, 1, [{
+		"bench_damage_counters": [
+			{"target": bench_target, "amount": 60},
+		],
+	}])
+	var took_first_prize: bool = gsm.resolve_take_prize(0, 0)
+	var pending_prize_after_first: int = int(gsm.get("_pending_prize_remaining"))
+	var phase_after_first: int = gsm.game_state.phase
+	var invalid_send_out: bool = gsm.send_out_pokemon(1, bench_target)
+	var took_second_prize: bool = gsm.resolve_take_prize(0, 1)
+	var winner_index: int = gsm.game_state.winner_index
+
+	return run_checks([
+		assert_not_null(dragapult_cd, "CSV8C_159 should exist in the card database"),
+		assert_true(attacked, "CSV8C_159 Phantom Dive should resolve the double-KO fixture"),
+		assert_true(took_first_prize, "The first prize from the Active knockout should still be taken manually"),
+		assert_eq(pending_prize_after_first, 1, "After the first prize, the Bench knockout prize should queue immediately"),
+		assert_eq(phase_after_first, GameState.GamePhase.POKEMON_CHECK, "Without a live replacement, the game should continue knockout checks instead of entering replacement"),
+		assert_false(invalid_send_out, "A knocked-out Benched Pokemon must not be accepted as a replacement"),
+		assert_true(took_second_prize, "The second prize should still be claimable without a replacement step"),
+		assert_eq(gsm.game_state.players[0].prizes.size(), 0, "CSV8C_159 should take both remaining prizes in this fixture"),
+		assert_eq(gsm.game_state.phase, GameState.GamePhase.GAME_OVER, "Taking the final queued prize should end the game"),
+		assert_eq(winner_index, 0, "The attacking player should win after taking both remaining prizes"),
+	])
+
+
 func test_dragapult_phantom_dive_active_knockout_hands_turn_to_opponent_after_replacement() -> String:
 	var gsm := _make_gsm_with_decks()
 	gsm.game_state.phase = GameState.GamePhase.MAIN
@@ -1931,13 +2522,13 @@ func test_send_out_log_includes_replacement_pokemon_name() -> String:
 
 func test_game_action_create() -> String:
 	var action: GameAction = GameAction.create(
-		GameAction.ActionType.DRAW_CARD, 0, {"count": 1}, 2, "鎶?寮犵墝"
+		GameAction.ActionType.DRAW_CARD, 0, {"count": 1}, 2, "抽1张牌"
 	)
 	return run_checks([
 		assert_eq(action.action_type, GameAction.ActionType.DRAW_CARD, "Action type"),
 		assert_eq(action.player_index, 0, "Player index"),
 		assert_eq(action.turn_number, 2, "Turn number should be recorded"),
-		assert_eq(action.description, "鎶?寮犵墝", "鎻忚堪"),
+		assert_eq(action.description, "抽1张牌", "Description should be recorded"),
 	])
 
 
@@ -1947,6 +2538,14 @@ func _get_last_action_of_type(action_log: Array[GameAction], action_type: GameAc
 		if action != null and action.action_type == action_type:
 			return action
 	return null
+
+
+func _get_actions_of_type(action_log: Array[GameAction], action_type: GameAction.ActionType) -> Array[GameAction]:
+	var matches: Array[GameAction] = []
+	for action: GameAction in action_log:
+		if action != null and action.action_type == action_type:
+			matches.append(action)
+	return matches
 
 
 

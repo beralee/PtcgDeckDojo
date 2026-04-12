@@ -232,6 +232,7 @@ func show_card_dialog(scene: Object, items: Array, extra_data: Dictionary) -> vo
 	var dialog_confirm: Button = scene.get("_dialog_confirm")
 	var dialog_status_lbl: Label = scene.get("_dialog_status_lbl")
 	var dialog_card_size: Vector2 = scene.get("_dialog_card_size")
+	var card_click_selectable: bool = bool(extra_data.get("card_click_selectable", true))
 
 	dialog_list.visible = false
 	dialog_card_scroll.visible = true
@@ -253,9 +254,10 @@ func show_card_dialog(scene: Object, items: Array, extra_data: Dictionary) -> vo
 			real_index = int(card_indices[i])
 		var card_view := BattleCardViewScript.new()
 		card_view.custom_minimum_size = dialog_card_size
-		card_view.set_clickable(true)
+		card_view.set_clickable(card_click_selectable)
 		setup_dialog_card_view(scene, card_view, card_items[i], labels[i] if i < labels.size() else "")
-		card_view.left_clicked.connect(Callable(scene, "_on_dialog_card_left_signal").bind(real_index))
+		if card_click_selectable:
+			card_view.left_clicked.connect(Callable(scene, "_on_dialog_card_left_signal").bind(real_index))
 		card_view.right_clicked.connect(Callable(scene, "_on_dialog_card_right_signal"))
 		card_view.set_meta("dialog_choice_index", real_index)
 		dialog_card_row.add_child(card_view)
@@ -267,7 +269,8 @@ func show_card_dialog(scene: Object, items: Array, extra_data: Dictionary) -> vo
 			continue
 		var action: Dictionary = action_variant
 		var button := Button.new()
-		button.custom_minimum_size = Vector2(140, 40)
+		button.custom_minimum_size = Vector2(220, 52)
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.text = str(action.get("label", _bt(scene, "battle.dialog.action_label")))
 		var action_index := int(action.get("index", -1))
 		button.pressed.connect(func() -> void:
@@ -762,11 +765,19 @@ func show_setup_bench_dialog(scene: Object, pi: int) -> void:
 	var gsm: Variant = scene.get("_gsm")
 	var player: PlayerState = gsm.game_state.players[pi]
 	if player.is_bench_full():
+		scene.set("_pending_choice", "")
+		scene.set("_dialog_data", {})
+		scene.set("_dialog_items_data", [])
 		scene.call("_after_setup_bench", pi)
+		_schedule_followup_ai_step_if_ready(scene, gsm)
 		return
 	var basics: Array[CardInstance] = player.get_basic_pokemon_in_hand()
 	if basics.is_empty():
+		scene.set("_pending_choice", "")
+		scene.set("_dialog_data", {})
+		scene.set("_dialog_items_data", [])
 		scene.call("_after_setup_bench", pi)
+		_schedule_followup_ai_step_if_ready(scene, gsm)
 		return
 	var items: Array[String] = ["完成"]
 	for card: CardInstance in basics:
@@ -808,19 +819,41 @@ func show_setup_bench_dialog(scene: Object, pi: int) -> void:
 	scene.call("_maybe_run_ai")
 
 
+func _schedule_followup_ai_step_if_ready(scene: Object, gsm: Variant) -> void:
+	if scene == null or gsm == null or gsm.game_state == null:
+		return
+	scene.call("_ensure_ai_opponent")
+	var ai_opponent: Variant = scene.get("_ai_opponent")
+	if GameManager.current_mode != GameManager.GameMode.VS_AI or ai_opponent == null:
+		return
+	if str(scene.get("_pending_choice")) != "":
+		return
+	if gsm.game_state.phase == GameState.GamePhase.SETUP:
+		return
+	if gsm.game_state.current_player_index != ai_opponent.player_index:
+		return
+	if bool(scene.get("_ai_step_scheduled")):
+		return
+	scene.set("_ai_step_scheduled", true)
+	scene.call_deferred("_run_ai_step")
+
+
 func show_send_out_dialog(scene: Object, pi: int) -> void:
 	var gsm: Variant = scene.get("_gsm")
 	var player: PlayerState = gsm.game_state.players[pi]
+	var bench_choices: Array[PokemonSlot] = []
+	for bench_slot: PokemonSlot in player.bench:
+		if bench_slot != null and not gsm.effect_processor.is_effectively_knocked_out(bench_slot, gsm.game_state):
+			bench_choices.append(bench_slot)
 	scene.set("_pending_choice", "send_out")
 	scene.set("_dialog_data", {
 		"player": pi,
-		"bench": player.bench,
+		"bench": bench_choices,
 		"allow_cancel": false,
 		"min_select": 1,
 		"max_select": 1,
 	})
-	scene.call("_show_field_slot_choice", "玩家 %d：选择要派出的宝可梦" % (pi + 1), player.bench, scene.get("_dialog_data"))
-
+	scene.call("_show_field_slot_choice", "请选择玩家%d要派出的宝可梦" % (pi + 1), bench_choices, scene.get("_dialog_data"))
 
 func show_heavy_baton_dialog(scene: Object, pi: int, bench_targets: Array[PokemonSlot], energy_count: int, source_name: String) -> void:
 	scene.set("_pending_choice", "heavy_baton_target")

@@ -1,0 +1,36 @@
+{
+  "attribute": "lightning",
+  "global_constraints": [
+    "transparent background",
+    "no characters",
+    "no arena",
+    "no UI",
+    "no watermark",
+    "no frame",
+    "single isolated effect element",
+    "clean silhouette",
+    "battle-ready compositing"
+  ],
+  "assets": [
+    {
+      "name": "charge_orb",
+      "role": "charge",
+      "prompt": "Create a transparent-background 2D battle VFX asset for Pokemon-style lightning attacks. Show only the effect element, with no character, arena, text, UI, watermark, or frame. Use a compact pre-strike orb with a white-hot core, cyan outer glow, and a few thin branching arcs that feel charged and contained. Keep the shape clean and readable in a game battle overlay. Preserve real electric energy structure but stylize the outline and color. Output a single isolated effect element on transparency."
+    },
+    {
+      "name": "travel_core",
+      "role": "travel core",
+      "prompt": "Create a transparent-background 2D battle VFX asset for Pokemon-style lightning attacks. Show only the effect element, with no character, arena, text, UI, watermark, or frame. Use a short directional lightning streak with a white-hot center line, cyan glow, and a few controlled branching filaments. Keep the subject compact and readable, not beam-heavy or smoky. Preserve real electric energy structure but stylize the outline and color. Output a single isolated effect element on transparency."
+    },
+    {
+      "name": "impact_bloom",
+      "role": "impact bloom",
+      "prompt": "Create a transparent-background 2D battle VFX asset for Pokemon-style lightning attacks. Show only the effect element, with no character, arena, text, UI, watermark, or frame. Use a compact target-hit electric bloom with a white-hot flash core, cyan-blue outer shock, and thin branching spikes that radiate cleanly from the center. Keep it punchy, readable, and battle-ready with a strong hit-stop feel. Preserve real electric energy structure but stylize the outline and color. Output a single isolated effect element on transparency."
+    },
+    {
+      "name": "residue_sparks",
+      "role": "residue",
+      "prompt": "Create a transparent-background 2D battle VFX asset for Pokemon-style lightning attacks. Show only the effect element, with no character, arena, text, UI, watermark, or frame. Use a fading spark residue made of small electric motes, soft arcs, and a few lingering bright fragments around a compact center. Keep contrast lower than the impact bloom but still crisp enough to read in battle. Preserve real electric energy structure but stylize the outline and color. Output a single isolated effect element on transparency."
+    }
+  ]
+}

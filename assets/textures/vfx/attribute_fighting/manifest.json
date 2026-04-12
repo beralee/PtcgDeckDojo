@@ -1,0 +1,63 @@
+{
+  "package_name": "attribute_fighting_heavy_impact",
+  "attribute": "fighting",
+  "visual_rule": "Fighting attacks should read as a heavy body-blow impact: a bone-white hit flash, a terracotta-red core, sandy dust fracture, and angular strike shards. Keep the subject compact, grounded, and readable in battle.",
+  "playback_model": "impact-only",
+  "generation_method": "local_procedural_raster_synthesis",
+  "palette": {
+    "core_flash": "#F3E7D0",
+    "impact_red": "#A34A3B",
+    "dust_amber": "#C78A4A",
+    "grit_brown": "#4E3528",
+    "shadow_umber": "#1B120D"
+  },
+  "package_root": "assets/textures/vfx/attribute_fighting",
+  "variants": [
+    {
+      "id": "impact_only",
+      "description": "Shared compact body-blow impact package for fighting attacks.",
+      "assets": [
+        {
+          "role": "impact_bloom_flipbook",
+          "file": "impact_only/impact_bloom_flipbook.png",
+          "sidecar": "impact_only/impact_bloom_flipbook.json",
+          "format": "png",
+          "frames": 4,
+          "layout": "horizontal_strip",
+          "size": "1024x256",
+          "notes": "Primary hit subject and the clearest read in the set."
+        },
+        {
+          "role": "knuckle_flash",
+          "file": "impact_only/knuckle_flash.png",
+          "sidecar": "impact_only/knuckle_flash.json",
+          "format": "png",
+          "size": "1024x1024",
+          "notes": "Tight pre-hit punch knot with a hard-edged flash."
+        },
+        {
+          "role": "dust_shatter",
+          "file": "impact_only/dust_shatter.png",
+          "sidecar": "impact_only/dust_shatter.json",
+          "format": "png",
+          "size": "1024x1024",
+          "notes": "Angular grit, dust fracture, and short debris accents."
+        },
+        {
+          "role": "residue_grit",
+          "file": "impact_only/residue_grit.png",
+          "sidecar": "impact_only/residue_grit.json",
+          "format": "png",
+          "size": "1024x1024",
+          "notes": "Low-alpha dust cleanup layer for the aftermath frame."
+        }
+      ]
+    }
+  ],
+  "usage_notes": [
+    "Use the impact bloom as the dominant subject.",
+    "Keep travel disabled for the shared fallback.",
+    "Prefer compact anchors and grounded compositing.",
+    "Avoid beams, trails, flame tongues, electric filaments, or symbolic aura rings."
+  ]
+}

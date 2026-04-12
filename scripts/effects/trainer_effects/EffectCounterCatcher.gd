@@ -46,6 +46,7 @@ func execute(card: CardInstance, _targets: Array, state: GameState) -> void:
 		target = opp.bench[0]
 	var old_active: PokemonSlot = opp.active_pokemon
 	opp.bench.erase(target)
+	old_active.clear_on_leave_active()
 	opp.bench.append(old_active)
 	opp.active_pokemon = target
 

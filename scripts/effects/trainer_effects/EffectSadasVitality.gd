@@ -55,7 +55,7 @@ func execute(card: CardInstance, targets: Array, state: GameState) -> void:
 		player.discard_pile.erase(energy)
 		slot.attached_energy.append(energy)
 		attached_count += 1
-	player.draw_cards(3)
+	_draw_cards_with_log(state, card.owner_index, 3, card, "trainer")
 
 
 func _get_basic_energy(player: PlayerState) -> Array:

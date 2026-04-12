@@ -9,11 +9,8 @@ func can_execute(card: CardInstance, state: GameState) -> bool:
 func execute(card: CardInstance, _targets: Array, state: GameState) -> void:
 	var player: PlayerState = state.players[card.owner_index]
 	var hand_copy: Array[CardInstance] = player.hand.duplicate()
-	for hand_card: CardInstance in hand_copy:
-		player.hand.erase(hand_card)
-		hand_card.face_up = true
-		player.discard_pile.append(hand_card)
-	player.draw_cards(5)
+	_discard_cards_from_hand_with_log(state, card.owner_index, hand_copy, card, "trainer")
+	_draw_cards_with_log(state, card.owner_index, 5, card, "trainer")
 
 
 func get_description() -> String:

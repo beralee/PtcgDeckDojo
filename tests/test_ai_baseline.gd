@@ -60,6 +60,24 @@ class FollowupSchedulingSpyAIOpponent extends RefCounted:
 		return true
 
 
+class CountingAIOpponent extends RefCounted:
+	var player_index: int = 1
+	var difficulty: int = 1
+	var run_count: int = 0
+	var _delegate = AIOpponentScript.new()
+
+	func _init(next_player_index: int = 1) -> void:
+		player_index = next_player_index
+		_delegate.configure(next_player_index, difficulty)
+
+	func should_control_turn(game_state: GameState, ui_blocked: bool) -> bool:
+		return _delegate.should_control_turn(game_state, ui_blocked)
+
+	func run_single_step(battle_scene: Control, gsm: GameStateMachine) -> bool:
+		run_count += 1
+		return _delegate.run_single_step(battle_scene, gsm)
+
+
 class SpyGameStateMachine extends GameStateMachine:
 	var retreat_calls: int = 0
 	var retreat_result: bool = true
@@ -267,7 +285,7 @@ func _has_action(actions: Array[Dictionary], kind: String, expected: Dictionary 
 
 func _make_battle_scene_refresh_stub() -> Control:
 	var battle_scene = BattleSceneScript.new()
-	battle_scene.set("_log_list", ItemList.new())
+	battle_scene.set("_log_list", RichTextLabel.new())
 	battle_scene.set("_lbl_phase", Label.new())
 	battle_scene.set("_lbl_turn", Label.new())
 	battle_scene.set("_opp_prizes", Label.new())
@@ -458,6 +476,7 @@ func test_ai_legal_action_builder_enumerates_evolve_actions() -> String:
 	var gsm := _make_ai_manual_gsm()
 	var builder: Variant = _new_legal_action_builder()
 	var player: PlayerState = gsm.game_state.players[0]
+	gsm.game_state.turn_number = 3
 	var active_slot := _make_ai_slot(CardInstance.create(_make_ai_pokemon_card_data("Mareep"), 0), 1)
 	var evolution := CardInstance.create(_make_ai_pokemon_card_data("Flaaffy", "Stage 1", "Mareep"), 0)
 	var wrong_evolution := CardInstance.create(_make_ai_pokemon_card_data("Charmeleon", "Stage 1", "Charmander"), 0)
@@ -1116,14 +1135,18 @@ func test_ai_opponent_uses_nest_ball_after_attaching_when_basic_targets_remain()
 	var actions_after_attach := _build_ai_actions(gsm, 1)
 	var handled_followup := ai.run_single_step(scene, gsm)
 	var followup_trace = ai.get_last_decision_trace()
+	var bench_size_after_followup: int = player.bench.size()
+	var nest_ball_in_hand_after_followup: bool = nest_ball in player.hand
 	return run_checks([
 		assert_true(handled_attach, "AI should use the first action to attach energy"),
 		assert_false(_has_action(actions_after_attach, "attach_energy"), "Attach actions should disappear after the once-per-turn attach is spent"),
 		assert_true(_has_action(actions_after_attach, "play_trainer", {"card": nest_ball}), "Nest Ball should remain a legal follow-up while deck still contains a Basic target"),
-		assert_eq(scene.trainer_interaction_calls, 1, "AI should continue the turn by starting the Nest Ball interaction instead of passing"),
+		assert_eq(scene.trainer_interaction_calls, 0, "Nest Ball should now resolve through the headless AI path instead of opening BattleScene interaction UI"),
 		assert_true(handled_followup, "The Nest Ball follow-up should count as handled work"),
 		assert_eq(followup_trace.chosen_action.get("kind", ""), "play_trainer", "Decision trace should show the productive Nest Ball line was chosen"),
 		assert_true(Array(followup_trace.reason_tags).has("bench_development"), "Productive Nest Ball follow-ups should record a stable bench_development reason tag"),
+		assert_eq(bench_size_after_followup, 1, "Headless Nest Ball resolution should still bench the selected Basic Pokemon"),
+		assert_false(nest_ball_in_hand_after_followup, "Nest Ball should leave the hand after the headless follow-up resolves"),
 	])
 
 
@@ -1172,9 +1195,13 @@ func test_ai_opponent_starts_interactive_trainer_actions_through_battle_scene() 
 	player.hand = [item]
 
 	var handled := ai.run_single_step(scene, gsm)
+	var item_in_hand_after_action: bool = item in player.hand
+	var trace = ai.get_last_decision_trace()
 	return run_checks([
 		assert_true(handled, "AI should treat interactive trainer actions as executable work"),
-		assert_eq(scene.trainer_interaction_calls, 1, "AI should start the trainer interaction through BattleScene instead of skipping it"),
+		assert_eq(scene.trainer_interaction_calls, 0, "Headless trainer targets should no longer require BattleScene interaction"),
+		assert_eq(trace.chosen_action.get("kind", ""), "play_trainer", "Decision trace should still record the trainer action"),
+		assert_false(item_in_hand_after_action, "The interactive trainer should still resolve and leave the hand through the headless path"),
 	])
 
 
@@ -1196,9 +1223,11 @@ func test_ai_opponent_starts_interactive_ability_actions_through_battle_scene() 
 	player.active_pokemon = _make_ai_slot(CardInstance.create(ability_cd, 1))
 
 	var handled := ai.run_single_step(scene, gsm)
+	var trace = ai.get_last_decision_trace()
 	return run_checks([
 		assert_true(handled, "AI should treat interactive ability actions as executable work"),
-		assert_eq(scene.ability_interaction_calls, 1, "AI should start the ability interaction through BattleScene instead of skipping it"),
+		assert_eq(scene.ability_interaction_calls, 0, "Headless ability targets should no longer require BattleScene interaction"),
+		assert_eq(trace.chosen_action.get("kind", ""), "use_ability", "Decision trace should still record the ability action"),
 	])
 
 
@@ -1619,6 +1648,139 @@ func test_battle_scene_handoff_from_human_setup_to_ai_active_prompt_schedules_ai
 	])
 
 
+func test_battle_scene_ai_first_player_setup_hands_off_into_first_turn() -> String:
+	var previous_mode: int = GameManager.current_mode
+	var scene := _make_setup_ready_battle_scene()
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.phase = GameState.GamePhase.SETUP
+	gsm.game_state.current_player_index = 1
+	gsm.game_state.first_player_index = 1
+	gsm.game_state.players = [_make_player_state(0), _make_player_state(1)]
+	var human: PlayerState = gsm.game_state.players[0]
+	var ai_player: PlayerState = gsm.game_state.players[1]
+	human.hand = [_make_basic("Human Lead")]
+	ai_player.hand = [_make_basic("AI Lead")]
+	for pi: int in 2:
+		for deck_idx: int in 7:
+			gsm.game_state.players[pi].deck.append(_make_basic("Deck %d-%d" % [pi, deck_idx]))
+	gsm.state_changed.connect(scene._on_state_changed)
+	gsm.action_logged.connect(scene._on_action_logged)
+	gsm.player_choice_required.connect(scene._on_player_choice_required)
+	gsm.game_over.connect(scene._on_game_over)
+	gsm.coin_flipper.coin_flipped.connect(scene._on_coin_flipped)
+	var ai := CountingAIOpponent.new(1)
+	GameManager.current_mode = GameManager.GameMode.VS_AI
+	scene.set("_gsm", gsm)
+	scene.set("_ai_opponent", ai)
+	scene._begin_setup_flow()
+	scene._handle_dialog_choice(PackedInt32Array([0]))
+	scene._handle_dialog_choice(PackedInt32Array([0]))
+	var scheduled_after_human_setup: bool = bool(scene.get("_ai_step_scheduled"))
+	scene._run_ai_step()
+	var scheduled_after_ai_active: bool = bool(scene.get("_ai_step_scheduled"))
+	scene._run_ai_step()
+	var scheduled_after_setup_complete: bool = bool(scene.get("_ai_step_scheduled"))
+	var phase_after_setup: int = int(gsm.game_state.phase)
+	var current_player_after_setup: int = int(gsm.game_state.current_player_index)
+	var pending_choice_after_setup: String = str(scene.get("_pending_choice"))
+	GameManager.current_mode = previous_mode
+	return run_checks([
+		assert_true(scheduled_after_human_setup, "Human setup completion should still schedule the AI setup step when the AI is first player"),
+		assert_true(scheduled_after_ai_active, "AI active placement should queue the follow-up setup bench step"),
+		assert_true(scheduled_after_setup_complete, "Finishing setup with the AI as first player should immediately queue the AI first turn"),
+		assert_eq(phase_after_setup, GameState.GamePhase.MAIN, "Setup completion should advance into the opening main phase"),
+		assert_eq(current_player_after_setup, 1, "AI-first setup should keep the AI as the opening turn owner"),
+		assert_eq(pending_choice_after_setup, "", "No setup prompt should remain pending after setup completes"),
+		assert_true(ai.run_count >= 2, "AI should have resolved both setup prompts before entering its first turn"),
+	])
+
+
+func test_ai_send_out_prompt_preserves_followup_take_prize_prompt() -> String:
+	var previous_mode: int = GameManager.current_mode
+	var scene := _make_setup_ready_battle_scene()
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	gsm.game_state.turn_number = 2
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+	gsm.state_changed.connect(scene._on_state_changed)
+	gsm.action_logged.connect(scene._on_action_logged)
+	gsm.player_choice_required.connect(scene._on_player_choice_required)
+	gsm.game_over.connect(scene._on_game_over)
+	gsm.coin_flipper.coin_flipped.connect(scene._on_coin_flipped)
+	scene.set("_gsm", gsm)
+	scene.set("_view_player", 0)
+	var my_prize_slots: Array[BattleCardView] = []
+	var opp_prize_slots: Array[BattleCardView] = []
+	for _i: int in 6:
+		my_prize_slots.append(BattleCardViewScript.new())
+		opp_prize_slots.append(BattleCardViewScript.new())
+	scene.set("_my_prize_slots", my_prize_slots)
+	scene.set("_opp_prize_slots", opp_prize_slots)
+	for pi: int in 2:
+		var player := _make_player_state(pi)
+		for deck_idx: int in 3:
+			player.deck.append(CardInstance.create(_make_ai_pokemon_card_data("Deck %d-%d" % [pi, deck_idx]), pi))
+		gsm.game_state.players.append(player)
+	var dragapult_cd: CardData = CardDatabase.get_card("CSV8C", "159")
+	var attacker_slot := PokemonSlot.new()
+	attacker_slot.pokemon_stack.append(CardInstance.create(dragapult_cd, 0))
+	for energy_type: String in ["R", "P"]:
+		attacker_slot.attached_energy.append(CardInstance.create(_make_ai_energy_card_data("Energy %s" % energy_type, energy_type), 0))
+	gsm.effect_processor.register_pokemon_card(dragapult_cd)
+	gsm.game_state.players[0].active_pokemon = attacker_slot
+	var active_target_cd := _make_ai_pokemon_card_data("Active Prize Target")
+	active_target_cd.hp = 200
+	active_target_cd.energy_type = "W"
+	var active_target := PokemonSlot.new()
+	active_target.pokemon_stack.append(CardInstance.create(active_target_cd, 1))
+	gsm.game_state.players[1].active_pokemon = active_target
+	var bench_target_cd := _make_ai_pokemon_card_data("Bench Prize Target")
+	bench_target_cd.hp = 60
+	bench_target_cd.energy_type = "W"
+	var bench_target := PokemonSlot.new()
+	bench_target.pokemon_stack.append(CardInstance.create(bench_target_cd, 1))
+	var replacement := PokemonSlot.new()
+	replacement.pokemon_stack.append(CardInstance.create(_make_ai_pokemon_card_data("AI Replacement"), 1))
+	gsm.game_state.players[1].bench = [bench_target, replacement]
+	for prize_idx: int in 6:
+		gsm.game_state.players[0].prizes.append(CardInstance.create(_make_ai_pokemon_card_data("My Prize %d" % prize_idx), 0))
+		gsm.game_state.players[1].prizes.append(CardInstance.create(_make_ai_pokemon_card_data("Opp Prize %d" % prize_idx), 1))
+	var ai := AIOpponentScript.new()
+	ai.configure(1, 1)
+	GameManager.current_mode = GameManager.GameMode.VS_AI
+	scene.set("_ai_opponent", ai)
+	var attacked: bool = gsm.use_attack(0, 1, [{
+		"bench_damage_counters": [
+			{"target": bench_target, "amount": 60},
+		],
+	}])
+	var first_prompt: String = str(scene.get("_pending_choice"))
+	scene._try_take_prize_from_slot(0, 0)
+	var prompt_after_first_prize: String = str(scene.get("_pending_choice"))
+	var ai_scheduled_after_first_prize: bool = bool(scene.get("_ai_step_scheduled"))
+	scene._run_ai_step()
+	var prompt_after_ai_send_out: String = str(scene.get("_pending_choice"))
+	var scene_pending_second_prize: int = int(scene.get("_pending_prize_remaining"))
+	var gsm_pending_second_prize: int = int(gsm.get("_pending_prize_remaining"))
+	scene._try_take_prize_from_slot(0, 1)
+	var player_hand_after_second_prize: int = gsm.game_state.players[0].hand.size()
+	GameManager.current_mode = previous_mode
+	return run_checks([
+		assert_not_null(dragapult_cd, "CSV8C_159 should exist in the card database"),
+		assert_true(attacked, "Dragapult ex Phantom Dive should set up the double-KO fixture"),
+		assert_eq(first_prompt, "take_prize", "The first Dragapult ex knockout should prompt prize selection"),
+		assert_eq(prompt_after_first_prize, "send_out", "After the first prize, the AI should still need to send out a replacement before the next prize"),
+		assert_true(ai_scheduled_after_first_prize, "The AI-owned send_out prompt should schedule the AI follow-up"),
+		assert_eq(prompt_after_ai_send_out, "take_prize", "After the AI sends out a replacement, the second prize prompt should still be pending for the human player"),
+		assert_eq(scene_pending_second_prize, 1, "BattleScene should keep exactly one prize pending after the AI send-out"),
+		assert_eq(gsm_pending_second_prize, 1, "GameStateMachine should keep exactly one prize pending after the AI send-out"),
+		assert_eq(player_hand_after_second_prize, 2, "The player should still be able to take the second Dragapult ex prize"),
+	])
+
+
 func test_ai_opponent_reuses_planned_setup_bench_choices_across_repeated_prompts() -> String:
 	var ai := AIOpponentScript.new()
 	ai.configure(1, 1)
@@ -1668,6 +1830,7 @@ func test_battle_scene_schedules_ai_in_vs_ai_when_unblocked() -> String:
 	var scene := BattleSceneScript.new()
 	var gsm := GameStateMachine.new()
 	gsm.game_state = GameState.new()
+	gsm.game_state.phase = GameState.GamePhase.MAIN
 	gsm.game_state.current_player_index = 1
 	var spy_ai := SpyAIOpponent.new()
 	GameManager.current_mode = GameManager.GameMode.VS_AI
@@ -1697,6 +1860,7 @@ func test_battle_scene_handover_confirmation_callback_schedules_ai_in_vs_ai() ->
 	var scene := BattleSceneScript.new()
 	var gsm := GameStateMachine.new()
 	gsm.game_state = GameState.new()
+	gsm.game_state.phase = GameState.GamePhase.MAIN
 	gsm.game_state.current_player_index = 1
 	var spy_ai := SpyAIOpponent.new()
 	GameManager.current_mode = GameManager.GameMode.VS_AI
@@ -1719,6 +1883,76 @@ func test_battle_scene_handover_confirmation_callback_schedules_ai_in_vs_ai() ->
 	return run_checks([
 		assert_true(scheduled_after_callback, "Handover confirmation should schedule AI on the AI turn in VS_AI mode"),
 		assert_eq(spy_ai.run_count, 1, "Handover confirmation should lead to one AI step"),
+	])
+
+
+func test_battle_scene_ai_draw_reveal_auto_continue_reschedules_ai_turn() -> String:
+	var previous_mode: int = GameManager.current_mode
+	var scene := _make_battle_scene_refresh_stub()
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	gsm.game_state.current_player_index = 1
+	gsm.game_state.first_player_index = 0
+	gsm.game_state.turn_number = 2
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+	var drawn_card := CardInstance.create(_make_ai_pokemon_card_data("AI Drawn Card"), 1)
+	gsm.game_state.players[1].hand = [drawn_card]
+	var spy_ai := SpyAIOpponent.new()
+	GameManager.current_mode = GameManager.GameMode.VS_AI
+	scene.set("_gsm", gsm)
+	scene.set("_view_player", 0)
+	scene._setup_ai_for_tests()
+	scene.set("_ai_opponent", spy_ai)
+	var action := GameAction.create(
+		GameAction.ActionType.DRAW_CARD,
+		1,
+		{"count": 1, "card_names": [drawn_card.card_data.name], "card_instance_ids": [drawn_card.instance_id]},
+		2,
+		"AI draw"
+	)
+	scene._on_action_logged(action)
+	var auto_pending_before: bool = bool(scene.get("_draw_reveal_auto_continue_pending"))
+	var controller: RefCounted = scene.get("_battle_draw_reveal_controller")
+	controller.call("run_auto_continue", scene)
+	var scheduled_after_auto_continue: bool = bool(scene.get("_ai_step_scheduled"))
+	scene._run_ai_step()
+	GameManager.current_mode = previous_mode
+	return run_checks([
+		assert_true(auto_pending_before, "AI draw reveals should arm auto-continue before resuming the turn"),
+		assert_true(scheduled_after_auto_continue, "When the AI draw reveal auto-continues, BattleScene should schedule the next AI step"),
+		assert_eq(spy_ai.run_count, 1, "After the AI draw reveal finishes, the AI turn should continue with one scheduled step"),
+	])
+
+
+func test_battle_scene_does_not_schedule_generic_ai_turn_during_setup_without_ai_prompt() -> String:
+	var previous_mode: int = GameManager.current_mode
+	var scene := BattleSceneScript.new()
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.phase = GameState.GamePhase.SETUP
+	gsm.game_state.current_player_index = 1
+	gsm.game_state.first_player_index = 1
+	var spy_ai := SpyAIOpponent.new()
+	GameManager.current_mode = GameManager.GameMode.VS_AI
+	scene.set("_gsm", gsm)
+	scene.set("_dialog_overlay", Panel.new())
+	scene.set("_handover_panel", Panel.new())
+	scene.set("_coin_overlay", Panel.new())
+	scene.set("_detail_overlay", Panel.new())
+	scene.set("_discard_overlay", Panel.new())
+	scene.set("_field_interaction_overlay", Control.new())
+	scene._setup_ai_for_tests()
+	scene.set("_ai_opponent", spy_ai)
+	scene._maybe_run_ai()
+	var scheduled_during_setup: bool = bool(scene.get("_ai_step_scheduled"))
+	GameManager.current_mode = previous_mode
+	return run_checks([
+		assert_false(scheduled_during_setup, "BattleScene should not schedule a generic AI turn during setup before an AI-owned prompt exists"),
+		assert_eq(spy_ai.run_count, 0, "Setup without an AI-owned prompt should not run the AI"),
 	])
 
 
@@ -2105,14 +2339,14 @@ func test_deck_bias_gardevoir_prefers_evolving_psychic_line() -> String:
 	var heuristics := AIHeuristicsScript.new()
 	var gsm := _make_ai_manual_gsm()
 	var player: PlayerState = gsm.game_state.players[0]
-	# Gardevoir ex 在手（Stage 2 信号卡）
-	var gardevoir_cd := _make_ai_pokemon_card_data("Gardevoir ex", "Stage 2", "Kirlia")
+	# 沙奈朵ex在手（Stage 2 信号卡）
+	var gardevoir_cd := _make_ai_pokemon_card_data("沙奈朵ex", "Stage 2", "奇鲁莉安")
 	gardevoir_cd.energy_type = "P"
 	gardevoir_cd.mechanic = "ex"
-	gardevoir_cd.abilities = [{"name": "Psychic Embrace", "text": ""}]
+	gardevoir_cd.abilities = [{"name": "精神拥抱", "text": ""}]
 	var gardevoir_card := CardInstance.create(gardevoir_cd, 0)
-	# Kirlia 在场（可进化目标）
-	var kirlia_cd := _make_ai_pokemon_card_data("Kirlia", "Stage 1", "Ralts")
+	# 奇鲁莉安在场（可进化目标）
+	var kirlia_cd := _make_ai_pokemon_card_data("奇鲁莉安", "Stage 1", "拉鲁拉丝")
 	kirlia_cd.energy_type = "P"
 	var kirlia_slot := _make_ai_slot(CardInstance.create(kirlia_cd, 0), 1)
 	# 普通 Stage 1（无 Stage 2 配套）
@@ -2147,12 +2381,25 @@ func test_deck_bias_gardevoir_prefers_psychic_embrace_ability() -> String:
 	var gsm := _make_ai_manual_gsm()
 	var player: PlayerState = gsm.game_state.players[0]
 	var gardevoir_cd := _make_ai_pokemon_card_data(
-		"Gardevoir ex", "Stage 2", "Kirlia", "",
-		[{"name": "Psychic Embrace", "text": ""}]
+		"沙奈朵ex", "Stage 2", "奇鲁莉安", "",
+		[{"name": "精神拥抱", "text": ""}]
 	)
 	gardevoir_cd.energy_type = "P"
 	gardevoir_cd.mechanic = "ex"
 	var gardevoir_slot := _make_ai_slot(CardInstance.create(gardevoir_cd, 0))
+	# 弃牌堆添加超能量燃料（Embrace 需要燃料才有价值）
+	for _i: int in 3:
+		var psychic_energy_cd := CardData.new()
+		psychic_energy_cd.name = "Psychic Energy"
+		psychic_energy_cd.card_type = "Basic Energy"
+		psychic_energy_cd.energy_provides = "P"
+		player.discard_pile.append(CardInstance.create(psychic_energy_cd, 0))
+	# 攻击手目标（Embrace 贴能需要有效目标）
+	var attacker_cd := _make_ai_pokemon_card_data("飘飘球", "Basic", "", "")
+	attacker_cd.energy_type = "P"
+	attacker_cd.hp = 70
+	attacker_cd.attacks = [{"name": "Balloon Bomb", "cost": "PP", "damage": "0"}]
+	var attacker_slot := _make_ai_slot(CardInstance.create(attacker_cd, 0))
 	# 另一个有普通特性的宝可梦
 	var generic_ability_cd := _make_ai_pokemon_card_data(
 		"Bidoof", "Basic", "", "",
@@ -2160,7 +2407,7 @@ func test_deck_bias_gardevoir_prefers_psychic_embrace_ability() -> String:
 	)
 	var bidoof_slot := _make_ai_slot(CardInstance.create(generic_ability_cd, 0))
 	player.active_pokemon = gardevoir_slot
-	player.bench = [bidoof_slot]
+	player.bench = [bidoof_slot, attacker_slot]
 	var psychic_action := {"kind": "use_ability", "source_slot": gardevoir_slot, "ability_index": 0}
 	var generic_action := {"kind": "use_ability", "source_slot": bidoof_slot, "ability_index": 0}
 	var psychic_ctx := _make_deck_bias_context(gsm, 0, psychic_action)
@@ -2375,16 +2622,41 @@ func _write_battle_scene_test_json(path: String, data: Dictionary) -> void:
 
 func test_battle_scene_uses_default_ai_selection_when_no_version_is_set() -> String:
 	var previous_ai_selection := GameManager.ai_selection.duplicate(true)
+	var previous_selected_deck_ids := GameManager.selected_deck_ids.duplicate()
 	GameManager.reset_ai_selection()
+	GameManager.selected_deck_ids = [575716, 575720]
 	var scene := _make_setup_ready_battle_scene()
 	scene.call("_ensure_ai_opponent")
 	var ai = scene.get("_ai_opponent")
 	var selection: Dictionary = GameManager.ai_selection.duplicate(true)
 	GameManager.ai_selection = previous_ai_selection
+	GameManager.selected_deck_ids = previous_selected_deck_ids
 	return run_checks([
 		assert_true(ai != null, "BattleScene should create a default AI opponent"),
 		assert_eq(str(selection.get("source", "")), "default", "GameManager default source should remain default"),
 		assert_eq(str(ai.get_meta("ai_source", "")), "default", "Default AI should mark its source as default"),
+	])
+
+
+func test_battle_scene_default_ai_resolves_selected_ai_deck_strategy() -> String:
+	var previous_ai_selection := GameManager.ai_selection.duplicate(true)
+	var previous_selected_deck_ids := GameManager.selected_deck_ids.duplicate()
+	var previous_ai_strategy := GameManager.ai_deck_strategy
+	GameManager.reset_ai_selection()
+	GameManager.ai_deck_strategy = "generic"
+	GameManager.selected_deck_ids = [575716, 575720]
+	var scene := _make_setup_ready_battle_scene()
+	scene.call("_ensure_ai_opponent")
+	var ai = scene.get("_ai_opponent")
+	var strategy_id := ""
+	if ai != null and ai.get("_deck_strategy") != null and ai.get("_deck_strategy").has_method("get_strategy_id"):
+		strategy_id = str(ai.get("_deck_strategy").call("get_strategy_id"))
+	GameManager.ai_selection = previous_ai_selection
+	GameManager.selected_deck_ids = previous_selected_deck_ids
+	GameManager.ai_deck_strategy = previous_ai_strategy
+	return run_checks([
+		assert_true(ai != null, "BattleScene should create an AI opponent for the selected AI deck"),
+		assert_eq(strategy_id, "miraidon", "Default AI should resolve the selected AI deck through the unified deck strategy registry"),
 	])
 
 
@@ -2421,6 +2693,7 @@ func test_battle_scene_loads_latest_training_ai_version_through_setup_prompt_and
 	var older_agent_config_path := _battle_scene_ai_version_test_base_dir().path_join("older_agent_config.json")
 	var latest_agent_config_path := _battle_scene_ai_version_test_base_dir().path_join("latest_agent_config.json")
 	var latest_value_net_path := _battle_scene_ai_version_test_base_dir().path_join("latest_value_net.json")
+	var latest_action_scorer_path := _battle_scene_ai_version_test_base_dir().path_join("latest_action_scorer.json")
 	_write_battle_scene_test_json(older_agent_config_path, {
 		"heuristic_weights": {"aggression": 0.5},
 		"mcts_config": {
@@ -2440,6 +2713,7 @@ func test_battle_scene_loads_latest_training_ai_version_through_setup_prompt_and
 		},
 	})
 	_write_battle_scene_test_json(latest_value_net_path, {"weights": []})
+	_write_battle_scene_test_json(latest_action_scorer_path, {"layers": []})
 	registry.save_version({
 		"version_id": "AI-20260328-03",
 		"display_name": "older playable",
@@ -2453,6 +2727,7 @@ func test_battle_scene_loads_latest_training_ai_version_through_setup_prompt_and
 		"status": "playable",
 		"agent_config_path": latest_agent_config_path,
 		"value_net_path": latest_value_net_path,
+		"action_scorer_path": latest_action_scorer_path,
 	})
 	GameManager.current_mode = GameManager.GameMode.VS_AI
 	GameManager.ai_selection = {
@@ -2490,6 +2765,7 @@ func test_battle_scene_loads_latest_training_ai_version_through_setup_prompt_and
 		assert_eq(str(ai.get_meta("ai_version_id", "")), "AI-20260328-04", "Latest playable version should be selected through the registry"),
 		assert_eq(str(ai.get_meta("ai_display_name", "")), "latest playable", "Loaded AI should record the latest version display name"),
 		assert_eq(str(ai.value_net_path), latest_value_net_path, "Loaded AI should use the latest playable value net"),
+		assert_eq(str(ai.action_scorer_path), latest_action_scorer_path, "Loaded AI should use the latest playable action scorer"),
 		assert_eq(float(ai.heuristic_weights.get("aggression", 0.0)), 1.75, "Loaded AI should apply heuristic weights from the latest playable config"),
 		assert_eq(int(ai.mcts_config.get("branch_factor", 0)), 5, "Loaded AI should apply MCTS config from the latest playable config"),
 		assert_str_contains(runtime_log, "ai_loaded", "Battle runtime log should record ai_loaded when the AI is created"),
@@ -2502,11 +2778,13 @@ func test_battle_scene_loads_latest_training_ai_version_through_setup_prompt_and
 func test_battle_scene_loads_specific_training_ai_version() -> String:
 	_cleanup_battle_scene_ai_version_test_dir()
 	var previous_ai_selection := GameManager.ai_selection.duplicate(true)
+	var previous_selected_deck_ids := GameManager.selected_deck_ids.duplicate()
 	var registry_script: Variant = load("res://scripts/ai/AIVersionRegistry.gd")
 	var registry = registry_script.new()
 	registry.base_dir = _battle_scene_ai_version_test_base_dir().path_join("versions")
 	var agent_config_path := _battle_scene_ai_version_test_base_dir().path_join("agent_config.json")
 	var value_net_path := _battle_scene_ai_version_test_base_dir().path_join("value_net.json")
+	var action_scorer_path := _battle_scene_ai_version_test_base_dir().path_join("action_scorer.json")
 	_write_battle_scene_test_json(agent_config_path, {
 		"heuristic_weights": {"aggression": 1.25},
 		"mcts_config": {
@@ -2517,12 +2795,14 @@ func test_battle_scene_loads_specific_training_ai_version() -> String:
 		},
 	})
 	_write_battle_scene_test_json(value_net_path, {"weights": []})
+	_write_battle_scene_test_json(action_scorer_path, {"layers": []})
 	registry.save_version({
 		"version_id": "AI-20260328-01",
 		"display_name": "v015 + value1",
 		"status": "playable",
 		"agent_config_path": agent_config_path,
 		"value_net_path": value_net_path,
+		"action_scorer_path": action_scorer_path,
 	})
 	GameManager.ai_selection = {
 		"source": "specific_version",
@@ -2531,19 +2811,66 @@ func test_battle_scene_loads_specific_training_ai_version() -> String:
 		"value_net_path": value_net_path,
 		"display_name": "v015 + value1",
 	}
+	GameManager.selected_deck_ids = [575716, 575720]
 	var scene := _make_setup_ready_battle_scene()
 	scene.call("set_ai_version_registry_for_test", registry)
 	scene.call("_ensure_ai_opponent")
 	var ai = scene.get("_ai_opponent")
 	GameManager.ai_selection = previous_ai_selection
+	GameManager.selected_deck_ids = previous_selected_deck_ids
 	_cleanup_battle_scene_ai_version_test_dir()
 	return run_checks([
 		assert_true(ai != null, "BattleScene should create an AI opponent for a specific version"),
 		assert_eq(str(ai.get_meta("ai_source", "")), "specific_version", "Loaded AI should record specific_version source"),
 		assert_eq(str(ai.get_meta("ai_version_id", "")), "AI-20260328-01", "Loaded AI should record the selected version id"),
 		assert_eq(str(ai.value_net_path), value_net_path, "Loaded AI should use the version's value net"),
+		assert_eq(str(ai.action_scorer_path), action_scorer_path, "Loaded AI should use the version's action scorer"),
 		assert_eq(float(ai.heuristic_weights.get("aggression", 0.0)), 1.25, "Loaded AI should apply heuristic weights from agent config"),
 		assert_eq(int(ai.mcts_config.get("branch_factor", 0)), 4, "Loaded AI should apply MCTS config from agent config"),
+	])
+
+
+func test_battle_scene_rejects_incompatible_training_version_for_selected_ai_deck() -> String:
+	_cleanup_battle_scene_ai_version_test_dir()
+	var previous_ai_selection := GameManager.ai_selection.duplicate(true)
+	var previous_selected_deck_ids := GameManager.selected_deck_ids.duplicate()
+	var registry_script: Variant = load("res://scripts/ai/AIVersionRegistry.gd")
+	var registry = registry_script.new()
+	registry.base_dir = _battle_scene_ai_version_test_base_dir().path_join("versions")
+	var agent_config_path := _battle_scene_ai_version_test_base_dir().path_join("agent_config.json")
+	_write_battle_scene_test_json(agent_config_path, {
+		"heuristic_weights": {"aggression": 1.25},
+	})
+	registry.save_version({
+		"version_id": "AI-20260328-09",
+		"display_name": "gardevoir-only build",
+		"status": "playable",
+		"agent_config_path": agent_config_path,
+		"value_net_path": "",
+		"compatible_strategy_id": "gardevoir",
+	})
+	GameManager.ai_selection = {
+		"source": "specific_version",
+		"version_id": "AI-20260328-09",
+		"agent_config_path": agent_config_path,
+		"value_net_path": "",
+		"display_name": "gardevoir-only build",
+	}
+	GameManager.selected_deck_ids = [575716, 575720]
+	var scene := _make_setup_ready_battle_scene()
+	scene.call("set_ai_version_registry_for_test", registry)
+	scene.call("_ensure_ai_opponent")
+	var ai = scene.get("_ai_opponent")
+	var strategy_id := ""
+	if ai != null and ai.get("_deck_strategy") != null and ai.get("_deck_strategy").has_method("get_strategy_id"):
+		strategy_id = str(ai.get("_deck_strategy").call("get_strategy_id"))
+	GameManager.ai_selection = previous_ai_selection
+	GameManager.selected_deck_ids = previous_selected_deck_ids
+	_cleanup_battle_scene_ai_version_test_dir()
+	return run_checks([
+		assert_true(ai != null, "BattleScene should still produce an AI when an incompatible training version is selected"),
+		assert_eq(str(ai.get_meta("ai_source", "")), "default", "Incompatible training versions should fall back to the selected deck's default AI"),
+		assert_eq(strategy_id, "miraidon", "Fallback should still use the selected AI deck's unified strategy"),
 	])
 
 
@@ -2578,4 +2905,48 @@ func test_battle_scene_falls_back_to_default_when_training_version_file_is_missi
 		assert_eq(str(ai.get_meta("ai_source", "")), "default", "Broken training version should fall back to default AI"),
 		assert_eq(str(ai.value_net_path), "", "Fallback AI should not keep a missing value net path"),
 		assert_eq(int(ai.mcts_config.get("branch_factor", 0)), 2, "Fallback AI should restore default MCTS config"),
+	])
+
+
+# ============================================================
+#  MCTS + 策略评估混合模式测试
+# ============================================================
+
+func test_ai_opponent_mcts_strategy_hybrid_priority() -> String:
+	## MCTS + 策略评估模式下，_choose_best_action 应走 MCTS 路径
+	var ai := AIOpponentScript.new()
+	ai.configure(0, 1)
+	var strategy := preload("res://scripts/ai/DeckStrategyGardevoir.gd").new()
+	ai._deck_strategy = strategy
+	ai._deck_strategy_detected = true
+	ai.use_mcts = true
+	ai._mcts_planner.deck_strategy = strategy
+	ai.mcts_config = strategy.get_mcts_config()
+	# 构造最小游戏状态
+	var gs := GameState.new()
+	gs.turn_number = 3
+	gs.current_player_index = 0
+	gs.first_player_index = 0
+	gs.phase = GameState.GamePhase.MAIN
+	for pi: int in 2:
+		var p := PlayerState.new()
+		p.player_index = pi
+		var slot := PokemonSlot.new()
+		var cd := CardData.new()
+		cd.name = "Active%d" % pi
+		cd.card_type = "Pokemon"
+		cd.stage = "Basic"
+		cd.hp = 100
+		slot.pokemon_stack.append(CardInstance.create(cd, pi))
+		slot.turn_played = 0
+		p.active_pokemon = slot
+		gs.players.append(p)
+	var gsm := GameStateMachine.new()
+	gsm.game_state = gs
+	# MCTS planner 应使用策略评估（deck_strategy 已设置）
+	return run_checks([
+		assert_true(ai._mcts_planner.deck_strategy != null, "MCTS planner 应有 deck_strategy"),
+		assert_eq(int(ai.mcts_config.get("rollouts_per_sequence", -1)), 0, "MCTS 配置应 rollouts=0"),
+		assert_true(ai.use_mcts, "AI 应启用 MCTS"),
+		assert_true(ai._deck_strategy != null, "AI 应有 deck_strategy"),
 	])

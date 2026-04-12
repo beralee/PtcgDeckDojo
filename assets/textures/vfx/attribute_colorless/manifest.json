@@ -1,0 +1,47 @@
+{
+  "attribute": "colorless",
+  "package_name": "attribute_colorless",
+  "asset_directory": "assets/textures/vfx/attribute_colorless/source",
+  "visual_rule": "Colorless should read as a polished pearlescent strike: an ivory-white core, brushed-silver body, champagne highlights, and a few feathered neutral fragments. Keep the effect elegant, readable, and battle-ready rather than leaning into a specific elemental motif.",
+  "playback_model": "impact-first with short charge support",
+  "anchor_policy": "Use center anchors for source and target cards until a card-specific emit point is validated.",
+  "suppressed_layers": [
+    "generic beam slabs",
+    "hard black smoke",
+    "oversaturated rainbow flares",
+    "giant particle fog",
+    "layout-shifting overlay containers"
+  ],
+  "palette": {
+    "core": "ivory white",
+    "mid": "silver pearl",
+    "accent": "champagne gold",
+    "shadow": "graphite neutral"
+  },
+  "assets": [
+    {
+      "name": "charge_glint",
+      "role": "charge",
+      "path": "source/charge_glint.png",
+      "sidecar": "source/charge_glint.json"
+    },
+    {
+      "name": "travel_sheen",
+      "role": "travel core",
+      "path": "source/travel_sheen.png",
+      "sidecar": "source/travel_sheen.json"
+    },
+    {
+      "name": "impact_bloom",
+      "role": "impact bloom",
+      "path": "source/impact_bloom.png",
+      "sidecar": "source/impact_bloom.json"
+    },
+    {
+      "name": "residue_motes",
+      "role": "residue",
+      "path": "source/residue_motes.png",
+      "sidecar": "source/residue_motes.json"
+    }
+  ]
+}

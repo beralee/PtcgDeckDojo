@@ -1,0 +1,46 @@
+{
+  "package_id": "attribute_darkness",
+  "asset_name": "residue_smoke",
+  "role": "residue_smoke",
+  "dimensions": [
+    1024,
+    1024
+  ],
+  "seed": 1104,
+  "generation_method": "procedural_pil",
+  "palette": {
+    "core": [
+      141,
+      92,
+      255,
+      255
+    ],
+    "mid": [
+      52,
+      34,
+      79,
+      255
+    ],
+    "smoke": [
+      9,
+      6,
+      15,
+      255
+    ],
+    "highlight": [
+      226,
+      199,
+      255,
+      255
+    ],
+    "shadow": [
+      6,
+      4,
+      11,
+      255
+    ]
+  },
+  "prompt": "Create a transparent-background 2D battle VFX asset for Pokemon-style darkness attacks. Show only the effect element, with no character, arena, text, UI, watermark, or frame. Use a compact eclipse-like darkness style: near-black violet mass, amethyst rim light, thin shard accents, and smoky residue that remains readable in battle. Make the subject lingering darkness residue: soft smoke wisps, broken shadow flecks, and faint violet embers that trail after the impact. Keep the mass airy enough to layer behind the bloom without obscuring it. Output a single isolated effect element on transparency.",
+  "negative_prompt": "no background, no arena, no Pokemon body, no trainer, no text, no watermark, no UI, no frame, no checkerboard, no fake transparency pattern, no decorative magical symbols, no oversized fog bank, no neon overload",
+  "notes": "Lingering aftermath smoke and fragments."
+}

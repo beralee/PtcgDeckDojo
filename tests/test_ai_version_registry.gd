@@ -187,3 +187,65 @@ func test_get_latest_approved_artifacts_preserves_qualified_pool_metadata() -> S
 		assert_eq(str(artifacts.get("parent_approved_baseline_id", "")), "AI-20260329-01", "approved artifact lookup should expose the parent approved baseline id"),
 		assert_eq(float(quality_summary.get("win_rate_vs_current_best", 0.0)), 0.61, "approved artifact lookup should expose benchmark quality summary"),
 	])
+
+
+func test_list_playable_versions_for_strategy_filters_incompatible_records() -> String:
+	_cleanup()
+	var registry := RegistryScript.new()
+	registry.base_dir = "user://ai_versions_test"
+	registry.save_version({
+		"version_id": "AI-generic",
+		"display_name": "generic playable",
+		"status": "playable",
+	})
+	registry.save_version({
+		"version_id": "AI-miraidon",
+		"display_name": "miraidon playable",
+		"status": "playable",
+		"compatible_strategy_id": "miraidon",
+	})
+	registry.save_version({
+		"version_id": "AI-gardevoir",
+		"display_name": "gardevoir playable",
+		"status": "playable",
+		"compatible_strategy_id": "gardevoir",
+	})
+	var versions: Array[Dictionary] = registry.list_playable_versions_for_strategy("miraidon") if registry.has_method("list_playable_versions_for_strategy") else []
+	_cleanup()
+	return run_checks([
+		assert_eq(versions.size(), 2, "strategy filtering should keep generic and matching playable versions"),
+		assert_eq(str(versions[0].get("version_id", "")), "AI-generic", "generic playable versions should remain eligible"),
+		assert_eq(str(versions[1].get("version_id", "")), "AI-miraidon", "incompatible strategy records should be filtered out"),
+	])
+
+
+func test_get_latest_playable_version_for_strategy_returns_latest_matching_record() -> String:
+	_cleanup()
+	var registry := RegistryScript.new()
+	registry.base_dir = "user://ai_versions_test"
+	registry.save_version({
+		"version_id": "AI-miraidon-older",
+		"display_name": "older miraidon",
+		"status": "playable",
+		"created_at": "2026-04-11T10:00:00",
+		"compatible_strategy_id": "miraidon",
+	})
+	registry.save_version({
+		"version_id": "AI-gardevoir-newer",
+		"display_name": "newer gardevoir",
+		"status": "playable",
+		"created_at": "2026-04-11T11:00:00",
+		"compatible_strategy_id": "gardevoir",
+	})
+	registry.save_version({
+		"version_id": "AI-miraidon-newest",
+		"display_name": "newest miraidon",
+		"status": "playable",
+		"created_at": "2026-04-11T12:00:00",
+		"compatible_strategy_id": "miraidon",
+	})
+	var latest: Dictionary = registry.get_latest_playable_version_for_strategy("miraidon") if registry.has_method("get_latest_playable_version_for_strategy") else {}
+	_cleanup()
+	return run_checks([
+		assert_eq(str(latest.get("version_id", "")), "AI-miraidon-newest", "latest playable version should respect compatible_strategy_id filtering"),
+	])

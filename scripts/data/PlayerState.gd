@@ -23,6 +23,8 @@ var lost_zone: Array[CardInstance] = []
 var active_pokemon: PokemonSlot = null
 ## 备战区（最多5个槽位）
 var bench: Array[PokemonSlot] = []
+## 洗牌计数器（UI 动画检测用）
+var shuffle_count: int = 0
 
 
 ## 从牌库顶抽1张卡加入手牌，返回抽到的卡（牌库为空返回 null）
@@ -186,6 +188,7 @@ func shuffle_deck() -> void:
 		var temp: CardInstance = deck[i]
 		deck[i] = deck[j]
 		deck[j] = temp
+	shuffle_count += 1
 
 
 ## 将指定卡牌从弃牌区移回牌库（不洗牌）

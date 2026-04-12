@@ -46,7 +46,7 @@ func execute_ability(
 		player.deck.append(card)
 
 	# 从牌库顶抽指定数量的牌
-	player.draw_cards(draw_count)
+	_draw_cards_with_log(state, top.owner_index, draw_count, top, "ability")
 
 	# 标记本回合已使用
 	pokemon.effects.append({

@@ -129,6 +129,7 @@ func _rush_in(
 	player.bench.remove_at(bench_idx)
 	player.active_pokemon = pokemon
 	if not player.is_bench_full():
+		old_active.clear_on_leave_active()
 		player.bench.append(old_active)
 
 	if targets.size() > 0 and targets[0] is PokemonSlot:

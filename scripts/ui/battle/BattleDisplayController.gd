@@ -22,6 +22,8 @@ func refresh_ui(scene: Object) -> void:
 
 	var my_player: PlayerState = gs.players[view_player]
 	var opponent: PlayerState = gs.players[opponent_player]
+	var opponent_visible_discard: Array[CardInstance] = _visible_discard_pile(scene, opponent_player, opponent.discard_pile)
+	var my_visible_discard: Array[CardInstance] = _visible_discard_pile(scene, view_player, my_player.discard_pile)
 	var phase_label: Label = scene.get("_lbl_phase")
 	var turn_label: Label = scene.get("_lbl_turn")
 	phase_label.text = _bt(scene, "battle.top.phase_line", {
@@ -54,12 +56,12 @@ func refresh_ui(scene: Object) -> void:
 	var opp_discard_hud_value: Label = scene.get("_opp_discard_hud_value")
 	opp_prizes.text = "x%d" % opponent.prizes.size()
 	opp_deck.text = "%d" % opponent.deck.size()
-	opp_discard.text = "%d" % opponent.discard_pile.size()
+	opp_discard.text = "%d" % opponent_visible_discard.size()
 	opp_hand_label.text = _bt(scene, "battle.top.opponent_hand_count", {"count": opponent.hand.size()})
 	opp_hand_bar.visible = false
 	opp_prize_hud_count.text = "x%d" % opponent.prizes.size()
 	opp_deck_hud_value.text = _bt(scene, "battle.top.card_count", {"count": opponent.deck.size()})
-	opp_discard_hud_value.text = _bt(scene, "battle.top.card_count", {"count": opponent.discard_pile.size()})
+	opp_discard_hud_value.text = _bt(scene, "battle.top.card_count", {"count": opponent_visible_discard.size()})
 
 	var my_prizes: Label = scene.get("_my_prizes")
 	var my_deck: Label = scene.get("_my_deck")
@@ -69,10 +71,10 @@ func refresh_ui(scene: Object) -> void:
 	var my_discard_hud_value: Label = scene.get("_my_discard_hud_value")
 	my_prizes.text = "x%d" % my_player.prizes.size()
 	my_deck.text = "%d" % my_player.deck.size()
-	my_discard.text = "%d" % my_player.discard_pile.size()
+	my_discard.text = "%d" % my_visible_discard.size()
 	my_prize_hud_count.text = "x%d" % my_player.prizes.size()
 	my_deck_hud_value.text = _bt(scene, "battle.top.card_count", {"count": my_player.deck.size()})
-	my_discard_hud_value.text = _bt(scene, "battle.top.card_count", {"count": my_player.discard_pile.size()})
+	my_discard_hud_value.text = _bt(scene, "battle.top.card_count", {"count": my_visible_discard.size()})
 
 	scene.call("_refresh_prize_titles")
 	update_side_previews(scene, opponent, my_player)
@@ -105,6 +107,7 @@ func get_selected_deck_name(player_index: int) -> String:
 
 
 func update_side_previews(scene: Object, opp: PlayerState, my_player: PlayerState) -> void:
+	var view_player: int = int(scene.get("_view_player"))
 	update_prize_slots(
 		scene,
 		scene.get("_opp_prize_slots"),
@@ -123,11 +126,12 @@ func update_side_previews(scene: Object, opp: PlayerState, my_player: PlayerStat
 	)
 	update_pile_preview(scene.get("_opp_deck_preview"), null, not opp.deck.is_empty())
 	update_pile_preview(scene.get("_my_deck_preview"), null, not my_player.deck.is_empty())
-	update_pile_preview(scene.get("_opp_discard_preview"), opp.discard_pile.back() if not opp.discard_pile.is_empty() else null, false)
-	update_pile_preview(scene.get("_my_discard_preview"), my_player.discard_pile.back() if not my_player.discard_pile.is_empty() else null, false)
+	var visible_opp_discard: Array[CardInstance] = _visible_discard_pile(scene, 1 - view_player, opp.discard_pile)
+	var visible_my_discard: Array[CardInstance] = _visible_discard_pile(scene, view_player, my_player.discard_pile)
+	update_pile_preview(scene.get("_opp_discard_preview"), visible_opp_discard.back() if not visible_opp_discard.is_empty() else null, false)
+	update_pile_preview(scene.get("_my_discard_preview"), visible_my_discard.back() if not visible_my_discard.is_empty() else null, false)
 
 	# 根据当前视角交换上下区域的卡背纹理
-	var view_player: int = int(scene.get("_view_player"))
 	var my_back: Texture2D
 	var opp_back: Texture2D
 	if view_player == 0:
@@ -243,6 +247,32 @@ func update_pile_preview(preview: BattleCardView, card: CardInstance, face_down:
 	preview.set_disabled(false)
 	preview.set_badges("", "")
 	preview.set_info("", "")
+
+
+func _visible_discard_pile(scene: Object, player_index: int, actual_discard: Array[CardInstance]) -> Array[CardInstance]:
+	var current_reveal: GameAction = scene.get("_draw_reveal_current_action") as GameAction
+	if current_reveal == null:
+		return actual_discard
+	if current_reveal.action_type != GameAction.ActionType.DISCARD:
+		return actual_discard
+	if str(current_reveal.data.get("source_zone", "")) != "hand":
+		return actual_discard
+	if current_reveal.player_index != player_index:
+		return actual_discard
+	var reveal_ids: Dictionary = {}
+	for id_variant: Variant in current_reveal.data.get("card_instance_ids", []):
+		reveal_ids[int(id_variant)] = true
+	var visible_ids: Dictionary = {}
+	for id_variant: Variant in scene.get("_draw_reveal_visible_instance_ids"):
+		visible_ids[int(id_variant)] = true
+	var visible_discard: Array[CardInstance] = []
+	for discard_card: CardInstance in actual_discard:
+		if discard_card == null:
+			continue
+		if reveal_ids.has(discard_card.instance_id) and not visible_ids.has(discard_card.instance_id):
+			continue
+		visible_discard.append(discard_card)
+	return visible_discard
 
 
 func refresh_field_card_views(scene: Object, gs: GameState) -> void:
@@ -523,7 +553,7 @@ func refresh_hand(scene: Object) -> void:
 	var gsm: Variant = scene.get("_gsm")
 	if gsm == null:
 		return
-	if bool(scene.get("_draw_reveal_active")):
+	if bool(scene.get("_draw_reveal_active")) and not bool(scene.get("_draw_reveal_allow_hand_refresh_during_fly")):
 		scene.set("_draw_reveal_pending_hand_refresh", true)
 		return
 	var hand_container: HBoxContainer = scene.get("_hand_container")
@@ -541,7 +571,28 @@ func refresh_hand(scene: Object) -> void:
 		waiting_label.text = _bt(scene, "battle.hand.waiting")
 		hand_container.add_child(waiting_label)
 		return
+	var current_reveal: GameAction = scene.get("_draw_reveal_current_action") as GameAction
+	var hidden_reveal_lookup: Dictionary = {}
+	var visible_reveal_lookup: Dictionary = {}
+	if bool(scene.get("_draw_reveal_active")) and current_reveal != null and current_reveal.player_index == view_player:
+		for id_variant: Variant in current_reveal.data.get("card_instance_ids", []):
+			hidden_reveal_lookup[int(id_variant)] = true
+		for id_variant: Variant in scene.get("_draw_reveal_visible_instance_ids"):
+			visible_reveal_lookup[int(id_variant)] = true
+	var queued_reveals: Array = scene.get("_draw_reveal_queue")
+	for queued_variant: Variant in queued_reveals:
+		var queued_action: GameAction = queued_variant as GameAction
+		if queued_action == null:
+			continue
+		if queued_action.action_type != GameAction.ActionType.DRAW_CARD:
+			continue
+		if queued_action.player_index != view_player:
+			continue
+		for id_variant: Variant in queued_action.data.get("card_instance_ids", []):
+			hidden_reveal_lookup[int(id_variant)] = true
 	for card_inst: CardInstance in gs.players[view_player].hand:
+		if hidden_reveal_lookup.has(card_inst.instance_id) and not visible_reveal_lookup.has(card_inst.instance_id):
+			continue
 		hand_container.add_child(build_hand_card(scene, card_inst))
 
 

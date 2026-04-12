@@ -1,0 +1,9 @@
+{
+  "generator": "local_procedural_raster_synthesis",
+  "package_name": "attribute_grass_verdant_burst",
+  "asset_name": "vine_fracture_accents",
+  "output_path": "assets/textures/vfx/attribute_grass/verdant_burst/vine_fracture_accents.png",
+  "role": "supporting vine fracture accent",
+  "format": "single layer",
+  "prompt": "Use case: stylized-concept\nAsset type: 2D battle VFX texture for a Pokemon-style grass attack\nPrimary request: create vine-like fracture accents for a grass impact burst\nScene/backdrop: transparent background, isolated effect only, no background\nSubject: effect only, no Pokemon body, no arena, no UI\nStyle/medium: premium polished game VFX asset with crisp botanical fracture detail and elegant curvature\nComposition/framing: branching vine lines and crack accents radiating from a small center, tightly framed for compositing, isolated support layer\nLighting/mood: tense impact accent, organic and controlled\nColor palette: deep emerald, moss green, pale lime highlights, muted yellow-green glints\nMaterials/textures: thin vine strands, subtle bark-like texture, sharp fracture edges, clean glow on transparency\nConstraints: transparent background, no text, no watermark, no Pokemon body, no trainer, no environment, no card frame\nAvoid: beams, trails, petals, flowers, black background, checkerboard, solid backdrop, tangled roots dominating the frame\nImportant negative constraints: keep the accents delicate and directional, avoid making the layer into a full projectile or beam, preserve legibility in battle overlays\n"
+}

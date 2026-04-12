@@ -1,17 +1,33 @@
 class_name AIDecisionSampleExporter
 extends RefCounted
 
+const TrainingExportPathScript = preload("res://scripts/ai/TrainingExportPath.gd")
+
 var base_dir: String = "user://training_data/action_decisions"
 
 var _records: Array[Dictionary] = []
+var _interaction_records: Array[Dictionary] = []
 var _winner_index: int = -1
 var _meta: Dictionary = {}
+var _total_turns: int = 0
+var _failure_reason: String = ""
+var _terminated_by_cap: bool = false
+var _stalled: bool = false
+var _match_quality_weight: float = 1.0
+var max_turn_for_shaping: int = 30
+var speed_penalty: float = 0.3
 
 
 func start_game(meta: Dictionary = {}) -> void:
 	_records.clear()
+	_interaction_records.clear()
 	_winner_index = -1
 	_meta = meta.duplicate(true)
+	_total_turns = 0
+	_failure_reason = ""
+	_terminated_by_cap = false
+	_stalled = false
+	_match_quality_weight = 1.0
 
 
 func record_trace(trace, extra_context: Dictionary = {}) -> void:
@@ -37,34 +53,96 @@ func record_trace(trace, extra_context: Dictionary = {}) -> void:
 		"used_mcts": bool(trace_dict.get("used_mcts", false)),
 		"result": 0.5,
 	}
+	_total_turns = maxi(_total_turns, int(record.get("turn_number", 0)))
 	for key: Variant in extra_context.keys():
 		record[str(key)] = extra_context[key]
 	_records.append(record)
 
 
-func end_game(winner_index: int) -> void:
+func record_interaction_decision(record: Dictionary) -> void:
+	if record.is_empty():
+		return
+	var entry: Dictionary = record.duplicate(true)
+	entry["interaction_id"] = _interaction_records.size()
+	entry["run_id"] = str(_meta.get("run_id", ""))
+	entry["match_id"] = str(_meta.get("match_id", ""))
+	entry["pipeline_name"] = str(_meta.get("pipeline_name", ""))
+	entry["deck_identity"] = str(_meta.get("deck_identity", ""))
+	entry["opponent_deck_identity"] = str(_meta.get("opponent_deck_identity", ""))
+	entry["state_features"] = _to_float_array(entry.get("state_features", []))
+	var candidates_variant: Variant = entry.get("candidates", [])
+	var candidates: Array[Dictionary] = []
+	if candidates_variant is Array:
+		for candidate_variant: Variant in candidates_variant:
+			if not (candidate_variant is Dictionary):
+				continue
+			var candidate: Dictionary = (candidate_variant as Dictionary).duplicate(true)
+			if candidate.has("interaction_vector"):
+				candidate["interaction_vector"] = _to_float_array(candidate.get("interaction_vector", []))
+			candidates.append(candidate)
+	entry["candidates"] = candidates
+	_interaction_records.append(entry)
+
+
+func end_game(result_variant: Variant) -> void:
+	var winner_index: int = -1
+	if result_variant is Dictionary:
+		var result: Dictionary = result_variant
+		winner_index = int(result.get("winner_index", -1))
+		_failure_reason = str(result.get("failure_reason", ""))
+		_terminated_by_cap = bool(result.get("terminated_by_cap", false))
+		_stalled = bool(result.get("stalled", false))
+		_total_turns = maxi(_total_turns, int(result.get("turn_count", 0)))
+	else:
+		winner_index = int(result_variant)
+	_failure_reason = _failure_reason.strip_edges()
+	_match_quality_weight = _compute_match_quality_weight()
 	_winner_index = winner_index
+	var shaped_reward: float = 1.0
+	if winner_index >= 0 and _total_turns > 0:
+		var turn_ratio: float = clampf(float(_total_turns) / float(max_turn_for_shaping), 0.0, 1.0)
+		shaped_reward = clampf(1.0 - turn_ratio * speed_penalty, 0.5, 1.0)
 	for record: Dictionary in _records:
 		var player_index: int = int(record.get("player_index", -1))
 		if player_index == winner_index:
-			record["result"] = 1.0
+			record["result"] = shaped_reward
 		elif winner_index >= 0:
 			record["result"] = 0.0
 		else:
 			record["result"] = 0.5
+		record["failure_reason"] = _failure_reason
+		record["terminated_by_cap"] = _terminated_by_cap
+		record["stalled"] = _stalled
+		record["match_quality_weight"] = _match_quality_weight
+	for record: Dictionary in _interaction_records:
+		var player_index: int = int(record.get("player_index", -1))
+		if player_index == winner_index:
+			record["result"] = shaped_reward
+		elif winner_index >= 0:
+			record["result"] = 0.0
+		else:
+			record["result"] = 0.5
+		record["failure_reason"] = _failure_reason
+		record["terminated_by_cap"] = _terminated_by_cap
+		record["stalled"] = _stalled
+		record["match_quality_weight"] = _match_quality_weight
 
 
 func export_game() -> String:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(base_dir))
 	var match_id: String = str(_meta.get("match_id", ""))
-	if match_id.strip_edges().is_empty():
-		match_id = "decision_match_%d_%d" % [Time.get_unix_time_from_system() as int, randi()]
-	var path := base_dir.path_join("%s.json" % match_id)
+	var path := TrainingExportPathScript.build_unique_user_json_path(base_dir, match_id, "decision_match")
 	var payload := {
 		"version": "1.0",
 		"winner_index": _winner_index,
+		"total_turns": _total_turns,
+		"failure_reason": _failure_reason,
+		"terminated_by_cap": _terminated_by_cap,
+		"stalled": _stalled,
+		"match_quality_weight": _match_quality_weight,
 		"meta": _meta.duplicate(true),
 		"records": _records.duplicate(true),
+		"interaction_records": _interaction_records.duplicate(true),
 	}
 	var file := FileAccess.open(path, FileAccess.WRITE)
 	if file == null:
@@ -73,6 +151,19 @@ func export_game() -> String:
 	file.store_string(JSON.stringify(payload))
 	file.close()
 	return path
+
+
+func _compute_match_quality_weight() -> float:
+	if _terminated_by_cap or _stalled:
+		return 0.0
+	match _failure_reason:
+		"", "normal_game_end":
+			return 1.0
+		"deck_out":
+			return 0.9
+		"action_cap_reached", "stalled_no_progress", "unsupported_prompt", "unsupported_interaction_step", "invalid_state_transition":
+			return 0.0
+	return 0.0
 
 
 func _build_legal_action_entries(trace_dict: Dictionary) -> Array[Dictionary]:
@@ -96,6 +187,11 @@ func _build_legal_action_entries(trace_dict: Dictionary) -> Array[Dictionary]:
 			"attack_index": int(scored_action.get("attack_index", -1)),
 			"card_name": _extract_card_name(scored_action.get("card", null)),
 			"target_name": _extract_target_name(scored_action.get("target_slot", null)),
+			"teacher_available": bool(scored_action.get("teacher_available", false)),
+			"teacher_baseline_value": float(scored_action.get("teacher_baseline_value", 0.5)),
+			"teacher_post_value": float(scored_action.get("teacher_post_value", 0.5)),
+			"teacher_value_delta": float(scored_action.get("teacher_value_delta", 0.0)),
+			"teacher_reason": str(scored_action.get("teacher_reason", "")),
 		})
 	return entries
 
@@ -112,6 +208,11 @@ func _build_chosen_action_entry(chosen_variant: Variant) -> Dictionary:
 		"attack_index": int(chosen_action.get("attack_index", -1)),
 		"card_name": _extract_card_name(chosen_action.get("card", null)),
 		"target_name": _extract_target_name(chosen_action.get("target_slot", null)),
+		"teacher_available": bool(chosen_action.get("teacher_available", false)),
+		"teacher_baseline_value": float(chosen_action.get("teacher_baseline_value", 0.5)),
+		"teacher_post_value": float(chosen_action.get("teacher_post_value", 0.5)),
+		"teacher_value_delta": float(chosen_action.get("teacher_value_delta", 0.0)),
+		"teacher_reason": str(chosen_action.get("teacher_reason", "")),
 	}
 
 

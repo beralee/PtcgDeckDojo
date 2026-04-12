@@ -1,0 +1,40 @@
+{
+  "attribute": "fighting",
+  "package_name": "attribute_fighting_heavy_impact",
+  "visual_rule": "Fighting attacks should read as a heavy body-blow impact: a bone-white hit flash, a terracotta-red core, sandy dust fracture, and angular strike shards. Keep the subject compact, grounded, and readable in battle.",
+  "playback_model": "impact-only",
+  "generation_method": "local_procedural_raster_synthesis",
+  "global_constraints": [
+    "transparent background",
+    "no characters",
+    "no arena",
+    "no UI",
+    "no watermark",
+    "no frame",
+    "single isolated effect element",
+    "clean silhouette",
+    "battle-ready compositing"
+  ],
+  "assets": [
+    {
+      "name": "impact_bloom_flipbook",
+      "role": "impact bloom",
+      "prompt": "Create a transparent-background 2D battle VFX asset for Pokemon-style fighting attacks. Show only the effect element, with no character, arena, text, UI, watermark, or frame. Use a compact body-blow impact bloom with a bone-white hit flash, terracotta-red core, sandy dust fracture, and a few angular strike shards. Keep the shape tight, grounded, and readable in a game battle overlay. Preserve real impact structure but stylize the outline and color. Output a single isolated effect element on transparency. Important constraints: exactly 4 frames in one horizontal strip, no 2x2 grid, no extra projectile body, no beam, no fire, no lightning filaments."
+    },
+    {
+      "name": "knuckle_flash",
+      "role": "pre-hit flash",
+      "prompt": "Create a transparent-background 2D battle VFX asset for Pokemon-style fighting attacks. Show only the effect element, with no character, arena, text, UI, watermark, or frame. Use a tight knuckle flash with a bone-white center, terracotta-red pressure core, short angular strike edges, and a small contained dust pulse. Keep it compact, hard-edged, and battle-readable. Preserve real impact structure but stylize the outline and color. Output a single isolated effect element on transparency. Important constraints: no beam, no travel trail, no fire shapes, no lightning filaments, no oversized symbol ring."
+    },
+    {
+      "name": "dust_shatter",
+      "role": "fracture burst",
+      "prompt": "Create a transparent-background 2D battle VFX asset for Pokemon-style fighting attacks. Show only the effect element, with no character, arena, text, UI, watermark, or frame. Use an angular dust shatter burst with sandy fragments, grit shards, and a few short fractured streaks radiating from a compact center. Keep the texture grounded and readable, not smoky or magical. Preserve real impact structure but stylize the outline and color. Output a single isolated effect element on transparency. Important constraints: no beam, no fire, no lightning filaments, no floating aura symbols, no full-screen debris cloud."
+    },
+    {
+      "name": "residue_grit",
+      "role": "residue",
+      "prompt": "Create a transparent-background 2D battle VFX asset for Pokemon-style fighting attacks. Show only the effect element, with no character, arena, text, UI, watermark, or frame. Use a low-alpha lingering residue made of dust motes, grit flecks, and a faint compact stain of sandy debris around the impact center. Keep contrast lower than the impact bloom but still crisp enough to read in battle. Preserve real impact structure but stylize the outline and color. Output a single isolated effect element on transparency. Important constraints: no beam, no fire, no lightning filaments, no heavy smoke wall, no symbolic aura ring."
+    }
+  ]
+}

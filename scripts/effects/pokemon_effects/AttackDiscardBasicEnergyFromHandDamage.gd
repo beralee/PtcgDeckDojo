@@ -64,9 +64,7 @@ func execute_attack(
 			if _is_basic_energy(hand_card):
 				discarded_cards.append(hand_card)
 
-	for energy_card: CardInstance in discarded_cards:
-		player.hand.erase(energy_card)
-		player.discard_pile.append(energy_card)
+	discarded_cards = _discard_cards_from_hand_with_log(state, top.owner_index, discarded_cards, top, "attack")
 
 	# Base damage has already applied one 50x segment.
 	var total_damage: int = discarded_cards.size() * damage_per_card

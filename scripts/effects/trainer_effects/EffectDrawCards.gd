@@ -20,12 +20,10 @@ func execute(card: CardInstance, _targets: Array, state: GameState) -> void:
 	if discard_hand_first:
 		# 弃掉所有手牌（卡牌本身已被从手牌移除，不在 hand 中）
 		var hand_copy: Array[CardInstance] = player.hand.duplicate()
-		for c: CardInstance in hand_copy:
-			player.hand.erase(c)
-			player.discard_pile.append(c)
+		_discard_cards_from_hand_with_log(state, pi, hand_copy, card, "trainer")
 
 	# 抽牌
-	player.draw_cards(draw_count)
+	_draw_cards_with_log(state, pi, draw_count, card, "trainer")
 
 
 func get_description() -> String:

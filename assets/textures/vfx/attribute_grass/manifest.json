@@ -1,0 +1,33 @@
+{
+  "package_name": "attribute_grass_verdant_burst",
+  "attribute": "grass",
+  "style_rule": "Impact-only verdant burst with a compact emerald bloom, leaf shards, pollen haze, and vine-like fracture accents. No travel segment, no beam.",
+  "generation_method": "local_procedural_raster_synthesis",
+  "assets": [
+    {
+      "asset_name": "impact_bloom_flipbook",
+      "file": "verdant_burst/impact_bloom_flipbook.png",
+      "sidecar": "verdant_burst/impact_bloom_flipbook.json",
+      "role": "primary impact bloom",
+      "format": "4-frame horizontal strip"
+    },
+    {
+      "asset_name": "leaf_shard_cluster",
+      "file": "verdant_burst/leaf_shard_cluster.png",
+      "sidecar": "verdant_burst/leaf_shard_cluster.json",
+      "role": "supporting leaf shard accent"
+    },
+    {
+      "asset_name": "pollen_haze",
+      "file": "verdant_burst/pollen_haze.png",
+      "sidecar": "verdant_burst/pollen_haze.json",
+      "role": "supporting pollen haze residue"
+    },
+    {
+      "asset_name": "vine_fracture_accents",
+      "file": "verdant_burst/vine_fracture_accents.png",
+      "sidecar": "verdant_burst/vine_fracture_accents.json",
+      "role": "supporting vine fracture accent"
+    }
+  ]
+}

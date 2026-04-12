@@ -1,5 +1,3 @@
-## 黑夜魔灵 / Night Stretcher
-## 选择自己弃牌区中的1张宝可梦或1张基本能量，在给对手看过之后，加入手牌。
 class_name EffectNightStretcher
 extends BaseEffect
 
@@ -28,7 +26,7 @@ func get_interaction_steps(card: CardInstance, state: GameState) -> Array[Dictio
 
 	return [{
 		"id": "night_stretcher_choice",
-		"title": "选择弃牌区中的1张宝可梦或基本能量加入手牌",
+		"title": "选择弃牌区中的 1 张宝可梦或基本能量加入手牌",
 		"items": items,
 		"labels": labels,
 		"min_select": 1,
@@ -42,8 +40,6 @@ func execute(card: CardInstance, targets: Array, state: GameState) -> void:
 	var ctx: Dictionary = get_interaction_context(targets)
 
 	var recover_card: CardInstance = null
-
-	# 新格式：直接选择 CardInstance
 	if ctx.has("night_stretcher_choice"):
 		var selected_raw: Array = ctx.get("night_stretcher_choice", [])
 		if not selected_raw.is_empty():
@@ -51,17 +47,15 @@ func execute(card: CardInstance, targets: Array, state: GameState) -> void:
 			if selected is CardInstance:
 				recover_card = selected
 			elif selected is Dictionary:
-				# 兼容旧测试格式 {mode, card}
 				recover_card = selected.get("card", null)
 
 	if recover_card == null or recover_card not in player.discard_pile:
 		return
 
-	# 只能加入手牌
 	player.discard_pile.erase(recover_card)
 	recover_card.face_up = true
 	player.hand.append(recover_card)
 
 
 func get_description() -> String:
-	return "选择自己弃牌区中的1张宝可梦或1张基本能量，加入手牌。"
+	return "选择自己弃牌区中的 1 张宝可梦或 1 张基本能量，加入手牌。"

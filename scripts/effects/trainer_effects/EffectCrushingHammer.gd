@@ -19,6 +19,15 @@ func can_execute(_card: CardInstance, state: GameState) -> bool:
 	return false
 
 
+func get_preview_interaction_steps(_card: CardInstance, _state: GameState) -> Array[Dictionary]:
+	return [{
+		"id": "coin_flip_preview",
+		"title": "Flip a coin",
+		"wait_for_coin_animation": true,
+		"preview_only": true,
+	}]
+
+
 func get_interaction_steps(card: CardInstance, state: GameState) -> Array[Dictionary]:
 	var flipper: CoinFlipper = _coin_flipper if _coin_flipper != null else CoinFlipper.new()
 	_pending_heads = flipper.flip()

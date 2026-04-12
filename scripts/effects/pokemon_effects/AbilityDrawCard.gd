@@ -23,7 +23,7 @@ func execute_ability(
 		return
 	var pi: int = top.owner_index
 	var player: PlayerState = _state.players[pi]
-	player.draw_cards(draw_count)
+	_draw_cards_with_log(_state, pi, draw_count, top, "ability")
 
 
 func get_description() -> String:

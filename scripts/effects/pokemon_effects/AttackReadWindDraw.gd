@@ -52,10 +52,10 @@ func execute_attack(
 	if to_discard == null and not player.hand.is_empty():
 		to_discard = player.hand[0]
 
-	if to_discard != null and player.remove_from_hand(to_discard):
-		player.discard_card(to_discard)
+	if to_discard != null:
+		_discard_cards_from_hand_with_log(state, top.owner_index, [to_discard], top, "attack")
 
-	player.draw_cards(3)
+	_draw_cards_with_log(state, top.owner_index, 3, top, "attack")
 
 
 func get_description() -> String:

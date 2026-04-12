@@ -1,0 +1,10 @@
+{
+  "asset_name": "dust_shatter",
+  "generation_method": "local_procedural_raster_synthesis",
+  "output_path": "D:/ai/code/ptcgtrain/assets/textures/vfx/attribute_fighting/impact_only/dust_shatter.png",
+  "size": [
+    1024,
+    1024
+  ],
+  "prompt": "Create a transparent-background 2D battle VFX asset for Pokemon-style fighting attacks. Show only the effect element, with no character, arena, text, UI, watermark, or frame. Use an angular dust shatter burst with sandy fragments, grit shards, and a few short fractured streaks radiating from a compact center. Keep the texture grounded and readable, not smoky or magical. Preserve real impact structure but stylize the outline and color. Output a single isolated effect element on transparency. Important constraints: no beam, no fire, no lightning filaments, no floating aura symbols, no full-screen debris cloud."
+}

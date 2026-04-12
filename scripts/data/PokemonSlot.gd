@@ -108,6 +108,31 @@ func clear_all_status() -> void:
 		status_conditions[key] = false
 
 
+## 从战斗场退回备战区时，清除所有特殊状态和战斗位置相关的临时效果
+## PTCG 规则：宝可梦离开战斗区时，中毒/灼伤/混乱等状态以及
+## 减伤、招式锁定、撤退锁定等战斗位置效果全部消失
+const _BENCH_CLEAR_EFFECT_TYPES: Array[String] = [
+	"reduce_damage_next_turn",
+	"attack_lock",
+	"attack_lock_until_leave_active",
+	"defender_attack_lock",
+	"retreat_lock",
+	"prevent_attack_damage_and_effects",
+	"ability_disabled",
+	"extra_prize",
+]
+
+func clear_on_leave_active() -> void:
+	clear_all_status()
+	if effects.is_empty():
+		return
+	var kept: Array[Dictionary] = []
+	for eff: Dictionary in effects:
+		if eff.get("type", "") not in _BENCH_CLEAR_EFFECT_TYPES:
+			kept.append(eff)
+	effects = kept
+
+
 ## 设置特殊状态（自动处理互斥关系）
 func set_status(status_name: String, value: bool) -> void:
 	if not status_conditions.has(status_name):

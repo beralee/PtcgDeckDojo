@@ -2,8 +2,6 @@
 class_name EffectBossOrders
 extends BaseEffect
 
-const AttackSelfLockUntilLeaveActive = preload("res://scripts/effects/pokemon_effects/AttackSelfLockUntilLeaveActive.gd")
-
 
 func get_interaction_steps(card: CardInstance, state: GameState) -> Array[Dictionary]:
 	var opp: PlayerState = state.players[1 - card.owner_index]
@@ -44,7 +42,7 @@ func execute(card: CardInstance, _targets: Array, state: GameState) -> void:
 		target = opp.bench[0]
 	var old_active: PokemonSlot = opp.active_pokemon
 	opp.bench.erase(target)
-	AttackSelfLockUntilLeaveActive.clear_for_slot(old_active)
+	old_active.clear_on_leave_active()
 	opp.bench.append(old_active)
 	opp.active_pokemon = target
 

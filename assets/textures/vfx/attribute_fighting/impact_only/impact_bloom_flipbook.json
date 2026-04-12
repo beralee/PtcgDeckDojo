@@ -1,0 +1,12 @@
+{
+  "asset_name": "impact_bloom_flipbook",
+  "generation_method": "local_procedural_raster_synthesis",
+  "output_path": "D:/ai/code/ptcgtrain/assets/textures/vfx/attribute_fighting/impact_only/impact_bloom_flipbook.png",
+  "size": [
+    1024,
+    256
+  ],
+  "frames": 4,
+  "layout": "horizontal_strip",
+  "prompt": "Create a transparent-background 2D battle VFX asset for Pokemon-style fighting attacks. Show only the effect element, with no character, arena, text, UI, watermark, or frame. Use a compact body-blow impact bloom with a bone-white hit flash, terracotta-red core, sandy dust fracture, and a few angular strike shards. Keep the shape tight, grounded, and readable in a game battle overlay. Preserve real impact structure but stylize the outline and color. Output a single isolated effect element on transparency. Important constraints: exactly 4 frames in one horizontal strip, no 2x2 grid, no extra projectile body, no beam, no fire, no lightning filaments."
+}

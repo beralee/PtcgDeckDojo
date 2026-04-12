@@ -49,15 +49,20 @@ func run_benchmark_from_args(args: Dictionary) -> Dictionary:
 	var baseline_value_net := str(args.get("value-net-b", baseline_config.get("value_net_path", "")))
 	var candidate_action_scorer := str(args.get("action-scorer-a", candidate_config.get("action_scorer_path", "")))
 	var baseline_action_scorer := str(args.get("action-scorer-b", baseline_config.get("action_scorer_path", "")))
+	var candidate_interaction_scorer := str(args.get("interaction-scorer-a", candidate_config.get("interaction_scorer_path", "")))
+	var baseline_interaction_scorer := str(args.get("interaction-scorer-b", baseline_config.get("interaction_scorer_path", "")))
 	candidate_config["value_net_path"] = candidate_value_net
 	baseline_config["value_net_path"] = baseline_value_net
 	candidate_config["action_scorer_path"] = candidate_action_scorer
 	baseline_config["action_scorer_path"] = baseline_action_scorer
+	candidate_config["interaction_scorer_path"] = candidate_interaction_scorer
+	baseline_config["interaction_scorer_path"] = baseline_interaction_scorer
 
 	var runner := AIBenchmarkRunnerScript.new()
 	var case_results: Array[Dictionary] = []
 	var pipeline_name := str(args.get("pipeline-name", DeckBenchmarkCaseScript.PIPELINE_FIXED_THREE_DECK))
-	for benchmark_case: Variant in build_pipeline_cases(pipeline_name, candidate_config, baseline_config):
+	var benchmark_seed_set := _parse_seed_set_arg(str(args.get("seed-set", "")))
+	for benchmark_case: Variant in build_pipeline_cases(pipeline_name, candidate_config, baseline_config, benchmark_seed_set):
 		if benchmark_case == null:
 			continue
 		var case_result: Dictionary = runner.run_and_summarize_case(benchmark_case)
@@ -78,6 +83,9 @@ func run_benchmark_from_args(args: Dictionary) -> Dictionary:
 	summary["baseline_value_net_path"] = baseline_value_net
 	summary["candidate_action_scorer_path"] = candidate_action_scorer
 	summary["baseline_action_scorer_path"] = baseline_action_scorer
+	summary["candidate_interaction_scorer_path"] = candidate_interaction_scorer
+	summary["baseline_interaction_scorer_path"] = baseline_interaction_scorer
+	summary["benchmark_seed_set"] = benchmark_seed_set if not benchmark_seed_set.is_empty() else DeckBenchmarkCaseScript.PHASE2_DEFAULT_SEED_SET.duplicate()
 	summary["summary_output"] = str(args.get("summary-output", DEFAULT_SUMMARY_OUTPUT))
 	var anomaly_summary := _build_anomaly_summary(case_results, args, summary)
 	if not anomaly_summary.is_empty():
@@ -88,13 +96,29 @@ func run_benchmark_from_args(args: Dictionary) -> Dictionary:
 	return summary
 
 
-func build_pipeline_cases(pipeline_name: String, candidate_config: Dictionary, baseline_config: Dictionary) -> Array:
-	var cases: Array = DeckBenchmarkCaseScript.make_phase2_cases_for_pipeline(pipeline_name)
+func build_pipeline_cases(
+	pipeline_name: String,
+	candidate_config: Dictionary,
+	baseline_config: Dictionary,
+	benchmark_seed_set: Array = []
+) -> Array:
+	var cases: Array = DeckBenchmarkCaseScript.make_phase2_cases_for_pipeline(pipeline_name, benchmark_seed_set)
 	for benchmark_case: Variant in cases:
 		benchmark_case.comparison_mode = "version_regression"
 		benchmark_case.agent_a_config = candidate_config.duplicate(true)
 		benchmark_case.agent_b_config = baseline_config.duplicate(true)
 	return cases
+
+
+func _parse_seed_set_arg(raw_seed_set: String) -> Array:
+	var parsed: Array = []
+	for chunk: String in raw_seed_set.split(","):
+		var token := chunk.strip_edges()
+		if token == "":
+			continue
+		if token.is_valid_int():
+			parsed.append(int(token))
+	return parsed
 
 
 func aggregate_case_results(case_results: Array, gate_threshold: float = DEFAULT_GATE_THRESHOLD) -> Dictionary:
@@ -201,9 +225,11 @@ func _publish_and_record(args: Dictionary, summary: Dictionary) -> void:
 		"baseline_agent_config_path": str(summary.get("baseline_agent_config_path", str(args.get("baseline-agent-config", "")))),
 		"baseline_value_net_path": str(summary.get("baseline_value_net_path", str(args.get("baseline-value-net", "")))),
 		"baseline_action_scorer_path": str(summary.get("baseline_action_scorer_path", str(args.get("baseline-action-scorer", "")))),
+		"baseline_interaction_scorer_path": str(summary.get("baseline_interaction_scorer_path", str(args.get("baseline-interaction-scorer", "")))),
 		"candidate_agent_config_path": str(summary.get("candidate_agent_config_path", "")),
 		"candidate_value_net_path": str(summary.get("candidate_value_net_path", "")),
 		"candidate_action_scorer_path": str(summary.get("candidate_action_scorer_path", "")),
+		"candidate_interaction_scorer_path": str(summary.get("candidate_interaction_scorer_path", "")),
 		"benchmark_quality_summary": _build_version_benchmark_summary(summary),
 	})
 	if run_record.is_empty():
@@ -234,6 +260,7 @@ func _publish_and_record(args: Dictionary, summary: Dictionary) -> void:
 			"agent_config_path": str(summary.get("candidate_agent_config_path", "")),
 			"value_net_path": str(summary.get("candidate_value_net_path", "")),
 			"action_scorer_path": str(summary.get("candidate_action_scorer_path", "")),
+			"interaction_scorer_path": str(summary.get("candidate_interaction_scorer_path", "")),
 			"source_run_id": run_id,
 			"lane_recipe_id": str(args.get("lane-recipe-id", "")),
 			"parent_approved_baseline_id": str(args.get("baseline-version-id", "")),
@@ -241,6 +268,7 @@ func _publish_and_record(args: Dictionary, summary: Dictionary) -> void:
 			"parent_baseline_agent_config_path": str(summary.get("baseline_agent_config_path", "")),
 			"parent_baseline_value_net_path": str(summary.get("baseline_value_net_path", "")),
 			"parent_baseline_action_scorer_path": str(summary.get("baseline_action_scorer_path", "")),
+			"parent_baseline_interaction_scorer_path": str(summary.get("baseline_interaction_scorer_path", "")),
 			"benchmark_summary": _build_version_benchmark_summary(summary),
 			"benchmark_quality_summary": _build_version_benchmark_summary(summary),
 		}
@@ -288,9 +316,11 @@ func _build_anomaly_summary(case_results: Array, args: Dictionary, summary: Dict
 			"candidate_agent_config_path": str(summary.get("candidate_agent_config_path", "")),
 			"candidate_value_net_path": str(summary.get("candidate_value_net_path", "")),
 			"candidate_action_scorer_path": str(summary.get("candidate_action_scorer_path", "")),
+			"candidate_interaction_scorer_path": str(summary.get("candidate_interaction_scorer_path", "")),
 			"baseline_agent_config_path": str(summary.get("baseline_agent_config_path", "")),
 			"baseline_value_net_path": str(summary.get("baseline_value_net_path", "")),
 			"baseline_action_scorer_path": str(summary.get("baseline_action_scorer_path", "")),
+			"baseline_interaction_scorer_path": str(summary.get("baseline_interaction_scorer_path", "")),
 		})
 	var phase3_summary := phase3_archive.build_summary()
 	if int(phase3_summary.get("total_anomalies", 0)) > 0:

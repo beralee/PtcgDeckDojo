@@ -1,0 +1,9 @@
+{
+  "generator": "local_procedural_raster_synthesis",
+  "package_name": "attribute_grass_verdant_burst",
+  "asset_name": "pollen_haze",
+  "output_path": "assets/textures/vfx/attribute_grass/verdant_burst/pollen_haze.png",
+  "role": "supporting pollen haze residue",
+  "format": "single layer",
+  "prompt": "Use case: stylized-concept\nAsset type: 2D battle VFX texture for a Pokemon-style grass attack\nPrimary request: create a soft pollen haze residue layer for a grass impact burst\nScene/backdrop: transparent background, isolated effect only, no background\nSubject: effect only, no Pokemon body, no arena, no UI\nStyle/medium: premium polished game VFX asset with a clean organic haze and soft particulate bloom\nComposition/framing: diffuse cloud with floating pollen specks, centered and compositing-friendly, transparent alpha\nLighting/mood: light, airy, lingering impact residue\nColor palette: pale green-gold pollen, translucent emerald mist, subdued forest-green traces\nMaterials/textures: soft smoke-like botanical haze, tiny drifting particles, gentle glow, clean edges\nConstraints: transparent background, no text, no watermark, no Pokemon body, no trainer, no environment, no card frame\nAvoid: heavy smoke, fire shapes, beams, trails, black background, checkerboard, solid backdrop, hard outlines\nImportant negative constraints: keep the haze subtle and readable, make it support the bloom rather than replace it, avoid a weather fog look\n"
+}

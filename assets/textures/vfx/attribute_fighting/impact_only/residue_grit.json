@@ -1,0 +1,10 @@
+{
+  "asset_name": "residue_grit",
+  "generation_method": "local_procedural_raster_synthesis",
+  "output_path": "D:/ai/code/ptcgtrain/assets/textures/vfx/attribute_fighting/impact_only/residue_grit.png",
+  "size": [
+    1024,
+    1024
+  ],
+  "prompt": "Create a transparent-background 2D battle VFX asset for Pokemon-style fighting attacks. Show only the effect element, with no character, arena, text, UI, watermark, or frame. Use a low-alpha lingering residue made of dust motes, grit flecks, and a faint compact stain of sandy debris around the impact center. Keep contrast lower than the impact bloom but still crisp enough to read in battle. Preserve real impact structure but stylize the outline and color. Output a single isolated effect element on transparency. Important constraints: no beam, no fire, no lightning filaments, no heavy smoke wall, no symbolic aura ring."
+}

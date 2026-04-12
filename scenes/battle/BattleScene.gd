@@ -5,7 +5,9 @@ extends Control
 const BENCH_SIZE := 5
 const BATTLE_CARD_VIEW := preload("res://scenes/battle/BattleCardView.gd")
 const AIOpponentScript := preload("res://scripts/ai/AIOpponent.gd")
+const DeckStrategyRegistryScript := preload("res://scripts/ai/DeckStrategyRegistry.gd")
 const DeckStrategyGardevoirScript := preload("res://scripts/ai/DeckStrategyGardevoir.gd")
+const DeckStrategyMiraidonScript := preload("res://scripts/ai/DeckStrategyMiraidon.gd")
 const AIVersionRegistryScript := preload("res://scripts/ai/AIVersionRegistry.gd")
 const AgentVersionStoreScript := preload("res://scripts/ai/AgentVersionStore.gd")
 const BattleRecorderScript := preload("res://scripts/engine/BattleRecorder.gd")
@@ -19,6 +21,8 @@ const BattleI18nScript := preload("res://scripts/ui/battle/BattleI18n.gd")
 const BattleAdviceFormatterScript := preload("res://scripts/ui/battle/BattleAdviceFormatter.gd")
 const BattleAdviceControllerScript := preload("res://scripts/ui/battle/BattleAdviceController.gd")
 const BattleActionControllerScript := preload("res://scripts/ui/battle/BattleActionController.gd")
+const BattleAttackVfxControllerScript := preload("res://scripts/ui/battle/BattleAttackVfxController.gd")
+const BattleAttackVfxRegistryScript := preload("res://scripts/ui/battle/BattleAttackVfxRegistry.gd")
 const BattleDisplayControllerScript := preload("res://scripts/ui/battle/BattleDisplayController.gd")
 const BattleDialogControllerScript := preload("res://scripts/ui/battle/BattleDialogController.gd")
 const BattleDrawRevealControllerScript := preload("res://scripts/ui/battle/BattleDrawRevealController.gd")
@@ -81,10 +85,17 @@ var _deck_shuffle_effect_serial: int = 0
 var _my_deck_shuffle_tween: Variant = null
 var _opp_deck_shuffle_tween: Variant = null
 var _draw_reveal_overlay: Control = null
+var _attack_vfx_overlay: Control = null
 var _draw_reveal_queue: Array[GameAction] = []
 var _draw_reveal_active: bool = false
 var _draw_reveal_waiting_for_confirm: bool = false
+var _draw_reveal_auto_continue_pending: bool = false
 var _draw_reveal_pending_hand_refresh: bool = false
+var _draw_reveal_current_action: GameAction = null
+var _draw_reveal_card_views: Array[BattleCardView] = []
+var _draw_reveal_resume_timer: Variant = null
+var _draw_reveal_allow_hand_refresh_during_fly: bool = false
+var _draw_reveal_visible_instance_ids: Array[int] = []
 var _pending_prize_player_index: int = -1
 var _pending_prize_remaining: int = 0
 var _pending_prize_animating: bool = false
@@ -103,6 +114,7 @@ var _replay_loaded_raw_snapshot: Dictionary = {}
 var _replay_loaded_view_snapshot: Dictionary = {}
 var _ai_version_registry: RefCounted = AIVersionRegistryScript.new()
 var _agent_version_store: RefCounted = AgentVersionStoreScript.new()
+var _deck_strategy_registry: RefCounted = DeckStrategyRegistryScript.new()
 
 var _field_interaction_overlay: Control = null
 var _field_interaction_layout: VBoxContainer = null
@@ -143,6 +155,8 @@ var _battle_review_formatter: RefCounted = BattleReviewFormatterScript.new()
 var _battle_advice_controller: RefCounted = BattleAdviceControllerScript.new()
 var _battle_advice_service: RefCounted = null
 var _battle_action_controller: RefCounted = BattleActionControllerScript.new()
+var _battle_attack_vfx_controller: RefCounted = BattleAttackVfxControllerScript.new()
+var _battle_attack_vfx_registry: RefCounted = BattleAttackVfxRegistryScript.new()
 var _battle_display_controller: RefCounted = BattleDisplayControllerScript.new()
 var _battle_dialog_controller: RefCounted = BattleDialogControllerScript.new()
 var _battle_draw_reveal_controller: RefCounted = BattleDrawRevealControllerScript.new()
@@ -183,6 +197,7 @@ var _review_overlay_mode: String = ""
 @onready var _btn_end_turn: Button = %BtnEndTurn
 @onready var _btn_back: Button = %BtnBack
 @onready var _btn_ai_advice: Button = %BtnAiAdvice
+@onready var _btn_attack_vfx_preview: Button = %BtnAttackVfxPreview
 @onready var _btn_opponent_hand: Button = %BtnOpponentHand
 @onready var _btn_zeus_help: Button = %BtnZeusHelp
 @onready var _btn_replay_prev_turn: Button = %BtnReplayPrevTurn
@@ -305,6 +320,7 @@ func _ready() -> void:
 	_hud_end_turn_btn.pressed.connect(_on_end_turn)
 	_btn_stadium_action.pressed.connect(_on_stadium_action_pressed)
 	_btn_opponent_hand.pressed.connect(_on_opponent_hand_pressed)
+	_btn_attack_vfx_preview.pressed.connect(_on_attack_vfx_preview_pressed)
 	_btn_ai_advice.pressed.connect(_on_ai_advice_pressed)
 	_btn_zeus_help.pressed.connect(_on_zeus_help_pressed)
 	_btn_replay_prev_turn.pressed.connect(_on_replay_prev_turn_pressed)
@@ -363,6 +379,7 @@ func _ready() -> void:
 	_refresh_prize_titles()
 	_setup_field_interaction_panel()
 	_setup_battle_layout()
+	_start_battle_music()
 	if not get_viewport().size_changed.is_connected(_on_viewport_size_changed):
 		get_viewport().size_changed.connect(_on_viewport_size_changed)
 
@@ -466,6 +483,7 @@ func _ready() -> void:
 
 func _exit_tree() -> void:
 	_stop_all_deck_shuffle_effects()
+	BattleMusicManager.stop_battle_music()
 
 
 func _build_game_state_machine() -> GameStateMachine:
@@ -515,6 +533,11 @@ func _setup_battle_layout() -> void:
 	_install_battle_backdrop()
 	_apply_battle_surface_styles()
 	_apply_responsive_layout()
+
+
+func _start_battle_music() -> void:
+	BattleMusicManager.set_battle_music_volume_percent(int(GameManager.battle_bgm_volume_percent))
+	BattleMusicManager.play_battle_music(GameManager.selected_battle_music_id)
 
 
 func _on_viewport_size_changed() -> void:
@@ -796,6 +819,7 @@ func _apply_battle_surface_styles() -> void:
 	_btn_stadium_action.add_theme_font_size_override("font_size", 12)
 	_style_hud_button(_hud_end_turn_btn)
 	_style_hud_button(_btn_opponent_hand)
+	_style_hud_button(_btn_attack_vfx_preview)
 	_style_hud_button(_btn_ai_advice)
 	_style_hud_button(_btn_zeus_help)
 	_style_hud_button(_btn_back)
@@ -1190,10 +1214,27 @@ func _on_action_logged(action: GameAction) -> void:
 	if (
 		action != null
 		and action.action_type == GameAction.ActionType.DRAW_CARD
+		and _gsm != null
+		and _gsm.game_state != null
+		and _gsm.game_state.phase != GameState.GamePhase.SETUP
 		and not _is_review_mode()
 		and not (action.data.get("card_instance_ids", []) as Array).is_empty()
 	):
 		_battle_draw_reveal_controller.call("enqueue_reveal", self, action)
+	elif (
+		action != null
+		and action.action_type == GameAction.ActionType.DISCARD
+		and not _is_review_mode()
+		and str(action.data.get("source_zone", "")) == "hand"
+		and not (action.data.get("card_instance_ids", []) as Array).is_empty()
+	):
+		_battle_draw_reveal_controller.call("enqueue_reveal", self, action)
+	elif (
+		action != null
+		and action.action_type == GameAction.ActionType.ATTACK
+		and not _is_review_mode()
+	):
+		_battle_attack_vfx_controller.call("play_attack_vfx", self, action)
 	_record_battle_event({
 		"event_type": "action_resolved",
 		"action_type": action.action_type,
@@ -1308,7 +1349,7 @@ func _begin_setup_flow() -> void:
 
 
 func _setup_player_active(pi: int) -> void:
-	_view_player = pi
+	_view_player = _preferred_live_view_player(pi)
 	_refresh_ui()
 	if GameManager.current_mode == GameManager.GameMode.TWO_PLAYER and pi != 0:
 		_show_handover_prompt(pi, func() -> void:
@@ -1325,7 +1366,14 @@ func _show_setup_active_dialog(pi: int) -> void:
 	_battle_dialog_controller.call("show_setup_active_dialog", self, pi)
 
 
+func _preferred_live_view_player(target_player: int) -> int:
+	if GameManager.current_mode == GameManager.GameMode.VS_AI:
+		return 0
+	return target_player
+
+
 func _after_setup_active(pi: int) -> void:
+	_view_player = _preferred_live_view_player(pi)
 	_refresh_ui()
 	_show_setup_bench_dialog(pi)
 
@@ -1336,15 +1384,25 @@ func _show_setup_bench_dialog(pi: int) -> void:
 
 func _after_setup_bench(pi: int) -> void:
 	_setup_done[pi] = true
+	_view_player = _preferred_live_view_player(pi)
 	_refresh_ui()
-	_maybe_run_ai()
 	if pi == 0 and not _setup_done[1]:
 		_setup_player_active(1)
 	else:
 		if _gsm.setup_complete(0):
-			_view_player = _gsm.game_state.current_player_index
+			_view_player = _preferred_live_view_player(_gsm.game_state.current_player_index)
 			_refresh_ui()
 			_check_two_player_handover()
+	if _ai_running and GameManager.current_mode == GameManager.GameMode.VS_AI:
+		_ensure_ai_opponent()
+		if _ai_opponent != null and _gsm != null and _gsm.game_state != null:
+			var next_setup_owner: int = _get_ai_prompt_player_index()
+			if (_pending_choice != "" and next_setup_owner == _ai_opponent.player_index) \
+				or _gsm.game_state.current_player_index == _ai_opponent.player_index:
+				if not _ai_step_scheduled:
+					_ai_step_scheduled = true
+					call_deferred("_run_ai_step")
+	_maybe_run_ai()
 
 
 # ===================== Field Interactions =====================
@@ -1439,6 +1497,12 @@ func _on_slot_input(event: InputEvent, slot_id: String) -> void:
 		return
 	var mbe := event as InputEventMouseButton
 	if not mbe.pressed:
+		return
+	if _pending_choice == "take_prize":
+		_runtime_log("slot_input_blocked", "slot=%s reason=take_prize %s" % [slot_id, _state_snapshot()])
+		var prize_viewport := get_viewport()
+		if prize_viewport != null:
+			prize_viewport.set_input_as_handled()
 		return
 	if not _can_accept_live_action():
 		return
@@ -2060,6 +2124,14 @@ func _handle_dialog_choice(selected_indices: PackedInt32Array) -> void:
 		"handled=%s idx=%d selected=%s" % [handled_choice, idx, JSON.stringify(selected_indices)]
 	)
 	match handled_choice:
+		"attack_vfx_preview":
+			var preview_entries: Array = _dialog_data.get("entries", [])
+			if idx >= 0 and idx < preview_entries.size():
+				var entry: Variant = preview_entries[idx]
+				if entry is Dictionary:
+					var preview_profile: Variant = (entry as Dictionary).get("profile", null)
+					if preview_profile is RefCounted:
+						_battle_attack_vfx_controller.call("play_preview_vfx", self, preview_profile)
 		"mulligan_extra_draw":
 			var beneficiary: int = _dialog_data.get("beneficiary", 0)
 			_gsm.resolve_mulligan_choice(beneficiary, idx == 0)
@@ -2116,7 +2188,7 @@ func _handle_dialog_choice(selected_indices: PackedInt32Array) -> void:
 					bench_so.append(s)
 			if idx < bench_so.size():
 				if _gsm.send_out_pokemon(pi, bench_so[idx]):
-					_view_player = _gsm.game_state.current_player_index
+					_view_player = _preferred_live_view_player(_gsm.game_state.current_player_index)
 					_refresh_ui()
 					_check_two_player_handover()
 				else:
@@ -2234,9 +2306,13 @@ func _handle_dialog_choice(selected_indices: PackedInt32Array) -> void:
 func _prompt_send_out_dialog(pi: int) -> void:
 	_pending_choice = "send_out"
 	var player: PlayerState = _gsm.game_state.players[pi]
+	var available_bench: Array[PokemonSlot] = []
+	for bench_slot: PokemonSlot in player.bench:
+		if bench_slot != null and not _gsm.effect_processor.is_effectively_knocked_out(bench_slot, _gsm.game_state):
+			available_bench.append(bench_slot)
 	var dialog_data := {
 		"player": pi,
-		"bench": player.bench,
+		"bench": available_bench,
 		"allow_cancel": false,
 		"min_select": 1,
 		"max_select": 1,
@@ -2245,7 +2321,7 @@ func _prompt_send_out_dialog(pi: int) -> void:
 	var is_ai_prompt: bool = GameManager.current_mode == GameManager.GameMode.VS_AI and _ai_opponent != null and pi == _ai_opponent.player_index
 	if is_ai_prompt:
 		_dialog_data = dialog_data
-		_dialog_items_data = player.bench.duplicate()
+		_dialog_items_data = available_bench.duplicate()
 		_hide_field_interaction()
 		if _dialog_overlay != null:
 			_dialog_overlay.visible = false
@@ -2397,7 +2473,12 @@ func _show_attack_dialog(cp: int, active_slot: PokemonSlot) -> void:
 	_show_pokemon_action_dialog(cp, active_slot, true)
 
 
-func _try_use_attack_with_interaction(player_index: int, slot: PokemonSlot, attack_index: int) -> void:
+func _try_use_attack_with_interaction(
+	player_index: int,
+	slot: PokemonSlot,
+	attack_index: int,
+	preselected_targets: Array = []
+) -> void:
 	if not _gsm.can_use_attack(player_index, attack_index):
 		_log(_gsm.get_attack_unusable_reason(player_index, attack_index))
 		return
@@ -2409,6 +2490,12 @@ func _try_use_attack_with_interaction(player_index: int, slot: PokemonSlot, atta
 	var effects: Array[BaseEffect] = _gsm.effect_processor.get_attack_effects_for_slot(slot, attack_index)
 	for effect: BaseEffect in effects:
 		steps.append_array(effect.get_attack_interaction_steps(card, attack, _gsm.game_state))
+	if not preselected_targets.is_empty():
+		if _gsm.use_attack(player_index, attack_index, preselected_targets):
+			_refresh_ui_after_successful_action(true)
+		else:
+			_log(_gsm.get_attack_unusable_reason(player_index, attack_index))
+		return
 	if steps.is_empty():
 		if _gsm.use_attack(player_index, attack_index):
 			_refresh_ui_after_successful_action(true)
@@ -2769,6 +2856,17 @@ func _on_ai_advice_pressed() -> void:
 	_battle_advice_controller.call("on_ai_advice_pressed", self)
 
 
+func _on_attack_vfx_preview_pressed() -> void:
+	var entries_variant: Variant = _battle_attack_vfx_registry.call("get_preview_entries")
+	var entries: Array = entries_variant if entries_variant is Array else []
+	var labels: Array = []
+	for entry_variant: Variant in entries:
+		if entry_variant is Dictionary:
+			labels.append(str((entry_variant as Dictionary).get("label", "未命名特效")))
+	_pending_choice = "attack_vfx_preview"
+	_show_dialog("放烟花：选择特效", labels, {"entries": entries})
+
+
 func _on_battle_advice_status_changed(status: String, _context: Dictionary) -> void:
 	_battle_advice_controller.call("on_battle_advice_status_changed", self, status, _context)
 
@@ -2891,32 +2989,53 @@ func _build_default_ai_opponent() -> AIOpponent:
 		"time_budget_ms": 2000,
 	}
 	var strategy_label := "Default AI"
-	match GameManager.ai_deck_strategy:
-		"gardevoir_mcts":
-			var strategy := DeckStrategyGardevoirScript.new()
-			ai._deck_strategy = strategy
-			ai._deck_strategy_detected = true
-			ai.use_mcts = true
-			ai._mcts_planner.deck_strategy = strategy
-			ai.mcts_config = strategy.get_mcts_config()
-			# 尝试加载沙奈朵 value net
-			var vnet_path := "user://ai_agents/gardevoir_value_net.json"
-			if strategy.load_gardevoir_value_net(vnet_path):
-				ai._mcts_planner.value_net = strategy.gardevoir_value_net
-				ai._mcts_planner.state_encoder_class = strategy.gardevoir_encoder_class
-				strategy_label = "沙奈朵 v8 ValueNet"
-			else:
-				strategy_label = "沙奈朵 v8 MCTS"
-		"gardevoir_greedy":
-			var strategy := DeckStrategyGardevoirScript.new()
-			ai._deck_strategy = strategy
-			ai._deck_strategy_detected = true
-			ai.use_mcts = false
-			strategy_label = "沙奈朵 %s 规则驱动" % DeckStrategyGardevoirScript.VERSION
-		"gardevoir":
-			# 兼容旧值
-			var strategy_version: String = DeckStrategyGardevoirScript.VERSION
-			strategy_label = "沙奈朵策略 %s" % strategy_version
+	var deck_strategy = _resolve_selected_ai_deck_strategy()
+	if deck_strategy != null:
+		ai.set_deck_strategy(deck_strategy)
+		strategy_label = str(deck_strategy.call("get_strategy_id")) if deck_strategy.has_method("get_strategy_id") else "Default AI"
+	elif GameManager.selected_deck_ids.size() < 2:
+		match GameManager.ai_deck_strategy:
+			"gardevoir_mcts":
+				var strategy := DeckStrategyGardevoirScript.new()
+				ai.set_deck_strategy(strategy)
+				ai.use_mcts = true
+				ai.mcts_config = strategy.get_mcts_config()
+				# 尝试加载沙奈朵 value net
+				var vnet_path := "user://ai_agents/gardevoir_value_net.json"
+				if strategy.load_value_net(vnet_path):
+					ai._mcts_planner.value_net = strategy.get_value_net()
+					ai._mcts_planner.state_encoder_class = strategy.get_state_encoder_class()
+					strategy_label = "沙奈朵 v8 ValueNet"
+				else:
+					strategy_label = "沙奈朵 v8 MCTS"
+			"gardevoir_greedy":
+				var strategy := DeckStrategyGardevoirScript.new()
+				ai.set_deck_strategy(strategy)
+				ai.use_mcts = false
+				strategy_label = "沙奈朵 %s 规则驱动" % DeckStrategyGardevoirScript.VERSION
+			"gardevoir":
+				# 兼容旧值
+				var strategy_version: String = DeckStrategyGardevoirScript.VERSION
+				strategy_label = "沙奈朵策略 %s" % strategy_version
+			"miraidon_mcts":
+				var m_strategy := DeckStrategyMiraidonScript.new()
+				ai.set_deck_strategy(m_strategy)
+				ai.use_mcts = true
+				ai.mcts_config = m_strategy.get_mcts_config()
+				var m_vnet_path := "user://ai_agents/miraidon_value_net.json"
+				if m_strategy.load_value_net(m_vnet_path):
+					ai._mcts_planner.value_net = m_strategy.get_value_net()
+					ai._mcts_planner.state_encoder_class = m_strategy.get_state_encoder_class()
+					strategy_label = "密勒顿 v1 ValueNet"
+				else:
+					strategy_label = "密勒顿 v1 MCTS"
+			"miraidon_greedy":
+				var m_strategy := DeckStrategyMiraidonScript.new()
+				ai.set_deck_strategy(m_strategy)
+				ai.use_mcts = false
+				strategy_label = "密勒顿 %s 规则驱动" % DeckStrategyMiraidonScript.VERSION
+			"generic":
+				pass
 	ai.set_meta("ai_source", "default")
 	ai.set_meta("ai_version_id", "")
 	ai.set_meta("ai_display_name", strategy_label)
@@ -2957,6 +3076,16 @@ func _build_selected_ai_opponent() -> AIOpponent:
 		if not _ai_path_exists(value_net_path):
 			return _build_default_ai_opponent()
 		ai.value_net_path = value_net_path
+	var action_scorer_path := str(version_record.get("action_scorer_path", selection.get("action_scorer_path", agent_config.get("action_scorer_path", ""))))
+	if action_scorer_path != "":
+		if not _ai_path_exists(action_scorer_path):
+			return _build_default_ai_opponent()
+		ai.action_scorer_path = action_scorer_path
+	var interaction_scorer_path := str(version_record.get("interaction_scorer_path", selection.get("interaction_scorer_path", agent_config.get("interaction_scorer_path", ""))))
+	if interaction_scorer_path != "":
+		if not _ai_path_exists(interaction_scorer_path):
+			return _build_default_ai_opponent()
+		ai.interaction_scorer_path = interaction_scorer_path
 
 	var version_id := str(version_record.get("version_id", selection.get("version_id", "")))
 	var display_name := str(version_record.get("display_name", selection.get("display_name", version_id)))
@@ -2973,15 +3102,49 @@ func _resolve_selected_ai_version_record(selection: Dictionary) -> Dictionary:
 		if _ai_version_registry != null and _ai_version_registry.has_method("get_latest_playable_version"):
 			var latest: Variant = _ai_version_registry.call("get_latest_playable_version")
 			if latest is Dictionary:
-				return (latest as Dictionary).duplicate(true)
+				var latest_record: Dictionary = (latest as Dictionary).duplicate(true)
+				return latest_record if _is_version_record_compatible_with_selected_ai(latest_record) else {}
 		return {}
 	if source == "specific_version":
 		var version_id := str(selection.get("version_id", ""))
 		if version_id != "" and _ai_version_registry != null and _ai_version_registry.has_method("get_version"):
 			var version: Variant = _ai_version_registry.call("get_version", version_id)
 			if version is Dictionary and not (version as Dictionary).is_empty():
-				return (version as Dictionary).duplicate(true)
+				var version_record: Dictionary = (version as Dictionary).duplicate(true)
+				return version_record if _is_version_record_compatible_with_selected_ai(version_record) else {}
 	return {}
+
+
+func _resolve_selected_ai_deck_strategy() -> RefCounted:
+	if _deck_strategy_registry == null or not _deck_strategy_registry.has_method("resolve_strategy_for_deck"):
+		return null
+	if GameManager.selected_deck_ids.size() < 2:
+		return null
+	var ai_deck: DeckData = CardDatabase.get_deck(int(GameManager.selected_deck_ids[1]))
+	if ai_deck == null:
+		return null
+	return _deck_strategy_registry.call("resolve_strategy_for_deck", ai_deck)
+
+
+func _selected_ai_strategy_id() -> String:
+	if _deck_strategy_registry == null or not _deck_strategy_registry.has_method("resolve_strategy_id_for_deck"):
+		return ""
+	if GameManager.selected_deck_ids.size() < 2:
+		return ""
+	var ai_deck: DeckData = CardDatabase.get_deck(int(GameManager.selected_deck_ids[1]))
+	if ai_deck == null:
+		return ""
+	return str(_deck_strategy_registry.call("resolve_strategy_id_for_deck", ai_deck))
+
+
+func _is_version_record_compatible_with_selected_ai(version_record: Dictionary) -> bool:
+	var compatible_strategy_id := str(version_record.get("compatible_strategy_id", ""))
+	if compatible_strategy_id == "":
+		return true
+	var selected_strategy_id := _selected_ai_strategy_id()
+	if selected_strategy_id == "":
+		return false
+	return compatible_strategy_id == selected_strategy_id
 
 
 func _load_selected_agent_config(agent_config_path: String) -> Dictionary:
@@ -3067,7 +3230,8 @@ func _is_ai_effect_prompt() -> bool:
 func _is_ui_blocking_ai() -> bool:
 	var dialog_blocks_ai := _dialog_overlay != null and _dialog_overlay.visible and not (_is_ai_setup_prompt() or _is_ai_effect_prompt())
 	return (
-		dialog_blocks_ai
+		_draw_reveal_active
+		or dialog_blocks_ai
 		or (_handover_panel != null and _handover_panel.visible)
 		or _has_pending_coin_animation()
 		or (_pending_choice == "take_prize" and not _is_ai_prize_prompt())
@@ -3103,7 +3267,27 @@ func _is_ai_turn_ready() -> bool:
 	return _ai_opponent.should_control_turn(_gsm.game_state, _is_ui_blocking_ai())
 
 
+func _try_auto_continue_ai_draw_reveal() -> bool:
+	if GameManager.current_mode != GameManager.GameMode.VS_AI:
+		return false
+	if _draw_reveal_active != true or _draw_reveal_auto_continue_pending != true:
+		return false
+	if self is Node and (self as Node).is_inside_tree():
+		return false
+	_ensure_ai_opponent()
+	if _ai_opponent == null or _draw_reveal_current_action == null:
+		return false
+	if _draw_reveal_current_action.player_index != _ai_opponent.player_index:
+		return false
+	if _battle_draw_reveal_controller == null or not _battle_draw_reveal_controller.has_method("run_auto_continue"):
+		return false
+	_battle_draw_reveal_controller.call("run_auto_continue", self)
+	return true
+
+
 func _maybe_run_ai() -> void:
+	if _try_auto_continue_ai_draw_reveal():
+		return
 	if _ai_running:
 		if _is_ai_turn_ready():
 			_ai_followup_requested = true
@@ -3117,6 +3301,9 @@ func _maybe_run_ai() -> void:
 func _run_ai_step() -> void:
 	if _ai_running:
 		return
+	if _try_auto_continue_ai_draw_reveal():
+		_ai_step_scheduled = false
+		return
 	_ai_step_scheduled = false
 	if not _is_ai_turn_ready():
 		return
@@ -3125,6 +3312,7 @@ func _run_ai_step() -> void:
 		if _pending_choice == "" and _gsm != null and _gsm.game_state != null and _gsm.game_state.phase == GameState.GamePhase.MAIN:
 			_on_end_turn()
 		return
+	var starting_pending_choice: String = _pending_choice
 	_ai_running = true
 	_ai_followup_requested = false
 	_ensure_ai_opponent()
@@ -3132,6 +3320,18 @@ func _run_ai_step() -> void:
 	_ai_running = false
 	if handled:
 		_ai_actions_this_turn += 1
+	var started_in_setup_prompt: bool = starting_pending_choice.begins_with("setup_active_") \
+		or starting_pending_choice.begins_with("setup_bench_")
+	if started_in_setup_prompt \
+		and not _ai_step_scheduled \
+		and _pending_choice == "" \
+		and _gsm != null \
+		and _gsm.game_state != null \
+		and _gsm.game_state.phase != GameState.GamePhase.SETUP \
+		and _ai_opponent != null \
+		and _gsm.game_state.current_player_index == _ai_opponent.player_index:
+		_ai_step_scheduled = true
+		call_deferred("_run_ai_step")
 	if _ai_followup_requested and not _ai_step_scheduled and _is_ai_turn_ready():
 		_ai_step_scheduled = true
 		call_deferred("_run_ai_step")
@@ -3266,7 +3466,7 @@ func _is_review_mode() -> bool:
 
 
 func _can_accept_live_action() -> bool:
-	return not _is_review_mode()
+	return not _is_review_mode() and not _draw_reveal_active and _pending_choice != "take_prize"
 
 
 func _refresh_replay_controls() -> void:
@@ -3564,6 +3764,7 @@ func _play_next_coin_animation() -> void:
 		if _coin_animation_resume_effect_step:
 			_coin_animation_resume_effect_step = false
 			_show_next_effect_interaction_step()
+			_maybe_run_ai()
 		return
 	if _coin_animator == null or not _coin_animator.has_method("play"):
 		_coin_flip_queue.clear()
@@ -3571,6 +3772,7 @@ func _play_next_coin_animation() -> void:
 		if _coin_animation_resume_effect_step:
 			_coin_animation_resume_effect_step = false
 			_show_next_effect_interaction_step()
+			_maybe_run_ai()
 		return
 	_coin_animating = true
 	var result: bool = _coin_flip_queue.pop_front()

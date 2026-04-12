@@ -9,6 +9,18 @@ const AIOpponentScript = preload("res://scripts/ai/AIOpponent.gd")
 const AIHeuristicsScript = preload("res://scripts/ai/AIHeuristics.gd")
 const AIDecisionSampleExporterScript = preload("res://scripts/ai/AIDecisionSampleExporter.gd")
 const SelfPlayDataExporterScript = preload("res://scripts/ai/SelfPlayDataExporter.gd")
+const GardevoirSelfPlayDataExporterScript = preload("res://scripts/ai/GardevoirSelfPlayDataExporter.gd")
+const MiraidonSelfPlayDataExporterScript = preload("res://scripts/ai/MiraidonSelfPlayDataExporter.gd")
+const ArceusGiratinaSelfPlayDataExporterScript = preload("res://scripts/ai/ArceusGiratinaSelfPlayDataExporter.gd")
+const DragapultDusknoirSelfPlayDataExporterScript = preload("res://scripts/ai/DragapultDusknoirSelfPlayDataExporter.gd")
+const DragapultCharizardSelfPlayDataExporterScript = preload("res://scripts/ai/DragapultCharizardSelfPlayDataExporter.gd")
+const DeckStrategyGardevoirScript = preload("res://scripts/ai/DeckStrategyGardevoir.gd")
+const DeckStrategyMiraidonScript = preload("res://scripts/ai/DeckStrategyMiraidon.gd")
+const DeckStrategyArceusGiratinaScript = preload("res://scripts/ai/DeckStrategyArceusGiratina.gd")
+const DeckStrategyDragapultDusknoirScript = preload("res://scripts/ai/DeckStrategyDragapultDusknoir.gd")
+const DeckStrategyDragapultCharizardScript = preload("res://scripts/ai/DeckStrategyDragapultCharizard.gd")
+const TrainingExportPathScript = preload("res://scripts/ai/TrainingExportPath.gd")
+const AutoloadResolverScript = preload("res://scripts/engine/AutoloadResolver.gd")
 
 
 func run_batch(
@@ -19,6 +31,12 @@ func run_batch(
 	max_steps_per_match: int = 200,
 	export_training_data: bool = false,
 	export_action_training_data: bool = false,
+	gardevoir_exporter: bool = false,
+	miraidon_exporter: bool = false,
+	encoder_id: String = "",
+	training_data_dir: String = "",
+	action_data_dir: String = "",
+	pipeline_name: String = "",
 ) -> Dictionary:
 	var runner := AIBenchmarkRunnerScript.new()
 	var total_matches: int = 0
@@ -32,25 +50,32 @@ func run_batch(
 			continue
 		var deck_a_id: int = int((pairing as Array)[0])
 		var deck_b_id: int = int((pairing as Array)[1])
-		var deck_a: DeckData = CardDatabase.get_deck(deck_a_id)
-		var deck_b: DeckData = CardDatabase.get_deck(deck_b_id)
+		var card_database = AutoloadResolverScript.get_card_database()
+		if card_database == null:
+			print("[SelfPlay] CardDatabase autoload unavailable")
+			break
+		var deck_a: DeckData = card_database.get_deck(deck_a_id)
+		var deck_b: DeckData = card_database.get_deck(deck_b_id)
 		if deck_a == null or deck_b == null:
 			print("[SelfPlay] 跳过无法加载的卡组对: %d vs %d" % [deck_a_id, deck_b_id])
 			continue
 
 		for seed_value: Variant in seeds:
 			var sv: int = int(seed_value)
+			var match_id_a0 := _build_self_play_match_id(sv, "a0", deck_a_id, deck_b_id)
 			## agent_a 做 player 0
 			var exporter_a0 = null
 			var decision_exporter_a0 = null
 			if export_training_data:
-				exporter_a0 = SelfPlayDataExporterScript.new()
+				exporter_a0 = _create_exporter(encoder_id, gardevoir_exporter, miraidon_exporter, training_data_dir)
 			if export_action_training_data:
 				decision_exporter_a0 = AIDecisionSampleExporterScript.new()
+				if action_data_dir != "":
+					decision_exporter_a0.base_dir = action_data_dir
 			var result_a0 := _run_one_match(
 				runner, agent_a_config, agent_b_config,
 				deck_a, deck_b, sv, max_steps_per_match, exporter_a0, export_training_data,
-				decision_exporter_a0, _build_decision_meta("self_play_%d_a0" % sv, deck_a_id, deck_b_id, "agent_a")
+				decision_exporter_a0, _build_decision_meta(match_id_a0, deck_a_id, deck_b_id, pipeline_name if pipeline_name != "" else "agent_a")
 			)
 			var match_entry_a0 := _build_match_entry(result_a0, sv, deck_a_id, deck_b_id, 0)
 			match_results.append(match_entry_a0)
@@ -64,16 +89,19 @@ func run_batch(
 				draws += 1
 
 			## agent_a 做 player 1
+			var match_id_a1 := _build_self_play_match_id(sv + 10000, "a1", deck_a_id, deck_b_id)
 			var exporter_a1 = null
 			var decision_exporter_a1 = null
 			if export_training_data:
-				exporter_a1 = SelfPlayDataExporterScript.new()
+				exporter_a1 = _create_exporter(encoder_id, gardevoir_exporter, miraidon_exporter, training_data_dir)
 			if export_action_training_data:
 				decision_exporter_a1 = AIDecisionSampleExporterScript.new()
+				if action_data_dir != "":
+					decision_exporter_a1.base_dir = action_data_dir
 			var result_a1 := _run_one_match(
 				runner, agent_b_config, agent_a_config,
 				deck_a, deck_b, sv + 10000, max_steps_per_match, exporter_a1, export_training_data,
-				decision_exporter_a1, _build_decision_meta("self_play_%d_a1" % sv, deck_a_id, deck_b_id, "agent_a")
+				decision_exporter_a1, _build_decision_meta(match_id_a1, deck_a_id, deck_b_id, pipeline_name if pipeline_name != "" else "agent_a")
 			)
 			var match_entry_a1 := _build_match_entry(result_a1, sv + 10000, deck_a_id, deck_b_id, 1)
 			match_results.append(match_entry_a1)
@@ -113,6 +141,11 @@ func _run_one_match(
 	## 进化搜索始终使用轻量 MCTS 加速对局评估
 	var p0_ai := _make_agent(0, p0_config, true)
 	var p1_ai := _make_agent(1, p1_config, true)
+	if decision_exporter != null:
+		if p0_ai.has_method("set_decision_exporter"):
+			p0_ai.set_decision_exporter(decision_exporter)
+		if p1_ai.has_method("set_decision_exporter"):
+			p1_ai.set_decision_exporter(decision_exporter)
 
 	var gsm := GameStateMachine.new()
 	_apply_seed(gsm, seed_value)
@@ -121,7 +154,7 @@ func _run_one_match(
 
 	var step_cb := Callable()
 	if exporter != null:
-		exporter.start_game()
+		exporter.start_game(decision_meta)
 		## 记录初始状态
 		exporter.record_state(gsm.game_state, 0)
 		exporter.record_state(gsm.game_state, 1)
@@ -143,11 +176,10 @@ func _run_one_match(
 	var result: Dictionary = runner.run_headless_duel(p0_ai, p1_ai, gsm, max_steps, step_cb, decision_exporter)
 
 	if exporter != null:
-		var wi: int = int(result.get("winner_index", -1))
-		exporter.end_game(wi)
+		exporter.end_game(result)
 		exporter.export_game()
 	if decision_exporter != null:
-		decision_exporter.end_game(int(result.get("winner_index", -1)))
+		decision_exporter.end_game(result)
 		decision_exporter.export_game()
 
 	_clear_forced_shuffle_seed()
@@ -162,6 +194,10 @@ func _build_decision_meta(match_id: String, deck_a_id: int, deck_b_id: int, pipe
 		"deck_identity": str(deck_a_id),
 		"opponent_deck_identity": str(deck_b_id),
 	}
+
+
+func _build_self_play_match_id(seed_value: int, seat_tag: String, deck_a_id: int, deck_b_id: int) -> String:
+	return TrainingExportPathScript.build_match_id(deck_a_id, deck_b_id, seed_value, seat_tag)
 
 
 func _make_agent(player_index: int, config: Dictionary, fast_mode: bool = false) -> AIOpponent:
@@ -189,6 +225,9 @@ func _make_agent(player_index: int, config: Dictionary, fast_mode: bool = false)
 	var action_scorer_path: Variant = config.get("action_scorer_path", "")
 	if action_scorer_path is String and (action_scorer_path as String) != "":
 		agent.action_scorer_path = action_scorer_path as String
+	var interaction_scorer_path: Variant = config.get("interaction_scorer_path", "")
+	if interaction_scorer_path is String and (interaction_scorer_path as String) != "":
+		agent.interaction_scorer_path = interaction_scorer_path as String
 	return agent
 
 
@@ -226,3 +265,47 @@ func _clear_forced_shuffle_seed() -> void:
 	var ps := PlayerState.new()
 	if ps.has_method("clear_forced_shuffle_seed"):
 		ps.call("clear_forced_shuffle_seed")
+
+
+func _create_exporter(encoder_id: String, gardevoir_flag: bool, miraidon_flag: bool, training_data_dir: String = "") -> RefCounted:
+	## 统一导出器工厂：优先用 encoder_id，兼容旧 bool 标志
+	var eid: String = encoder_id
+	if eid == "" and gardevoir_flag:
+		eid = "gardevoir"
+	if eid == "" and miraidon_flag:
+		eid = "miraidon"
+	match eid:
+		"gardevoir":
+			var exp := GardevoirSelfPlayDataExporterScript.new()
+			exp.deck_strategy = DeckStrategyGardevoirScript.new()
+			if training_data_dir != "":
+				exp.base_dir = training_data_dir
+			return exp
+		"miraidon":
+			var exp := MiraidonSelfPlayDataExporterScript.new()
+			exp.deck_strategy = DeckStrategyMiraidonScript.new()
+			if training_data_dir != "":
+				exp.base_dir = training_data_dir
+			return exp
+		"arceus_giratina":
+			var exp := ArceusGiratinaSelfPlayDataExporterScript.new()
+			exp.deck_strategy = DeckStrategyArceusGiratinaScript.new()
+			if training_data_dir != "":
+				exp.base_dir = training_data_dir
+			return exp
+		"dragapult_dusknoir":
+			var exp := DragapultDusknoirSelfPlayDataExporterScript.new()
+			exp.deck_strategy = DeckStrategyDragapultDusknoirScript.new()
+			if training_data_dir != "":
+				exp.base_dir = training_data_dir
+			return exp
+		"dragapult_charizard":
+			var exp := DragapultCharizardSelfPlayDataExporterScript.new()
+			exp.deck_strategy = DeckStrategyDragapultCharizardScript.new()
+			if training_data_dir != "":
+				exp.base_dir = training_data_dir
+			return exp
+	var fallback := SelfPlayDataExporterScript.new()
+	if training_data_dir != "":
+		fallback.base_dir = training_data_dir
+	return fallback

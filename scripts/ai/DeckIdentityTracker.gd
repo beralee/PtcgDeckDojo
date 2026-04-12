@@ -1,6 +1,8 @@
 class_name DeckIdentityTracker
 extends RefCounted
 
+const AutoloadResolverScript = preload("res://scripts/engine/AutoloadResolver.gd")
+
 const SPEC_EVENT_KEYS: Array[String] = [
 	"miraidon_bench_developed",
 	"electric_generator_resolved",
@@ -257,8 +259,11 @@ func _ensure_card_name_lookup() -> void:
 		return
 	_card_name_lookup_ready = true
 	_card_name_lookup.clear()
+	var card_database = AutoloadResolverScript.get_card_database()
+	if card_database == null:
+		return
 
-	for card_data: CardData in CardDatabase.get_all_cards():
+	for card_data: CardData in card_database.get_all_cards():
 		if card_data == null:
 			continue
 		_register_card_name(card_data.name, card_data)
@@ -290,7 +295,10 @@ func _register_card_name(raw_name: String, card_data: CardData) -> void:
 func _lookup_card_data_by_uid(uid: String) -> CardData:
 	if uid == "":
 		return null
-	for card_data: CardData in CardDatabase.get_all_cards():
+	var card_database = AutoloadResolverScript.get_card_database()
+	if card_database == null:
+		return null
+	for card_data: CardData in card_database.get_all_cards():
 		if card_data != null and card_data.get_uid() == uid:
 			return card_data
 	return null

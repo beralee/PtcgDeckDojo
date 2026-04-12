@@ -843,6 +843,31 @@ func test_rare_candy_accepts_greninja_ex_without_frogadier_in_cache() -> String:
 	])
 
 
+func test_rare_candy_cannot_execute_on_second_players_first_turn() -> String:
+	var state := _make_state()
+	state.turn_number = 2
+	state.first_player_index = 0
+	state.current_player_index = 1
+	var player: PlayerState = state.players[1]
+	var effect := EffectRareCandy.new()
+	var card := CardInstance.create(_make_trainer_data("Rare Candy"), 1)
+
+	var stage2_cd := _make_basic_pokemon_data("Charizard ex", "R", 330, "Stage 2")
+	stage2_cd.evolves_from = "Charmeleon"
+	var stage2 := CardInstance.create(stage2_cd, 1)
+	player.hand.append(stage2)
+	player.hand.append(card)
+	player.deck.append(_make_stage_one_reference("Charmeleon", "Charmander", 1))
+
+	player.active_pokemon.pokemon_stack.clear()
+	player.active_pokemon.pokemon_stack.append(CardInstance.create(_make_basic_pokemon_data("Charmander", "R", 70), 1))
+	player.active_pokemon.turn_played = 0
+
+	return run_checks([
+		assert_false(effect.can_execute(card, state), "后攻玩家第一回合不能使用神奇糖果进化开场放置的宝可梦"),
+	])
+
+
 func test_tool_conditional_damage_checks_conditions() -> String:
 	var state := _make_state()
 	state.players[1].active_pokemon.get_card_data().mechanic = "ex"
@@ -1679,15 +1704,21 @@ func test_v_guard_energy_reduces_damage_from_v_attacker() -> String:
 	])
 
 
-func test_gift_energy_trigger_draws_to_seven() -> String:
+func test_gift_energy_trigger_reports_draw_count_to_seven() -> String:
 	var state := _make_state()
 	var player: PlayerState = state.players[0]
 	while player.hand.size() > 4:
 		player.hand.pop_back()
+	var hand_before := player.hand.size()
 	for i: int in 4:
 		player.deck.append(CardInstance.create(_make_basic_pokemon_data("补抽牌%d" % i, "C"), 0))
 
-	EffectGiftEnergy.trigger_on_knockout(player)
+	var draw_count := EffectGiftEnergy.trigger_on_knockout(player)
+
+	return run_checks([
+		assert_eq(draw_count, 7 - hand_before, "Gift Energy should report the number of cards needed to reach seven"),
+		assert_eq(player.hand.size(), hand_before, "Gift Energy helper should not mutate hand state directly outside GameStateMachine"),
+	])
 
 	return run_checks([
 		assert_eq(player.hand.size(), 7, "馈赠能量应将手牌补到7张"),

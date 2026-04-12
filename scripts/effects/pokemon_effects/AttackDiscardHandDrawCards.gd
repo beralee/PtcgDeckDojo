@@ -27,10 +27,8 @@ func execute_attack(
 		return
 	var player: PlayerState = state.players[top.owner_index]
 	var hand_copy: Array[CardInstance] = player.hand.duplicate()
-	for hand_card: CardInstance in hand_copy:
-		player.hand.erase(hand_card)
-		player.discard_pile.append(hand_card)
-	player.draw_cards(draw_count)
+	_discard_cards_from_hand_with_log(state, top.owner_index, hand_copy, top, "attack")
+	_draw_cards_with_log(state, top.owner_index, draw_count, top, "attack")
 
 
 func get_description() -> String:

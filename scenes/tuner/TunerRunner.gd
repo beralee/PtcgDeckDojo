@@ -59,6 +59,7 @@ func parse_args(args: PackedStringArray) -> Dictionary:
 		"agent_config_path": "",
 		"value_net_path": "",
 		"action_scorer_path": "",
+		"interaction_scorer_path": "",
 		"progress_output_path": "",
 		"anomaly_output_path": "",
 		"pipeline_name": DeckBenchmarkCaseScript.PIPELINE_FIXED_THREE_DECK,
@@ -82,6 +83,8 @@ func parse_args(args: PackedStringArray) -> Dictionary:
 			parsed["value_net_path"] = arg.split("=")[1]
 		elif arg.begins_with("--action-scorer="):
 			parsed["action_scorer_path"] = arg.split("=")[1]
+		elif arg.begins_with("--interaction-scorer="):
+			parsed["interaction_scorer_path"] = arg.split("=")[1]
 		elif arg.begins_with("--progress-output="):
 			parsed["progress_output_path"] = arg.split("=")[1]
 		elif arg.begins_with("--anomaly-output="):
@@ -118,6 +121,7 @@ func _apply_engine_options(engine: EvolutionEngine, options: Dictionary) -> void
 	engine.max_steps_per_match = int(options.get("max_steps", engine.max_steps_per_match))
 	engine.value_net_path = str(options.get("value_net_path", ""))
 	engine.action_scorer_path = str(options.get("action_scorer_path", ""))
+	engine.interaction_scorer_path = str(options.get("interaction_scorer_path", ""))
 	engine.progress_output_path = str(options.get("progress_output_path", ""))
 	engine.anomaly_output_path = str(options.get("anomaly_output_path", ""))
 	engine.deck_pairings = DeckBenchmarkCaseScript.get_training_deck_pairings(str(options.get("pipeline_name", DeckBenchmarkCaseScript.PIPELINE_FIXED_THREE_DECK)))
@@ -129,6 +133,9 @@ func _extract_agent_config(source: Dictionary, fallback: Dictionary) -> Dictiona
 	return {
 		"heuristic_weights": (source.get("heuristic_weights", fallback.get("heuristic_weights", {})) as Dictionary).duplicate(true),
 		"mcts_config": (source.get("mcts_config", fallback.get("mcts_config", {})) as Dictionary).duplicate(true),
+		"value_net_path": str(source.get("value_net_path", fallback.get("value_net_path", ""))),
+		"action_scorer_path": str(source.get("action_scorer_path", fallback.get("action_scorer_path", ""))),
+		"interaction_scorer_path": str(source.get("interaction_scorer_path", fallback.get("interaction_scorer_path", ""))),
 	}
 
 

@@ -13,13 +13,17 @@ const StateEncoderScript = preload("res://scripts/ai/StateEncoder.gd")
 
 const ACTION_SCORER_SUPPORTED_KINDS := {
 	"play_trainer": true,
+	"play_stadium": true,
+	"play_basic_to_bench": true,
+	"evolve": true,
 	"use_ability": true,
 	"attach_tool": true,
 	"attach_energy": true,
 	"attack": true,
+	"retreat": true,
+	"granted_attack": true,
+	"end_turn": true,
 }
-const ACTION_SCORER_SCORE_SCALE: float = 200.0
-
 var _cloner := GameStateClonerScript.new()
 var _rollout_sim := RolloutSimulatorScript.new()
 var _action_builder := AILegalActionBuilderScript.new()
@@ -31,6 +35,9 @@ var action_scorer: RefCounted = null
 var value_net: RefCounted = null  # NeuralNetInference
 var state_encoder_class: GDScript = null  # StateEncoder
 
+## 卡组策略评估函数（可选）：如果设置则用 evaluate_board 替代 rollout
+var deck_strategy: RefCounted = null  # DeckStrategyGardevoir 或 null
+
 ## 默认搜索参数
 const DEFAULT_BRANCH_FACTOR: int = 3
 const DEFAULT_MAX_ACTIONS: int = 10
@@ -38,10 +45,65 @@ const DEFAULT_ROLLOUTS: int = 30
 const DEFAULT_ROLLOUT_MAX_STEPS: int = 100
 const DEFAULT_TIME_BUDGET_MS: int = 3000
 const EXECUTION_FAILURE_SAMPLE_LIMIT: int = 8
+const MAX_ENUM_SEQUENCES: int = 500
 
 var _execution_failure_category_counts: Dictionary = {}
 var _execution_failure_kind_counts: Dictionary = {}
 var _execution_failure_samples: Array[Dictionary] = []
+
+
+func estimate_action_teachers(gsm: GameStateMachine, player_index: int, actions: Array[Dictionary]) -> Array[Dictionary]:
+	var estimates: Array[Dictionary] = []
+	if gsm == null or gsm.game_state == null:
+		return estimates
+	var baseline_value: float = _estimate_game_state_value(gsm.game_state, player_index)
+	for action: Dictionary in actions:
+		estimates.append(estimate_action_teacher(gsm, player_index, action, baseline_value))
+	return estimates
+
+
+func estimate_action_teacher(
+	gsm: GameStateMachine,
+	player_index: int,
+	action: Dictionary,
+	baseline_value: float = INF
+) -> Dictionary:
+	if gsm == null or gsm.game_state == null:
+		return {"available": false}
+	var effective_baseline: float = baseline_value
+	if is_inf(effective_baseline):
+		effective_baseline = _estimate_game_state_value(gsm.game_state, player_index)
+	if bool(action.get("requires_interaction", false)):
+		return {
+			"available": false,
+			"baseline_value": effective_baseline,
+			"reason": "interaction_required",
+		}
+	var sim_gsm := _cloner.clone_gsm(gsm)
+	var resolved_action := _resolve_action_for_gsm(action, sim_gsm, player_index)
+	if resolved_action.is_empty():
+		return {
+			"available": false,
+			"baseline_value": effective_baseline,
+			"reason": "resolution_failed",
+		}
+	if not _try_execute_action(sim_gsm, player_index, resolved_action):
+		return {
+			"available": false,
+			"baseline_value": effective_baseline,
+			"reason": "execution_failed",
+		}
+	var post_value: float = _estimate_game_state_value(sim_gsm.game_state, player_index)
+	return {
+		"available": true,
+		"baseline_value": effective_baseline,
+		"post_value": post_value,
+		"value_delta": post_value - effective_baseline,
+		"turn_number_after": int(sim_gsm.game_state.turn_number),
+		"current_player_after": int(sim_gsm.game_state.current_player_index),
+		"phase_after": int(sim_gsm.game_state.phase),
+		"game_over_after": bool(sim_gsm.game_state.is_game_over()),
+	}
 
 
 func plan_turn(gsm: GameStateMachine, player_index: int, config: Dictionary = {}) -> Array:
@@ -55,8 +117,11 @@ func plan_turn(gsm: GameStateMachine, player_index: int, config: Dictionary = {}
 	var rollout_steps: int = int(config.get("rollout_max_steps", DEFAULT_ROLLOUT_MAX_STEPS))
 	var time_budget: int = int(config.get("time_budget_ms", DEFAULT_TIME_BUDGET_MS))
 
+	var start_time: int = Time.get_ticks_msec()
+	var deadline: int = start_time + time_budget
+
 	## 第一步：枚举候选序列（在克隆上操作，不修改原始 gsm）
-	var sequences: Array = _enumerate_sequences(gsm, player_index, branch_factor, max_actions)
+	var sequences: Array = _enumerate_sequences(gsm, player_index, branch_factor, max_actions, deadline)
 	if sequences.is_empty():
 		return [{"kind": "end_turn"}]
 
@@ -64,11 +129,9 @@ func plan_turn(gsm: GameStateMachine, player_index: int, config: Dictionary = {}
 	var best_sequence: Array = sequences[0]
 	var best_win_rate: float = -1.0
 	var best_action_count: int = 0
-	var start_time: int = Time.get_ticks_msec()
 
-	var deadline: int = start_time + time_budget
-
-	_mcts_debug("[MCTS] 候选序列数: %d, rollouts/seq: %d, budget: %dms" % [sequences.size(), rollouts, time_budget])
+	var enum_ms: int = Time.get_ticks_msec() - start_time
+	_mcts_debug("[MCTS] 候选序列数: %d, 枚举耗时: %dms, rollouts/seq: %d, budget: %dms" % [sequences.size(), enum_ms, rollouts, time_budget])
 
 	for sequence: Array in sequences:
 		if Time.get_ticks_msec() > deadline:
@@ -89,12 +152,13 @@ func _enumerate_sequences(
 	gsm: GameStateMachine,
 	player_index: int,
 	branch_factor: int,
-	max_depth: int
+	max_depth: int,
+	deadline_ms: int = 0
 ) -> Array:
 	## 用 beam search 枚举候选回合序列
 	var results: Array = []
 	var initial_clone := _cloner.clone_gsm(gsm)
-	_expand_sequences(initial_clone, player_index, [], branch_factor, max_depth, results)
+	_expand_sequences(initial_clone, player_index, [], branch_factor, max_depth, results, deadline_ms)
 	## 如果没有展开出任何序列，至少返回 end_turn
 	if results.is_empty():
 		results.append([{"kind": "end_turn"}])
@@ -107,8 +171,14 @@ func _expand_sequences(
 	current_sequence: Array,
 	branch_factor: int,
 	remaining_depth: int,
-	results: Array
+	results: Array,
+	deadline_ms: int = 0
 ) -> void:
+	## 时间 / 数量上限检查：防止指数爆炸
+	if deadline_ms > 0 and Time.get_ticks_msec() > deadline_ms:
+		return
+	if results.size() >= MAX_ENUM_SEQUENCES:
+		return
 	if remaining_depth <= 0:
 		var final_seq: Array = current_sequence.duplicate()
 		final_seq.append({"kind": "end_turn"})
@@ -173,7 +243,7 @@ func _expand_sequences(
 			results.append(next_seq)
 			continue
 
-		_expand_sequences(branch_gsm, player_index, next_seq, branch_factor, remaining_depth - 1, results)
+		_expand_sequences(branch_gsm, player_index, next_seq, branch_factor, remaining_depth - 1, results, deadline_ms)
 
 	## 兜底：如果没有 end_turn 在 top-K 中且没有任何分支成功，补一条 end_turn
 	if not any_branch_succeeded or (not has_end_turn_in_top_k and current_sequence.size() > 0):
@@ -189,7 +259,14 @@ func _score_and_rank_actions(
 	actions: Array[Dictionary]
 ) -> Array:
 	var scored: Array = []
-	var state_features: Array = StateEncoderScript.encode(gsm.game_state, player_index) if gsm != null and gsm.game_state != null else []
+	var state_features: Array = []
+	if gsm != null and gsm.game_state != null:
+		if state_encoder_class != null and state_encoder_class.has_method("encode"):
+			var encoded: Variant = state_encoder_class.call("encode", gsm.game_state, player_index)
+			if encoded is Array:
+				state_features = (encoded as Array).duplicate(true)
+		if state_features.is_empty():
+			state_features = StateEncoderScript.encode(gsm.game_state, player_index)
 	for action: Dictionary in actions:
 		var context := {
 			"gsm": gsm,
@@ -213,10 +290,9 @@ func _score_action_with_model(action_kind: String, state_features: Array, featur
 	var action_vector_variant: Variant = features.get("action_vector", [])
 	if not (action_vector_variant is Array) or (action_vector_variant as Array).is_empty():
 		return 0.0
-	if not action_scorer.has_method("score"):
+	if not action_scorer.has_method("score_delta"):
 		return 0.0
-	var prediction: float = float(action_scorer.call("score", state_features, action_vector_variant))
-	return (prediction - 0.5) * ACTION_SCORER_SCORE_SCALE
+	return float(action_scorer.call("score_delta", state_features, action_vector_variant, action_kind))
 
 
 func _evaluate_sequence(
@@ -249,6 +325,12 @@ func _evaluate_sequence(
 		var features: Array[float] = state_encoder_class.encode(sim_gsm.game_state, player_index)
 		return value_net.predict(features)
 
+	## 策略评估路径：用手写评估函数替代 rollout（比 rollout 快 ~100 倍）
+	if deck_strategy != null and deck_strategy.has_method("evaluate_board"):
+		var raw: float = deck_strategy.evaluate_board(sim_gsm.game_state, player_index)
+		# 归一化到 [0, 1]：evaluate_board 输出范围约 [-2000, 4000]
+		return clampf((raw + 2000.0) / 6000.0, 0.0, 1.0)
+
 	## Rollout 路径（原有逻辑）
 	var wins: int = 0
 	var completed_rollouts: int = 0
@@ -260,6 +342,20 @@ func _evaluate_sequence(
 		if int(result.get("winner_index", -1)) == player_index:
 			wins += 1
 	return float(wins) / float(completed_rollouts) if completed_rollouts > 0 else 0.0
+
+
+func _estimate_game_state_value(game_state: GameState, player_index: int) -> float:
+	if game_state == null:
+		return 0.5
+	if game_state.is_game_over():
+		return 1.0 if game_state.winner_index == player_index else 0.0
+	if value_net != null and value_net.is_loaded() and state_encoder_class != null:
+		var features: Array[float] = state_encoder_class.encode(game_state, player_index)
+		return float(value_net.predict(features))
+	if deck_strategy != null and deck_strategy.has_method("evaluate_board"):
+		var raw: float = float(deck_strategy.evaluate_board(game_state, player_index))
+		return clampf((raw + 2000.0) / 6000.0, 0.0, 1.0)
+	return -1.0
 
 
 func _try_execute_action(gsm: GameStateMachine, player_index: int, action: Dictionary) -> bool:
@@ -314,6 +410,20 @@ func _try_execute_action(gsm: GameStateMachine, player_index: int, action: Dicti
 			if bool(action.get("requires_interaction", false)):
 				return false
 			return gsm.use_attack(player_index, int(action.get("attack_index", -1)), action.get("targets", []))
+		"granted_attack":
+			if bool(action.get("requires_interaction", false)):
+				return false
+			var granted_source_slot: PokemonSlot = action.get("source_slot")
+			if granted_source_slot == null and player_index >= 0 and player_index < gsm.game_state.players.size():
+				granted_source_slot = gsm.game_state.players[player_index].active_pokemon
+			if granted_source_slot == null:
+				return false
+			return gsm.use_granted_attack(
+				player_index,
+				granted_source_slot,
+				action.get("granted_attack_data", {}),
+				action.get("targets", [])
+			)
 		"retreat":
 			var energy_to_discard: Variant = action.get("energy_to_discard", [])
 			var bench_target: PokemonSlot = action.get("bench_target")
@@ -389,6 +499,14 @@ func _classify_execution_failure(
 			if gsm != null and not gsm.can_use_attack(player_index, int(resolved_action.get("attack_index", -1))):
 				return "rule_reject_attack_not_ready"
 			return "attack_execution_failed"
+		"granted_attack":
+			var granted_source_slot: PokemonSlot = resolved_action.get("source_slot")
+			if granted_source_slot == null and gsm != null and gsm.game_state != null and player_index >= 0 and player_index < gsm.game_state.players.size():
+				granted_source_slot = gsm.game_state.players[player_index].active_pokemon
+			var granted_attack_data: Dictionary = resolved_action.get("granted_attack_data", {})
+			if gsm != null and not _can_use_granted_attack(gsm, player_index, granted_source_slot, granted_attack_data):
+				return "rule_reject_granted_attack_not_ready"
+			return "granted_attack_execution_failed"
 		"use_ability":
 			var source_slot: PokemonSlot = resolved_action.get("source_slot")
 			if gsm != null and source_slot != null and not gsm.effect_processor.can_use_ability(source_slot, gsm.game_state, int(resolved_action.get("ability_index", 0))):
@@ -413,7 +531,7 @@ func _action_requires_headless_interaction(
 			if trainer_card == null or trainer_card.card_data == null:
 				return false
 			var trainer_effect: BaseEffect = gsm.effect_processor.get_effect(trainer_card.card_data.effect_id)
-			return trainer_effect != null and not trainer_effect.get_interaction_steps(trainer_card, gsm.game_state).is_empty()
+			return trainer_effect != null and not trainer_effect.get_preview_interaction_steps(trainer_card, gsm.game_state).is_empty()
 		"play_stadium":
 			var stadium_card: CardInstance = resolved_action.get("card")
 			if stadium_card == null or stadium_card.card_data == null:
@@ -427,9 +545,15 @@ func _action_requires_headless_interaction(
 			var ability_index: int = int(resolved_action.get("ability_index", 0))
 			var source_card: CardInstance = gsm.effect_processor.get_ability_source_card(source_slot, ability_index, gsm.game_state)
 			var ability_effect: BaseEffect = gsm.effect_processor.get_ability_effect(source_slot, ability_index, gsm.game_state)
-			return source_card != null and ability_effect != null and not ability_effect.get_interaction_steps(source_card, gsm.game_state).is_empty()
+			return source_card != null and ability_effect != null and not ability_effect.get_preview_interaction_steps(source_card, gsm.game_state).is_empty()
 		"attack":
 			return bool(resolved_action.get("requires_interaction", false))
+		"granted_attack":
+			var source_slot: PokemonSlot = resolved_action.get("source_slot")
+			var granted_attack_data: Dictionary = resolved_action.get("granted_attack_data", {})
+			if source_slot == null or gsm.effect_processor == null:
+				return false
+			return not gsm.effect_processor.get_granted_attack_interaction_steps(source_slot, granted_attack_data, gsm.game_state).is_empty()
 	return false
 
 
@@ -444,6 +568,8 @@ func _action_has_missing_reference(kind: String, resolved_action: Dictionary) ->
 		"play_trainer", "play_stadium":
 			return resolved_action.get("card") == null
 		"use_ability":
+			return resolved_action.get("source_slot") == null
+		"granted_attack":
 			return resolved_action.get("source_slot") == null
 		"retreat":
 			return resolved_action.get("bench_target") == null
@@ -508,6 +634,9 @@ func _record_execution_failure(
 				if resolved_action.get("card") == null:
 					missing_fields.append("card")
 			"use_ability":
+				if resolved_action.get("source_slot") == null:
+					missing_fields.append("source_slot")
+			"granted_attack":
 				if resolved_action.get("source_slot") == null:
 					missing_fields.append("source_slot")
 			"retreat":
@@ -867,6 +996,8 @@ func _serialize_action(action: Dictionary) -> Dictionary:
 		serialized["ability_index"] = action.get("ability_index")
 	if action.has("requires_interaction"):
 		serialized["requires_interaction"] = action.get("requires_interaction")
+	if action.has("granted_attack_data") and action.get("granted_attack_data") is Dictionary:
+		serialized["granted_attack_data"] = (action.get("granted_attack_data") as Dictionary).duplicate(true)
 	if action.has("card") and action.get("card") is CardInstance:
 		var card: CardInstance = action.get("card")
 		serialized["card_instance_id"] = card.instance_id
@@ -893,6 +1024,36 @@ func _serialize_action(action: Dictionary) -> Dictionary:
 	if action.has("targets"):
 		serialized["targets"] = _serialize_target_value(action.get("targets"))
 	return serialized
+
+
+func _can_use_granted_attack(
+	gsm: GameStateMachine,
+	player_index: int,
+	source_slot: PokemonSlot,
+	granted_attack_data: Dictionary
+) -> bool:
+	if gsm == null or gsm.game_state == null:
+		return false
+	if player_index < 0 or player_index >= gsm.game_state.players.size():
+		return false
+	if gsm.game_state.current_player_index != player_index:
+		return false
+	if gsm.game_state.phase != GameState.GamePhase.MAIN:
+		return false
+	if source_slot == null or source_slot.get_top_card() == null:
+		return false
+	if source_slot != gsm.game_state.players[player_index].active_pokemon:
+		return false
+	if source_slot.attached_tool == null:
+		return false
+	if gsm.effect_processor.is_tool_effect_suppressed(source_slot, gsm.game_state):
+		return false
+	var cost: String = str(granted_attack_data.get("cost", ""))
+	return gsm.rule_validator.has_enough_energy(source_slot, cost, gsm.effect_processor, gsm.game_state)
+
+
+func _legacy_unused_serialize_action_block(action: Dictionary = {}) -> Dictionary:
+	var serialized: Dictionary = {}
 
 	serialized["kind"] = action.get("kind", "")
 

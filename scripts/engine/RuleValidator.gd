@@ -51,7 +51,7 @@ func can_evolve(state: GameState, player_index: int, slot: PokemonSlot, evolutio
 		return false
 	if state.phase != GameState.GamePhase.MAIN:
 		return false
-	if state.turn_number == 1 and player_index == state.first_player_index:
+	if state.is_first_turn_for_player(player_index):
 		return false
 	if slot.turn_played == state.turn_number:
 		return false
@@ -129,6 +129,11 @@ func get_attack_unusable_reason(
 	if player.active_pokemon == null:
 		return "当前没有战斗宝可梦"
 	var active: PokemonSlot = player.active_pokemon
+	var opponent_index: int = 1 - player_index
+	if opponent_index < 0 or opponent_index >= state.players.size():
+		return "Opponent has no Active Pokemon"
+	if state.players[opponent_index].active_pokemon == null:
+		return "Opponent has no Active Pokemon"
 
 	if active.status_conditions.get("asleep", false):
 		return "睡眠状态下不能攻击"

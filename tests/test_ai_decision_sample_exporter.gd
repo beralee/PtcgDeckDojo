@@ -85,6 +85,10 @@ func test_exporter_serializes_compact_decision_samples() -> String:
 		{
 			"kind": "play_trainer",
 			"score": 120.0,
+			"teacher_available": true,
+			"teacher_baseline_value": 0.45,
+			"teacher_post_value": 0.82,
+			"teacher_value_delta": 0.37,
 			"features": {
 				"productive": true,
 				"action_vector": [1.0, 0.0, 0.0],
@@ -122,7 +126,9 @@ func test_exporter_serializes_compact_decision_samples() -> String:
 		assert_eq(record.get("turn_number", -1), 3, "Sample should preserve turn metadata"),
 		assert_eq(legal_actions.size(), 2, "Sample should preserve the legal action set"),
 		assert_eq(chosen_action.get("kind", ""), "play_trainer", "Sample should preserve the chosen action"),
-		assert_eq(record.get("result", -1.0), 1.0, "Winner-side sample should receive a positive result label"),
+		assert_true(bool((legal_actions[0] as Dictionary).get("teacher_available", false)), "Exporter should preserve teacher annotations"),
+		assert_eq(float((legal_actions[0] as Dictionary).get("teacher_post_value", 0.0)), 0.82, "Exporter should serialize teacher post-action value"),
+		assert_true(float(record.get("result", -1.0)) > 0.5, "Winner-side sample should receive a positive result label"),
 	])
 
 
@@ -190,7 +196,7 @@ func test_headless_duel_can_record_decision_samples_via_exporter() -> String:
 	ai1.configure(1, 1)
 
 	var result: Dictionary = benchmark_runner.run_headless_duel(ai0, ai1, gsm, 1, Callable(), exporter)
-	exporter.end_game(int(result.get("winner_index", -1)))
+	exporter.end_game(result)
 	var path: String = exporter.export_game()
 	var file := FileAccess.open(path, FileAccess.READ)
 	var parsed: Dictionary = JSON.parse_string(file.get_as_text())
@@ -258,4 +264,68 @@ func test_self_play_runner_can_export_action_training_samples() -> String:
 		assert_eq(str(meta.get("pipeline_name", "")), "miraidon_focus_training", "Self-play metadata should preserve pipeline name"),
 		assert_eq(str(meta.get("deck_identity", "")), "575720", "Self-play metadata should preserve the acting deck identity"),
 		assert_eq(str(meta.get("opponent_deck_identity", "")), "578647", "Self-play metadata should preserve the opponent deck identity"),
+	])
+
+
+func test_exporter_serializes_interaction_decision_records() -> String:
+	var exporter = AIDecisionSampleExporterScript.new()
+	exporter.base_dir = "user://test_outputs/decision_samples"
+	exporter.start_game({
+		"run_id": "run_test_interaction",
+		"match_id": "match_test_interaction",
+		"pipeline_name": "gardevoir_interaction_training",
+		"deck_identity": "578647",
+		"opponent_deck_identity": "575720",
+	})
+	exporter.record_interaction_decision({
+		"player_index": 0,
+		"turn_number": 4,
+		"state_features": [0.1, 0.2],
+		"step_id": "embrace_target",
+		"step_type": "card_selection",
+		"resolution_kind": "dialog",
+		"candidates": [
+			{
+				"index": 0,
+				"chosen": true,
+				"item_name": "Kirlia",
+				"strategy_score": 8.0,
+				"interaction_vector": [1.0, 0.0],
+			},
+			{
+				"index": 1,
+				"chosen": false,
+				"item_name": "Drifloon",
+				"strategy_score": 4.0,
+				"interaction_vector": [0.0, 1.0],
+			},
+		],
+	})
+	exporter.end_game(0)
+	var path: String = exporter.export_game()
+	var file := FileAccess.open(path, FileAccess.READ)
+	var parsed: Dictionary = JSON.parse_string(file.get_as_text())
+	file.close()
+	var interaction_records: Array = parsed.get("interaction_records", [])
+	var record: Dictionary = {} if interaction_records.is_empty() else interaction_records[0]
+	var candidates: Array = record.get("candidates", [])
+	return run_checks([
+		assert_true(FileAccess.file_exists(path), "Exporter should write the interaction training file"),
+		assert_eq(interaction_records.size(), 1, "Exporter should preserve one interaction record"),
+		assert_eq(int(record.get("turn_number", -1)), 4, "Interaction records should preserve turn metadata"),
+		assert_true(float(record.get("result", -1.0)) > 0.5, "Interaction records should receive winner labels"),
+		assert_eq(candidates.size(), 2, "Interaction records should preserve candidate sets"),
+		assert_true(bool((candidates[0] as Dictionary).get("chosen", false)), "Chosen candidate flag should survive serialization"),
+	])
+
+
+func test_self_play_match_ids_stay_unique_across_nearby_pairings() -> String:
+	var self_play_runner = SelfPlayRunnerScript.new()
+	var left := str(self_play_runner._build_self_play_match_id(1276720, "a0", 578647, 575716))
+	var right := str(self_play_runner._build_self_play_match_id(1276720, "a0", 578647, 575720))
+
+	return run_checks([
+		assert_true(left != right, "Nearby opponent ids should not generate colliding self-play match ids"),
+		assert_true(left.find("578647_vs_575716") >= 0, "Match id should encode the exact pairing"),
+		assert_true(right.find("578647_vs_575720") >= 0, "Match id should encode the exact pairing"),
 	])

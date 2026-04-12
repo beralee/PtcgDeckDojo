@@ -1,0 +1,10 @@
+{
+  "asset_name": "water_spray_droplets",
+  "role": "spray droplets",
+  "variant": "impact_only",
+  "dimensions": "512x512",
+  "generator": "local_pil_script",
+  "notes": "Glossy droplets and short streaks around the impact point.",
+  "prompt": "Create a transparent-background 2D battle VFX asset for Pokemon-style water attacks. Show only glossy droplets, short spray streaks, and a few bright specular highlights around a compact splash impact. Keep the silhouette clean and readable for game compositing. No character, arena, text, UI, watermark, or frame.",
+  "negative_prompt": "no checkerboard, no black background, no solid backdrop, no surf, no beam, no mist cloud that hides the droplets, no character, no arena, no UI"
+}

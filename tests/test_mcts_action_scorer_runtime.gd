@@ -61,10 +61,14 @@ func test_mcts_action_scorer_only_applies_to_supported_kinds() -> String:
 	var supported_score: float = float(planner.call("_score_action_with_model", "play_trainer", [0.1, 0.2], {
 		"action_vector": [0.3, 0.4],
 	}))
-	var unsupported_score: float = float(planner.call("_score_action_with_model", "play_basic_to_bench", [0.1, 0.2], {
+	var supported_bench_score: float = float(planner.call("_score_action_with_model", "play_basic_to_bench", [0.1, 0.2], {
+		"action_vector": [0.3, 0.4],
+	}))
+	var unsupported_score: float = float(planner.call("_score_action_with_model", "setup_active", [0.1, 0.2], {
 		"action_vector": [0.3, 0.4],
 	}))
 	return run_checks([
 		assert_true(supported_score > 0.0, "supported kinds should receive the learned action bonus during MCTS scoring"),
+		assert_true(supported_bench_score > 0.0, "expanded action coverage should include play_basic_to_bench during MCTS scoring"),
 		assert_eq(unsupported_score, 0.0, "unsupported kinds should ignore the learned action bonus during MCTS scoring"),
 	])

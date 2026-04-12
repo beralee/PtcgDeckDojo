@@ -1,0 +1,27 @@
+{
+  "package_id": "attribute_darkness",
+  "base_prompt": "Create a transparent-background 2D battle VFX asset for Pokemon-style darkness attacks. Show only the effect element, with no character, arena, text, UI, watermark, or frame. Use a compact eclipse-like darkness style: near-black violet mass, amethyst rim light, thin shard accents, and smoky residue that remains readable in battle. Keep the silhouette clean and premium, with a strong central subject and controlled outer detail. Output a single isolated effect element on transparency.",
+  "negative_prompt": "no background, no arena, no Pokemon body, no trainer, no text, no watermark, no UI, no frame, no checkerboard, no fake transparency pattern, no decorative magical symbols, no oversized fog bank, no neon overload",
+  "assets": [
+    {
+      "key": "charge_core",
+      "prompt": "Create a transparent-background 2D battle VFX asset for Pokemon-style darkness attacks. Show only the effect element, with no character, arena, text, UI, watermark, or frame. Use a compact eclipse-like darkness style: near-black violet mass, amethyst rim light, thin shard accents, and smoky residue that remains readable in battle. Make the subject a compact pre-hit charge knot with a slight forward pull, as if darkness is gathering before impact. Keep the silhouette tight, premium, and easy to composite over a battle scene. Output a single isolated effect element on transparency.",
+      "notes": "Small ignition element for charge timing."
+    },
+    {
+      "key": "impact_bloom",
+      "prompt": "Create a transparent-background 2D battle VFX asset for Pokemon-style darkness attacks. Show only the effect element, with no character, arena, text, UI, watermark, or frame. Use a compact eclipse-like darkness style: near-black violet mass, amethyst rim light, thin shard accents, and smoky residue that remains readable in battle. Make the subject a compact hit bloom at the moment of contact, with a dense dark center, a violet edge pulse, and a few sharp shard fragments radiating outward. Keep it readable at small size and battle-ready. Output a single isolated effect element on transparency.",
+      "notes": "Primary shared hit asset."
+    },
+    {
+      "key": "shard_slash",
+      "prompt": "Create a transparent-background 2D battle VFX asset for Pokemon-style darkness attacks. Show only the effect element, with no character, arena, text, UI, watermark, or frame. Use a compact eclipse-like darkness style: near-black violet mass, amethyst rim light, thin shard accents, and smoky residue that remains readable in battle. Make the subject a directional darkness slash with a narrow, fast-moving silhouette, broken shard edges, and a dark core with a violet rim glow. Keep the motion clear without turning it into a full beam. Output a single isolated effect element on transparency.",
+      "notes": "Directional travel support layer."
+    },
+    {
+      "key": "residue_smoke",
+      "prompt": "Create a transparent-background 2D battle VFX asset for Pokemon-style darkness attacks. Show only the effect element, with no character, arena, text, UI, watermark, or frame. Use a compact eclipse-like darkness style: near-black violet mass, amethyst rim light, thin shard accents, and smoky residue that remains readable in battle. Make the subject lingering darkness residue: soft smoke wisps, broken shadow flecks, and faint violet embers that trail after the impact. Keep the mass airy enough to layer behind the bloom without obscuring it. Output a single isolated effect element on transparency.",
+      "notes": "After-impact residue and cleanup layer."
+    }
+  ]
+}

@@ -140,7 +140,7 @@ func test_register_pokemon_card_by_ability_and_attack_name() -> String:
 	])
 
 
-func test_register_pokemon_card_executes_multiple_attack_effects() -> String:
+func test_register_pokemon_card_executes_combustion_blast_self_lock_only() -> String:
 	var proc := EffectProcessor.new()
 	var state := _make_state()
 	var attacker: PokemonSlot = state.players[0].active_pokemon
@@ -156,6 +156,6 @@ func test_register_pokemon_card_executes_multiple_attack_effects() -> String:
 
 	return run_checks([
 		assert_true(proc.has_attack_effect("pokemon_attack_multi"), "应注册炎爆的招式附加效果"),
-		assert_eq(attacker.attached_energy.size(), init_energy - 1, "炎爆应弃置1个火能量"),
+		assert_eq(attacker.attached_energy.size(), init_energy, "光辉喷火龙的炎爆不应额外弃置火能量"),
 		assert_true(attacker.effects.any(func(e: Dictionary) -> bool: return e.get("type", "") == "attack_lock"), "应记录下回合招式锁定"),
 	])

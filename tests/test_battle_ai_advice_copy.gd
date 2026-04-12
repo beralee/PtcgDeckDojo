@@ -13,7 +13,7 @@ func _u(codepoints: Array[int]) -> String:
 
 func _make_scene_stub() -> Control:
 	var scene := BattleSceneScript.new()
-	scene.set("_log_list", ItemList.new())
+	scene.set("_log_list", RichTextLabel.new())
 	scene.set("_hand_container", HBoxContainer.new())
 	scene.set("_dialog_overlay", Panel.new())
 	scene.set("_handover_panel", Panel.new())
@@ -74,13 +74,20 @@ func test_battle_scene_topbar_and_log_title_use_readable_copy() -> String:
 	var ai_button := scene.find_child("BtnAiAdvice", true, false) as Button
 	var zeus_button := scene.find_child("BtnZeusHelp", true, false) as Button
 	var log_title := scene.find_child("LogTitle", true, false) as Label
+	var log_panel := scene.find_child("LogPanel", true, false) as PanelContainer
+	var log_list := scene.find_child("LogList", true, false) as RichTextLabel
 
 	return run_checks([
 		assert_true(ai_button != null, "BattleScene should expose BtnAiAdvice"),
 		assert_true(log_title != null, "BattleScene should expose LogTitle"),
+		assert_true(log_panel != null, "BattleScene should expose LogPanel"),
+		assert_true(log_list != null, "BattleScene should expose LogList"),
 		assert_eq(ai_button.text, _u([0x41, 0x49, 0x5EFA, 0x8BAE]), "BtnAiAdvice should use readable Chinese copy"),
 		assert_eq(zeus_button.text, _u([0x5B99, 0x65AF, 0x5E2E, 0x6211]), "BtnZeusHelp should preserve its readable Chinese copy"),
 		assert_eq(log_title.text, _u([0x64CD, 0x4F5C, 0x65E5, 0x5FD7]), "Right-side log title should use readable Chinese copy"),
+		assert_eq(log_panel.custom_minimum_size.x, 236.0, "Right-side log panel should reserve more width for readable copy"),
+		assert_eq(log_title.get_theme_font_size("font_size"), 12, "Log title should use the larger readable font size"),
+		assert_eq(log_list.get_theme_font_size("normal_font_size"), 11, "Log body should use the larger readable font size"),
 	])
 
 
@@ -103,11 +110,12 @@ func test_selecting_basic_pokemon_writes_readable_log_copy() -> String:
 
 	scene.call("_on_hand_card_clicked", basic, PanelContainer.new())
 
-	var log_list := scene.get("_log_list") as ItemList
-	if log_list == null or log_list.item_count == 0:
+	var log_list := scene.get("_log_list") as RichTextLabel
+	if log_list == null or log_list.get_parsed_text().strip_edges().is_empty():
 		return "Selecting a basic Pokemon should append at least one log entry"
 
-	var last_log := log_list.get_item_text(log_list.item_count - 1)
+	var lines := log_list.get_parsed_text().strip_edges().split("\n")
+	var last_log := lines[lines.size() - 1]
 	return run_checks([
 		assert_eq(last_log, _u([0x5DF2, 0x9009, 0x4E2D, 0x20, 0x5C0F, 0x706B, 0x9F99, 0xFF0C, 0x70B9, 0x51FB, 0x5907, 0x6218, 0x533A, 0x8FDB, 0x884C, 0x653E, 0x7F6E]), "Selecting a basic Pokemon should write readable Chinese action guidance"),
 		assert_false("??" in last_log, "Action log should not contain placeholder question marks"),

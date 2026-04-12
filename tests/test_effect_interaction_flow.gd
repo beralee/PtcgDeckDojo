@@ -290,6 +290,118 @@ func test_use_ability_executes_active_ability() -> String:
 	])
 
 
+func test_use_ability_logs_draw_card_metadata_for_reveal() -> String:
+	var gsm := _make_manual_gsm()
+	var player: PlayerState = gsm.game_state.players[0]
+	var pokemon_cd := _make_basic_pokemon_data("Ability User", "L", 120, "Basic", "test_logged_active_ability")
+	pokemon_cd.abilities = [{"name": "Step", "text": ""}]
+	gsm.effect_processor.register_effect("test_logged_active_ability", AbilityThunderousCharge.new())
+
+	var active_slot := PokemonSlot.new()
+	active_slot.pokemon_stack.append(CardInstance.create(pokemon_cd, 0))
+	player.active_pokemon = active_slot
+
+	var drawn_cd := _make_basic_pokemon_data("Ability Drawn Card", "C", 60)
+	player.deck.append(CardInstance.create(drawn_cd, 0))
+
+	var result: bool = gsm.use_ability(0, active_slot, 0)
+	var draw_action: GameAction = _get_last_action_of_type(gsm.action_log, GameAction.ActionType.DRAW_CARD)
+
+	return run_checks([
+		assert_true(result, "Active draw ability should still execute"),
+		assert_not_null(draw_action, "Using a draw ability should log DRAW_CARD metadata for reveal"),
+		assert_eq(int(draw_action.data.get("count", -1)) if draw_action != null else -1, 1, "Draw ability should log the drawn count"),
+		assert_eq(draw_action.data.get("card_names", []) if draw_action != null else [], ["Ability Drawn Card"], "Draw ability should log the exact drawn card"),
+	])
+
+
+func test_use_attack_logs_draw_to_seven_metadata_for_reveal() -> String:
+	var gsm := _make_manual_gsm()
+	var player: PlayerState = gsm.game_state.players[0]
+	var opponent: PlayerState = gsm.game_state.players[1]
+
+	var attacker_cd := _make_basic_pokemon_data("Draw Attacker", "C", 90, "Basic", "test_attack_draw_to_seven")
+	attacker_cd.attacks = [{"name": "Draw To Seven", "cost": "", "damage": "", "text": "", "is_vstar_power": false}]
+	gsm.effect_processor.register_attack_effect("test_attack_draw_to_seven", AttackDrawTo7.new())
+
+	var attacker_slot := PokemonSlot.new()
+	attacker_slot.pokemon_stack.append(CardInstance.create(attacker_cd, 0))
+	player.active_pokemon = attacker_slot
+
+	var defender_slot := PokemonSlot.new()
+	defender_slot.pokemon_stack.append(CardInstance.create(_make_basic_pokemon_data("Defender", "R", 100), 1))
+	opponent.active_pokemon = defender_slot
+
+	player.hand.clear()
+	for idx: int in 7:
+		var draw_cd := _make_basic_pokemon_data("Attack Draw %d" % [idx + 1], "C", 60)
+		player.deck.append(CardInstance.create(draw_cd, 0))
+
+	var used: bool = gsm.use_attack(0, 0)
+	var draw_action: GameAction = _get_last_action_of_type(gsm.action_log, GameAction.ActionType.DRAW_CARD)
+
+	return run_checks([
+		assert_true(used, "Draw-to-seven attack should resolve"),
+		assert_not_null(draw_action, "Draw-to-seven attack should log DRAW_CARD metadata for reveal"),
+		assert_eq(int(draw_action.data.get("count", -1)) if draw_action != null else -1, 7, "Draw-to-seven attack should log all drawn cards"),
+		assert_eq(draw_action.data.get("card_names", []) if draw_action != null else [], [
+			"Attack Draw 1",
+			"Attack Draw 2",
+			"Attack Draw 3",
+			"Attack Draw 4",
+			"Attack Draw 5",
+			"Attack Draw 6",
+			"Attack Draw 7",
+		], "Draw-to-seven attack should log exact draw order"),
+	])
+
+
+func test_attach_special_energy_draw_logs_reveal_metadata() -> String:
+	var gsm := _make_manual_gsm()
+	var player: PlayerState = gsm.game_state.players[0]
+
+	var active_slot := PokemonSlot.new()
+	active_slot.pokemon_stack.append(CardInstance.create(_make_basic_pokemon_data("Attach Draw Target", "C", 90), 0))
+	player.active_pokemon = active_slot
+
+	var energy := CardInstance.create(_make_energy_data("Lucky Energy", "C", "Special Energy", "test_special_draw_on_attach"), 0)
+	player.hand.append(energy)
+	gsm.effect_processor.register_effect("test_special_draw_on_attach", EffectSpecialEnergyOnAttach.new(0, 1))
+
+	player.deck.append(CardInstance.create(_make_basic_pokemon_data("Attach Drawn Card", "C", 60), 0))
+
+	var attached: bool = gsm.attach_energy(0, energy, active_slot)
+	var draw_action: GameAction = _get_last_action_of_type(gsm.action_log, GameAction.ActionType.DRAW_CARD)
+
+	return run_checks([
+		assert_true(attached, "Special Energy with draw-on-attach should attach successfully"),
+		assert_not_null(draw_action, "Draw-on-attach special energy should log DRAW_CARD metadata for reveal"),
+		assert_eq(draw_action.data.get("card_names", []) if draw_action != null else [], ["Attach Drawn Card"], "Draw-on-attach special energy should log the exact drawn card"),
+	])
+
+
+func test_use_stadium_draw_logs_reveal_metadata() -> String:
+	var gsm := _make_manual_gsm()
+	var player: PlayerState = gsm.game_state.players[0]
+	player.deck.clear()
+	player.hand.clear()
+	player.deck.append(CardInstance.create(_make_basic_pokemon_data("Stadium Drawn Card", "C", 60), 0))
+
+	var stadium := CardInstance.create(_make_trainer_data("Draw Stadium", "Stadium", "test_stadium_draw"), 0)
+	gsm.game_state.stadium_card = stadium
+	gsm.game_state.stadium_owner_index = 0
+	gsm.effect_processor.register_effect("test_stadium_draw", EffectStadiumDraw.new(1))
+
+	var used: bool = gsm.use_stadium_effect(0)
+	var draw_action: GameAction = _get_last_action_of_type(gsm.action_log, GameAction.ActionType.DRAW_CARD)
+
+	return run_checks([
+		assert_true(used, "Draw stadium effect should resolve"),
+		assert_not_null(draw_action, "Stadium draw effect should log DRAW_CARD metadata for reveal"),
+		assert_eq(draw_action.data.get("card_names", []) if draw_action != null else [], ["Stadium Drawn Card"], "Stadium draw effect should log the exact drawn card"),
+	])
+
+
 func test_iron_bundle_gust_from_bench_keeps_current_turn_after_opponent_choice() -> String:
 	var gsm := _make_manual_gsm()
 	var player: PlayerState = gsm.game_state.players[0]
@@ -408,6 +520,77 @@ func test_use_attack_discard_basic_energy_from_hand_respects_selected_cards() ->
 		assert_true(chosen_a in player.discard_pile and chosen_b in player.discard_pile, "Selected basic energy should be discarded"),
 		assert_true(unchosen in player.hand, "Unselected basic energy should remain in hand"),
 		assert_eq(defender_slot.damage_counters, 100, "Damage should scale only with the selected discard count"),
+	])
+
+
+func test_use_attack_discard_basic_energy_from_hand_one_selected_card_deals_fifty() -> String:
+	var gsm := _make_manual_gsm()
+	var player: PlayerState = gsm.game_state.players[0]
+	var defender_player: PlayerState = gsm.game_state.players[1]
+
+	var attacker_cd := _make_basic_pokemon_data("Gholdengo ex", "M", 260, "Basic", "gholdengo_test_single")
+	attacker_cd.attacks = [{"name": "Make It Rain", "cost": "M", "damage": "50×", "text": "", "is_vstar_power": false}]
+	var attacker_slot := PokemonSlot.new()
+	attacker_slot.pokemon_stack.append(CardInstance.create(attacker_cd, 0))
+	attacker_slot.attached_energy.append(CardInstance.create(_make_energy_data("Metal Energy", "M"), 0))
+	player.active_pokemon = attacker_slot
+
+	var defender_slot := PokemonSlot.new()
+	defender_slot.pokemon_stack.append(CardInstance.create(_make_basic_pokemon_data("Defender", "C", 200), 1))
+	defender_player.active_pokemon = defender_slot
+
+	player.hand.clear()
+	player.discard_pile.clear()
+	var chosen_water := CardInstance.create(_make_energy_data("Chosen Water", "W"), 0)
+	var unchosen_metal := CardInstance.create(_make_energy_data("Unchosen Metal", "M"), 0)
+	player.hand.append(chosen_water)
+	player.hand.append(unchosen_metal)
+	gsm.effect_processor.register_attack_effect("gholdengo_test_single", AttackDiscardBasicEnergyFromHandDamage.new(50))
+
+	var result: bool = gsm.use_attack(0, 0, [{
+		"discard_basic_energy": [chosen_water],
+	}])
+
+	return run_checks([
+		assert_true(result, "Attack should resolve when exactly one basic energy is selected"),
+		assert_true(chosen_water in player.discard_pile, "The selected Water Energy should be discarded from hand"),
+		assert_true(unchosen_metal in player.hand, "Unselected basic energy should remain in hand"),
+		assert_eq(defender_slot.damage_counters, 50, "Discarding exactly one basic energy should deal only 50 damage to a neutral defender"),
+	])
+
+
+func test_use_attack_discard_basic_energy_from_hand_applies_weakness_after_single_discard() -> String:
+	var gsm := _make_manual_gsm()
+	var player: PlayerState = gsm.game_state.players[0]
+	var defender_player: PlayerState = gsm.game_state.players[1]
+
+	var attacker_cd := _make_basic_pokemon_data("Gholdengo ex", "M", 260, "Basic", "gholdengo_test_weakness")
+	attacker_cd.attacks = [{"name": "Make It Rain", "cost": "M", "damage": "50×", "text": "", "is_vstar_power": false}]
+	var attacker_slot := PokemonSlot.new()
+	attacker_slot.pokemon_stack.append(CardInstance.create(attacker_cd, 0))
+	attacker_slot.attached_energy.append(CardInstance.create(_make_energy_data("Metal Energy", "M"), 0))
+	player.active_pokemon = attacker_slot
+
+	var defender_cd := _make_basic_pokemon_data("Weak Defender", "C", 200)
+	defender_cd.weakness_energy = "M"
+	defender_cd.weakness_value = "×2"
+	var defender_slot := PokemonSlot.new()
+	defender_slot.pokemon_stack.append(CardInstance.create(defender_cd, 1))
+	defender_player.active_pokemon = defender_slot
+
+	player.hand.clear()
+	player.discard_pile.clear()
+	var chosen_water := CardInstance.create(_make_energy_data("Chosen Water", "W"), 0)
+	player.hand.append(chosen_water)
+	gsm.effect_processor.register_attack_effect("gholdengo_test_weakness", AttackDiscardBasicEnergyFromHandDamage.new(50))
+
+	var result: bool = gsm.use_attack(0, 0, [{
+		"discard_basic_energy": [chosen_water],
+	}])
+
+	return run_checks([
+		assert_true(result, "Attack should still resolve with one selected basic energy against a weakness target"),
+		assert_eq(defender_slot.damage_counters, 100, "A single discarded basic energy should become 100 damage only when Steel weakness applies"),
 	])
 
 
@@ -648,3 +831,11 @@ func test_ultra_ball_requires_two_card_multiselect_step() -> String:
 		assert_eq(int(steps[0].get("max_select", 0)), 2, "Ultra Ball should allow selecting exactly 2 cards"),
 		assert_eq(discard_items.size(), 2, "Ultra Ball discard step should exclude the Ultra Ball card itself"),
 	])
+
+
+func _get_last_action_of_type(action_log: Array[GameAction], action_type: GameAction.ActionType) -> GameAction:
+	for i: int in range(action_log.size() - 1, -1, -1):
+		var action: GameAction = action_log[i]
+		if action != null and action.action_type == action_type:
+			return action
+	return null

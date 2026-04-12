@@ -10,6 +10,14 @@ class FakeAIVersionRegistry extends RefCounted:
 	func list_playable_versions() -> Array[Dictionary]:
 		return playable_versions.duplicate(true)
 
+	func list_playable_versions_for_strategy(strategy_id: String) -> Array[Dictionary]:
+		var filtered: Array[Dictionary] = []
+		for version: Dictionary in playable_versions:
+			var compatible_strategy_id := str(version.get("compatible_strategy_id", ""))
+			if compatible_strategy_id == "" or compatible_strategy_id == strategy_id:
+				filtered.append(version.duplicate(true))
+		return filtered
+
 	func get_latest_playable_version() -> Dictionary:
 		if playable_versions.is_empty():
 			return {}
@@ -25,24 +33,39 @@ func _make_scene_ready() -> Control:
 	return scene
 
 
-func _make_deck(deck_id: int, deck_name: String) -> DeckData:
+func _make_deck(deck_id: int, deck_name: String, signature_name: String = "") -> DeckData:
 	var deck := DeckData.new()
 	deck.id = deck_id
 	deck.deck_name = deck_name
 	deck.total_cards = 60
+	if signature_name != "":
+		deck.cards = [{
+			"name": signature_name,
+			"name_en": signature_name,
+			"card_type": "Pokemon",
+			"count": 1,
+		}]
 	return deck
 
 
 func _prime_deck_options(scene: Control) -> void:
-	scene.set("_deck_list", [_make_deck(101, "deck-a"), _make_deck(202, "deck-b")])
+	scene.set("_deck_list", [
+		_make_deck(575716, "deck-a", "喷火龙ex"),
+		_make_deck(575720, "deck-b", "密勒顿ex"),
+		_make_deck(578647, "deck-c", "沙奈朵ex"),
+	])
 	var deck1_option := scene.find_child("Deck1Option", true, false) as OptionButton
 	var deck2_option := scene.find_child("Deck2Option", true, false) as OptionButton
 	deck1_option.clear()
 	deck2_option.clear()
 	deck1_option.add_item("deck-a", 0)
-	deck2_option.add_item("deck-b", 0)
+	deck2_option.add_item("deck-a", 0)
+	deck1_option.add_item("deck-b", 1)
+	deck2_option.add_item("deck-b", 1)
+	deck1_option.add_item("deck-c", 2)
+	deck2_option.add_item("deck-c", 2)
 	deck1_option.select(0)
-	deck2_option.select(0)
+	deck2_option.select(1)
 
 
 func test_battle_setup_includes_ai_source_and_version_controls() -> String:
@@ -98,6 +121,54 @@ func test_battle_setup_refreshes_ai_version_options_from_registry() -> String:
 	])
 
 
+func test_battle_setup_filters_ai_versions_to_selected_ai_strategy() -> String:
+	var scene := _make_scene_ready()
+	_prime_deck_options(scene)
+	var registry := FakeAIVersionRegistry.new()
+	registry.playable_versions = [
+		{
+			"version_id": "AI-MIRAIDON-01",
+			"display_name": "miraidon build",
+			"compatible_strategy_id": "miraidon",
+		},
+		{
+			"version_id": "AI-GARDEVOIR-01",
+			"display_name": "gardevoir build",
+			"compatible_strategy_id": "gardevoir",
+		},
+	]
+	scene.call("set_ai_version_registry_for_test", registry)
+	scene.call("_refresh_ai_version_options")
+	var ai_version_option := scene.find_child("AIVersionOption", true, false) as OptionButton
+	return run_checks([
+		assert_eq(ai_version_option.get_item_count(), 1, "AI version dropdown should only show versions compatible with the selected AI deck strategy"),
+		assert_str_contains(ai_version_option.get_item_text(0), "AI-MIRAIDON-01", "Miraidon deck selection should keep the Miraidon-compatible version"),
+	])
+
+
+func test_battle_setup_ai_mode_limits_ai_decks_to_supported_shortlist() -> String:
+	var scene := _make_scene_ready()
+	var mode_option := scene.find_child("ModeOption", true, false) as OptionButton
+	var deck2_option := scene.find_child("Deck2Option", true, false) as OptionButton
+	mode_option.select(1)
+	scene.call("_on_mode_changed", 1)
+
+	var resolved_ids: Array[int] = []
+	for i: int in deck2_option.item_count:
+		deck2_option.select(i)
+		var deck := scene.call("_selected_deck_for_slot", 1) as DeckData
+		if deck != null:
+			resolved_ids.append(deck.id)
+
+	return run_checks([
+		assert_eq(deck2_option.item_count, 3, "AI mode should only expose the three supported AI decks"),
+		assert_true(575716 in resolved_ids, "AI deck list should include Charizard ex / Pidgeot ex"),
+		assert_true(575720 in resolved_ids, "AI deck list should include Miraidon"),
+		assert_true(569061 in resolved_ids, "AI deck list should include Arceus / Giratina"),
+		assert_false(578647 in resolved_ids, "AI deck list should exclude unsupported AI decks such as Gardevoir"),
+	])
+
+
 func test_apply_setup_selection_writes_default_ai_selection() -> String:
 	var previous_current_mode := GameManager.current_mode
 	var previous_selected_deck_ids := GameManager.selected_deck_ids.duplicate()
@@ -127,6 +198,45 @@ func test_apply_setup_selection_writes_default_ai_selection() -> String:
 		assert_eq(str(selection.get("agent_config_path", "")), "", "Default source should not bind agent_config_path"),
 		assert_eq(str(selection.get("value_net_path", "")), "", "Default source should not bind value_net_path"),
 		assert_eq(str(selection.get("display_name", "")), "", "Default source should not bind display_name"),
+	])
+
+
+func test_apply_setup_selection_resolves_filtered_ai_deck_ids_in_ai_mode() -> String:
+	var previous_current_mode := GameManager.current_mode
+	var previous_selected_deck_ids := GameManager.selected_deck_ids.duplicate()
+	var previous_first_player_choice := GameManager.first_player_choice
+	var previous_background := GameManager.selected_battle_background
+	var previous_ai_selection := GameManager.ai_selection.duplicate(true)
+
+	var scene := _make_scene_ready()
+	var mode_option := scene.find_child("ModeOption", true, false) as OptionButton
+	mode_option.select(1)
+	scene.call("_on_mode_changed", 1)
+	scene.call("_select_option_for_deck_id", scene.find_child("Deck1Option", true, false), 575716)
+	scene.call("_select_option_for_deck_id", scene.find_child("Deck2Option", true, false), 569061)
+
+	var ok: bool = scene.call("_apply_setup_selection")
+	var selected_ids: Array = GameManager.selected_deck_ids.duplicate()
+
+	GameManager.current_mode = previous_current_mode
+	GameManager.selected_deck_ids = previous_selected_deck_ids
+	GameManager.first_player_choice = previous_first_player_choice
+	GameManager.selected_battle_background = previous_background
+	GameManager.ai_selection = previous_ai_selection
+
+	return run_checks([
+		assert_true(ok, "_apply_setup_selection should succeed in AI mode with a filtered deck list"),
+		assert_eq(int(selected_ids[0]), 575716, "Player deck should still resolve correctly"),
+		assert_eq(int(selected_ids[1]), 569061, "Filtered AI deck selection should resolve to Arceus / Giratina by deck id"),
+	])
+
+
+func test_capture_setup_selection_context_no_longer_persists_legacy_ai_strategy() -> String:
+	var scene := _make_scene_ready()
+	_prime_deck_options(scene)
+	var context: Dictionary = scene.call("_capture_setup_selection_context")
+	return run_checks([
+		assert_false(context.has("ai_strategy"), "Deck-driven setup should not persist the removed ai_strategy field"),
 	])
 
 
@@ -198,4 +308,35 @@ func test_apply_setup_selection_falls_back_to_default_when_specific_version_miss
 		assert_eq(str(selection.get("agent_config_path", "")), "", "Fallback should not bind agent_config_path"),
 		assert_eq(str(selection.get("value_net_path", "")), "", "Fallback should not bind value_net_path"),
 		assert_eq(str(selection.get("display_name", "")), "", "Fallback should not bind display_name"),
+	])
+
+
+func test_apply_setup_context_ignores_legacy_ai_strategy_and_keeps_explicit_ai_deck() -> String:
+	var scene := _make_scene_ready()
+	_prime_deck_options(scene)
+	var deck2_option := scene.find_child("Deck2Option", true, false) as OptionButton
+	scene.call("_apply_setup_context", {
+		"deck1_id": 575716,
+		"deck2_id": 575720,
+		"mode": 1,
+		"ai_strategy": 2,
+	})
+	var selected_deck := scene.call("_selected_deck_for_slot", 1) as DeckData
+	return run_checks([
+		assert_eq(deck2_option.selected, 1, "Legacy ai_strategy state should not overwrite the explicitly selected AI deck"),
+		assert_not_null(selected_deck, "Selected AI deck should still resolve after applying legacy context"),
+		assert_eq(selected_deck.id, 575720, "Applying old ai_strategy state should preserve the requested AI deck"),
+	])
+
+
+func test_battle_setup_hides_legacy_ai_strategy_controls_even_in_ai_mode() -> String:
+	var scene := _make_scene_ready()
+	var mode_option := scene.find_child("ModeOption", true, false) as OptionButton
+	var ai_strategy_label := scene.find_child("AIStrategyLabel", true, false) as Label
+	var ai_strategy_option := scene.find_child("AIStrategyOption", true, false) as OptionButton
+	mode_option.select(1)
+	scene.call("_refresh_ai_ui_visibility")
+	return run_checks([
+		assert_false(ai_strategy_label.visible, "Deck-driven AI setup should not expose the legacy AI strategy label"),
+		assert_false(ai_strategy_option.visible, "Deck-driven AI setup should not expose the legacy AI strategy dropdown"),
 	])

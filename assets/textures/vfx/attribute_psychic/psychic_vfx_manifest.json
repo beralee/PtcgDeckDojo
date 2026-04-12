@@ -1,0 +1,55 @@
+{
+  "attribute": "psychic",
+  "version": "psychic_vfx_v1",
+  "visual_rule": "Psychic should read as compressed mind pressure: a luminous violet-white core, a cool cyan edge, and thin geometric psionic rings or shard petals. The subject should always stay readable and premium, with no competing lightning, flame, smoke, or fog layers.",
+  "playback_model": "cast + travel + impact",
+  "anchor_policy": "Use the center of the source and target cards when a precise emit point is unavailable.",
+  "suppressed_layers": [
+    "generic lightning arcs",
+    "flame tongues",
+    "dark smoke",
+    "heavy lens flare clutter",
+    "fog walls",
+    "fullscreen bloom"
+  ],
+  "palette": {
+    "core_white": "#F9F6FF",
+    "violet": "#8A4DFF",
+    "magenta": "#D46BFF",
+    "cyan_edge": "#84F0FF",
+    "deep_indigo": "#19092B"
+  },
+  "assets": [
+    {
+      "name": "psychic_charge_orb",
+      "role": "charge",
+      "path": "source/psychic_charge_orb.png",
+      "use": "pre-fire concentration knot"
+    },
+    {
+      "name": "psychic_travel_core",
+      "role": "travel core",
+      "path": "source/psychic_travel_core.png",
+      "use": "main directed psychic stream"
+    },
+    {
+      "name": "psychic_travel_outer",
+      "role": "travel outer",
+      "path": "source/psychic_travel_outer.png",
+      "use": "soft aura shell around the core"
+    },
+    {
+      "name": "psychic_impact_bloom",
+      "role": "impact bloom",
+      "path": "source/psychic_impact_bloom.png",
+      "use": "compact hit bloom"
+    },
+    {
+      "name": "psychic_residue_motes",
+      "role": "residue",
+      "path": "source/psychic_residue_motes.png",
+      "use": "fading aftermath particles and rings"
+    }
+  ]
+}
+

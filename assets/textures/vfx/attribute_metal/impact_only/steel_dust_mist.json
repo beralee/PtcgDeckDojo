@@ -1,0 +1,52 @@
+{
+  "package_id": "attribute_metal",
+  "asset_name": "steel_dust_mist",
+  "role": "low-alpha metallic dust and smoke residue",
+  "dimensions": [
+    512,
+    512
+  ],
+  "seed": 8303,
+  "generation_method": "procedural_pil",
+  "palette": {
+    "core": [
+      248,
+      246,
+      238,
+      255
+    ],
+    "silver": [
+      218,
+      225,
+      234,
+      255
+    ],
+    "steel": [
+      140,
+      150,
+      165,
+      255
+    ],
+    "gunmetal": [
+      52,
+      58,
+      70,
+      255
+    ],
+    "spark": [
+      255,
+      150,
+      56,
+      255
+    ],
+    "ember": [
+      255,
+      207,
+      137,
+      255
+    ]
+  },
+  "prompt": "Create a transparent-background 2D battle VFX asset for Pokemon-style metal attacks. Show only the effect element, with no character, arena, text, UI, watermark, or frame. Use a compact forged-steel collision style: low-alpha metallic dust, faint gray smoke, and a few glinting flecks suspended after impact. Make the subject a soft residue layer that supports the hit bloom without competing with it. Keep the silhouette clean, compact, and readable on transparency. Output a single isolated effect element on transparency.",
+  "negative_prompt": "no background, no arena, no Pokemon body, no trainer, no text, no watermark, no UI, no frame, no checkerboard, no fake transparency pattern, no rune circle, no magical sigils, no beam, no laser, no travel streak, no ribbon trail, no full-screen effect, no cluttered explosion",
+  "notes": "Low-alpha residue for the final fade."
+}

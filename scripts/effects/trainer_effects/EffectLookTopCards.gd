@@ -74,10 +74,15 @@ func execute(card: CardInstance, targets: Array, state: GameState) -> void:
 			if picked.size() >= pick_count:
 				break
 
-	for picked_card: CardInstance in picked:
-		player.deck.erase(picked_card)
-		picked_card.face_up = true
-		player.hand.append(picked_card)
+	_move_public_cards_to_hand_with_log(
+		state,
+		card.owner_index,
+		picked,
+		card,
+		"trainer",
+		"toplook_to_hand",
+		[_get_filter_label()]
+	)
 
 	player.shuffle_deck()
 

@@ -1,0 +1,49 @@
+{
+  "attribute": "water",
+  "visual_rule": "Clean cyan-blue splash impact with glossy droplets, compact crown spray, and fading mist residue. Impact-only, no travel beam, no muddy surf.",
+  "playback_model": "impact-only",
+  "package_root": "assets/textures/vfx/attribute_water",
+  "variants": [
+    {
+      "id": "impact_only",
+      "description": "Shared battle splash package for water attacks.",
+      "assets": [
+        {
+          "role": "impact_flipbook",
+          "file": "impact_only/water_impact_flipbook.png",
+          "format": "png",
+          "frames": 4,
+          "layout": "horizontal_strip",
+          "size": "1024x256",
+          "notes": "Primary hit bloom and splash crown."
+        },
+        {
+          "role": "spray_droplets",
+          "file": "impact_only/water_spray_droplets.png",
+          "format": "png",
+          "size": "512x512",
+          "notes": "Glossy droplets and short spray streaks around the hit."
+        },
+        {
+          "role": "ripple_ring",
+          "file": "impact_only/water_ripple_ring.png",
+          "format": "png",
+          "size": "512x512",
+          "notes": "Soft concentric ripple residue for the final impact frame."
+        },
+        {
+          "role": "residue_mist",
+          "file": "impact_only/water_residue_mist.png",
+          "format": "png",
+          "size": "512x512",
+          "notes": "Low-alpha mist and fading droplets after the splash."
+        }
+      ]
+    }
+  ],
+  "usage_notes": [
+    "Use the impact bloom as the dominant layer.",
+    "Keep travel disabled for the shared fallback.",
+    "Prefer clean anchors and compact compositing."
+  ]
+}

@@ -59,7 +59,7 @@ func execute_ability(
 		return
 
 	var need: int = draw_to_count - current_count
-	player.draw_cards(need)
+	_draw_cards_with_log(state, top.owner_index, need, top, "ability")
 
 	# 若每回合限用1次，记录本回合已使用
 	if once_per_turn:

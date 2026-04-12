@@ -1028,6 +1028,61 @@ func test_csv8c_121_cornerstone_mask_ogerpon_ex_blocks_damage_from_attackers_wit
 	])
 
 
+func test_cancel_cologne_disables_cornerstone_mask_immunity() -> String:
+	var gsm := GameStateMachine.new()
+	gsm.game_state = _make_state()
+	var state: GameState = gsm.game_state
+	state.current_player_index = 0
+	state.phase = GameState.GamePhase.MAIN
+
+	# 攻击方（玩家0）：有特性的宝可梦
+	var attacker_cd := _make_basic_pokemon_data("Attacker With Ability", "P", 300, "Basic", "ex", "attacker_cancel_cologne")
+	attacker_cd.abilities = [{"name": "Some Ability"}]
+	attacker_cd.attacks = [{"name": "Shadow Claw", "cost": "P", "damage": "100", "text": "", "is_vstar_power": false}]
+	# 防御方（玩家1）：础石面具 厄诡椪ex
+	var defender_cd := _make_basic_pokemon_data("Cornerstone Ogerpon ex", "F", 210, "Basic", "ex", "4f25f668ee0ab45c68f6954324c73003")
+	defender_cd.abilities = [{"name": "础石之姿"}]
+	defender_cd.attacks = [{"name": "Demolish", "cost": "FCC", "damage": "140", "text": "", "is_vstar_power": false}]
+	gsm.effect_processor.register_pokemon_card(attacker_cd)
+	gsm.effect_processor.register_pokemon_card(defender_cd)
+
+	state.players[0].active_pokemon = _make_slot(attacker_cd, 0)
+	state.players[1].active_pokemon = _make_slot(defender_cd, 1)
+	state.players[0].active_pokemon.attached_energy.append(CardInstance.create(_make_energy_data("P1", "P"), 0))
+
+	# 先确认不用清除古龙水时，伤害被挡
+	var blocked := gsm.effect_processor.is_damage_prevented_by_defender_ability(
+		state.players[0].active_pokemon, state.players[1].active_pokemon, state)
+
+	# 使用清除古龙水：在对手战斗宝可梦上标记 ability_disabled
+	var cologne_cd := CardData.new()
+	cologne_cd.name = "清除古龙水"
+	cologne_cd.card_type = "Item"
+	cologne_cd.effect_id = "66b2f1d77328b6578b1bf0d58d98f66b"
+	var cologne := CardInstance.create(cologne_cd, 0)
+	gsm.effect_processor.register_pokemon_card(cologne_cd)
+	var cologne_effect := EffectCancelCologne.new()
+	cologne_effect.execute(cologne, [], state)
+
+	# 确认清除古龙水后，特性被禁用
+	var disabled_after := gsm.effect_processor.is_ability_disabled(state.players[1].active_pokemon, state)
+
+	# 确认伤害不再被挡
+	var unblocked := gsm.effect_processor.is_damage_prevented_by_defender_ability(
+		state.players[0].active_pokemon, state.players[1].active_pokemon, state)
+
+	# 实际攻击验证
+	var success := gsm.use_attack(0, 0)
+
+	return run_checks([
+		assert_true(blocked, "础石之姿应挡住有特性攻击者的伤害"),
+		assert_true(disabled_after, "清除古龙水应禁用对手战斗宝可梦的特性"),
+		assert_false(unblocked, "清除古龙水后，础石之姿不应再挡伤害"),
+		assert_true(success, "攻击应正常执行"),
+		assert_eq(state.players[1].active_pokemon.damage_counters, 100, "清除古龙水后，攻击应造成正常伤害"),
+	])
+
+
 func test_csv8c_165_blissey_ex_moves_basic_energy_to_another_pokemon_once_per_turn() -> String:
 	var processor := EffectProcessor.new()
 	var state := _make_state()
@@ -2014,37 +2069,33 @@ func test_vguard_energy_reduces_damage_from_v_pokemon() -> String:
 
 
 func test_gift_energy_draws_on_knockout() -> String:
-	## 验证馈赠能量在附着宝可梦昏厥时抽卡到7张
 	var gsm := GameStateMachine.new()
 	gsm.game_state = _make_state()
 	var state := gsm.game_state
 
-	var defender_cd := _make_basic_pokemon_data("带馈赠能量", "C", 10, "Basic", "", "gift_test_def")
+	var defender_cd := _make_basic_pokemon_data("Gift Holder", "C", 10, "Basic", "", "gift_test_def")
 	var defender := _make_slot(defender_cd, 1)
-	var gift_cd := _make_energy_data("馈赠能量", "C", "Special Energy", "dbb3f3d2ef2f3372bc8b21336e6c9bc6")
+	var gift_cd := _make_energy_data("Gift Energy", "C", "Special Energy", "dbb3f3d2ef2f3372bc8b21336e6c9bc6")
 	defender.attached_energy.append(CardInstance.create(gift_cd, 1))
 	state.players[1].active_pokemon = defender
 
-	# 确保玩家1手牌少于7张且牌库有足够卡牌
 	state.players[1].hand.clear()
 	state.players[1].hand.append(CardInstance.create(_make_basic_pokemon_data("H1", "C"), 1))
 	state.players[1].hand.append(CardInstance.create(_make_basic_pokemon_data("H2", "C"), 1))
 	for i: int in 10:
 		state.players[1].deck.append(CardInstance.create(_make_basic_pokemon_data("D%d" % i, "C"), 1))
 
-	# 通过直接检查静态方法
 	var has_gift: bool = EffectGiftEnergy.check_gift_energy_on_knockout(defender)
 	var hand_before: int = state.players[1].hand.size()
-	EffectGiftEnergy.trigger_on_knockout(state.players[1])
+	var draw_count: int = EffectGiftEnergy.trigger_on_knockout(state.players[1])
 	var hand_after: int = state.players[1].hand.size()
 
 	return run_checks([
-		assert_true(has_gift, "附有馈赠能量的宝可梦应检测到馈赠能量"),
-		assert_eq(hand_before, 2, "触发前手牌2张"),
-		assert_eq(hand_after, 7, "触发后手牌应为7张"),
+		assert_true(has_gift, "Gift Energy should be detected on the knocked out Pokemon"),
+		assert_eq(hand_before, 2, "Gift Energy fixture should start from two cards in hand"),
+		assert_eq(draw_count, 5, "Gift Energy helper should report how many cards are needed to reach seven"),
+		assert_eq(hand_after, hand_before, "Gift Energy helper should no longer mutate hand state directly"),
 	])
-
-
 func test_mist_energy_blocks_retreat_lock() -> String:
 	## 验证薄雾能量阻止对手招式的撤退锁定效果
 	var state := _make_state()
@@ -3232,6 +3283,8 @@ func test_csv7c_051_gouging_fire_ex_blazing_charge_locks_until_it_leaves_active(
 	var energy_c := CardInstance.create(_make_energy_data("Fire C", "R"), 0)
 	attacker.attached_energy.append_array([energy_a, energy_b, energy_c])
 	player.active_pokemon = attacker
+	state.players[1].active_pokemon.damage_counters = 0
+	state.players[1].active_pokemon.pokemon_stack[0].card_data.hp = 400
 
 	var first_attack := gsm.use_attack(0, 1)
 	state.current_player_index = 0
@@ -3342,6 +3395,58 @@ func test_cs5dc_152_magma_basin_remains_usable_after_a_different_stadium_effect_
 		assert_true(used_magma_basin, "CS5DC_152 should remain usable after a different Stadium effect was used this turn"),
 		assert_true(fire_energy in fire_target.attached_energy, "CS5DC_152 should still attach the selected Basic Fire Energy after switching from another Stadium"),
 		assert_eq(fire_target.damage_counters, 20, "CS5DC_152 should still place 2 damage counters after another Stadium effect"),
+	])
+
+
+func test_cs55c_007_radiant_charizard_reduces_cost_without_discarding_energy() -> String:
+	var gsm := GameStateMachine.new()
+	gsm.game_state = _make_state()
+	var state: GameState = gsm.game_state
+	var player: PlayerState = state.players[0]
+	var opponent: PlayerState = state.players[1]
+
+	var radiant_charizard_cd: CardData = CardDatabase.get_card("CS5.5C", "007")
+	if radiant_charizard_cd == null:
+		return "未找到缓存卡 CS5.5C/007"
+	gsm.effect_processor.register_pokemon_card(radiant_charizard_cd)
+
+	var attacker := PokemonSlot.new()
+	attacker.pokemon_stack.append(CardInstance.create(radiant_charizard_cd, 0))
+	attacker.attached_energy.append(CardInstance.create(_make_energy_data("Fire Energy", "R"), 0))
+	player.active_pokemon = attacker
+
+	var bulky_target_cd := _make_basic_pokemon_data("Bulky Target", "G", 330)
+	var bulky_target := PokemonSlot.new()
+	bulky_target.pokemon_stack.append(CardInstance.create(bulky_target_cd, 1))
+	opponent.active_pokemon = bulky_target
+
+	opponent.prizes.clear()
+	for i: int in 3:
+		opponent.prizes.append(CardInstance.create(_make_basic_pokemon_data("Prize %d" % i, "C"), 1))
+	var insufficient_reason: String = gsm.get_attack_unusable_reason(0, 0)
+
+	opponent.prizes.pop_back()
+	var usable_reason: String = gsm.get_attack_unusable_reason(0, 0)
+	var first_attack: bool = gsm.use_attack(0, 0)
+	var energy_after_attack: int = attacker.attached_energy.size()
+	var target_damage_after_attack: int = opponent.active_pokemon.damage_counters
+
+	gsm.end_turn(1)
+	var locked_reason: String = gsm.get_attack_unusable_reason(0, 0)
+
+	gsm.end_turn(0)
+	gsm.end_turn(1)
+	var unlocked_reason: String = gsm.get_attack_unusable_reason(0, 0)
+
+	return run_checks([
+		assert_not_null(radiant_charizard_cd, "CS5.5C_007 should exist in the card database"),
+		assert_str_contains(insufficient_reason, "能量不足", "CS5.5C_007 should still require more than 1 Fire Energy before the opponent has taken 4 prizes"),
+		assert_eq(usable_reason, "", "CS5.5C_007 should become usable with only 1 Fire Energy after the opponent has taken 4 prizes"),
+		assert_true(first_attack, "CS5.5C_007 should use Combustion Blast successfully once Excited Heart reduces the cost"),
+		assert_eq(energy_after_attack, 1, "CS5.5C_007 Combustion Blast should not discard the remaining Fire Energy"),
+		assert_eq(target_damage_after_attack, 250, "CS5.5C_007 Combustion Blast should still deal its printed 250 damage"),
+		assert_str_contains(locked_reason, "下回合", "CS5.5C_007 should lock Combustion Blast during the next turn"),
+		assert_eq(unlocked_reason, "", "CS5.5C_007 should be able to use Combustion Blast again after waiting out the lock"),
 	])
 
 

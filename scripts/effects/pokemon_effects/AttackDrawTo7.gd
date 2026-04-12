@@ -28,7 +28,7 @@ func execute_attack(
 	var draw_count: int = TARGET_HAND_SIZE - current_hand
 
 	# 抽牌（draw_count 张或直到牌库为空）
-	player.draw_cards(draw_count)
+	_draw_cards_with_log(state, pi, draw_count, top_card, "attack")
 
 
 func get_description() -> String:

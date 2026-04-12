@@ -76,7 +76,7 @@ func get_pending_prompt_owner() -> int:
 	match _pending_choice:
 		"mulligan_extra_draw":
 			return int(_dialog_data.get("beneficiary", -1))
-		"take_prize", "send_out":
+		"take_prize", "send_out", "heavy_baton_target":
 			return int(_dialog_data.get("player", -1))
 		_ when _pending_choice.begins_with("setup_active_") or _pending_choice.begins_with("setup_bench_"):
 			return int(_dialog_data.get("player", -1))
@@ -234,89 +234,116 @@ func _on_end_turn() -> void:
 
 ## ===== 效果交互：_try_*_with_interaction 方法 =====
 
-func _try_play_trainer_with_interaction(player_index: int, card: CardInstance) -> void:
+func _try_play_trainer_with_interaction(player_index: int, card: CardInstance) -> bool:
 	if _gsm == null:
-		return
+		return false
 	var effect: BaseEffect = _gsm.effect_processor.get_effect(card.card_data.effect_id)
 	if effect == null:
-		_gsm.play_trainer(player_index, card, [])
-		return
+		return _gsm.play_trainer(player_index, card, [])
 	if not effect.can_execute(card, _gsm.game_state):
-		return
+		return false
 	var steps: Array[Dictionary] = effect.get_interaction_steps(card, _gsm.game_state)
 	if steps.is_empty():
-		_gsm.play_trainer(player_index, card, [])
-		return
+		return _gsm.play_trainer(player_index, card, [])
 	_start_effect_interaction("trainer", player_index, steps, card)
+	return _pending_choice == "effect_interaction"
 
 
-func _try_play_stadium_with_interaction(player_index: int, card: CardInstance) -> void:
+func _try_play_stadium_with_interaction(player_index: int, card: CardInstance) -> bool:
 	if _gsm == null:
-		return
+		return false
 	var effect: BaseEffect = _gsm.effect_processor.get_effect(card.card_data.effect_id)
 	if effect == null:
-		_gsm.play_stadium(player_index, card)
-		return
+		return _gsm.play_stadium(player_index, card)
 	var steps: Array[Dictionary] = effect.get_on_play_interaction_steps(card, _gsm.game_state)
 	if steps.is_empty():
-		_gsm.play_stadium(player_index, card)
-		return
+		return _gsm.play_stadium(player_index, card)
 	_start_effect_interaction("play_stadium", player_index, steps, card)
+	return _pending_choice == "effect_interaction"
 
 
-func _try_use_ability_with_interaction(player_index: int, slot: PokemonSlot, ability_index: int) -> void:
+func _try_use_ability_with_interaction(player_index: int, slot: PokemonSlot, ability_index: int) -> bool:
 	if _gsm == null:
-		return
+		return false
 	var card: CardInstance = _gsm.effect_processor.get_ability_source_card(slot, ability_index, _gsm.game_state)
 	if card == null:
-		return
+		return false
 	var effect: BaseEffect = _gsm.effect_processor.get_ability_effect(slot, ability_index, _gsm.game_state)
 	if effect == null:
-		_gsm.use_ability(player_index, slot, ability_index)
-		return
+		return _gsm.use_ability(player_index, slot, ability_index)
 	if not _gsm.effect_processor.can_use_ability(slot, _gsm.game_state, ability_index):
-		return
+		return false
 	var steps: Array[Dictionary] = effect.get_interaction_steps(card, _gsm.game_state)
 	if steps.is_empty():
-		_gsm.use_ability(player_index, slot, ability_index)
-		return
+		return _gsm.use_ability(player_index, slot, ability_index)
 	_start_effect_interaction("ability", player_index, steps, card, slot, ability_index)
+	return _pending_choice == "effect_interaction"
 
 
-func _try_use_stadium_with_interaction(player_index: int) -> void:
+func _try_use_stadium_with_interaction(player_index: int) -> bool:
 	if _gsm == null or _gsm.game_state.stadium_card == null:
-		return
+		return false
 	var stadium_card: CardInstance = _gsm.game_state.stadium_card
 	var effect: BaseEffect = _gsm.effect_processor.get_effect(stadium_card.card_data.effect_id)
 	if effect == null:
-		_gsm.use_stadium_effect(player_index)
-		return
+		return _gsm.use_stadium_effect(player_index)
 	if not _gsm.can_use_stadium_effect(player_index):
-		return
+		return false
 	var steps: Array[Dictionary] = effect.get_interaction_steps(stadium_card, _gsm.game_state)
 	if steps.is_empty():
-		_gsm.use_stadium_effect(player_index)
-		return
+		return _gsm.use_stadium_effect(player_index)
 	_start_effect_interaction("stadium", player_index, steps, stadium_card)
+	return _pending_choice == "effect_interaction"
 
 
-func _try_use_attack_with_interaction(player_index: int, slot: PokemonSlot, attack_index: int) -> void:
+func _try_use_attack_with_interaction(player_index: int, slot: PokemonSlot, attack_index: int) -> bool:
 	if _gsm == null:
-		return
+		return false
 	if not _gsm.can_use_attack(player_index, attack_index):
-		return
+		return false
 	var card: CardInstance = slot.get_top_card()
 	if card == null:
-		return
+		return false
 	var attack: Dictionary = card.card_data.attacks[attack_index]
 	var steps: Array[Dictionary] = []
 	var effects: Array[BaseEffect] = _gsm.effect_processor.get_attack_effects_for_slot(slot, attack_index)
 	for effect: BaseEffect in effects:
 		steps.append_array(effect.get_attack_interaction_steps(card, attack, _gsm.game_state))
 	if steps.is_empty():
-		_gsm.use_attack(player_index, attack_index)
-		return
+		return _gsm.use_attack(player_index, attack_index)
 	_start_effect_interaction("attack", player_index, steps, card, slot, attack_index, {}, effects)
+	return _pending_choice == "effect_interaction"
+
+
+func _try_use_granted_attack_with_interaction(player_index: int, slot: PokemonSlot, granted_attack: Dictionary) -> bool:
+	if _gsm == null or _gsm.game_state == null:
+		return false
+	if player_index < 0 or player_index >= _gsm.game_state.players.size():
+		return false
+	if _gsm.game_state.current_player_index != player_index:
+		return false
+	if _gsm.game_state.phase != GameState.GamePhase.MAIN:
+		return false
+	if slot == null or slot.get_top_card() == null:
+		return false
+	if slot != _gsm.game_state.players[player_index].active_pokemon:
+		return false
+	if slot.attached_tool == null:
+		return false
+	if _gsm.effect_processor.is_tool_effect_suppressed(slot, _gsm.game_state):
+		return false
+	var cost: String = str(granted_attack.get("cost", ""))
+	if not _gsm.rule_validator.has_enough_energy(slot, cost, _gsm.effect_processor, _gsm.game_state):
+		return false
+	var steps: Array[Dictionary] = _gsm.effect_processor.get_granted_attack_interaction_steps(
+		slot,
+		granted_attack,
+		_gsm.game_state
+	)
+	if steps.is_empty():
+		return _gsm.use_granted_attack(player_index, slot, granted_attack)
+	_start_effect_interaction("granted_attack", player_index, steps, slot.get_top_card(), slot, -1, granted_attack)
+	return _pending_choice == "effect_interaction"
 
 
 func _try_start_evolve_trigger_ability_interaction(player_index: int, slot: PokemonSlot) -> void:
@@ -872,7 +899,32 @@ func _resolve_send_out(dialog_data: Dictionary) -> bool:
 	var send_out_player: int = int(dialog_data.get("player", -1))
 	if send_out_player < 0 or send_out_player >= _gsm.game_state.players.size():
 		return false
-	for bench_slot: PokemonSlot in _gsm.game_state.players[send_out_player].bench:
+	var bench: Array[PokemonSlot] = _gsm.game_state.players[send_out_player].bench
+	# 选最优：就绪攻击手（有能量+有伤害）> 有能量的 > 其他
+	var best: PokemonSlot = null
+	var best_score: float = -1.0
+	for slot: PokemonSlot in bench:
+		if slot == null or slot.get_top_card() == null:
+			continue
+		var score: float = 50.0
+		var energy_count: int = slot.attached_energy.size()
+		if energy_count >= 1:
+			score = 200.0 + float(energy_count) * 20.0
+		# 有能量且有攻击招式 → 更高优先
+		var cd: CardData = slot.get_card_data()
+		if cd != null and not cd.attacks.is_empty() and energy_count >= 1:
+			score = maxf(score, 300.0 + float(energy_count) * 30.0)
+		# ex/V 不想上前场挨打
+		if cd != null and (cd.mechanic == "ex" or cd.mechanic == "V") and score < 200.0:
+			score = 10.0
+		if score > best_score:
+			best_score = score
+			best = slot
+	if best != null:
+		if _gsm.send_out_pokemon(send_out_player, best):
+			return true
+	# 兜底
+	for bench_slot: PokemonSlot in bench:
 		if _gsm.send_out_pokemon(send_out_player, bench_slot):
 			return true
 	return false

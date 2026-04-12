@@ -1,13 +1,22 @@
 class_name AIHeuristics
 extends RefCounted
 
+const DeckStrategyGardevoirScript = preload("res://scripts/ai/DeckStrategyGardevoir.gd")
+const DeckStrategyMiraidonScript = preload("res://scripts/ai/DeckStrategyMiraidon.gd")
+
 # 卡组家族签名卡名称（用于轻量卡组检测）
-const _MIRAIDON_SIGNATURES: Array[String] = ["Miraidon ex"]
-const _GARDEVOIR_SIGNATURES: Array[String] = ["Gardevoir ex", "Kirlia"]
+const _MIRAIDON_SIGNATURES: Array[String] = ["Miraidon ex", "密勒顿ex"]
+const _GARDEVOIR_SIGNATURES: Array[String] = ["沙奈朵ex", "奇鲁莉安"]
 const _CHARIZARD_SIGNATURES: Array[String] = ["Charizard ex", "Charmeleon", "Charmander"]
 
 ## 可调权重字典，留空则使用默认值
 var weights: Dictionary = {}
+
+## 沙奈朵策略实例（懒加载）
+var _gardevoir_strategy = null
+## 密勒顿策略实例（懒加载）
+var _miraidon_strategy = null
+var deck_strategy = null
 
 
 ## 从 weights 中读取权重，缺省返回默认值
@@ -34,7 +43,10 @@ static func get_default_weights() -> Dictionary:
 		"bench_dev_bonus": 70.0,
 		"stage2_bonus": 140.0,
 		"attack_readiness_bonus": 80.0,
+		"bench_attack_readiness_bonus": 65.0,
 		"dead_trainer_penalty": 30.0,
+		"churn_risk_penalty": 140.0,
+		"deck_out_pressure_penalty": 40.0,
 		# 目标质量
 		"target_has_attacks": 30.0,
 		"high_damage_bonus": 40.0,
@@ -57,6 +69,10 @@ static func get_default_weights() -> Dictionary:
 
 
 func score_action(action: Dictionary, context: Dictionary) -> float:
+	var kind: String = str(action.get("kind", ""))
+	if _strategy_controls_attach_or_tool(kind):
+		action["reason_tags"] = ["deck_bias"]
+		return float(deck_strategy.score_action(action, context))
 	var features: Dictionary = context.get("features", {})
 	action["reason_tags"] = []
 	var score: float = _base_score(action, features)
@@ -103,17 +119,30 @@ func _apply_shared_adjustments(action: Dictionary, context: Dictionary, features
 		score_delta += _w("stage2_bonus", 140.0)
 		_add_reason_tag(action, "stage2_progress")
 
-	if kind == "attach_energy" and bool(features.get("improves_attack_readiness", false)):
+	## 卡组策略：贴能 / 贴道具由专属策略全权控制，跳过通用评分
+	var _strategy_controls_attach: bool = _strategy_controls_attach_or_tool(kind)
+
+	if kind == "attach_energy" and bool(features.get("improves_attack_readiness", false)) and not _strategy_controls_attach:
 		score_delta += _w("attack_readiness_bonus", 80.0)
 		_add_reason_tag(action, "attack_readiness")
 
-	## 贴能目标质量评分：优先贴给高攻击力、高 HP、有招式的目标
-	if kind == "attach_energy":
+	if kind == "attach_energy" and bool(features.get("improves_bench_attack_readiness", false)) and not _strategy_controls_attach:
+		score_delta += _w("bench_attack_readiness_bonus", 65.0)
+		_add_reason_tag(action, "bench_attack_readiness")
+
+	if kind == "attach_energy" and not _strategy_controls_attach:
 		score_delta += _score_attach_target_quality(action, context)
 
 	if kind == "play_trainer" and not _is_productive_trainer(action, features):
 		score_delta -= _w("dead_trainer_penalty", 30.0)
 		_add_reason_tag(action, "dead_trainer_penalty")
+
+	if kind == "play_trainer" and bool(features.get("creates_churn_risk", false)):
+		score_delta -= _w("churn_risk_penalty", 140.0)
+		_add_reason_tag(action, "churn_risk")
+		if bool(features.get("deck_out_pressure", false)):
+			score_delta -= _w("deck_out_pressure_penalty", 40.0)
+			_add_reason_tag(action, "deck_out_pressure")
 
 	return score_delta
 
@@ -237,6 +266,11 @@ func _add_reason_tag(action: Dictionary, tag: String) -> void:
 
 
 func _apply_deck_bias(action: Dictionary, context: Dictionary, features: Dictionary) -> float:
+	if deck_strategy != null and deck_strategy.has_method("score_action"):
+		var injected_score: float = float(deck_strategy.score_action(action, context))
+		if injected_score != 0.0:
+			_add_reason_tag(action, "deck_bias")
+		return injected_score
 	var deck_family := _detect_deck_family(context)
 	if deck_family == "":
 		return 0.0
@@ -251,6 +285,10 @@ func _apply_deck_bias(action: Dictionary, context: Dictionary, features: Diction
 	if score_delta != 0.0:
 		_add_reason_tag(action, "deck_bias")
 	return score_delta
+
+
+func _strategy_controls_attach_or_tool(kind: String) -> bool:
+	return deck_strategy != null and deck_strategy.has_method("score_action") and (kind == "attach_energy" or kind == "attach_tool")
 
 
 func _detect_deck_family(context: Dictionary) -> String:
@@ -300,44 +338,18 @@ func _has_any_signature(names: Array[String], signatures: Array[String]) -> bool
 	return false
 
 
-func _miraidon_bias(action: Dictionary, _context: Dictionary, _features: Dictionary) -> float:
-	## Miraidon 卡组：Electric Generator 加分、电属性基础上板加分、电系贴能加分
-	var kind := str(action.get("kind", ""))
-	var card: CardInstance = action.get("card")
-	if kind == "play_trainer" and card != null and card.card_data != null:
-		if str(card.card_data.name) == "Electric Generator":
-			return _w("miraidon_eg", 25.0)
-	if kind == "play_basic_to_bench" and card != null and card.card_data != null:
-		if str(card.card_data.energy_type) == "L":
-			return _w("miraidon_l_bench", 15.0)
-	## 贴能给电属性宝可梦额外加分（避免贴给月月熊等非核心）
-	if kind == "attach_energy":
-		var target_slot: PokemonSlot = action.get("target_slot")
-		if target_slot != null:
-			var target_cd: CardData = target_slot.get_card_data()
-			if target_cd != null and str(target_cd.energy_type) == "L":
-				return _w("miraidon_l_attach", 35.0)
-			## 非电属性宝可梦减分
-			if target_cd != null and str(target_cd.energy_type) != "L" and str(target_cd.energy_type) != "C":
-				return _w("miraidon_off_type", -20.0)
-	return 0.0
+func _miraidon_bias(action: Dictionary, context: Dictionary, _features: Dictionary) -> float:
+	## Miraidon 卡组：委托给 DeckStrategyMiraidon 进行深度策略评分
+	if _miraidon_strategy == null:
+		_miraidon_strategy = DeckStrategyMiraidonScript.new()
+	return _miraidon_strategy.score_action(action, context)
 
 
-func _gardevoir_bias(action: Dictionary, _context: Dictionary, _features: Dictionary) -> float:
-	## Gardevoir 卡组：超能进化线加分、Psychic Embrace 特性加分
-	var kind := str(action.get("kind", ""))
-	var card: CardInstance = action.get("card")
-	if kind == "evolve" and card != null and card.card_data != null:
-		var evo_name := str(card.card_data.name)
-		if evo_name == "Gardevoir ex" or evo_name == "Kirlia":
-			return _w("gardevoir_evo", 30.0)
-	if kind == "use_ability":
-		var source_slot: PokemonSlot = action.get("source_slot")
-		if source_slot != null:
-			var slot_cd: CardData = source_slot.get_card_data()
-			if slot_cd != null and _has_ability_named(slot_cd, "Psychic Embrace"):
-				return _w("gardevoir_embrace", 25.0)
-	return 0.0
+func _gardevoir_bias(action: Dictionary, context: Dictionary, _features: Dictionary) -> float:
+	## Gardevoir 卡组：委托给 DeckStrategyGardevoir 进行深度策略评分
+	if _gardevoir_strategy == null:
+		_gardevoir_strategy = DeckStrategyGardevoirScript.new()
+	return _gardevoir_strategy.score_action(action, context)
 
 
 func _charizard_bias(action: Dictionary, _context: Dictionary, _features: Dictionary) -> float:

@@ -33,7 +33,7 @@ func execute_ability(
 	var pi: int = top.owner_index
 	var player: PlayerState = state.players[pi]
 	var draw_count: int = 2 if player.active_pokemon == pokemon else 1
-	player.draw_cards(draw_count)
+	_draw_cards_with_log(state, pi, draw_count, top, "ability")
 	pokemon.effects.append({
 		"type": USED_KEY,
 		"turn": state.turn_number,

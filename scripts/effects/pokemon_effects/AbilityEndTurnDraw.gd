@@ -39,7 +39,7 @@ func execute_ability(
 	var player: PlayerState = state.players[pi]
 
 	# 抽指定数量的卡牌
-	player.draw_cards(draw_count)
+	_draw_cards_with_log(state, top.owner_index, draw_count, top, "ability")
 
 	# 标记本回合已使用
 	pokemon.effects.append({

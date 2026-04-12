@@ -1,0 +1,40 @@
+{
+  "package_id": "attribute_colorless",
+  "asset_name": "residue_motes",
+  "role": "residue",
+  "dimensions": [
+    1024,
+    1024
+  ],
+  "seed": 4204,
+  "generation_method": "procedural_pillow",
+  "palette": {
+    "core": [
+      255,
+      248,
+      236,
+      255
+    ],
+    "mid": [
+      221,
+      216,
+      207,
+      255
+    ],
+    "accent": [
+      214,
+      196,
+      145,
+      255
+    ],
+    "shadow": [
+      84,
+      81,
+      77,
+      255
+    ]
+  },
+  "prompt": "Create a transparent-background 2D battle VFX asset for Pokemon-style colorless attacks. Show only the effect element, with no character, arena, text, UI, watermark, or frame. Use a fading aftermath cluster with soft pearl motes, a few broken ring fragments, and subtle ivory/silver afterglow around a compact center. Keep the contrast lower than the impact bloom but still crisp enough to read cleanly in battle. Preserve a neutral battle-energy feel without leaning into fire, water, lightning, psychic, or darkness. Output a single isolated effect element on transparency.",
+  "negative_prompt": "no background, no arena, no Pokemon body, no trainer, no text, no watermark, no UI, no frame, no checkerboard, no fake transparency pattern, no oversized smoke bank, no saturated elemental colors",
+  "notes": "Low-alpha cleanup layer for the end of the hit."
+}

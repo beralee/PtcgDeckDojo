@@ -1,0 +1,54 @@
+{
+  "package_id": "attribute_metal",
+  "asset_name": "impact_bloom_flipbook",
+  "role": "primary impact bloom",
+  "dimensions": [
+    1024,
+    256
+  ],
+  "frame_count": 4,
+  "layout": "horizontal_strip",
+  "seed": 8201,
+  "generation_method": "procedural_pil",
+  "palette": {
+    "core": [
+      248,
+      246,
+      238,
+      255
+    ],
+    "silver": [
+      218,
+      225,
+      234,
+      255
+    ],
+    "steel": [
+      140,
+      150,
+      165,
+      255
+    ],
+    "gunmetal": [
+      52,
+      58,
+      70,
+      255
+    ],
+    "spark": [
+      255,
+      150,
+      56,
+      255
+    ],
+    "ember": [
+      255,
+      207,
+      137,
+      255
+    ]
+  },
+  "prompt": "Create a transparent-background 2D battle VFX asset for Pokemon-style metal attacks. Show only the effect element, with no character, arena, text, UI, watermark, or frame. Use a compact forged-steel impact style: a bright silver-white core, brushed gunmetal plates, fractured shard edges, and a few hot orange sparks. Make the subject a compact hit bloom at the moment of contact, with a dense metallic center, sharp plate fragments radiating outward, and a premium readable silhouette. Keep it impact-only and never turn it into a beam or travel streak. Output a single isolated effect element on transparency.",
+  "negative_prompt": "no background, no arena, no Pokemon body, no trainer, no text, no watermark, no UI, no frame, no checkerboard, no fake transparency pattern, no rune circle, no magical sigils, no beam, no laser, no travel streak, no wide smoke wall, no neon overload",
+  "notes": "Primary shared hit asset. The first frame should read like the hard contact moment."
+}

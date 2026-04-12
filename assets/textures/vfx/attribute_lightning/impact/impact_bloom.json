@@ -1,0 +1,8 @@
+{
+  "asset_name": "impact_bloom",
+  "role": "impact bloom",
+  "output_path": "assets/textures/vfx/attribute_lightning/impact/impact_bloom.png",
+  "generation_method": "procedural_pillow",
+  "visual_rule": "Compact target-hit electric bloom with a white-hot flash, cyan shock edge, and clean branching spikes.",
+  "prompt": "Create a transparent-background 2D battle VFX asset for Pokemon-style lightning attacks. Show only the effect element, with no character, arena, text, UI, watermark, or frame. Use a compact target-hit electric bloom with a white-hot flash core, cyan-blue outer shock, and thin branching spikes that radiate cleanly from the center. Keep it punchy, readable, and battle-ready with a strong hit-stop feel. Preserve real electric energy structure but stylize the outline and color. Output a single isolated effect element on transparency."
+}

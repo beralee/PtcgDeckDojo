@@ -19,12 +19,17 @@ var ai_selection: Dictionary = {
 	"agent_config_path": "",
 	"value_net_path": "",
 	"action_scorer_path": "",
+	"interaction_scorer_path": "",
 	"display_name": "",
 }
+## AI 卡组策略 ("generic" | "gardevoir_greedy" | "gardevoir_mcts" | "miraidon_greedy" | "miraidon_mcts")
+var ai_deck_strategy: String = "generic"
 ## 先攻选择 (-1=随机, 0=玩家1, 1=玩家2)
 var first_player_choice: int = -1
 ## 对战背景资源路径
 var selected_battle_background: String = "res://assets/ui/background.png"
+var selected_battle_music_id: String = "none"
+var battle_bgm_volume_percent: int = 70
 
 ## 当前游戏状态（对战中有效）
 var game_state: GameState = null
@@ -41,6 +46,7 @@ const BATTLE_REVIEW_API_CONFIG_PATH := "user://battle_review_api.json"
 
 var _battle_replay_launch: Dictionary = {}
 var _deck_editor_deck_id: int = -1
+var _deck_editor_return_context: Dictionary = {}
 
 
 ## 切换到指定场景
@@ -73,8 +79,9 @@ func goto_battle() -> void:
 	goto_scene(SCENE_BATTLE)
 
 
-func goto_deck_editor(deck_id: int) -> void:
+func goto_deck_editor(deck_id: int, return_context: Dictionary = {}) -> void:
 	_deck_editor_deck_id = deck_id
+	_deck_editor_return_context = return_context.duplicate(true)
 	goto_scene(SCENE_DECK_EDITOR)
 
 
@@ -82,6 +89,16 @@ func consume_deck_editor_id() -> int:
 	var id := _deck_editor_deck_id
 	_deck_editor_deck_id = -1
 	return id
+
+
+func set_deck_editor_return_context(context: Dictionary) -> void:
+	_deck_editor_return_context = context.duplicate(true)
+
+
+func consume_deck_editor_return_context() -> Dictionary:
+	var context := _deck_editor_return_context.duplicate(true)
+	_deck_editor_return_context = {}
+	return context
 
 
 func goto_replay_browser() -> void:
@@ -143,5 +160,6 @@ func reset_ai_selection() -> void:
 		"agent_config_path": "",
 		"value_net_path": "",
 		"action_scorer_path": "",
+		"interaction_scorer_path": "",
 		"display_name": "",
 	}
