@@ -1424,6 +1424,7 @@ func _do_go_back() -> void:
 
 func _go_back_to_return_scene() -> void:
 	if str(_return_context.get("return_scene", "")) == "battle_setup":
+		GameManager.set_deck_editor_return_context(_return_context)
 		GameManager.goto_battle_setup()
 		return
 	GameManager.goto_deck_manager()

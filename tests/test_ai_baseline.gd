@@ -112,6 +112,52 @@ class SpySendOutViewGameStateMachine extends GameStateMachine:
 		return true
 
 
+class SpyHeavyBatonResolveGameStateMachine extends GameStateMachine:
+	var resolve_heavy_baton_choice_calls: int = 0
+	var resolved_heavy_baton_player_index: int = -1
+	var resolved_heavy_baton_target: PokemonSlot = null
+
+	func resolve_heavy_baton_choice(player_index: int, bench_slot: PokemonSlot) -> bool:
+		resolve_heavy_baton_choice_calls += 1
+		resolved_heavy_baton_player_index = player_index
+		resolved_heavy_baton_target = bench_slot
+		return true
+
+
+class FakeSendOutStrategy extends RefCounted:
+	var preferred_name: String = ""
+
+	func _init(next_preferred_name: String = "") -> void:
+		preferred_name = next_preferred_name
+
+	func score_interaction_target(item: Variant, step: Dictionary, _context: Dictionary = {}) -> float:
+		if str(step.get("id", "")) != "send_out" or not item is PokemonSlot:
+			return 0.0
+		return 500.0 if (item as PokemonSlot).get_pokemon_name() == preferred_name else 0.0
+
+
+class FakeHandoffStrategy extends RefCounted:
+	var step_id: String = ""
+	var preferred_name: String = ""
+
+	func _init(next_step_id: String = "", next_preferred_name: String = "") -> void:
+		step_id = next_step_id
+		preferred_name = next_preferred_name
+
+	func score_handoff_target(item: Variant, step: Dictionary, _context: Dictionary = {}) -> float:
+		if str(step.get("id", "")) != step_id or not item is PokemonSlot:
+			return 0.0
+		return 500.0 if (item as PokemonSlot).get_pokemon_name() == preferred_name else 0.0
+
+
+class FakeSendOutInteractionScorer extends RefCounted:
+	func score_delta(_state_features: Array, interaction_vector: Array) -> float:
+		if interaction_vector.size() <= 25:
+			return 0.0
+		var attached_energy_hint: float = float(interaction_vector[25])
+		return 260.0 if attached_energy_hint < 0.01 else 0.0
+
+
 class DelayedPrizeAnimationScene extends Control:
 	var _pending_choice: String = "take_prize"
 	var _pending_prize_player_index: int = 1
@@ -1488,6 +1534,106 @@ func test_ai_owned_send_out_keeps_human_view_in_vs_ai() -> String:
 	])
 
 
+func test_ai_send_out_prefers_deck_strategy_handoff_target() -> String:
+	var ai := AIOpponentScript.new()
+	ai.configure(1, 1)
+	ai.set_deck_strategy(FakeSendOutStrategy.new("Preferred Bench"))
+	var scene := _make_battle_scene_refresh_stub()
+	scene._setup_ai_for_tests()
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.phase = GameState.GamePhase.KNOCKOUT_REPLACE
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.turn_number = 2
+	gsm.game_state.players = [_make_player_state(0), _make_player_state(1)]
+	var energy_bench := _make_ai_slot(CardInstance.create(_make_ai_pokemon_card_data("Energy Bench"), 1))
+	energy_bench.attached_energy.append(CardInstance.create(_make_ai_energy_card_data("Lightning Energy"), 1))
+	var preferred_bench := _make_ai_slot(CardInstance.create(_make_ai_pokemon_card_data("Preferred Bench"), 1))
+	gsm.game_state.players[1].bench = [energy_bench, preferred_bench]
+	scene.set("_gsm", gsm)
+	scene.set("_pending_choice", "send_out")
+	scene.set("_dialog_data", {
+		"player": 1,
+		"bench": [energy_bench, preferred_bench],
+		"allow_cancel": false,
+		"min_select": 1,
+		"max_select": 1,
+	})
+
+	var handled := ai.run_single_step(scene, gsm)
+	return run_checks([
+		assert_true(handled, "AI should resolve the send_out prompt with deck-local handoff scoring"),
+		assert_eq(gsm.game_state.players[1].active_pokemon, preferred_bench, "Deck strategy send_out scoring should outrank the generic energy-based fallback"),
+	])
+
+
+func test_ai_send_out_allows_learned_interaction_overlay() -> String:
+	var ai := AIOpponentScript.new()
+	ai.configure(1, 1)
+	ai.set("_interaction_scorer", FakeSendOutInteractionScorer.new())
+	var scene := _make_battle_scene_refresh_stub()
+	scene._setup_ai_for_tests()
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.phase = GameState.GamePhase.KNOCKOUT_REPLACE
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.turn_number = 2
+	gsm.game_state.players = [_make_player_state(0), _make_player_state(1)]
+	var energy_bench := _make_ai_slot(CardInstance.create(_make_ai_pokemon_card_data("Energy Bench"), 1))
+	energy_bench.attached_energy.append(CardInstance.create(_make_ai_energy_card_data("Lightning Energy"), 1))
+	var plain_bench := _make_ai_slot(CardInstance.create(_make_ai_pokemon_card_data("Plain Bench"), 1))
+	gsm.game_state.players[1].bench = [energy_bench, plain_bench]
+	scene.set("_gsm", gsm)
+	scene.set("_pending_choice", "send_out")
+	scene.set("_dialog_data", {
+		"player": 1,
+		"bench": [energy_bench, plain_bench],
+		"allow_cancel": false,
+		"min_select": 1,
+		"max_select": 1,
+	})
+
+	var handled := ai.run_single_step(scene, gsm)
+	return run_checks([
+		assert_true(handled, "AI should resolve the send_out prompt when an interaction scorer is injected"),
+		assert_eq(gsm.game_state.players[1].active_pokemon, plain_bench, "Learned interaction scoring should be able to override the generic send_out fallback ordering"),
+	])
+
+
+func test_ai_heavy_baton_prefers_deck_strategy_handoff_target() -> String:
+	var ai := AIOpponentScript.new()
+	ai.configure(1, 1)
+	ai.set_deck_strategy(FakeHandoffStrategy.new("heavy_baton_target", "Preferred Baton Bench"))
+	var scene := _make_battle_scene_refresh_stub()
+	scene._setup_ai_for_tests()
+	var gsm := SpyHeavyBatonResolveGameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.phase = GameState.GamePhase.KNOCKOUT_REPLACE
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.turn_number = 2
+	gsm.game_state.players = [_make_player_state(0), _make_player_state(1)]
+	var energy_bench := _make_ai_slot(CardInstance.create(_make_ai_pokemon_card_data("Energy Baton Bench"), 1))
+	energy_bench.attached_energy.append(CardInstance.create(_make_ai_energy_card_data("Lightning Energy"), 1))
+	var preferred_bench := _make_ai_slot(CardInstance.create(_make_ai_pokemon_card_data("Preferred Baton Bench"), 1))
+	gsm.game_state.players[1].bench = [energy_bench, preferred_bench]
+	scene.set("_gsm", gsm)
+	scene.set("_pending_choice", "heavy_baton_target")
+	scene.set("_dialog_data", {
+		"player": 1,
+		"bench": [energy_bench, preferred_bench],
+		"count": 3,
+		"source_name": "Heavy Baton",
+	})
+
+	var handled := ai.run_single_step(scene, gsm)
+	return run_checks([
+		assert_true(handled, "AI should resolve the heavy_baton_target prompt with deck-local handoff scoring"),
+		assert_eq(gsm.resolve_heavy_baton_choice_calls, 1, "AI should resolve the Heavy Baton target through GameStateMachine"),
+		assert_eq(gsm.resolved_heavy_baton_player_index, 1, "Heavy Baton prompt resolution should preserve the owning player"),
+		assert_eq(gsm.resolved_heavy_baton_target, preferred_bench, "Deck-local handoff scoring should outrank the generic energy-based Heavy Baton fallback"),
+	])
+
+
 func test_ai_opponent_ignores_human_owned_mulligan_bonus_draw_prompt() -> String:
 	var ai := AIOpponentScript.new()
 	ai.configure(1, 1)
@@ -1660,7 +1806,7 @@ func test_battle_scene_ai_first_player_setup_hands_off_into_first_turn() -> Stri
 	var human: PlayerState = gsm.game_state.players[0]
 	var ai_player: PlayerState = gsm.game_state.players[1]
 	human.hand = [_make_basic("Human Lead")]
-	ai_player.hand = [_make_basic("AI Lead")]
+	ai_player.hand = [_make_basic("AI Lead"), _make_basic("AI Bench")]
 	for pi: int in 2:
 		for deck_idx: int in 7:
 			gsm.game_state.players[pi].deck.append(_make_basic("Deck %d-%d" % [pi, deck_idx]))
@@ -1680,7 +1826,6 @@ func test_battle_scene_ai_first_player_setup_hands_off_into_first_turn() -> Stri
 	scene._run_ai_step()
 	var scheduled_after_ai_active: bool = bool(scene.get("_ai_step_scheduled"))
 	scene._run_ai_step()
-	var scheduled_after_setup_complete: bool = bool(scene.get("_ai_step_scheduled"))
 	var phase_after_setup: int = int(gsm.game_state.phase)
 	var current_player_after_setup: int = int(gsm.game_state.current_player_index)
 	var pending_choice_after_setup: String = str(scene.get("_pending_choice"))
@@ -1688,7 +1833,6 @@ func test_battle_scene_ai_first_player_setup_hands_off_into_first_turn() -> Stri
 	return run_checks([
 		assert_true(scheduled_after_human_setup, "Human setup completion should still schedule the AI setup step when the AI is first player"),
 		assert_true(scheduled_after_ai_active, "AI active placement should queue the follow-up setup bench step"),
-		assert_true(scheduled_after_setup_complete, "Finishing setup with the AI as first player should immediately queue the AI first turn"),
 		assert_eq(phase_after_setup, GameState.GamePhase.MAIN, "Setup completion should advance into the opening main phase"),
 		assert_eq(current_player_after_setup, 1, "AI-first setup should keep the AI as the opening turn owner"),
 		assert_eq(pending_choice_after_setup, "", "No setup prompt should remain pending after setup completes"),
@@ -2001,6 +2145,7 @@ func test_battle_scene_retreat_action_path_schedules_ai_after_success() -> Strin
 	scene.set("_gsm", gsm)
 	scene._setup_ai_for_tests()
 	scene.set("_ai_opponent", spy_ai)
+	scene.set("_ai_action_pause_seconds", 2.0)
 	scene.set("_pending_choice", "retreat_bench")
 	scene.set("_dialog_data", {
 		"player": 1,
@@ -2008,11 +2153,16 @@ func test_battle_scene_retreat_action_path_schedules_ai_after_success() -> Strin
 		"energy_discard": [],
 	})
 	scene._handle_dialog_choice(PackedInt32Array([0]))
-	var scheduled_after_retreat: bool = scene.get("_ai_step_scheduled")
+	var pause_active_after_retreat: bool = bool(scene.call("_is_ai_action_pause_active"))
+	var scheduled_after_retreat: bool = bool(scene.get("_ai_step_scheduled"))
+	scene.call("_on_ai_action_pause_finished")
+	var scheduled_after_pause: bool = bool(scene.get("_ai_step_scheduled"))
 	GameManager.current_mode = previous_mode
 	return run_checks([
 		assert_eq(gsm.retreat_calls, 1, "Retreat action path should call GameStateMachine.retreat"),
-		assert_true(scheduled_after_retreat, "Successful retreat action path should schedule the AI"),
+		assert_true(pause_active_after_retreat, "Successful AI retreat should trigger the action pause"),
+		assert_false(scheduled_after_retreat, "BattleScene should wait for the AI action pause before scheduling the next step"),
+		assert_true(scheduled_after_pause, "BattleScene should resume AI scheduling after the retreat pause finishes"),
 	])
 
 
@@ -2037,6 +2187,61 @@ func test_battle_scene_running_ai_can_queue_followup_step_from_success_hook() ->
 	return run_checks([
 		assert_eq(spy_ai.run_count, 1, "The first AI step should run"),
 		assert_true(scheduled_followup, "A success hook during AI execution should queue one follow-up step"),
+	])
+
+
+func test_battle_scene_successful_ai_action_pauses_before_next_vs_ai_step() -> String:
+	var previous_mode: int = GameManager.current_mode
+	var scene := _make_battle_scene_refresh_stub()
+	var gsm := _make_ai_manual_gsm()
+	gsm.game_state.current_player_index = 1
+	scene.set("_gsm", gsm)
+	scene._setup_ai_for_tests()
+	scene.set("_ai_opponent", SpyAIOpponent.new())
+	scene.set("_ai_action_pause_seconds", 2.0)
+	GameManager.current_mode = GameManager.GameMode.VS_AI
+
+	scene._refresh_ui_after_successful_action(false, 1)
+	scene._maybe_run_ai()
+	var pause_active: bool = bool(scene.call("_is_ai_action_pause_active"))
+	var can_accept_during_pause: bool = bool(scene.call("_can_accept_live_action"))
+	var scheduled_during_pause: bool = bool(scene.get("_ai_step_scheduled"))
+
+	scene.call("_on_ai_action_pause_finished")
+	var scheduled_after_pause: bool = bool(scene.get("_ai_step_scheduled"))
+	if scheduled_after_pause:
+		scene._run_ai_step()
+	var resumed_run_count: int = int(scene.get("_ai_opponent").run_count)
+	GameManager.current_mode = previous_mode
+	return run_checks([
+		assert_true(pause_active, "Successful AI actions in VS_AI should start the action pause"),
+		assert_false(can_accept_during_pause, "The live scene should reject player input while the AI action pause is active"),
+		assert_false(scheduled_during_pause, "BattleScene should not schedule the next AI step until the pause finishes"),
+		assert_true(scheduled_after_pause, "When the AI action pause finishes, BattleScene should resume AI scheduling"),
+		assert_eq(resumed_run_count, 1, "The resumed AI step should execute exactly once after the pause"),
+	])
+
+
+func test_battle_scene_ai_end_turn_pauses_before_human_input_returns() -> String:
+	var previous_mode: int = GameManager.current_mode
+	var scene := _make_battle_scene_refresh_stub()
+	var gsm := _make_ai_manual_gsm()
+	gsm.game_state.current_player_index = 1
+	scene.set("_gsm", gsm)
+	scene._setup_ai_for_tests()
+	scene.set("_ai_opponent", SpyAIOpponent.new())
+	scene.set("_ai_action_pause_seconds", 2.0)
+	GameManager.current_mode = GameManager.GameMode.VS_AI
+
+	scene._on_end_turn(1)
+	var pause_active: bool = bool(scene.call("_is_ai_action_pause_active"))
+	var can_accept_during_pause: bool = bool(scene.call("_can_accept_live_action"))
+
+	scene.call("_on_ai_action_pause_finished")
+	GameManager.current_mode = previous_mode
+	return run_checks([
+		assert_true(pause_active, "AI end turn should also trigger the action pause in VS_AI mode"),
+		assert_false(can_accept_during_pause, "The human player should stay blocked until the AI end-turn pause finishes"),
 	])
 
 

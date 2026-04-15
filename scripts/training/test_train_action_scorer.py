@@ -14,13 +14,15 @@ def _make_decision_record(
     state_features: list[float],
     result: float,
     legal_actions: list[dict],
+    *,
+    phase: str = "MAIN",
 ) -> dict:
     return {
         "run_id": "run_test",
         "match_id": "match_test",
         "decision_id": turn_number,
         "turn_number": turn_number,
-        "phase": "MAIN",
+        "phase": phase,
         "player_index": player_index,
         "pipeline_name": "miraidon_focus_training",
         "deck_identity": "miraidon",
@@ -54,6 +56,7 @@ def _make_legal_action(
     teacher_available: bool = False,
     teacher_post_value: float = 0.5,
     teacher_value_delta: float = 0.0,
+    card_name: str = "",
 ) -> dict:
     return {
         "action_index": action_index,
@@ -63,6 +66,8 @@ def _make_legal_action(
             "action_vector": action_vector,
         },
         "chosen": chosen,
+        "card_name": card_name,
+        "target_name": "",
         "teacher_available": teacher_available,
         "teacher_post_value": teacher_post_value,
         "teacher_value_delta": teacher_value_delta,
@@ -320,9 +325,10 @@ class TrainActionScorerTests(unittest.TestCase):
                                     [0.1, 0.2],
                                     1.0,
                                     [
-                                        _make_legal_action(0, "evolve", 10.0, [1.0, 0.0], chosen=True),
-                                        _make_legal_action(1, "attack", 9.0, [0.0, 1.0]),
+                                        _make_legal_action(0, "evolve", 10.0, [1.0, 0.0], chosen=True, card_name="Kirlia"),
+                                        _make_legal_action(1, "attack", 9.0, [0.0, 1.0], card_name="Scream Tail"),
                                     ],
+                                    phase="early",
                                 ),
                                 "deck_identity": "gardevoir",
                             }
@@ -341,6 +347,55 @@ class TrainActionScorerTests(unittest.TestCase):
             evolve_weight = float(evolve_sample["sample_weight"])
             attack_weight = float(attack_sample["sample_weight"])
             self.assertGreater(evolve_weight, attack_weight)
+            self.assertGreater(float(sample_weights[0]), float(sample_weights[1]))
+        finally:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+
+    def test_load_data_prioritizes_gardevoir_shell_cards_with_phase_aware_weights(self):
+        tmp_dir = os.path.join(
+            os.getcwd(),
+            "tmp_test_train_action_scorer_shell_%s" % uuid.uuid4().hex,
+        )
+        os.makedirs(tmp_dir, exist_ok=True)
+        try:
+            data_path = os.path.join(tmp_dir, "match_shell.json")
+            with open(data_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "version": "1.0",
+                        "winner_index": 0,
+                        "failure_reason": "normal_game_end",
+                        "match_quality_weight": 1.0,
+                        "meta": {"match_id": "match_shell"},
+                        "records": [
+                            {
+                                **_make_decision_record(
+                                    1,
+                                    0,
+                                    [0.1, 0.2],
+                                    1.0,
+                                    [
+                                        _make_legal_action(0, "play_basic_to_bench", 50.0, [1.0, 0.0], chosen=True, card_name="Ralts"),
+                                        _make_legal_action(1, "play_basic_to_bench", 40.0, [0.0, 1.0], card_name="Flutter Mane"),
+                                    ],
+                                    phase="early",
+                                ),
+                                "deck_identity": "gardevoir",
+                            }
+                        ],
+                    },
+                    handle,
+                )
+
+            samples, _features, _targets, sample_weights, _state_dim, _action_dim = train_action_scorer.load_data(
+                tmp_dir,
+                allow_dirty_matches=False,
+            )
+
+            ralts_sample = next(sample for sample in samples if sample["card_name"] == "Ralts")
+            flutter_sample = next(sample for sample in samples if sample["card_name"] == "Flutter Mane")
+            self.assertGreater(float(ralts_sample["sample_weight"]), float(flutter_sample["sample_weight"]))
+            self.assertGreater(float(ralts_sample["target"]), float(flutter_sample["target"]))
             self.assertGreater(float(sample_weights[0]), float(sample_weights[1]))
         finally:
             shutil.rmtree(tmp_dir, ignore_errors=True)

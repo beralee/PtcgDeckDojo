@@ -208,6 +208,18 @@ func _abs_attach_energy(action: Dictionary, game_state: GameState, player: Playe
 
 	# 双重涡轮能量 — 只给差2能即可攻击的攻击手
 	if str(energy_card.card_data.name) == DOUBLE_TURBO_ENERGY:
+		var early_engine_setup: bool = game_state != null \
+			and int(game_state.turn_number) <= 2 \
+			and _count_pokemon_on_field(player, MIRAIDON_EX) == 0
+		if early_engine_setup and target_name == RAICHU_V:
+			return -150.0
+		if _is_opening_shell_turn(game_state, player):
+			if target_name == IRON_HANDS_EX and _count_pokemon_on_field(player, RAIKOU_V) >= 1:
+				var opener_gap: int = _get_attack_energy_gap(target_slot)
+				if opener_gap > 0 and opener_gap <= 3:
+					return 480.0
+			if target_name == RAIKOU_V and _count_pokemon_on_field(player, IRON_HANDS_EX) >= 1 and _hand_has_energy_type(player, "L"):
+				return 120.0
 		if target_name in ALL_ATTACKER_NAMES or target_name in NON_RULE_ATTACKER:
 			var gap: int = _get_attack_energy_gap(target_slot)
 			if gap <= 2 and gap > 0:
@@ -258,7 +270,7 @@ func _abs_attach_energy(action: Dictionary, game_state: GameState, player: Playe
 				return 300.0
 			if gap == 0:
 				# 已能用第一招（LLC），继续贴能解锁第二招（LCCC 多拿奖品）
-				var total_energy: int = target_slot.attached_energy.size()
+				var total_energy: int = _count_attached_energy_units(target_slot)
 				if total_energy < 4:
 					return 150.0  # 蓄力第二招
 				return 30.0  # 4能已满
@@ -341,6 +353,10 @@ func _abs_attach_tool(action: Dictionary, player: PlayerState, phase: String = "
 			return 300.0
 		return -100.0
 	if tool_name == FOREST_SEAL_STONE:
+		if phase == "late" and (target_name == MEW_EX or target_name in SUPPORT_NAMES) and (
+			_can_slot_attack(player.active_pokemon) or _has_ready_attacker_on_bench(player)
+		):
+			return 60.0
 		if target_name == MEW_EX:
 			return 300.0
 		return 100.0
@@ -355,6 +371,45 @@ func _abs_use_ability(action: Dictionary, game_state: GameState, player: PlayerS
 	var card_data: CardData = source_slot.get_card_data()
 	if card_data == null:
 		return 0.0
+	if source_name == MIRAIDON_EX and _has_any_ability(card_data, ["串联装置", "Tandem Unit"]):
+		if player.bench.size() >= 5:
+			return 50.0
+		var lightning_basics_in_deck: int = _count_lightning_basics_in_deck(player)
+		if lightning_basics_in_deck == 0:
+			return 30.0
+		if _is_opening_shell_turn(game_state, player) and (
+			_count_pokemon_on_field(player, IRON_HANDS_EX) == 0
+			or _count_pokemon_on_field(player, RAIKOU_V) == 0
+		):
+			return 650.0
+		if player.bench.size() >= 4 and lightning_basics_in_deck >= 1:
+			return 300.0
+		return 500.0
+	if source_name == SQUAWKABILLY_EX and _has_any_ability(card_data, ["英勇", "Squawk and Seize"]):
+		if phase == "early":
+			if player.active_pokemon != null and player.active_pokemon.get_pokemon_name() == RAIKOU_V:
+				return 300.0
+			if player.active_pokemon != null and player.active_pokemon.get_pokemon_name() == MEW_EX:
+				var bench_raikou: PokemonSlot = _find_bench_slot_by_name(player, RAIKOU_V)
+				if bench_raikou != null and _can_slot_attack(bench_raikou):
+					return 260.0
+			return 430.0
+		return 100.0
+	if source_name == RAIKOU_V and _has_any_ability(card_data, ["瞬步", "Fleet Feet"]):
+		if source_slot == player.active_pokemon:
+			if _is_opening_shell_turn(game_state, player) and _count_pokemon_on_field(player, IRON_HANDS_EX) >= 1:
+				return 560.0
+			return 300.0
+		return 0.0
+	if source_name == MEW_EX and _has_any_ability(card_data, ["再起动", "Restart"]):
+		if phase == "early" and (
+			_count_pokemon_on_field(player, RAIKOU_V) >= 1
+			or _count_pokemon_on_field(player, MIRAIDON_EX) >= 1
+		):
+			return 20.0
+		if player.hand.size() <= 3:
+			return 250.0
+		return 100.0
 
 	# 串联装置 / Tandem Unit（密勒顿ex）
 	if source_name == MIRAIDON_EX and _has_any_ability(card_data, ["串联装置", "Tandem Unit"]):
@@ -409,6 +464,19 @@ func _abs_play_trainer(action: Dictionary, game_state: GameState, player: Player
 		return 0.0
 	var tname: String = str(card.card_data.name)
 	var bench_full: bool = player.bench.size() >= 5
+	if _is_opening_shell_turn(game_state, player):
+		if tname == NEST_BALL:
+			if bench_full:
+				return 0.0
+			if _count_pokemon_on_field(player, MIRAIDON_EX) == 0:
+				return 650.0
+			if _should_prioritize_squawk_setup(player, game_state):
+				return 620.0
+		if tname == ELECTRIC_GENERATOR or tname == "Electric Generator":
+			if _count_pokemon_on_field(player, MIRAIDON_EX) == 0:
+				return 320.0
+			if _should_prioritize_squawk_setup(player, game_state):
+				return 460.0
 
 	# 电气发生器 — 核心加速（牌库有雷能量时价值最高）
 	if tname == ELECTRIC_GENERATOR or tname == "Electric Generator":
@@ -452,6 +520,10 @@ func _abs_play_trainer(action: Dictionary, game_state: GameState, player: Player
 	if tname == NEST_BALL:
 		if bench_full:
 			return 0.0
+		var ready_attacker_online: bool = _can_slot_attack(player.active_pokemon) or _has_ready_attacker_on_bench(player)
+		var searchable_attackers_in_deck: int = _count_searchable_basic_attackers_in_deck(player)
+		if phase == "late" and ready_attacker_online and searchable_attackers_in_deck == 0:
+			return 40.0
 		var essential: int = _count_essential_slots_needed(player)
 		if essential >= 2 and phase == "early":
 			return 350.0
@@ -518,16 +590,26 @@ func _abs_retreat(action: Dictionary, game_state: GameState, player: PlayerState
 	if bench_target == null:
 		return 0.0
 	var bench_name: String = bench_target.get_pokemon_name()
+	var handoff_context := {"game_state": game_state, "player_index": player_index}
+	var pivot_score: float = _score_handoff_target(bench_target, "pivot_target", handoff_context)
+	if active_name == MEW_EX and bench_name == RAIKOU_V and _can_slot_attack(bench_target):
+		return maxf(600.0, pivot_score)
 
 	# 前场是能攻击的攻击手 → 不撤退
 	if active_name in ALL_ATTACKER_NAMES or active_name in NON_RULE_ATTACKER:
 		if _can_slot_attack(active):
 			return -200.0
+		if _can_slot_attack(bench_target):
+			return maxf(420.0, pivot_score - 120.0)
+		if _get_attack_energy_gap(active) >= 1 and _get_attack_energy_gap(bench_target) <= 1 and bench_name != active_name:
+			return maxf(220.0, pivot_score - 220.0)
 
 	# 前场是引擎/辅助 + 后备有就绪攻击手 → 撤退
 	if active_name in ENGINE_NAMES or active_name in SUPPORT_NAMES:
-		if _can_slot_attack(bench_target) or bench_target.attached_energy.size() >= 1:
-			return 350.0
+		if _can_slot_attack(bench_target):
+			return maxf(350.0, pivot_score - 120.0)
+		if _count_attached_energy_units(bench_target) >= 1:
+			return maxf(250.0, pivot_score - 220.0)
 
 	# 铁臂膀ex 撤退费4 → 极力避免手动撤退
 	if active_name == IRON_HANDS_EX:
@@ -734,6 +816,12 @@ func plan_opening_setup(player: PlayerState) -> Dictionary:
 	# 绝不把密勒顿ex 放前场
 	var active_index: int = -1
 	for b: Dictionary in basics:
+		if str(b["name"]) == MEW_EX:
+			active_index = int(b["index"])
+			break
+	for b: Dictionary in basics:
+		if active_index != -1:
+			break
 		var bname: String = str(b["name"])
 		if bname == MIRAIDON_EX:
 			continue  # 密勒顿必须后备
@@ -756,6 +844,12 @@ func plan_opening_setup(player: PlayerState) -> Dictionary:
 
 
 func _get_setup_priority(pokemon_name: String) -> int:
+	if pokemon_name == MEW_EX:
+		return 100
+	if pokemon_name == RAIKOU_V:
+		return 96
+	if pokemon_name == MIRAIDON_EX:
+		return 94
 	match pokemon_name:
 		IRON_HANDS_EX: return 95
 		ZAPDOS: return 90
@@ -920,11 +1014,92 @@ func _get_all_slots(player: PlayerState) -> Array[PokemonSlot]:
 	return slots
 
 
+func _find_bench_slot_by_name(player: PlayerState, pokemon_name: String) -> PokemonSlot:
+	for slot: PokemonSlot in player.bench:
+		if slot != null and slot.get_pokemon_name() == pokemon_name:
+			return slot
+	return null
+
+
+func _count_attached_energy_units(slot: PokemonSlot) -> int:
+	if slot == null:
+		return 0
+	var total: int = 0
+	for energy: CardInstance in slot.attached_energy:
+		total += _get_energy_unit_count(energy)
+	return total
+
+
+func _count_attached_energy_type_units(slot: PokemonSlot, energy_type: String) -> int:
+	if slot == null:
+		return 0
+	var total: int = 0
+	for energy: CardInstance in slot.attached_energy:
+		if energy == null or energy.card_data == null:
+			continue
+		if str(energy.card_data.energy_provides) == energy_type:
+			total += 1
+	return total
+
+
+func _get_energy_unit_count(energy: CardInstance) -> int:
+	if energy == null or energy.card_data == null or not energy.card_data.is_energy():
+		return 0
+	if str(energy.card_data.name) == DOUBLE_TURBO_ENERGY:
+		return 2
+	return 1
+
+
+func _get_attack_gap_for_cost(slot: PokemonSlot, cost: String, extra_colorless_units: int = 0) -> int:
+	if slot == null:
+		return 999
+	var total_units: int = _count_attached_energy_units(slot) + extra_colorless_units
+	var required_total: int = cost.length()
+	var required_by_type: Dictionary = {}
+	for i: int in cost.length():
+		var symbol: String = cost.substr(i, 1)
+		if symbol == "" or symbol == "C":
+			continue
+		required_by_type[symbol] = int(required_by_type.get(symbol, 0)) + 1
+	var missing_specific: int = 0
+	for symbol: Variant in required_by_type.keys():
+		var required_count: int = int(required_by_type[symbol])
+		var provided_count: int = _count_attached_energy_type_units(slot, str(symbol))
+		missing_specific += maxi(0, required_count - provided_count)
+	var missing_total: int = maxi(0, required_total - total_units)
+	return maxi(missing_specific, missing_total)
+
+
+func _is_opening_shell_turn(game_state: GameState, player: PlayerState) -> bool:
+	if game_state == null or player == null:
+		return false
+	return int(game_state.turn_number) <= 2 and _count_pokemon_on_field(player, RAIKOU_V) >= 1
+
+
+func _should_prioritize_squawk_setup(player: PlayerState, game_state: GameState) -> bool:
+	if not _is_opening_shell_turn(game_state, player):
+		return false
+	return (
+		_count_pokemon_on_field(player, MIRAIDON_EX) >= 1
+		and _count_pokemon_on_field(player, IRON_HANDS_EX) >= 1
+		and _count_pokemon_on_field(player, SQUAWKABILLY_EX) == 0
+		and player.bench.size() < 5
+	)
+
+
+func _get_context_player(context: Dictionary) -> PlayerState:
+	var game_state: GameState = context.get("game_state")
+	var player_index: int = int(context.get("player_index", -1))
+	if game_state == null or player_index < 0 or player_index >= game_state.players.size():
+		return null
+	return game_state.players[player_index]
+
+
 func _get_retreat_energy_gap(slot: PokemonSlot) -> int:
 	if slot == null or slot.get_card_data() == null:
 		return 999
 	var retreat_cost: int = int(slot.get_card_data().retreat_cost)
-	var attached: int = slot.attached_energy.size()
+	var attached: int = _count_attached_energy_units(slot)
 	return maxi(0, retreat_cost - attached)
 
 
@@ -932,11 +1107,10 @@ func _get_attack_energy_gap(slot: PokemonSlot) -> int:
 	var card_data: CardData = slot.get_card_data()
 	if card_data == null or card_data.attacks.is_empty():
 		return 999
-	var attached: int = slot.attached_energy.size()
 	var min_gap: int = 999
 	for attack: Dictionary in card_data.attacks:
 		var cost: String = str(attack.get("cost", ""))
-		var gap: int = maxi(0, cost.length() - attached)
+		var gap: int = _get_attack_gap_for_cost(slot, cost)
 		if gap < min_gap:
 			min_gap = gap
 	return min_gap
@@ -948,10 +1122,9 @@ func _can_slot_attack(slot: PokemonSlot) -> bool:
 	var cd: CardData = slot.get_card_data()
 	if cd == null or cd.attacks.is_empty():
 		return false
-	var attached: int = slot.attached_energy.size()
 	for attack: Dictionary in cd.attacks:
 		var cost: String = str(attack.get("cost", ""))
-		if attached >= cost.length():
+		if _get_attack_gap_for_cost(slot, cost) == 0:
 			return true
 	return false
 
@@ -1082,6 +1255,19 @@ func _count_lightning_in_deck(player: PlayerState) -> int:
 	return count
 
 
+func _count_searchable_basic_attackers_in_deck(player: PlayerState) -> int:
+	var count: int = 0
+	for card: CardInstance in player.deck:
+		if card == null or card.card_data == null:
+			continue
+		if card.card_data.card_type != "Pokemon" or str(card.card_data.stage) != "Basic":
+			continue
+		var cname: String = str(card.card_data.name)
+		if cname in ALL_ATTACKER_NAMES or cname in NON_RULE_ATTACKER:
+			count += 1
+	return count
+
+
 func _has_attacker_in_discard(game_state: GameState, player_index: int) -> bool:
 	if player_index < 0 or player_index >= game_state.players.size():
 		return false
@@ -1179,7 +1365,7 @@ func _can_ko_bench_target(game_state: GameState, player: PlayerState, player_ind
 #  7. 交互目标评分（供 AIStepResolver 调用）
 # ============================================================
 
-func score_interaction_target(item: Variant, step: Dictionary, _context: Dictionary = {}) -> float:
+func score_interaction_target(item: Variant, step: Dictionary, context: Dictionary = {}) -> float:
 	## 为交互步骤中的候选目标打分（搜索目标、贴能目标等）。
 	## item 可能是 CardInstance（搜索结果）或 PokemonSlot（贴能目标）。
 	## 高分 = 优先选择。
@@ -1194,7 +1380,7 @@ func score_interaction_target(item: Variant, step: Dictionary, _context: Diction
 
 		# 宝可梦搜索优先级（串联装置/巢穴球/沉重球）
 		if card_type == "Pokemon":
-			return _score_search_pokemon(cname)
+			return _score_search_pokemon_with_context(cname, step, context)
 
 		# 物品搜索（派帕等）
 		if card_type == "Item":
@@ -1229,7 +1415,151 @@ func score_interaction_target(item: Variant, step: Dictionary, _context: Diction
 	return 0.0
 
 
-func _score_search_pokemon(cname: String) -> float:
+func pick_interaction_items(items: Array, step: Dictionary, context: Dictionary = {}) -> Array:
+	var step_id: String = str(step.get("id", ""))
+	if step_id != "own_bench_target":
+		return []
+	var best_slot: PokemonSlot = null
+	var best_score: float = -INF
+	for item: Variant in items:
+		if not (item is PokemonSlot):
+			continue
+		var slot: PokemonSlot = item as PokemonSlot
+		var score: float = _score_handoff_target(slot, "own_bench_target", context)
+		if score > best_score:
+			best_score = score
+			best_slot = slot
+	return [] if best_slot == null else [best_slot]
+
+
+func score_handoff_target(item: Variant, step: Dictionary, context: Dictionary = {}) -> float:
+	var step_id: String = str(step.get("id", ""))
+	if item is PokemonSlot and step_id in ["send_out", "switch_target", "self_switch_target", "own_bench_target", "pivot_target", "heavy_baton_target"]:
+		return _score_handoff_target(item as PokemonSlot, step_id, context)
+	return score_interaction_target(item, step, context)
+
+
+func _score_handoff_target(slot: PokemonSlot, step_id: String, context: Dictionary = {}) -> float:
+	if slot == null or slot.get_top_card() == null:
+		return 0.0
+	var player: PlayerState = _get_context_player(context)
+	var game_state: GameState = context.get("game_state")
+	var player_index: int = int(context.get("player_index", -1))
+	var name: String = slot.get_pokemon_name()
+	var can_attack_now: bool = _can_slot_attack(slot)
+	var attack_gap: int = _get_attack_energy_gap(slot)
+	var retreat_gap: int = _get_retreat_energy_gap(slot)
+	var total_energy: int = _count_attached_energy_units(slot)
+	var opening_shell: bool = player != null and _is_opening_shell_turn(game_state, player)
+	var ready_attacker_on_bench: bool = player != null and _has_ready_attacker_on_bench(player)
+	var opponent_prizes: int = 6
+	if game_state != null and player_index >= 0:
+		var opponent_index: int = 1 - player_index
+		if opponent_index >= 0 and opponent_index < game_state.players.size():
+			opponent_prizes = game_state.players[opponent_index].prizes.size()
+
+	var score: float = float(slot.get_remaining_hp()) * 0.4
+	score -= float(retreat_gap) * 20.0
+	score += float(total_energy) * 12.0
+	if step_id in ["self_switch_target", "switch_target", "own_bench_target", "pivot_target"]:
+		score += 30.0
+	if step_id == "heavy_baton_target":
+		score += float(total_energy) * 20.0
+
+	if can_attack_now:
+		score += 360.0
+		match name:
+			RAIKOU_V:
+				score += 300.0
+				if opening_shell:
+					score += 90.0
+			IRON_HANDS_EX:
+				score += 260.0
+			ZAPDOS:
+				score += 220.0
+			RAICHU_V:
+				score += 260.0 if opponent_prizes <= 2 else 90.0
+			URSALUNA_EX:
+				score += 240.0
+			MIRAIDON_EX:
+				score += 120.0
+			_:
+				score += 160.0
+	elif attack_gap == 1:
+		match name:
+			RAIKOU_V:
+				score += 190.0
+			IRON_HANDS_EX:
+				score += 140.0
+			ZAPDOS:
+				score += 110.0
+			URSALUNA_EX:
+				score += 90.0
+			RAICHU_V:
+				score += 40.0 if opponent_prizes <= 2 else -40.0
+			MIRAIDON_EX:
+				score -= 120.0
+			_:
+				score += 40.0
+	else:
+		match name:
+			IRON_HANDS_EX:
+				score += 30.0
+			RAIKOU_V:
+				score += 20.0
+			ZAPDOS:
+				score += 10.0
+
+	if name == MIRAIDON_EX and not can_attack_now:
+		score -= 260.0
+
+	if name in SUPPORT_NAMES:
+		score -= 320.0
+		if name == MEW_EX and not ready_attacker_on_bench:
+			score += 120.0
+
+	if ready_attacker_on_bench and name in SUPPORT_NAMES:
+		score -= 180.0
+
+	if step_id == "heavy_baton_target":
+		match name:
+			IRON_HANDS_EX:
+				score += 220.0
+			RAIKOU_V:
+				score += 170.0
+			ZAPDOS:
+				score += 120.0
+			RAICHU_V:
+				score += 140.0 if opponent_prizes <= 2 else 20.0
+			MIRAIDON_EX:
+				score -= 80.0
+			_:
+				if name in SUPPORT_NAMES:
+					score -= 120.0
+
+	return score
+
+
+func _score_search_pokemon_with_context(cname: String, step: Dictionary = {}, context: Dictionary = {}) -> float:
+	var player: PlayerState = _get_context_player(context)
+	var game_state: GameState = context.get("game_state")
+	var step_id: String = str(step.get("id", ""))
+	if player != null and step_id == "basic_pokemon":
+		if _count_pokemon_on_field(player, MIRAIDON_EX) == 0:
+			if cname == MIRAIDON_EX:
+				return 900.0
+			if cname == IRON_HANDS_EX:
+				return 420.0
+		if _should_prioritize_squawk_setup(player, game_state):
+			if cname == SQUAWKABILLY_EX:
+				return 860.0
+			if cname == ZAPDOS:
+				return 360.0
+	if player != null and step_id == "bench_pokemon":
+		if _count_pokemon_on_field(player, IRON_HANDS_EX) == 0 and cname == IRON_HANDS_EX:
+			return 920.0
+		if _count_pokemon_on_field(player, RAIKOU_V) == 0 and cname == RAIKOU_V:
+			return 880.0
 	## 串联装置/巢穴球搜索宝可梦优先级
 	## 前期核心：铁臂膀ex > 雷公V > 闪电鸟 > 密勒顿ex(第2只)
 	## 不搜：雷丘V（前中期不拍）、辅助型（低优先）
@@ -1268,7 +1598,7 @@ func _score_energy_attach_target(slot: PokemonSlot) -> float:
 		if gap == 2: return 400.0
 		if gap == 0:
 			# 已能用第一招，继续贴解锁第二招（LCCC 多拿奖品）
-			var total: int = slot.attached_energy.size()
+			var total: int = _count_attached_energy_units(slot)
 			if total < 4: return 200.0
 			return 30.0              # 4能已满
 		return 350.0
@@ -1304,13 +1634,13 @@ func predict_attacker_damage(slot: PokemonSlot, extra_energy: int = 0) -> Dictio
 	var cd: CardData = slot.get_card_data()
 	if cd == null or cd.attacks.is_empty():
 		return {"damage": 0, "can_attack": false, "description": ""}
-	var attached: int = slot.attached_energy.size() + extra_energy
+	var attached: int = _count_attached_energy_units(slot) + extra_energy
 	var best_dmg: int = 0
 	var can_attack: bool = false
 	for attack: Dictionary in cd.attacks:
 		var cost: String = str(attack.get("cost", ""))
 		var dmg: int = int(str(attack.get("damage", "0")).strip_edges())
-		if attached >= cost.length():
+		if _get_attack_gap_for_cost(slot, cost, extra_energy) == 0:
 			can_attack = true
 			if dmg > best_dmg:
 				best_dmg = dmg

@@ -51,6 +51,8 @@ func can_evolve(state: GameState, player_index: int, slot: PokemonSlot, evolutio
 		return false
 	if state.phase != GameState.GamePhase.MAIN:
 		return false
+	if slot == null or slot.is_knocked_out():
+		return false
 	if state.is_first_turn_for_player(player_index):
 		return false
 	if slot.turn_played == state.turn_number:
@@ -76,6 +78,8 @@ func can_retreat(state: GameState, player_index: int) -> bool:
 	var player: PlayerState = state.players[player_index]
 	if player.active_pokemon == null:
 		return false
+	if player.active_pokemon.is_knocked_out():
+		return false
 	if player.active_pokemon.status_conditions.get("asleep", false):
 		return false
 	if player.active_pokemon.status_conditions.get("paralyzed", false):
@@ -83,7 +87,12 @@ func can_retreat(state: GameState, player_index: int) -> bool:
 	for effect_data: Dictionary in player.active_pokemon.effects:
 		if effect_data.get("type", "") == "retreat_lock" and int(effect_data.get("turn", -999)) == state.turn_number - 1:
 			return false
-	if player.bench.is_empty():
+	var has_live_bench: bool = false
+	for bench_slot: PokemonSlot in player.bench:
+		if bench_slot != null and not bench_slot.is_knocked_out():
+			has_live_bench = true
+			break
+	if not has_live_bench:
 		return false
 	return true
 
@@ -129,6 +138,8 @@ func get_attack_unusable_reason(
 	if player.active_pokemon == null:
 		return "当前没有战斗宝可梦"
 	var active: PokemonSlot = player.active_pokemon
+	if active.is_knocked_out():
+		return "current_active_knocked_out"
 	var opponent_index: int = 1 - player_index
 	if opponent_index < 0 or opponent_index >= state.players.size():
 		return "Opponent has no Active Pokemon"
@@ -269,6 +280,8 @@ func can_attach_tool(state: GameState, player_index: int, slot: PokemonSlot) -> 
 	if state.current_player_index != player_index:
 		return false
 	if state.phase != GameState.GamePhase.MAIN:
+		return false
+	if slot == null or slot.is_knocked_out():
 		return false
 	return slot.attached_tool == null
 

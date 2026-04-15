@@ -70,6 +70,7 @@ const AttackReturnEnergyThenBenchDamageEffect = preload("res://scripts/effects/p
 const AttackTargetOwnBenchDamageEffect = preload("res://scripts/effects/pokemon_effects/AttackTargetOwnBenchDamage.gd")
 const AttackTargetOpponentBenchDamageEffect = preload("res://scripts/effects/pokemon_effects/AttackTargetOpponentBenchDamage.gd")
 const AbilityMoveBasicEnergyToOwnPokemonEffect = preload("res://scripts/effects/pokemon_effects/AbilityMoveBasicEnergyToOwnPokemon.gd")
+const AbilityBenchEnterSwitchAndMoveEnergyEffect = preload("res://scripts/effects/pokemon_effects/AbilityBenchEnterSwitchAndMoveEnergy.gd")
 const AbilityPrizeToBenchAndExtraPrizeEffect = preload("res://scripts/effects/pokemon_effects/AbilityPrizeToBenchAndExtraPrize.gd")
 const AbilityPreventDamageFromBasicExEffect = preload("res://scripts/effects/pokemon_effects/AbilityPreventDamageFromBasicEx.gd")
 const AbilityPreventDamageFromAttackersWithAbilitiesEffect = preload("res://scripts/effects/pokemon_effects/AbilityPreventDamageFromAttackersWithAbilities.gd")
@@ -241,6 +242,8 @@ static func _register_pokemon_effect_overrides(processor: EffectProcessor, effec
 		"4550f14d2ebd9d202a0c4ea5af9ec4d9":
 			processor.register_effect(effect_id, AbilityMoveBasicEnergyToOwnPokemonEffect.new())
 			processor.register_attack_effect(effect_id, AttackDrawToHandSizeEffect.new(6, 0))
+		"2e307380eb013c4e20db0a19816ba3b9":
+			processor.register_effect(effect_id, AbilityBenchEnterSwitchAndMoveEnergyEffect.new())
 		"ce6db179c3d166130e7a637581da3aa2":
 			# 渡魂：从弃牌区选择最多3张「夜巡灵」放到备战区
 			processor.register_attack_effect(effect_id, AttackReviveFromDiscardToBenchEffect.new(3, "夜巡灵"))

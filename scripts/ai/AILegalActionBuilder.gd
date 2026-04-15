@@ -1,7 +1,6 @@
 class_name AILegalActionBuilder
 extends RefCounted
 
-const DeckStrategyGardevoirScript = preload("res://scripts/ai/DeckStrategyGardevoir.gd")
 const DeckStrategyRegistryScript = preload("res://scripts/ai/DeckStrategyRegistry.gd")
 const AIInteractionPlannerScript = preload("res://scripts/ai/AIInteractionPlanner.gd")
 
@@ -147,7 +146,10 @@ func _build_play_trainer_actions(
 			continue
 		var targets: Array = []
 		var requires_interaction: bool = bool(trainer_eval.get("requires_interaction", false))
-		var preview_steps: Array[Dictionary] = trainer_eval.get("preview_steps", [])
+		var preview_steps: Array[Dictionary] = []
+		for step_variant: Variant in trainer_eval.get("preview_steps", []):
+			if step_variant is Dictionary:
+				preview_steps.append(step_variant)
 		if requires_interaction:
 			if not _can_headless_auto_resolve_steps(preview_steps, allow_side_effectful_headless_resolution):
 				actions.append({
@@ -213,7 +215,7 @@ func _build_slot_ability_actions(
 	allow_side_effectful_headless_resolution: bool
 ) -> Array[Dictionary]:
 	var actions: Array[Dictionary] = []
-	if slot == null or slot.get_top_card() == null:
+	if not _is_live_slot(slot):
 		return actions
 	var state: GameState = gsm.game_state
 	var card_data: CardData = slot.get_card_data()
@@ -314,11 +316,13 @@ func _build_retreat_actions(gsm: GameStateMachine, player_index: int, player: Pl
 	if not gsm.rule_validator.can_retreat(gsm.game_state, player_index):
 		return actions
 	var active: PokemonSlot = player.active_pokemon
-	if active == null:
+	if not _is_live_slot(active):
 		return actions
 	var cost: int = gsm.effect_processor.get_effective_retreat_cost(active, gsm.game_state)
 	var discards: Array[Array] = _get_minimal_retreat_discards(gsm, active, cost)
 	for bench_slot: PokemonSlot in player.bench:
+		if not _is_live_slot(bench_slot):
+			continue
 		for discard_variant: Array in discards:
 			var discard_cards: Array[CardInstance] = []
 			for energy: Variant in discard_variant:
@@ -335,7 +339,7 @@ func _build_retreat_actions(gsm: GameStateMachine, player_index: int, player: Pl
 func _build_attack_actions(gsm: GameStateMachine, player_index: int, player: PlayerState) -> Array[Dictionary]:
 	var actions: Array[Dictionary] = []
 	var active: PokemonSlot = player.active_pokemon
-	if active == null or active.get_top_card() == null:
+	if not _is_live_slot(active):
 		return actions
 	var attacks: Array = active.get_card_data().attacks
 	for attack_index: int in attacks.size():
@@ -354,7 +358,7 @@ func _build_attack_actions(gsm: GameStateMachine, player_index: int, player: Pla
 func _build_granted_attack_actions(gsm: GameStateMachine, player_index: int, player: PlayerState) -> Array[Dictionary]:
 	var actions: Array[Dictionary] = []
 	var active: PokemonSlot = player.active_pokemon
-	if active == null or active.get_top_card() == null:
+	if not _is_live_slot(active):
 		return actions
 	if gsm.effect_processor == null:
 		return actions
@@ -377,12 +381,16 @@ func _build_granted_attack_actions(gsm: GameStateMachine, player_index: int, pla
 
 func _get_player_slots(player: PlayerState) -> Array[PokemonSlot]:
 	var slots: Array[PokemonSlot] = []
-	if player.active_pokemon != null:
+	if _is_live_slot(player.active_pokemon):
 		slots.append(player.active_pokemon)
 	for bench_slot: PokemonSlot in player.bench:
-		if bench_slot != null:
+		if _is_live_slot(bench_slot):
 			slots.append(bench_slot)
 	return slots
+
+
+func _is_live_slot(slot: PokemonSlot) -> bool:
+	return slot != null and slot.get_top_card() != null and slot.get_remaining_hp() > 0
 
 
 func _evaluate_trainer_action(
@@ -586,7 +594,7 @@ func _resolve_headless_step(
 	var min_select: int = int(step.get("min_select", 0))
 	var legal_items: Array = _filter_step_items_by_context(step, items, interaction_context)
 	var max_select: int = int(step.get("max_select", legal_items.size()))
-	var selection: Array = _select_headless_items(gsm, player_index, owner_index, step, legal_items, max_select)
+	var selection: Array = _select_headless_items(gsm, player_index, owner_index, step, legal_items, max_select, interaction_context)
 	if selection.size() < min_select:
 		return null
 	return {step_id: selection}
@@ -664,9 +672,19 @@ func _resolve_headless_assignment_step(
 		return null
 	var min_select: int = int(step.get("min_select", 0))
 	var max_select: int = int(step.get("max_select", source_items.size()))
-	var selected_sources: Array = _select_headless_items(gsm, player_index, owner_index, step, source_items, max_select)
+	var selected_sources: Array = _select_headless_items(
+		gsm,
+		player_index,
+		owner_index,
+		step,
+		source_items,
+		max_select,
+		{"target_items": target_items}
+	)
 	var exclude_map: Dictionary = step.get("source_exclude_targets", {})
 	var assignments: Array[Dictionary] = []
+	var pending_assignment_counts: Dictionary = {}
+	var pending_assignments: Array[Dictionary] = []
 	for source: Variant in selected_sources:
 		var source_index: int = source_items.find(source)
 		var eligible_targets: Array = []
@@ -680,11 +698,20 @@ func _resolve_headless_assignment_step(
 			player_index,
 			step_id,
 			source,
-			eligible_targets
+			eligible_targets,
+			pending_assignment_counts,
+			pending_assignments
 		)
 		if target == null:
 			continue
+		if target is Object:
+			var target_id := int((target as Object).get_instance_id())
+			pending_assignment_counts[target_id] = int(pending_assignment_counts.get(target_id, 0)) + 1
 		assignments.append({
+			"source": source,
+			"target": target,
+		})
+		pending_assignments.append({
 			"source": source,
 			"target": target,
 		})
@@ -699,12 +726,19 @@ func _select_headless_items(
 	owner_index: int,
 	step: Dictionary,
 	items: Array,
-	max_select: int
+	max_select: int,
+	interaction_context: Dictionary = {}
 ) -> Array:
 	var step_id: String = str(step.get("id", ""))
+	var strategy_context := {
+		"game_state": gsm.game_state if gsm != null else null,
+		"player_index": player_index,
+	}
+	for key: Variant in interaction_context.keys():
+		strategy_context[key] = interaction_context[key]
 	match step_id:
 		"search_item":
-			var planned_items: Array = _pick_items_with_strategy(items, step_id, max_select, {"game_state": gsm.game_state if gsm != null else null, "player_index": player_index})
+			var planned_items: Array = _pick_items_with_strategy(items, step_id, max_select, strategy_context)
 			if not planned_items.is_empty():
 				return planned_items
 			var prioritized_items: Array = _pick_preferred_cards_by_strategy_priority(items, max_select)
@@ -713,7 +747,7 @@ func _select_headless_items(
 			var selected_item: Variant = _pick_preferred_named_card(items, _PRIORITY_ITEM_NAMES)
 			return [] if selected_item == null else [selected_item]
 		"search_tool":
-			var planned_tools: Array = _pick_items_with_strategy(items, step_id, max_select, {"game_state": gsm.game_state if gsm != null else null, "player_index": player_index})
+			var planned_tools: Array = _pick_items_with_strategy(items, step_id, max_select, strategy_context)
 			if not planned_tools.is_empty():
 				return planned_tools
 			var prioritized_tools: Array = _pick_preferred_cards_by_strategy_priority(items, max_select)
@@ -721,7 +755,7 @@ func _select_headless_items(
 				return prioritized_tools
 			return [] if items.is_empty() else [items[0]]
 		"bench_pokemon", "basic_pokemon", "buddy_poffin_pokemon":
-			var planned_bench: Array = _pick_items_with_strategy(items, step_id, max_select, {"game_state": gsm.game_state if gsm != null else null, "player_index": player_index})
+			var planned_bench: Array = _pick_items_with_strategy(items, step_id, max_select, strategy_context)
 			if not planned_bench.is_empty():
 				return planned_bench
 			return _pick_preferred_bench_pokemon(items, max_select)
@@ -731,22 +765,53 @@ func _select_headless_items(
 			# 隐藏牌 / 精炼等需要弃能量的特性：优先弃超能量（Embrace 燃料）
 			return _pick_discard_cards(items, max_select, gsm, player_index, step, owner_index)
 		"search_pokemon", "search_cards":
-			var planned_search: Array = _pick_items_with_strategy(items, step_id, max_select, {"game_state": gsm.game_state if gsm != null else null, "player_index": player_index})
+			var planned_search: Array = _pick_items_with_strategy(items, step_id, max_select, strategy_context)
 			if not planned_search.is_empty():
 				return planned_search
 			return _pick_preferred_search_cards(gsm, player_index, owner_index, items, max_select)
+		"supporter_card", "stage2_card", "target_pokemon":
+			var planned_prompt_targets: Array = _pick_items_with_strategy(items, step_id, max_select, strategy_context)
+			if not planned_prompt_targets.is_empty():
+				return planned_prompt_targets
+			return items.slice(0, mini(max_select, items.size()))
+		"energy_assignments":
+			var planned_sources: Array = _pick_items_with_strategy(items, step_id, max_select, strategy_context)
+			if not planned_sources.is_empty():
+				return planned_sources
+			return items.slice(0, mini(max_select, items.size()))
 		"embrace_target":
 			# 沙奈朵 Psychic Embrace 目标选择
-			var planned_targets: Array = _pick_items_with_strategy(items, step_id, max_select, {"game_state": gsm.game_state if gsm != null else null, "player_index": player_index})
+			var planned_targets: Array = _pick_items_with_strategy(items, step_id, max_select, strategy_context)
 			if not planned_targets.is_empty():
 				return planned_targets
 			return items.slice(0, mini(max_select, items.size()))
 		_:
+			var explicit_planned_items: Array = _pick_explicit_interaction_items(items, step_id, max_select, strategy_context)
+			if not explicit_planned_items.is_empty():
+				return explicit_planned_items
 			return items.slice(0, mini(max_select, items.size()))
 
 
+func _pick_explicit_interaction_items(items: Array, step_id: String, max_select: int, context: Dictionary = {}) -> Array:
+	if _deck_strategy == null or not _deck_strategy.has_method("pick_interaction_items"):
+		return []
+	var planned: Variant = _deck_strategy.call("pick_interaction_items", items, {"id": step_id, "max_select": max_select}, context)
+	if planned is Array:
+		return planned
+	return []
+
+
 func _pick_items_with_strategy(items: Array, step_id: String, max_select: int, context: Dictionary = {}) -> Array:
-	if _deck_strategy == null or not _deck_strategy.has_method("score_interaction_target"):
+	if _deck_strategy == null:
+		return []
+	if _deck_strategy.has_method("pick_interaction_items"):
+		var planned: Variant = _deck_strategy.call("pick_interaction_items", items, {"id": step_id, "max_select": max_select}, context)
+		if planned is Array:
+			if not (planned as Array).is_empty():
+				return planned
+			if step_id == "buddy_poffin_pokemon":
+				return []
+	if not _deck_strategy.has_method("score_interaction_target"):
 		return []
 	var selected_indices: PackedInt32Array = _interaction_planner.pick_item_indices(
 		_deck_strategy,
@@ -923,7 +988,9 @@ func _pick_preferred_assignment_target_for_source(
 	player_index: int,
 	step_id: String,
 	source: Variant,
-	target_items: Array
+	target_items: Array,
+	pending_assignment_counts: Dictionary = {},
+	pending_assignments: Array = []
 ) -> Variant:
 	if target_items.is_empty():
 		return null
@@ -932,6 +999,8 @@ func _pick_preferred_assignment_target_for_source(
 			"game_state": gsm.game_state if gsm != null else null,
 			"player_index": player_index,
 			"all_items": target_items,
+			"pending_assignment_counts": pending_assignment_counts,
+			"pending_assignments": pending_assignments,
 		}
 		if source is CardInstance:
 			context["source_card"] = source

@@ -6,15 +6,18 @@ const CARDS_DIR := "user://cards/"
 const CARD_IMAGES_DIR := "user://cards/images/"
 ## 卡组存储目录
 const DECKS_DIR := "user://decks/"
+const AI_DECKS_DIR := "user://ai_decks/"
 const BUNDLED_USER_DIR := "res://data/bundled_user/"
 const BUNDLED_CARDS_DIR := BUNDLED_USER_DIR + "cards/"
 const BUNDLED_DECKS_DIR := BUNDLED_USER_DIR + "decks/"
 const BUNDLED_MANIFEST := BUNDLED_USER_DIR + "_manifest.txt"
+const SUPPORTED_AI_DECK_IDS: Array[int] = [575716, 575720, 569061, 578647]
 
 ## 内存中的卡牌缓存 {uid -> CardData}
 var _card_cache: Dictionary = {}
 ## 内存中的卡组缓存 {deck_id -> DeckData}
 var _deck_cache: Dictionary = {}
+var _ai_deck_cache: Dictionary = {}
 
 ## 卡组列表变更信号
 signal decks_changed()
@@ -24,6 +27,7 @@ func _ready() -> void:
 	_ensure_directories()
 	_seed_bundled_user_data()
 	_load_all_decks()
+	_load_all_ai_decks()
 
 
 ## 确保数据目录存在
@@ -34,6 +38,8 @@ func _ensure_directories() -> void:
 		DirAccess.make_dir_recursive_absolute(CARD_IMAGES_DIR)
 	if not DirAccess.dir_exists_absolute(DECKS_DIR):
 		DirAccess.make_dir_recursive_absolute(DECKS_DIR)
+	if not DirAccess.dir_exists_absolute(AI_DECKS_DIR):
+		DirAccess.make_dir_recursive_absolute(AI_DECKS_DIR)
 
 
 func _seed_bundled_user_data() -> void:
@@ -55,6 +61,7 @@ func _seed_bundled_user_data() -> void:
 			var target_path := DECKS_DIR.path_join(entry_name)
 			_copy_file_if_missing(bundled_path, target_path)
 	_backfill_deck_strategy_from_bundled(manifest)
+	_seed_ai_decks_from_bundled(manifest)
 
 
 ## 读取清单文件（导出后 DirAccess 无法遍历 pck，需要预生成清单）
@@ -105,6 +112,20 @@ func _backfill_deck_strategy_from_bundled(manifest: Array[String]) -> void:
 		var user_path := DECKS_DIR.path_join(entry_name)
 		if FileAccess.file_exists(user_path):
 			_merge_strategy_field(bundled_path, user_path)
+
+
+func _seed_ai_decks_from_bundled(manifest: Array[String]) -> void:
+	for deck_id: int in SUPPORTED_AI_DECK_IDS:
+		var entry_name := "%d.json" % deck_id
+		var bundled_path := BUNDLED_DECKS_DIR.path_join(entry_name)
+		var ai_target_path := AI_DECKS_DIR.path_join(entry_name)
+		if bundled_path in manifest and FileAccess.file_exists(bundled_path):
+			_copy_file_if_missing(bundled_path, ai_target_path)
+			_merge_strategy_field(bundled_path, ai_target_path)
+			continue
+		var user_path := DECKS_DIR.path_join(entry_name)
+		if FileAccess.file_exists(user_path):
+			_copy_file_if_missing(user_path, ai_target_path)
 
 
 func _merge_strategy_field(bundled_path: String, user_path: String) -> void:
@@ -330,6 +351,24 @@ func save_deck(deck: DeckData) -> void:
 	decks_changed.emit()
 
 
+func save_ai_deck(deck: DeckData) -> void:
+	var path := AI_DECKS_DIR + "%d.json" % deck.id
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	if file == null:
+		push_error("CardDatabase: 无法写入 AI 卡组文件 %s" % path)
+		return
+	file.store_string(JSON.stringify(deck.to_dict(), "\t"))
+	file.close()
+	_ai_deck_cache[deck.id] = deck
+
+
+func delete_ai_deck(deck_id: int) -> void:
+	var path := AI_DECKS_DIR + "%d.json" % deck_id
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(path)
+	_ai_deck_cache.erase(deck_id)
+
+
 ## 删除卡组
 func delete_deck(deck_id: int) -> void:
 	var path := DECKS_DIR + "%d.json" % deck_id
@@ -341,41 +380,101 @@ func delete_deck(deck_id: int) -> void:
 
 ## 获取卡组
 func get_deck(deck_id: int) -> DeckData:
+	_ensure_deck_cache_ready()
 	return _deck_cache.get(deck_id)
+
+
+func get_ai_deck(deck_id: int) -> DeckData:
+	_ensure_ai_deck_cache_ready()
+	return _ai_deck_cache.get(deck_id)
 
 
 ## 获取所有卡组列表
 func get_all_decks() -> Array[DeckData]:
-	var result: Array[DeckData] = []
-	for deck: Variant in _deck_cache.values():
-		result.append(deck)
-	# 按导入时间排序（新的在前）
-	result.sort_custom(func(a: DeckData, b: DeckData) -> bool:
-		return a.import_date > b.import_date
-	)
-	return result
+	_ensure_deck_cache_ready()
+	return _sorted_deck_values(_deck_cache)
+
+
+func get_all_ai_decks() -> Array[DeckData]:
+	_ensure_ai_deck_cache_ready()
+	return _sorted_deck_values(_ai_deck_cache)
 
 
 ## 是否存在指定卡组
 func has_deck(deck_id: int) -> bool:
+	_ensure_deck_cache_ready()
 	return _deck_cache.has(deck_id)
+
+
+func has_ai_deck(deck_id: int) -> bool:
+	_ensure_ai_deck_cache_ready()
+	return _ai_deck_cache.has(deck_id)
+
+
+func get_supported_ai_deck_ids() -> Array[int]:
+	return SUPPORTED_AI_DECK_IDS.duplicate()
 
 
 ## 从文件系统加载所有卡组
 func _load_all_decks() -> void:
-	_deck_cache.clear()
-	var dir := DirAccess.open(DECKS_DIR)
-	if dir == null:
+	_deck_cache = _load_deck_cache_from_dir(DECKS_DIR)
+
+
+func _load_all_ai_decks() -> void:
+	_ai_deck_cache = _load_deck_cache_from_dir(AI_DECKS_DIR)
+
+
+func _ensure_deck_cache_ready() -> void:
+	if not _deck_cache.is_empty():
 		return
+	_ensure_directories()
+	_seed_bundled_user_data()
+	_load_all_decks()
+
+
+func _ensure_ai_deck_cache_ready() -> void:
+	if not _ai_deck_cache.is_empty():
+		return
+	_ensure_deck_cache_ready()
+	_seed_ai_decks_from_bundled(_load_bundled_manifest())
+	_load_all_ai_decks()
+	if not _ai_deck_cache.is_empty():
+		return
+	for deck_id: int in SUPPORTED_AI_DECK_IDS:
+		var source_deck: DeckData = _deck_cache.get(deck_id)
+		if source_deck == null:
+			continue
+		var ai_copy := DeckData.from_dict(source_deck.to_dict())
+		_ai_deck_cache[deck_id] = ai_copy
+		if not FileAccess.file_exists(AI_DECKS_DIR + "%d.json" % deck_id):
+			save_ai_deck(ai_copy)
+
+
+func _load_deck_cache_from_dir(dir_path: String) -> Dictionary:
+	var cache := {}
+	var dir := DirAccess.open(dir_path)
+	if dir == null:
+		return cache
 	dir.list_dir_begin()
 	var file_name := dir.get_next()
 	while file_name != "":
 		if not dir.current_is_dir() and file_name.ends_with(".json"):
-			var deck := _load_deck_from_file(DECKS_DIR + file_name)
+			var deck := _load_deck_from_file(dir_path.path_join(file_name))
 			if deck:
-				_deck_cache[deck.id] = deck
+				cache[deck.id] = deck
 		file_name = dir.get_next()
 	dir.list_dir_end()
+	return cache
+
+
+func _sorted_deck_values(cache: Dictionary) -> Array[DeckData]:
+	var result: Array[DeckData] = []
+	for deck: Variant in cache.values():
+		result.append(deck)
+	result.sort_custom(func(a: DeckData, b: DeckData) -> bool:
+		return a.import_date > b.import_date
+	)
+	return result
 
 
 ## 从文件加载卡组

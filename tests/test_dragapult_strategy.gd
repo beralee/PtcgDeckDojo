@@ -389,6 +389,51 @@ func test_hybrid_search_shifts_between_dragapult_and_charizard_finishers() -> St
 	])
 
 
+func test_hybrid_single_search_pivots_into_first_charmander_once_dragapult_shell_exists() -> String:
+	var strategy := _new_strategy(HYBRID_SCRIPT_PATH)
+	if strategy == null:
+		return "DeckStrategyDragapultCharizard.gd should exist before transition search priorities can be verified"
+	var gs := _make_game_state(3)
+	var player: PlayerState = gs.players[0]
+	player.active_pokemon = _make_slot(_make_pokemon_cd("Rotom V", "Basic", "L", 190, "", "V"), 0)
+	player.bench.clear()
+	player.bench.append(_make_slot(_make_pokemon_cd("Drakloak", "Stage 1", "P", 90, "Dreepy"), 0))
+	var items: Array = [
+		CardInstance.create(_make_pokemon_cd("Dreepy", "Basic", "P", 70), 0),
+		CardInstance.create(_make_pokemon_cd("Charmander", "Basic", "R", 70), 0),
+	]
+	var picked_name := _best_card_name(
+		strategy,
+		items,
+		"search_pokemon",
+		{"game_state": gs, "player_index": 0, "all_items": items}
+	)
+	return assert_eq(picked_name, "Charmander",
+		"Once the Dragapult shell already has Drakloak online, the next single Pokemon search should pivot into the first Charmander instead of another Dreepy")
+
+
+func test_hybrid_opening_prefers_dreepy_active_over_support_rule_box() -> String:
+	var strategy := _new_strategy(HYBRID_SCRIPT_PATH)
+	if strategy == null:
+		return "DeckStrategyDragapultCharizard.gd should exist before hybrid opening setup can be verified"
+	var player := _make_player()
+	player.hand.append(CardInstance.create(_make_pokemon_cd("Fezandipiti ex", "Basic", "D", 210, "", "ex"), 0))
+	player.hand.append(CardInstance.create(_make_pokemon_cd("Dreepy", "Basic", "P", 70), 0))
+	player.hand.append(CardInstance.create(_make_pokemon_cd("Charmander", "Basic", "R", 70), 0))
+	var choice: Dictionary = strategy.plan_opening_setup(player)
+	var active_idx: int = int(choice.get("active_hand_index", -1))
+	var active_name := "" if active_idx < 0 else str(player.hand[active_idx].card_data.name)
+	var bench_names: Array[String] = []
+	for index_variant: Variant in choice.get("bench_hand_indices", []):
+		var hand_index: int = int(index_variant)
+		if hand_index >= 0 and hand_index < player.hand.size():
+			bench_names.append(str(player.hand[hand_index].card_data.name))
+	return run_checks([
+		assert_eq(active_name, "Dreepy", "The hybrid shell should open on Dreepy when the main pressure lane is available"),
+		assert_true("Charmander" in bench_names, "The hybrid shell should still bench Charmander behind the Dragapult opener"),
+	])
+
+
 func test_hybrid_scores_rare_candy_for_charizard_stabilization() -> String:
 	var strategy := _new_strategy(HYBRID_SCRIPT_PATH)
 	if strategy == null:
@@ -454,6 +499,50 @@ func test_hybrid_attach_energy_prefers_dragapult_lane_before_charizard_finisher(
 		"Before Charizard is stabilized, the hybrid shell should invest early manual energy into the Dragapult pressure lane")
 
 
+func test_hybrid_attach_energy_pivots_to_charizard_when_dragapult_lane_is_already_online() -> String:
+	var strategy := _new_strategy(HYBRID_SCRIPT_PATH)
+	if strategy == null:
+		return "DeckStrategyDragapultCharizard.gd should exist before late-game energy routing can be verified"
+	var gs := _make_game_state(5)
+	var player: PlayerState = gs.players[0]
+	var dragapult := _make_slot(_make_pokemon_cd(
+		"Dragapult ex",
+		"Stage 2",
+		"P",
+		320,
+		"Drakloak",
+		"ex",
+		[],
+		[{"name": "Phantom Dive", "cost": "RP", "damage": "200"}]
+	), 0)
+	dragapult.attached_energy.append(CardInstance.create(_make_trainer_cd("Psychic Energy", "Basic Energy"), 0))
+	dragapult.attached_energy[-1].card_data.energy_provides = "P"
+	dragapult.attached_energy.append(CardInstance.create(_make_trainer_cd("Fire Energy", "Basic Energy"), 0))
+	dragapult.attached_energy[-1].card_data.energy_provides = "R"
+	player.active_pokemon = dragapult
+	var charizard := _make_slot(_make_pokemon_cd(
+		"Charizard ex",
+		"Stage 2",
+		"R",
+		330,
+		"Charmeleon",
+		"ex",
+		[],
+		[{"name": "Burning Darkness", "cost": "RR", "damage": "180"}]
+	), 0)
+	charizard.attached_energy.append(CardInstance.create(_make_trainer_cd("Fire Energy A", "Basic Energy"), 0))
+	charizard.attached_energy[-1].card_data.energy_provides = "R"
+	player.bench.append(charizard)
+	var dreepy := _make_slot(_make_pokemon_cd("Dreepy", "Basic", "P", 70), 0)
+	player.bench.append(dreepy)
+	var fire_energy := CardInstance.create(_make_trainer_cd("Fire Energy B", "Basic Energy"), 0)
+	fire_energy.card_data.energy_provides = "R"
+	var charizard_score: float = strategy.score_action_absolute({"kind": "attach_energy", "card": fire_energy, "target_slot": charizard}, gs, 0)
+	var dreepy_score: float = strategy.score_action_absolute({"kind": "attach_energy", "card": fire_energy, "target_slot": dreepy}, gs, 0)
+	return assert_true(charizard_score > dreepy_score,
+		"Once Dragapult is already online, the next manual Fire attachment should pivot into the Charizard closer")
+
+
 func test_hybrid_board_evaluation_rewards_two_lane_pressure() -> String:
 	var strategy := _new_strategy(HYBRID_SCRIPT_PATH)
 	if strategy == null:
@@ -465,3 +554,179 @@ func test_hybrid_board_evaluation_rewards_two_lane_pressure() -> String:
 	var two_lane_score: float = strategy.evaluate_board(gs, 0)
 	return assert_true(two_lane_score > one_lane_score,
 		"The hybrid shell should value boards where both Stage 2 lanes are online (%f vs %f)" % [two_lane_score, one_lane_score])
+
+
+func test_hybrid_rotom_draw_goes_dead_once_two_lane_pressure_is_online() -> String:
+	var strategy := _new_strategy(HYBRID_SCRIPT_PATH)
+	if strategy == null:
+		return "DeckStrategyDragapultCharizard.gd should exist before late-game churn control can be verified"
+	var gs := _make_game_state(7)
+	var player: PlayerState = gs.players[0]
+	player.active_pokemon = _make_slot(_make_pokemon_cd(
+		"Dragapult ex",
+		"Stage 2",
+		"P",
+		320,
+		"Drakloak",
+		"ex",
+		[],
+		[{"name": "Phantom Dive", "cost": "RP", "damage": "200"}]
+	), 0)
+	player.active_pokemon.attached_energy.append(CardInstance.create(_make_trainer_cd("Psychic Energy", "Basic Energy"), 0))
+	player.active_pokemon.attached_energy[-1].card_data.energy_provides = "P"
+	player.active_pokemon.attached_energy.append(CardInstance.create(_make_trainer_cd("Fire Energy", "Basic Energy"), 0))
+	player.active_pokemon.attached_energy[-1].card_data.energy_provides = "R"
+	player.bench.append(_make_slot(_make_pokemon_cd(
+		"Charizard ex",
+		"Stage 2",
+		"R",
+		330,
+		"Charmeleon",
+		"ex",
+		[],
+		[{"name": "Burning Darkness", "cost": "RR", "damage": "180"}]
+	), 0))
+	var rotom_slot := _make_slot(_make_pokemon_cd(
+		"Rotom V",
+		"Basic",
+		"L",
+		190,
+		"",
+		"V",
+		[{"name": "Instant Charge", "text": "draw"}]
+	), 0)
+	player.bench.append(rotom_slot)
+	for i: int in range(6):
+		player.hand.append(CardInstance.create(_make_trainer_cd("Card %d" % i), 0))
+	var score: float = strategy.score_action_absolute(
+		{"kind": "use_ability", "source_slot": rotom_slot},
+		gs,
+		0
+	)
+	return assert_true(score <= 0.0,
+		"Once both Dragapult ex and Charizard ex are online, Rotom V draw should stop positive-value churn (got %f)" % score)
+
+
+func test_hybrid_extra_benching_goes_dead_once_two_lane_pressure_is_online() -> String:
+	var strategy := _new_strategy(HYBRID_SCRIPT_PATH)
+	if strategy == null:
+		return "DeckStrategyDragapultCharizard.gd should exist before late-game bench discipline can be verified"
+	var gs := _make_game_state(7)
+	var player: PlayerState = gs.players[0]
+	player.active_pokemon = _make_slot(_make_pokemon_cd(
+		"Dragapult ex",
+		"Stage 2",
+		"P",
+		320,
+		"Drakloak",
+		"ex",
+		[],
+		[{"name": "Phantom Dive", "cost": "RP", "damage": "200"}]
+	), 0)
+	player.active_pokemon.attached_energy.append(CardInstance.create(_make_trainer_cd("Psychic Energy", "Basic Energy"), 0))
+	player.active_pokemon.attached_energy[-1].card_data.energy_provides = "P"
+	player.active_pokemon.attached_energy.append(CardInstance.create(_make_trainer_cd("Fire Energy", "Basic Energy"), 0))
+	player.active_pokemon.attached_energy[-1].card_data.energy_provides = "R"
+	player.bench.append(_make_slot(_make_pokemon_cd(
+		"Charizard ex",
+		"Stage 2",
+		"R",
+		330,
+		"Charmeleon",
+		"ex",
+		[],
+		[{"name": "Burning Darkness", "cost": "RR", "damage": "180"}]
+	), 0))
+	var score: float = strategy.score_action_absolute(
+		{"kind": "play_basic_to_bench", "card": CardInstance.create(_make_pokemon_cd("Fezandipiti ex", "Basic", "D", 210, "", "ex"), 0)},
+		gs,
+		0
+	)
+	return assert_true(score <= 0.0,
+		"Once both finishers are online, extra support basics should stop looking like productive setup (got %f)" % score)
+
+
+func test_hybrid_dead_opening_trainers_stay_below_setup_without_targets() -> String:
+	var strategy := _new_strategy(HYBRID_SCRIPT_PATH)
+	if strategy == null:
+		return "DeckStrategyDragapultCharizard.gd should exist before opening dead-card timing can be verified"
+	var gs := _make_game_state(2)
+	var player: PlayerState = gs.players[0]
+	player.active_pokemon = _make_slot(_make_pokemon_cd("Dreepy", "Basic", "P", 70), 0)
+	player.bench.clear()
+	player.bench.append(_make_slot(_make_pokemon_cd("Charmander", "Basic", "R", 70), 0))
+	gs.stadium_card = null
+	var nest_ball := CardInstance.create(_make_trainer_cd("Nest Ball"), 0)
+	var boss := CardInstance.create(_make_trainer_cd("Boss's Orders", "Supporter"), 0)
+	var lost_vacuum := CardInstance.create(_make_trainer_cd("Lost Vacuum"), 0)
+	var rod := CardInstance.create(_make_trainer_cd("Super Rod"), 0)
+	var setup_score: float = strategy.score_action_absolute({"kind": "play_trainer", "card": nest_ball}, gs, 0)
+	var boss_score: float = strategy.score_action_absolute({"kind": "play_trainer", "card": boss}, gs, 0)
+	var vacuum_score: float = strategy.score_action_absolute({"kind": "play_trainer", "card": lost_vacuum}, gs, 0)
+	var rod_score: float = strategy.score_action_absolute({"kind": "play_trainer", "card": rod}, gs, 0)
+	return run_checks([
+		assert_true(boss_score <= 40.0,
+			"Boss's Orders should stay near-dead when the hybrid shell cannot attack soon (got %f)" % boss_score),
+		assert_true(vacuum_score <= 20.0,
+			"Lost Vacuum should stay near-dead when there is no stadium to clear (got %f)" % vacuum_score),
+		assert_true(rod_score <= 40.0,
+			"Super Rod should stay near-dead with an empty discard and no recovery need (got %f)" % rod_score),
+		assert_true(boss_score < setup_score,
+			"Boss's Orders should not outrank opening setup while the board is still empty"),
+		assert_true(vacuum_score < setup_score,
+			"Lost Vacuum should not outrank opening setup"),
+		assert_true(rod_score < setup_score,
+			"Super Rod should not outrank opening setup"),
+	])
+
+
+func test_hybrid_retreats_from_underdeveloped_active_into_ready_finisher() -> String:
+	var strategy := _new_strategy(HYBRID_SCRIPT_PATH)
+	if strategy == null:
+		return "DeckStrategyDragapultCharizard.gd should exist before retreat conversion can be verified"
+	var gs := _make_game_state(6)
+	var player: PlayerState = gs.players[0]
+	player.active_pokemon = _make_slot(_make_pokemon_cd("Drakloak", "Stage 1", "P", 90, "Dreepy"), 0)
+	var dragapult := _make_slot(_make_pokemon_cd(
+		"Dragapult ex",
+		"Stage 2",
+		"P",
+		320,
+		"Drakloak",
+		"ex",
+		[],
+		[{"name": "Phantom Dive", "cost": "RP", "damage": "200"}]
+	), 0)
+	dragapult.attached_energy.append(CardInstance.create(_make_trainer_cd("Psychic Energy", "Basic Energy"), 0))
+	dragapult.attached_energy[-1].card_data.energy_provides = "P"
+	dragapult.attached_energy.append(CardInstance.create(_make_trainer_cd("Fire Energy", "Basic Energy"), 0))
+	dragapult.attached_energy[-1].card_data.energy_provides = "R"
+	player.bench.append(dragapult)
+	var retreat_score: float = strategy.score_action_absolute({"kind": "retreat"}, gs, 0)
+	return assert_true(retreat_score >= 180.0,
+		"When Drakloak is stranded active and a ready finisher is on the bench, the hybrid shell should aggressively pivot (got %f)" % retreat_score)
+
+
+func test_hybrid_refuses_low_value_retreat_when_only_setup_basics_wait_on_bench() -> String:
+	var strategy := _new_strategy(HYBRID_SCRIPT_PATH)
+	if strategy == null:
+		return "DeckStrategyDragapultCharizard.gd should exist before low-value retreat discipline can be verified"
+	var gs := _make_game_state(9)
+	var player: PlayerState = gs.players[0]
+	player.active_pokemon = _make_slot(_make_pokemon_cd(
+		"Drakloak",
+		"Stage 1",
+		"P",
+		90,
+		"Dreepy",
+		"",
+		[],
+		[{"name": "Tail Swing", "cost": "P", "damage": "70"}]
+	), 0)
+	player.active_pokemon.attached_energy.append(CardInstance.create(_make_trainer_cd("Psychic Energy", "Basic Energy"), 0))
+	player.active_pokemon.attached_energy[-1].card_data.energy_provides = "P"
+	player.bench.append(_make_slot(_make_pokemon_cd("Charmander", "Basic", "R", 70), 0))
+	player.bench.append(_make_slot(_make_pokemon_cd("Dreepy", "Basic", "P", 70), 0))
+	var retreat_score: float = strategy.score_action_absolute({"kind": "retreat"}, gs, 0)
+	return assert_true(retreat_score <= 30.0,
+		"When Drakloak can still pressure and the bench only holds more setup basics, retreat should stay low-value instead of burning tempo (got %f)" % retreat_score)

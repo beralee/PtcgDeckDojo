@@ -1,12 +1,16 @@
 ## 对战设置场景
 extends Control
 
+const DeckViewDialogScript := preload("res://scripts/ui/decks/DeckViewDialog.gd")
+
 const FIRST_PLAYER_RANDOM := -1
 const FIRST_PLAYER_PLAYER_ONE := 0
 const FIRST_PLAYER_PLAYER_TWO := 1
 const AI_SOURCE_DEFAULT := 0
 const AI_SOURCE_LATEST := 1
 const AI_SOURCE_SPECIFIC := 2
+const AI_PREVIEW_STRENGTH_WEAK := 0
+const AI_PREVIEW_STRENGTH_STRONG := 1
 const BACKGROUND_DIR := "res://assets/ui"
 const DEFAULT_BACKGROUND := "res://assets/ui/background.png"
 const SETTINGS_PATH := "user://battle_setup.json"
@@ -14,29 +18,28 @@ const DEFAULT_DECK1_ID := 575716  ## 喷火龙 大比鸟
 const DEFAULT_DECK2_ID := 578647  ## 沙奈朵
 const MIRAIDON_DECK_ID := 575720
 const ARCEUS_GIRATINA_DECK_ID := 569061
-const AI_ALLOWED_DECK_IDS := [
-	DEFAULT_DECK1_ID,
-	MIRAIDON_DECK_ID,
-	ARCEUS_GIRATINA_DECK_ID,
-]
 const BACKGROUND_CARD_SIZE := Vector2(188, 112)
 const AIVersionRegistryScript = preload("res://scripts/ai/AIVersionRegistry.gd")
+const AIFixedDeckOrderRegistryScript = preload("res://scripts/ai/AIFixedDeckOrderRegistry.gd")
 
 ## 卡组列表，与 OptionButton index 对应
 var _deck_list: Array = []
+var _ai_deck_list: Array = []
 var _battle_backgrounds: Array[String] = []
 var _background_cards: Array[PanelContainer] = []
 var _selected_background_path: String = DEFAULT_BACKGROUND
 var _battle_music_tracks: Array[Dictionary] = []
 var _selected_battle_music_id: String = "none"
-var _selected_battle_music_volume_percent: int = 70
+var _selected_battle_music_volume_percent: int = 20
 var _ai_version_registry: RefCounted = AIVersionRegistryScript.new()
+var _ai_fixed_deck_order_registry: RefCounted = AIFixedDeckOrderRegistryScript.new()
 var _playable_ai_versions: Array[Dictionary] = []
+var _deck_view_dialog: RefCounted = DeckViewDialogScript.new()
 
 
 func _ready() -> void:
 	%ModeOption.clear()
-	%ModeOption.add_item("自我练习", 0)
+	%ModeOption.add_item("自己练牌", 0)
 	%ModeOption.add_item("AI 对战", 1)
 	%ModeOption.item_selected.connect(_on_mode_changed)
 
@@ -47,6 +50,7 @@ func _ready() -> void:
 	%AISourceOption.visible = false
 	%AIVersionLabel.visible = false
 	%AIVersionOption.visible = false
+	_setup_ai_preview_strength_options()
 
 	_setup_first_player_options()
 	_setup_background_gallery()
@@ -54,11 +58,16 @@ func _ready() -> void:
 
 	%BtnStart.pressed.connect(_on_start)
 	%BtnBack.pressed.connect(_on_back)
+	%Deck1ViewButton.pressed.connect(_on_deck_view_pressed.bind(0))
+	%Deck1EditButton.pressed.connect(_on_deck_edit_pressed.bind(0))
+	%Deck2ViewButton.pressed.connect(_on_deck_view_pressed.bind(1))
+	%Deck2EditButton.pressed.connect(_on_deck_edit_pressed.bind(1))
 	if not %BtnPreviewBgm.pressed.is_connected(_on_bgm_preview_pressed):
 		%BtnPreviewBgm.pressed.connect(_on_bgm_preview_pressed)
 
 	_refresh_deck_options()
 	_load_settings()
+	_restore_returned_setup_context()
 	_refresh_ai_ui_visibility()
 
 
@@ -71,7 +80,18 @@ func _refresh_ai_ui_visibility() -> void:
 	var is_ai: bool = %ModeOption.selected == 1
 	%AIStrategyLabel.visible = false
 	%AIStrategyOption.visible = false
-	%Deck2Label.text = "AI 卡组:" if is_ai else "玩家2 卡组:"
+	%Deck2Label.text = "AI 卡组" if is_ai else "玩家2 卡组"
+	%AIPreviewStrengthOption.visible = is_ai
+	%AIPreviewStrengthOption.disabled = not is_ai
+	%Deck2EditButton.visible = not is_ai
+	_refresh_deck_action_buttons()
+
+
+func _setup_ai_preview_strength_options() -> void:
+	%AIPreviewStrengthOption.clear()
+	%AIPreviewStrengthOption.add_item("弱", AI_PREVIEW_STRENGTH_WEAK)
+	%AIPreviewStrengthOption.add_item("强", AI_PREVIEW_STRENGTH_STRONG)
+	%AIPreviewStrengthOption.select(AI_PREVIEW_STRENGTH_WEAK)
 
 
 func _setup_first_player_options() -> void:
@@ -205,7 +225,20 @@ func _build_ai_selection(source: String, version_record: Dictionary = {}) -> Dic
 		"value_net_path": str(version_record.get("value_net_path", "")),
 		"action_scorer_path": str(version_record.get("action_scorer_path", "")),
 		"display_name": str(version_record.get("display_name", "")),
+		"opening_mode": "default",
+		"fixed_deck_order_path": "",
 	}
+
+
+func _resolve_ai_opening_selection(deck: DeckData) -> Dictionary:
+	if not _is_ai_mode() or %AIPreviewStrengthOption.selected != AI_PREVIEW_STRENGTH_STRONG:
+		return {"opening_mode": "default", "fixed_deck_order_path": ""}
+	if deck == null or _ai_fixed_deck_order_registry == null:
+		return {"opening_mode": "default", "fixed_deck_order_path": ""}
+	var fixed_order_path := str(_ai_fixed_deck_order_registry.call("get_fixed_order_path", int(deck.id)))
+	if fixed_order_path == "":
+		return {"opening_mode": "default", "fixed_deck_order_path": ""}
+	return {"opening_mode": "fixed_order", "fixed_deck_order_path": fixed_order_path}
 
 
 func _setup_background_gallery() -> void:
@@ -397,12 +430,14 @@ func _refresh_deck_options() -> void:
 	var selected_deck1 := _selected_deck_for_slot(0)
 	var selected_deck2 := _selected_deck_for_slot(1)
 	_deck_list = CardDatabase.get_all_decks()
+	_ai_deck_list = CardDatabase.get_all_ai_decks()
 	%Deck1Option.clear()
 	%Deck2Option.clear()
 
-	if _deck_list.size() < 2:
+	if _deck_list.size() < 1 or (_is_ai_mode() and _ai_deck_list.is_empty()) or (not _is_ai_mode() and _deck_list.size() < 2):
 		%NoDeckWarning.visible = true
 		%BtnStart.disabled = true
+		_refresh_deck_action_buttons()
 		return
 
 	%NoDeckWarning.visible = false
@@ -411,12 +446,17 @@ func _refresh_deck_options() -> void:
 	for deck: DeckData in _deck_list:
 		var label := "%s (%d张)" % [deck.deck_name, deck.total_cards]
 		%Deck1Option.add_item(label)
-		if not _is_ai_mode() or _is_deck_allowed_for_ai(deck):
-			%Deck2Option.add_item(label)
+	if _is_ai_mode():
+		for ai_deck: DeckData in _ai_deck_list:
+			%Deck2Option.add_item("%s (%d张)" % [ai_deck.deck_name, ai_deck.total_cards])
+	else:
+		for deck: DeckData in _deck_list:
+			%Deck2Option.add_item("%s (%d张)" % [deck.deck_name, deck.total_cards])
 
 	_select_option_for_deck_id(%Deck1Option, selected_deck1.id if selected_deck1 != null else DEFAULT_DECK1_ID)
 	var default_deck2_id := MIRAIDON_DECK_ID if _is_ai_mode() else DEFAULT_DECK2_ID
 	_select_option_for_deck_id(%Deck2Option, selected_deck2.id if selected_deck2 != null else default_deck2_id)
+	_refresh_deck_action_buttons()
 
 
 func _selected_deck_for_slot(slot_index: int) -> DeckData:
@@ -425,7 +465,8 @@ func _selected_deck_for_slot(slot_index: int) -> DeckData:
 	if selected_index < 0 or selected_index >= option.item_count:
 		return null
 	var selected_text := option.get_item_text(selected_index)
-	for deck: DeckData in _deck_list:
+	var source_list: Array = _deck_list if slot_index == 0 or not _is_ai_mode() else _ai_deck_list
+	for deck: DeckData in source_list:
 		if selected_text == deck.deck_name or selected_text.begins_with(deck.deck_name):
 			return deck
 	return null
@@ -435,16 +476,15 @@ func _is_ai_mode() -> bool:
 	return %ModeOption.selected == 1
 
 
-func _is_deck_allowed_for_ai(deck: DeckData) -> bool:
-	return deck != null and deck.id in AI_ALLOWED_DECK_IDS
-
-
 func _select_option_for_deck_id(option: OptionButton, deck_id: int) -> void:
 	if option == null or option.item_count <= 0:
 		return
+	var source_list: Array = _deck_list
+	if option == %Deck2Option and _is_ai_mode():
+		source_list = _ai_deck_list
 	for i: int in option.item_count:
 		var label := option.get_item_text(i)
-		for deck: DeckData in _deck_list:
+		for deck: DeckData in source_list:
 			if deck.id == deck_id and (label == deck.deck_name or label.begins_with(deck.deck_name)):
 				option.select(i)
 				return
@@ -478,10 +518,7 @@ func _apply_setup_selection() -> bool:
 	GameManager.selected_deck_ids = [deck1.id, deck2.id]
 	GameManager.first_player_choice = _first_player_choice_from_option_index(%FirstPlayerOption.selected)
 	GameManager.selected_battle_background = _selected_background_path if _selected_background_path != "" else DEFAULT_BACKGROUND
-	_sync_selected_battle_music_from_option()
-	_selected_battle_music_volume_percent = clampi(int(round(%BgmVolumeSlider.value)), 0, 100)
-	GameManager.selected_battle_music_id = _selected_battle_music_id
-	GameManager.battle_bgm_volume_percent = _selected_battle_music_volume_percent
+	_sync_battle_music_preferences_from_ui()
 
 	var ai_source := _ai_source_from_option_index(%AISourceOption.selected)
 	var ai_version: Dictionary = {}
@@ -493,6 +530,10 @@ func _apply_setup_selection() -> bool:
 	if ai_source != "default" and ai_version.is_empty():
 		ai_source = "default"
 	GameManager.ai_selection = _build_ai_selection(ai_source, ai_version)
+	var ai_opening_selection := _resolve_ai_opening_selection(_selected_deck_for_slot(1))
+	for key_variant: Variant in ai_opening_selection.keys():
+		var key := str(key_variant)
+		GameManager.ai_selection[key] = ai_opening_selection[key]
 	return true
 
 
@@ -504,6 +545,8 @@ func _on_start() -> void:
 
 
 func _on_back() -> void:
+	_sync_battle_music_preferences_from_ui()
+	_save_settings()
 	BattleMusicManager.stop_battle_music()
 	GameManager.goto_main_menu()
 
@@ -513,6 +556,7 @@ func _exit_tree() -> void:
 
 
 func _save_settings() -> void:
+	_sync_battle_music_preferences_from_ui()
 	var deck1 := _selected_deck_for_slot(0)
 	var deck2 := _selected_deck_for_slot(1)
 	var data := {
@@ -523,11 +567,19 @@ func _save_settings() -> void:
 		"battle_music_id": _selected_battle_music_id,
 		"battle_bgm_volume_percent": _selected_battle_music_volume_percent,
 		"mode": %ModeOption.selected,
+		"ai_preview_strength_index": %AIPreviewStrengthOption.selected,
 	}
 	var file := FileAccess.open(SETTINGS_PATH, FileAccess.WRITE)
 	if file != null:
 		file.store_string(JSON.stringify(data, "\t"))
 		file.close()
+
+
+func _sync_battle_music_preferences_from_ui() -> void:
+	_sync_selected_battle_music_from_option()
+	_selected_battle_music_volume_percent = clampi(int(round(%BgmVolumeSlider.value)), 0, 100)
+	GameManager.selected_battle_music_id = _selected_battle_music_id
+	GameManager.battle_bgm_volume_percent = _selected_battle_music_volume_percent
 
 
 func _load_settings() -> void:
@@ -552,6 +604,9 @@ func _load_settings() -> void:
 	_refresh_deck_options()
 	_select_option_for_deck_id(%Deck1Option, deck1_id)
 	_select_option_for_deck_id(%Deck2Option, deck2_id)
+	var ai_preview_strength_index: int = int(data.get("ai_preview_strength_index", AI_PREVIEW_STRENGTH_WEAK))
+	if ai_preview_strength_index >= 0 and ai_preview_strength_index < %AIPreviewStrengthOption.item_count:
+		%AIPreviewStrengthOption.select(ai_preview_strength_index)
 
 	var fp_choice: int = int(data.get("first_player_choice", FIRST_PLAYER_RANDOM))
 	%FirstPlayerOption.select(_first_player_option_index_from_choice(fp_choice))
@@ -582,6 +637,7 @@ func _capture_setup_selection_context() -> Dictionary:
 		"mode": %ModeOption.selected,
 		"ai_source_index": %AISourceOption.selected,
 		"ai_version_index": %AIVersionOption.selected,
+		"ai_preview_strength_index": %AIPreviewStrengthOption.selected,
 	}
 
 
@@ -609,8 +665,64 @@ func _apply_setup_context(context: Dictionary) -> void:
 	var ai_version_index := int(context.get("ai_version_index", %AIVersionOption.selected))
 	if ai_version_index >= 0 and ai_version_index < %AIVersionOption.item_count:
 		%AIVersionOption.select(ai_version_index)
+	var ai_preview_strength_index := int(context.get("ai_preview_strength_index", %AIPreviewStrengthOption.selected))
+	if ai_preview_strength_index >= 0 and ai_preview_strength_index < %AIPreviewStrengthOption.item_count:
+		%AIPreviewStrengthOption.select(ai_preview_strength_index)
 
 	_refresh_ai_ui_visibility()
+
+
+func _restore_returned_setup_context() -> void:
+	var context: Dictionary = GameManager.consume_deck_editor_return_context()
+	if str(context.get("return_scene", "")) != "battle_setup":
+		return
+	_apply_setup_context(context)
+
+
+func _refresh_deck_action_buttons() -> void:
+	%Deck1ViewButton.disabled = _selected_deck_for_slot(0) == null
+	%Deck1EditButton.disabled = _selected_deck_for_slot(0) == null
+	%Deck2ViewButton.disabled = _selected_deck_for_slot(1) == null
+	%Deck2EditButton.disabled = _is_ai_mode() or _selected_deck_for_slot(1) == null
+
+
+func _on_deck_view_pressed(slot_index: int) -> void:
+	var deck := _selected_deck_for_slot(slot_index)
+	if deck == null:
+		return
+	if _is_ai_mode() and slot_index == 1 and %AIPreviewStrengthOption.selected == AI_PREVIEW_STRENGTH_STRONG:
+		_show_strong_ai_preview_placeholder()
+		return
+	_deck_view_dialog.call("show_deck", self, deck)
+
+
+func _show_strong_ai_preview_placeholder() -> void:
+	var dialog := AcceptDialog.new()
+	dialog.title = "强 AI 占位"
+	dialog.dialog_text = "hello world"
+	add_child(dialog)
+	dialog.confirmed.connect(func() -> void:
+		dialog.queue_free()
+	)
+	dialog.canceled.connect(func() -> void:
+		dialog.queue_free()
+	)
+	dialog.close_requested.connect(func() -> void:
+		dialog.queue_free()
+	)
+	if is_inside_tree():
+		dialog.popup_centered()
+
+
+func _on_deck_edit_pressed(slot_index: int) -> void:
+	if _is_ai_mode() and slot_index == 1:
+		return
+	var deck := _selected_deck_for_slot(slot_index)
+	if deck == null:
+		return
+	var context := _capture_setup_selection_context()
+	context["return_scene"] = "battle_setup"
+	GameManager.goto_deck_editor(deck.id, context)
 
 
 func _apply_default_deck_selection() -> void:

@@ -32,7 +32,7 @@ func get_interaction_steps(card: CardInstance, state: GameState) -> Array[Dictio
 		"allow_cancel": true,
 	}]
 
-	if player.active_pokemon != null and player.active_pokemon in targets and not player.bench.is_empty():
+	if _is_live_slot(player.active_pokemon) and player.active_pokemon in targets and not player.bench.is_empty():
 		var replacement_items: Array = []
 		var replacement_labels: Array[String] = []
 		for slot: PokemonSlot in player.bench:
@@ -93,12 +93,16 @@ func get_description() -> String:
 
 func _get_valid_targets(player: PlayerState) -> Array[PokemonSlot]:
 	var targets: Array[PokemonSlot] = []
-	if player.active_pokemon != null and not player.bench.is_empty():
+	if _is_live_slot(player.active_pokemon) and not player.bench.is_empty():
 		targets.append(player.active_pokemon)
 	for slot: PokemonSlot in player.bench:
 		if slot != null and not slot.pokemon_stack.is_empty():
 			targets.append(slot)
 	return targets
+
+
+func _is_live_slot(slot: PokemonSlot) -> bool:
+	return slot != null and not slot.pokemon_stack.is_empty()
 
 
 func _build_slot_label(slot: PokemonSlot) -> String:

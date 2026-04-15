@@ -12,10 +12,12 @@ const NeuralNetInferenceScript = preload("res://scripts/ai/NeuralNetInference.gd
 const StateEncoderScript = preload("res://scripts/ai/StateEncoder.gd")
 const AIActionScorerScript = preload("res://scripts/ai/AIActionScorer.gd")
 const AIInteractionScorerScript = preload("res://scripts/ai/AIInteractionScorer.gd")
+const AIInteractionFeatureEncoderScript = preload("res://scripts/ai/AIInteractionFeatureEncoder.gd")
+const AIHandoffScoringScript = preload("res://scripts/ai/AIHandoffScoring.gd")
 const AutoloadResolverScript = preload("res://scripts/engine/AutoloadResolver.gd")
-const DeckStrategyGardevoirScript = preload("res://scripts/ai/DeckStrategyGardevoir.gd")
-const DeckStrategyMiraidonScript = preload("res://scripts/ai/DeckStrategyMiraidon.gd")
 const DeckStrategyRegistryScript = preload("res://scripts/ai/DeckStrategyRegistry.gd")
+const _GARDEVOIR_STRATEGY_SCRIPT_PATH := "res://scripts/ai/DeckStrategyGardevoir.gd"
+const _MIRAIDON_STRATEGY_SCRIPT_PATH := "res://scripts/ai/DeckStrategyMiraidon.gd"
 
 const ACTION_SCORER_SUPPORTED_KINDS := {
 	"play_trainer": true,
@@ -44,6 +46,7 @@ var _legal_action_builder = AILegalActionBuilderScript.new()
 var _feature_extractor = AIFeatureExtractorScript.new()
 var _step_resolver = AIStepResolverScript.new()
 var _heuristics = AIHeuristicsScript.new()
+var _interaction_feature_encoder = AIInteractionFeatureEncoderScript.new()
 var _planned_setup_bench_ids: Array[int] = []
 var _last_legal_actions: Array[Dictionary] = []
 var _last_decision_trace = null
@@ -211,7 +214,6 @@ func run_single_step(battle_scene: Control, gsm: GameStateMachine) -> bool:
 func _is_bridge_owned_prompt(pending_choice: String) -> bool:
 	return pending_choice == "mulligan_extra_draw" \
 		or pending_choice == "take_prize" \
-		or pending_choice == "send_out" \
 		or pending_choice.begins_with("setup_active_") \
 		or pending_choice.begins_with("setup_bench_")
 
@@ -282,6 +284,9 @@ func _request_followup_ai_step_if_ready(battle_scene: Control, gsm: GameStateMac
 	if gsm.game_state.current_player_index != player_index:
 		return
 	if gsm.game_state.phase == GameState.GamePhase.SETUP:
+		return
+	if bool(battle_scene.get("_ai_running")):
+		battle_scene.set("_ai_followup_requested", true)
 		return
 	if not bool(battle_scene.get("_ai_step_scheduled")):
 		battle_scene.set("_ai_step_scheduled", true)
@@ -634,7 +639,7 @@ func _execute_action(battle_scene: Control, gsm: GameStateMachine, action: Dicti
 				return true
 		"end_turn":
 			if battle_scene != null and battle_scene.has_method("_on_end_turn"):
-				battle_scene.call("_on_end_turn")
+				battle_scene.call("_on_end_turn", player_index)
 				return true
 			gsm.end_turn(player_index)
 			return true
@@ -643,7 +648,7 @@ func _execute_action(battle_scene: Control, gsm: GameStateMachine, action: Dicti
 
 func _after_successful_action(battle_scene: Control, check_handover: bool = false) -> void:
 	if battle_scene != null and battle_scene.has_method("_refresh_ui_after_successful_action"):
-		battle_scene.call("_refresh_ui_after_successful_action", check_handover)
+		battle_scene.call("_refresh_ui_after_successful_action", check_handover, player_index)
 
 
 func _run_take_prize_step(battle_scene: Control, gsm: GameStateMachine) -> bool:
@@ -687,16 +692,18 @@ func _run_send_out_step(battle_scene: Control, gsm: GameStateMachine) -> bool:
 	if bench_slots.is_empty():
 		bench_slots = gsm.game_state.players[send_out_player_index].bench.duplicate()
 	# 选最优后备宝可梦上前场：就绪攻击手 > 有能量的 > 其他
-	var best_slot: PokemonSlot = _pick_best_send_out(bench_slots, gsm)
+	var best_slot: PokemonSlot = _pick_best_handoff_target(bench_slots, gsm, "send_out")
 	if best_slot != null:
 		if gsm.send_out_pokemon(send_out_player_index, best_slot):
 			if str(battle_scene.get("_pending_choice")) == "send_out":
 				_clear_consumed_prompt(battle_scene)
-			var game_manager = AutoloadResolverScript.get_game_manager()
+			var game_manager = null
+			if battle_scene.is_inside_tree():
+				game_manager = AutoloadResolverScript.get_game_manager()
 			if game_manager != null and game_manager.current_mode != game_manager.GameMode.VS_AI:
 				battle_scene.set("_view_player", gsm.game_state.current_player_index)
 			if battle_scene.has_method("_refresh_ui_after_successful_action"):
-				battle_scene.call("_refresh_ui_after_successful_action", true)
+				battle_scene.call("_refresh_ui_after_successful_action", true, player_index)
 			elif battle_scene.has_method("_refresh_ui"):
 				battle_scene.call("_refresh_ui")
 			return true
@@ -706,7 +713,7 @@ func _run_send_out_step(battle_scene: Control, gsm: GameStateMachine) -> bool:
 			if str(battle_scene.get("_pending_choice")) == "send_out":
 				_clear_consumed_prompt(battle_scene)
 			if battle_scene.has_method("_refresh_ui_after_successful_action"):
-				battle_scene.call("_refresh_ui_after_successful_action", true)
+				battle_scene.call("_refresh_ui_after_successful_action", true, player_index)
 			return true
 	return false
 
@@ -725,14 +732,14 @@ func _run_heavy_baton_step(battle_scene: Control, gsm: GameStateMachine) -> bool
 			bench_slots.append(slot_variant)
 	if bench_slots.is_empty():
 		return false
-	var best_slot: PokemonSlot = _pick_best_send_out(bench_slots, gsm)
+	var best_slot: PokemonSlot = _pick_best_handoff_target(bench_slots, gsm, "heavy_baton_target")
 	if best_slot == null:
 		best_slot = bench_slots[0]
 	if str(battle_scene.get("_pending_choice")) == "heavy_baton_target":
 		_clear_consumed_prompt(battle_scene)
 	if gsm.resolve_heavy_baton_choice(player_index_hb, best_slot):
 		if battle_scene.has_method("_refresh_ui_after_successful_action"):
-			battle_scene.call("_refresh_ui_after_successful_action")
+			battle_scene.call("_refresh_ui_after_successful_action", false, player_index)
 		elif battle_scene.has_method("_refresh_ui"):
 			battle_scene.call("_refresh_ui")
 		return true
@@ -740,6 +747,7 @@ func _run_heavy_baton_step(battle_scene: Control, gsm: GameStateMachine) -> bool
 
 
 func _pick_best_send_out(bench_slots: Array[PokemonSlot], gsm: GameStateMachine) -> PokemonSlot:
+	return _pick_best_handoff_target(bench_slots, gsm, "send_out")
 	## 选最优宝可梦上前场：有攻击力的攻击手 > 有能量的 > 引擎 > 辅助
 	var best: PokemonSlot = null
 	var best_score: float = -1.0
@@ -773,6 +781,93 @@ func _pick_best_send_out(bench_slots: Array[PokemonSlot], gsm: GameStateMachine)
 			best_score = score
 			best = slot
 	return best
+
+
+func _pick_best_handoff_target(bench_slots: Array[PokemonSlot], gsm: GameStateMachine, step_id: String) -> PokemonSlot:
+	var best: PokemonSlot = null
+	var best_score: float = -INF
+	var scored_candidates: Array[Dictionary] = []
+	var has_handoff_signal: bool = false
+	var handoff_step := {
+		"id": step_id,
+		"use_slot_selection_ui": true,
+	}
+	var handoff_context := {
+		"game_state": gsm.game_state if gsm != null else null,
+		"player_index": player_index,
+		"all_items": bench_slots,
+	}
+	var state_features: Array = _encode_state_features(gsm.game_state if gsm != null else null)
+	for slot: PokemonSlot in bench_slots:
+		if slot == null or slot.get_top_card() == null:
+			continue
+		var strategy_score: float = AIHandoffScoringScript.score_strategy_target(
+			_deck_strategy,
+			slot,
+			handoff_step,
+			handoff_context
+		)
+		var learned_score: float = _score_interaction_with_interaction_scorer(slot, handoff_step, handoff_context, state_features, strategy_score)
+		var fallback_score: float = _pick_best_handoff_fallback_score(slot, step_id)
+		if absf(strategy_score) > 0.001 or absf(learned_score) > 0.001:
+			has_handoff_signal = true
+		scored_candidates.append({
+			"slot": slot,
+			"strategy_score": strategy_score,
+			"learned_score": learned_score,
+			"fallback_score": fallback_score,
+		})
+	for entry: Dictionary in scored_candidates:
+		var score: float = float(entry.get("strategy_score", 0.0)) + float(entry.get("learned_score", 0.0)) if has_handoff_signal else float(entry.get("fallback_score", 0.0))
+		var slot: PokemonSlot = entry.get("slot", null)
+		if slot != null and score > best_score:
+			best_score = score
+			best = slot
+	return best
+
+
+func _pick_best_send_out_with_strategy(bench_slots: Array[PokemonSlot], gsm: GameStateMachine) -> PokemonSlot:
+	return _pick_best_handoff_target(bench_slots, gsm, "send_out")
+
+
+func _pick_best_handoff_fallback_score(slot: PokemonSlot, _step_id: String) -> float:
+	var score: float = 0.0
+	if _deck_strategy != null and _deck_strategy.has_method("predict_attacker_damage"):
+		var pred: Dictionary = _deck_strategy.predict_attacker_damage(slot)
+		var dmg: int = int(pred.get("damage", 0))
+		var can_atk: bool = bool(pred.get("can_attack", false))
+		if dmg > 0 and can_atk:
+			score = 500.0 + float(dmg)
+		elif slot.attached_energy.size() >= 1:
+			score = 200.0 + float(slot.attached_energy.size()) * 20.0
+	elif slot.attached_energy.size() >= 1:
+		score = 200.0 + float(slot.attached_energy.size()) * 20.0
+	if score > 0.0:
+		return score
+	var cd: CardData = slot.get_card_data()
+	if cd != null and (cd.mechanic == "ex" or cd.mechanic == "V"):
+		return 10.0
+	return 50.0
+
+
+func _pick_best_send_out_fallback_score(slot: PokemonSlot) -> float:
+	return _pick_best_handoff_fallback_score(slot, "send_out")
+
+
+func _score_interaction_with_interaction_scorer(
+	item: Variant,
+	step: Dictionary,
+	context: Dictionary,
+	state_features: Array,
+	strategy_score: float
+) -> float:
+	_ensure_interaction_scorer_loaded()
+	if _interaction_scorer == null or not _interaction_scorer.has_method("score_delta"):
+		return 0.0
+	var feature_context: Dictionary = context.duplicate(true)
+	feature_context["strategy_score"] = strategy_score
+	var interaction_vector: Array[float] = _interaction_feature_encoder.build_vector(item, step, feature_context)
+	return float(_interaction_scorer.call("score_delta", state_features, interaction_vector))
 
 
 func _clear_consumed_prompt(battle_scene: Control) -> void:
@@ -1116,7 +1211,7 @@ func _detect_and_load_deck_strategy(player: PlayerState) -> void:
 					has_gardevoir_sig = true
 					break
 	if has_gardevoir_sig:
-		_deck_strategy = DeckStrategyGardevoirScript.new()
+		_deck_strategy = _instantiate_strategy_from_path(_GARDEVOIR_STRATEGY_SCRIPT_PATH)
 		return
 	# 检查密勒顿卡组签名卡
 	var has_miraidon_sig: bool = false
@@ -1134,7 +1229,14 @@ func _detect_and_load_deck_strategy(player: PlayerState) -> void:
 					has_miraidon_sig = true
 					break
 	if has_miraidon_sig:
-		_deck_strategy = DeckStrategyMiraidonScript.new()
+		_deck_strategy = _instantiate_strategy_from_path(_MIRAIDON_STRATEGY_SCRIPT_PATH)
 	# 同步策略到 step_resolver，指导交互选择（搜索目标、贴能目标等）
 	if _deck_strategy != null:
 		_step_resolver.deck_strategy = _deck_strategy
+
+
+func _instantiate_strategy_from_path(script_path: String) -> RefCounted:
+	var script: Variant = load(script_path)
+	if script is GDScript:
+		return (script as GDScript).new()
+	return null

@@ -1,8 +1,8 @@
 class_name AIHeuristics
 extends RefCounted
 
-const DeckStrategyGardevoirScript = preload("res://scripts/ai/DeckStrategyGardevoir.gd")
-const DeckStrategyMiraidonScript = preload("res://scripts/ai/DeckStrategyMiraidon.gd")
+const _GARDEVOIR_STRATEGY_SCRIPT_PATH := "res://scripts/ai/DeckStrategyGardevoir.gd"
+const _MIRAIDON_STRATEGY_SCRIPT_PATH := "res://scripts/ai/DeckStrategyMiraidon.gd"
 
 # 卡组家族签名卡名称（用于轻量卡组检测）
 const _MIRAIDON_SIGNATURES: Array[String] = ["Miraidon ex", "密勒顿ex"]
@@ -341,14 +341,14 @@ func _has_any_signature(names: Array[String], signatures: Array[String]) -> bool
 func _miraidon_bias(action: Dictionary, context: Dictionary, _features: Dictionary) -> float:
 	## Miraidon 卡组：委托给 DeckStrategyMiraidon 进行深度策略评分
 	if _miraidon_strategy == null:
-		_miraidon_strategy = DeckStrategyMiraidonScript.new()
+		_miraidon_strategy = _instantiate_strategy_from_path(_MIRAIDON_STRATEGY_SCRIPT_PATH)
 	return _miraidon_strategy.score_action(action, context)
 
 
 func _gardevoir_bias(action: Dictionary, context: Dictionary, _features: Dictionary) -> float:
 	## Gardevoir 卡组：委托给 DeckStrategyGardevoir 进行深度策略评分
 	if _gardevoir_strategy == null:
-		_gardevoir_strategy = DeckStrategyGardevoirScript.new()
+		_gardevoir_strategy = _instantiate_strategy_from_path(_GARDEVOIR_STRATEGY_SCRIPT_PATH)
 	return _gardevoir_strategy.score_action(action, context)
 
 
@@ -373,3 +373,10 @@ func _has_ability_named(card_data: CardData, ability_name: String) -> bool:
 		if str(ability.get("name", "")) == ability_name:
 			return true
 	return false
+
+
+func _instantiate_strategy_from_path(script_path: String) -> RefCounted:
+	var script: Variant = load(script_path)
+	if script is GDScript:
+		return (script as GDScript).new()
+	return null

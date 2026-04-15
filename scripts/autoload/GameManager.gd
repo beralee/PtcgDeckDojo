@@ -21,6 +21,8 @@ var ai_selection: Dictionary = {
 	"action_scorer_path": "",
 	"interaction_scorer_path": "",
 	"display_name": "",
+	"opening_mode": "default",
+	"fixed_deck_order_path": "",
 }
 ## AI 卡组策略 ("generic" | "gardevoir_greedy" | "gardevoir_mcts" | "miraidon_greedy" | "miraidon_mcts")
 var ai_deck_strategy: String = "generic"
@@ -29,7 +31,7 @@ var first_player_choice: int = -1
 ## 对战背景资源路径
 var selected_battle_background: String = "res://assets/ui/background.png"
 var selected_battle_music_id: String = "none"
-var battle_bgm_volume_percent: int = 70
+var battle_bgm_volume_percent: int = 20
 
 ## 当前游戏状态（对战中有效）
 var game_state: GameState = null
@@ -43,10 +45,16 @@ const SCENE_DECK_EDITOR := "res://scenes/deck_editor/DeckEditor.tscn"
 const SCENE_REPLAY_BROWSER := "res://scenes/replay_browser/ReplayBrowser.tscn"
 const SCENE_SETTINGS := "res://scenes/settings/Settings.tscn"
 const BATTLE_REVIEW_API_CONFIG_PATH := "user://battle_review_api.json"
+const BATTLE_SETUP_SETTINGS_PATH := "user://battle_setup.json"
+const DEFAULT_BATTLE_BGM_VOLUME_PERCENT := 20
 
 var _battle_replay_launch: Dictionary = {}
 var _deck_editor_deck_id: int = -1
 var _deck_editor_return_context: Dictionary = {}
+
+
+func _ready() -> void:
+	load_battle_setup_preferences()
 
 
 ## 切换到指定场景
@@ -79,6 +87,17 @@ func goto_battle() -> void:
 	goto_scene(SCENE_BATTLE)
 
 
+func resolve_selected_battle_deck(player_index: int) -> DeckData:
+	if player_index < 0 or player_index >= selected_deck_ids.size():
+		return null
+	var deck_id := int(selected_deck_ids[player_index])
+	if current_mode == GameMode.VS_AI and player_index == 1:
+		var ai_deck: DeckData = CardDatabase.get_ai_deck(deck_id)
+		if ai_deck != null:
+			return ai_deck
+	return CardDatabase.get_deck(deck_id)
+
+
 func goto_deck_editor(deck_id: int, return_context: Dictionary = {}) -> void:
 	_deck_editor_deck_id = deck_id
 	_deck_editor_return_context = return_context.duplicate(true)
@@ -107,6 +126,24 @@ func goto_replay_browser() -> void:
 
 func goto_settings() -> void:
 	goto_scene(SCENE_SETTINGS)
+
+
+func load_battle_setup_preferences() -> void:
+	selected_battle_music_id = "none"
+	battle_bgm_volume_percent = DEFAULT_BATTLE_BGM_VOLUME_PERCENT
+	if not FileAccess.file_exists(BATTLE_SETUP_SETTINGS_PATH):
+		return
+	var file := FileAccess.open(BATTLE_SETUP_SETTINGS_PATH, FileAccess.READ)
+	if file == null:
+		return
+	var json := JSON.new()
+	if json.parse(file.get_as_text()) != OK:
+		return
+	var data: Variant = json.data
+	if not data is Dictionary:
+		return
+	selected_battle_music_id = str(data.get("battle_music_id", selected_battle_music_id))
+	battle_bgm_volume_percent = clampi(int(data.get("battle_bgm_volume_percent", battle_bgm_volume_percent)), 0, 100)
 
 
 func set_battle_replay_launch(launch: Dictionary) -> void:
@@ -162,4 +199,6 @@ func reset_ai_selection() -> void:
 		"action_scorer_path": "",
 		"interaction_scorer_path": "",
 		"display_name": "",
+		"opening_mode": "default",
+		"fixed_deck_order_path": "",
 	}

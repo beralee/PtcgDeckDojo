@@ -41,6 +41,7 @@ var _pending_prize_knocked_out_player_index: int = -1
 var _pending_prize_knockout_is_active: bool = false
 var _pending_prize_resume_mode: String = ""
 var _pending_prize_resume_player_index: int = -1
+var _deck_order_overrides: Dictionary = {}
 
 const MAX_SETUP_MULLIGAN_LOOPS: int = 64
 
@@ -146,7 +147,57 @@ func _build_deck(player_index: int, deck_data: DeckData) -> void:
 		effect_processor.register_pokemon_card(card_data)
 		for _i: int in count:
 			player.deck.append(CardInstance.create(card_data, player_index))
-	player.shuffle_deck()
+	if not _apply_deck_order_override(player_index):
+		player.shuffle_deck()
+
+
+func set_deck_order_override(player_index: int, top_to_bottom: Array[Dictionary]) -> void:
+	if player_index < 0:
+		return
+	_deck_order_overrides[player_index] = top_to_bottom.duplicate(true)
+
+
+func clear_deck_order_override(player_index: int = -1) -> void:
+	if player_index < 0:
+		_deck_order_overrides.clear()
+		return
+	_deck_order_overrides.erase(player_index)
+
+
+func _apply_deck_order_override(player_index: int) -> bool:
+	if not _deck_order_overrides.has(player_index):
+		return false
+	var override_variant: Variant = _deck_order_overrides.get(player_index, [])
+	if not override_variant is Array:
+		return false
+	var override_entries: Array = override_variant
+	if override_entries.is_empty():
+		return false
+	var player: PlayerState = game_state.players[player_index]
+	var remaining: Array[CardInstance] = player.deck.duplicate()
+	var ordered: Array[CardInstance] = []
+	for entry_variant: Variant in override_entries:
+		if not entry_variant is Dictionary:
+			continue
+		var entry: Dictionary = entry_variant
+		var set_code := str(entry.get("set_code", ""))
+		var card_index := str(entry.get("card_index", ""))
+		if set_code == "" or card_index == "":
+			continue
+		var match_index := -1
+		for idx: int in remaining.size():
+			var candidate: CardInstance = remaining[idx]
+			if candidate == null or candidate.card_data == null:
+				continue
+			if str(candidate.card_data.set_code) == set_code and str(candidate.card_data.card_index) == card_index:
+				match_index = idx
+				break
+		if match_index >= 0:
+			ordered.append(remaining[match_index])
+			remaining.remove_at(match_index)
+	player.deck = ordered
+	player.deck.append_array(remaining)
+	return not ordered.is_empty()
 
 
 # ===================== 准备阶段 =====================
@@ -1377,6 +1428,8 @@ func use_granted_attack(
 	if game_state.phase != GameState.GamePhase.MAIN:
 		return false
 	if attacker == null or attacker.get_top_card() == null:
+		return false
+	if attacker.is_knocked_out():
 		return false
 	if attacker != game_state.players[player_index].active_pokemon:
 		return false

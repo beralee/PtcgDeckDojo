@@ -96,7 +96,6 @@ func get_pending_prompt_owner() -> int:
 func can_resolve_pending_prompt() -> bool:
 	return _pending_choice == "mulligan_extra_draw" \
 		or _pending_choice == "take_prize" \
-		or _pending_choice == "send_out" \
 		or _pending_choice.begins_with("setup_active_") \
 		or _pending_choice.begins_with("setup_bench_")
 
@@ -118,8 +117,6 @@ func resolve_pending_prompt() -> bool:
 			resolved = _resolve_mulligan_extra_draw(dialog_data)
 		"take_prize":
 			resolved = _resolve_take_prize(dialog_data)
-		"send_out":
-			resolved = _resolve_send_out(dialog_data)
 		_ when pending_choice.begins_with("setup_active_"):
 			resolved = _resolve_setup_active(dialog_data)
 		_ when pending_choice.begins_with("setup_bench_"):
@@ -208,7 +205,7 @@ func _after_setup_bench(pi: int) -> void:
 		_gsm.setup_complete(0)
 
 
-func _refresh_ui_after_successful_action(_check_handover: bool = false) -> void:
+func _refresh_ui_after_successful_action(_check_handover: bool = false, _action_player_index: int = -1) -> void:
 	pass
 
 
@@ -223,13 +220,31 @@ func _maybe_run_ai() -> void:
 func _try_play_to_bench(player_index: int, basic_card: CardInstance, _source: String = "") -> bool:
 	if _gsm == null:
 		return false
-	return _gsm.play_basic_to_bench(player_index, basic_card)
+	var gs: GameState = _gsm.game_state
+	if basic_card != null and basic_card.card_data != null:
+		_gsm.effect_processor.register_pokemon_card(basic_card.card_data)
+	var bench_effect: BaseEffect = _gsm.effect_processor.get_effect(basic_card.card_data.effect_id) if basic_card != null and basic_card.card_data != null else null
+	var bench_steps: Array[Dictionary] = []
+	if bench_effect is AbilityOnBenchEnter or bench_effect is AbilityBenchDamageOnPlay:
+		bench_steps = bench_effect.get_interaction_steps(basic_card, gs)
+	var auto_trigger_bench_ability: bool = bench_steps.is_empty()
+	if not _gsm.play_basic_to_bench(player_index, basic_card, auto_trigger_bench_ability):
+		return false
+	if not auto_trigger_bench_ability:
+		var player: PlayerState = _gsm.game_state.players[player_index]
+		var bench_slot: PokemonSlot = player.bench.back() if not player.bench.is_empty() else null
+		if bench_slot != null:
+			_start_effect_interaction("ability", player_index, bench_steps, bench_slot.get_top_card(), bench_slot, 0)
+	return true
 
 
-func _on_end_turn() -> void:
+func _on_end_turn(action_player_index: int = -1) -> void:
 	if _gsm == null or _gsm.game_state == null:
 		return
-	_gsm.end_turn(_gsm.game_state.current_player_index)
+	var resolved_player_index := action_player_index
+	if resolved_player_index < 0:
+		resolved_player_index = _gsm.game_state.current_player_index
+	_gsm.end_turn(resolved_player_index)
 
 
 ## ===== 效果交互：_try_*_with_interaction 方法 =====
@@ -893,7 +908,8 @@ func _resolve_take_prize(dialog_data: Dictionary) -> bool:
 	return false
 
 
-func _resolve_send_out(dialog_data: Dictionary) -> bool:
+func _deprecated_resolve_send_out_fallback(dialog_data: Dictionary) -> bool:
+	return false
 	if _gsm == null or _gsm.game_state == null:
 		return false
 	var send_out_player: int = int(dialog_data.get("player", -1))

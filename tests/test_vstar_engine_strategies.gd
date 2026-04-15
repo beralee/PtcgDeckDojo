@@ -394,6 +394,7 @@ func test_arceus_double_turbo_prefers_arceus_over_giratina() -> String:
 	return run_checks([
 		assert_true(arceus_score >= 450.0, "Arceus shell should aggressively open on Double Turbo to Arceus (got %f)" % arceus_score),
 		assert_true(arceus_score > giratina_score, "Double Turbo should go to Arceus before Giratina in the opening setup"),
+		assert_eq(giratina_score, 0.0, "Double Turbo should not be routed into Giratina in the opening setup"),
 	])
 
 
@@ -428,6 +429,183 @@ func test_arceus_search_for_first_arceus_outranks_off_plan_opening_attach() -> S
 	])
 
 
+func test_arceus_benching_hand_arceus_outranks_redundant_opening_search() -> String:
+	var strategy := _new_strategy(ARCEUS_SCRIPT_PATH)
+	if strategy == null:
+		return "DeckStrategyArceusGiratina.gd should exist before redundant opening search can be verified"
+	var gs := _make_game_state(2)
+	var player := gs.players[0]
+	var hand_arceus := CardInstance.create(_make_pokemon_cd("Arceus V", "Basic", "C", 220, "", "V"), 0)
+	var ultra_ball := CardInstance.create(_make_trainer_cd("Ultra Ball"), 0)
+	var nest_ball := CardInstance.create(_make_trainer_cd("Nest Ball"), 0)
+	player.active_pokemon = _make_slot(_make_pokemon_cd("Bidoof", "Basic", "C", 70), 0)
+	player.hand.append(hand_arceus)
+	player.hand.append(ultra_ball)
+	player.hand.append(nest_ball)
+	var bench_arceus_score: float = strategy.score_action_absolute(
+		{"kind": "play_basic_to_bench", "card": hand_arceus},
+		gs,
+		0
+	)
+	var ultra_ball_score: float = strategy.score_action_absolute(
+		{"kind": "play_trainer", "card": ultra_ball},
+		gs,
+		0
+	)
+	var nest_ball_score: float = strategy.score_action_absolute(
+		{"kind": "play_trainer", "card": nest_ball},
+		gs,
+		0
+	)
+	return run_checks([
+		assert_true(bench_arceus_score > ultra_ball_score, "If Arceus V is already in hand, directly benching it should outrank spending Ultra Ball to search another copy"),
+		assert_true(bench_arceus_score > nest_ball_score, "If Arceus V is already in hand, directly benching it should also outrank redundant Nest Ball opening search"),
+	])
+
+
+func test_arceus_opening_attach_to_active_pivot_stays_live_until_first_arceus_appears() -> String:
+	var strategy := _new_strategy(ARCEUS_SCRIPT_PATH)
+	if strategy == null:
+		return "DeckStrategyArceusGiratina.gd should exist before pivot fallback attachment can be verified"
+	var gs := _make_game_state(2)
+	var player := gs.players[0]
+	var active_pivot := _make_slot(_make_pokemon_cd("Bidoof", "Basic", "C", 70), 0)
+	player.active_pokemon = active_pivot
+	var dte_score: float = strategy.score_action_absolute(
+		{"kind": "attach_energy", "card": CardInstance.create(_make_energy_cd("Double Turbo Energy", "", "Special Energy"), 0), "target_slot": active_pivot},
+		gs,
+		0
+	)
+	var basic_score: float = strategy.score_action_absolute(
+		{"kind": "attach_energy", "card": CardInstance.create(_make_energy_cd("Grass Energy", "G"), 0), "target_slot": active_pivot},
+		gs,
+		0
+	)
+	return run_checks([
+		assert_true(dte_score > 0.0, "If Arceus is still missing, Double Turbo on an active 1-retreat pivot should stay live as a retreat-enabling fallback"),
+		assert_true(basic_score > 0.0, "If Arceus is still missing, a basic Energy on the active 1-retreat pivot should also stay live rather than auto-passing"),
+	])
+
+
+func test_arceus_search_for_first_arceus_still_outranks_pivot_fallback_attach() -> String:
+	var strategy := _new_strategy(ARCEUS_SCRIPT_PATH)
+	if strategy == null:
+		return "DeckStrategyArceusGiratina.gd should exist before pivot fallback ordering can be verified"
+	var gs := _make_game_state(2)
+	var player := gs.players[0]
+	var active_pivot := _make_slot(_make_pokemon_cd("Bidoof", "Basic", "C", 70), 0)
+	player.active_pokemon = active_pivot
+	var nest_ball_score: float = strategy.score_action_absolute(
+		{"kind": "play_trainer", "card": CardInstance.create(_make_trainer_cd("Nest Ball"), 0)},
+		gs,
+		0
+	)
+	var pivot_attach_score: float = strategy.score_action_absolute(
+		{"kind": "attach_energy", "card": CardInstance.create(_make_energy_cd("Double Turbo Energy", "", "Special Energy"), 0), "target_slot": active_pivot},
+		gs,
+		0
+	)
+	return assert_true(nest_ball_score > pivot_attach_score, "Finding the first Arceus should still outrank the pivot fallback attach in the opening")
+
+
+func test_arceus_opening_typed_attach_to_active_giratina_stays_live_but_double_turbo_is_dead() -> String:
+	var strategy := _new_strategy(ARCEUS_SCRIPT_PATH)
+	if strategy == null:
+		return "DeckStrategyArceusGiratina.gd should exist before active Giratina fallback attachment can be verified"
+	var gs := _make_game_state(2)
+	var player := gs.players[0]
+	var active_giratina := _make_slot(_make_pokemon_cd("Giratina V", "Basic", "P", 220, "", "V", [], [{"name": "Shred", "cost": "PCC", "damage": "160"}]), 0)
+	player.active_pokemon = active_giratina
+	var dte_score: float = strategy.score_action_absolute(
+		{"kind": "attach_energy", "card": CardInstance.create(_make_energy_cd("Double Turbo Energy", "", "Special Energy"), 0), "target_slot": active_giratina},
+		gs,
+		0
+	)
+	var grass_score: float = strategy.score_action_absolute(
+		{"kind": "attach_energy", "card": CardInstance.create(_make_energy_cd("Grass Energy", "G"), 0), "target_slot": active_giratina},
+		gs,
+		0
+	)
+	return run_checks([
+		assert_eq(dte_score, 0.0, "Double Turbo should stay off Giratina even in the opening fallback state"),
+		assert_true(grass_score > 0.0, "With active Giratina and no Arceus online yet, a typed Energy should also stay live as fallback progress"),
+	])
+
+
+func test_arceus_benches_hand_arceus_before_non_arceus_manual_attach() -> String:
+	var strategy := _new_strategy(ARCEUS_SCRIPT_PATH)
+	if strategy == null:
+		return "DeckStrategyArceusGiratina.gd should exist before hand-Arceus attachment ordering can be verified"
+	var gs := _make_game_state(2)
+	var player := gs.players[0]
+	var active_giratina := _make_slot(_make_pokemon_cd("Giratina V", "Basic", "P", 220, "", "V", [], [{"name": "Shred", "cost": "PCC", "damage": "160"}]), 0)
+	player.active_pokemon = active_giratina
+	var hand_arceus := CardInstance.create(_make_pokemon_cd("Arceus V", "Basic", "C", 220, "", "V"), 0)
+	player.hand.append(hand_arceus)
+	var bench_arceus_score: float = strategy.score_action_absolute(
+		{"kind": "play_basic_to_bench", "card": hand_arceus},
+		gs,
+		0
+	)
+	var giratina_dte_score: float = strategy.score_action_absolute(
+		{"kind": "attach_energy", "card": CardInstance.create(_make_energy_cd("Double Turbo Energy", "", "Special Energy"), 0), "target_slot": active_giratina},
+		gs,
+		0
+	)
+	var giratina_grass_score: float = strategy.score_action_absolute(
+		{"kind": "attach_energy", "card": CardInstance.create(_make_energy_cd("Grass Energy", "G"), 0), "target_slot": active_giratina},
+		gs,
+		0
+	)
+	return run_checks([
+		assert_true(bench_arceus_score > giratina_grass_score, "If Arceus is already in hand, benching it should outrank fallback energy onto Giratina"),
+		assert_eq(giratina_dte_score, 0.0, "If Arceus is already in hand, Double Turbo should not be spent on Giratina first"),
+	])
+
+
+func test_arceus_keeps_giratina_fallback_attach_live_when_hand_arceus_cannot_be_benched() -> String:
+	var strategy := _new_strategy(ARCEUS_SCRIPT_PATH)
+	if strategy == null:
+		return "DeckStrategyArceusGiratina.gd should exist before bench-full fallback attachment can be verified"
+	var gs := _make_game_state(2)
+	var player := gs.players[0]
+	var active_giratina := _make_slot(_make_pokemon_cd("Giratina V", "Basic", "P", 220, "", "V", [], [{"name": "Shred", "cost": "PCC", "damage": "160"}]), 0)
+	player.active_pokemon = active_giratina
+	player.bench.append(_make_slot(_make_pokemon_cd("Bidoof", "Basic", "C", 70), 0))
+	player.bench.append(_make_slot(_make_pokemon_cd("Skwovet", "Basic", "C", 70), 0))
+	player.bench.append(_make_slot(_make_pokemon_cd("Radiant Gardevoir", "Basic", "P", 130, "", "Radiant"), 0))
+	player.bench.append(_make_slot(_make_pokemon_cd("Giratina V", "Basic", "P", 220, "", "V"), 0))
+	player.bench.append(_make_slot(_make_pokemon_cd("Iron Leaves ex", "Basic", "G", 210, "", "ex"), 0))
+	player.hand.append(CardInstance.create(_make_pokemon_cd("Arceus V", "Basic", "C", 220, "", "V"), 0))
+	var giratina_grass_score: float = strategy.score_action_absolute(
+		{"kind": "attach_energy", "card": CardInstance.create(_make_energy_cd("Grass Energy", "G"), 0), "target_slot": active_giratina},
+		gs,
+		0
+	)
+	return assert_true(giratina_grass_score > 0.0, "If Arceus is stuck in hand because the bench is full, typed fallback energy on active Giratina should remain live")
+
+
+func test_arceus_search_for_first_arceus_still_outranks_active_giratina_fallback_attach() -> String:
+	var strategy := _new_strategy(ARCEUS_SCRIPT_PATH)
+	if strategy == null:
+		return "DeckStrategyArceusGiratina.gd should exist before active Giratina fallback ordering can be verified"
+	var gs := _make_game_state(2)
+	var player := gs.players[0]
+	var active_giratina := _make_slot(_make_pokemon_cd("Giratina V", "Basic", "P", 220, "", "V", [], [{"name": "Shred", "cost": "PCC", "damage": "160"}]), 0)
+	player.active_pokemon = active_giratina
+	var nest_ball_score: float = strategy.score_action_absolute(
+		{"kind": "play_trainer", "card": CardInstance.create(_make_trainer_cd("Nest Ball"), 0)},
+		gs,
+		0
+	)
+	var dte_score: float = strategy.score_action_absolute(
+		{"kind": "attach_energy", "card": CardInstance.create(_make_energy_cd("Double Turbo Energy", "", "Special Energy"), 0), "target_slot": active_giratina},
+		gs,
+		0
+	)
+	return assert_true(nest_ball_score > dte_score, "Finding the first Arceus should still outrank fallback energy on active Giratina")
+
+
 func test_arceus_assignment_prefers_giratina_for_grass_energy_after_arceus_online() -> String:
 	var strategy := _new_strategy(ARCEUS_SCRIPT_PATH)
 	if strategy == null:
@@ -447,6 +625,118 @@ func test_arceus_assignment_prefers_giratina_for_grass_energy_after_arceus_onlin
 		{"game_state": gs, "player_index": 0, "source_card": CardInstance.create(_make_energy_cd("Grass Energy", "G"), 0)}
 	)
 	return assert_eq(picked, "Giratina V", "After Arceus is online, extra typed energy should route into Giratina")
+
+
+func test_arceus_trinity_nova_source_selection_includes_psychic_and_avoids_all_grass() -> String:
+	var strategy := _new_strategy(ARCEUS_SCRIPT_PATH)
+	if strategy == null:
+		return "DeckStrategyArceusGiratina.gd should exist before Trinity Nova source selection can be verified"
+	var gs := _make_game_state(4)
+	var player := gs.players[0]
+	var active_arceus := _make_slot(_make_pokemon_cd("Arceus VSTAR", "VSTAR", "C", 280, "Arceus V", "V", [], [{"name": "Trinity Nova", "cost": "CCC", "damage": "200"}]), 0)
+	active_arceus.attached_energy.append(CardInstance.create(_make_energy_cd("Double Turbo Energy", "", "Special Energy"), 0))
+	active_arceus.attached_energy.append(CardInstance.create(_make_energy_cd("Grass Energy", "G"), 0))
+	var backup_arceus := _make_slot(_make_pokemon_cd("Arceus V", "Basic", "C", 220, "", "V"), 0)
+	var giratina := _make_slot(_make_pokemon_cd("Giratina V", "Basic", "P", 220, "", "V"), 0)
+	player.active_pokemon = active_arceus
+	player.bench.append(backup_arceus)
+	player.bench.append(giratina)
+	var grass_a := CardInstance.create(_make_energy_cd("Grass A", "G"), 0)
+	var grass_b := CardInstance.create(_make_energy_cd("Grass B", "G"), 0)
+	var grass_c := CardInstance.create(_make_energy_cd("Grass C", "G"), 0)
+	var psychic := CardInstance.create(_make_energy_cd("Psychic A", "P"), 0)
+	var picked: Array = strategy.pick_interaction_items(
+		[grass_a, grass_b, grass_c, psychic],
+		{"id": "energy_assignments", "max_select": 3},
+		{"game_state": gs, "player_index": 0}
+	)
+	var picked_names: Array[String] = []
+	for item: Variant in picked:
+		if item is CardInstance and (item as CardInstance).card_data != null:
+			picked_names.append(str((item as CardInstance).card_data.name))
+	return run_checks([
+		assert_eq(picked.size(), 3, "Trinity Nova should still choose three basic Energy cards when they are available"),
+		assert_true("Psychic A" in picked_names, "Trinity Nova should include a Psychic Energy when Giratina still lacks its Psychic requirement"),
+		assert_true(not (picked_names == ["Grass A", "Grass B", "Grass C"]), "Trinity Nova should not blindly take three Grass Energy when Giratina still needs Psychic"),
+	])
+
+
+func test_arceus_trinity_nova_psychic_assignment_prefers_giratina_over_backup_arceus() -> String:
+	var strategy := _new_strategy(ARCEUS_SCRIPT_PATH)
+	if strategy == null:
+		return "DeckStrategyArceusGiratina.gd should exist before Trinity Nova Psychic routing can be verified"
+	var gs := _make_game_state(4)
+	var player := gs.players[0]
+	var active_arceus := _make_slot(_make_pokemon_cd("Arceus VSTAR", "VSTAR", "C", 280, "Arceus V", "V", [], [{"name": "Trinity Nova", "cost": "CCC", "damage": "200"}]), 0)
+	active_arceus.attached_energy.append(CardInstance.create(_make_energy_cd("Double Turbo Energy", "", "Special Energy"), 0))
+	active_arceus.attached_energy.append(CardInstance.create(_make_energy_cd("Grass Energy", "G"), 0))
+	var backup_arceus := _make_slot(_make_pokemon_cd("Arceus V", "Basic", "C", 220, "", "V"), 0)
+	var giratina := _make_slot(_make_pokemon_cd("Giratina V", "Basic", "P", 220, "", "V"), 0)
+	player.active_pokemon = active_arceus
+	player.bench.append(backup_arceus)
+	player.bench.append(giratina)
+	var psychic := CardInstance.create(_make_energy_cd("Psychic Energy", "P"), 0)
+	var giratina_score: float = strategy.score_interaction_target(
+		giratina,
+		{"id": "energy_assignments"},
+		{"game_state": gs, "player_index": 0, "source_card": psychic}
+	)
+	var backup_arceus_score: float = strategy.score_interaction_target(
+		backup_arceus,
+		{"id": "energy_assignments"},
+		{"game_state": gs, "player_index": 0, "source_card": psychic}
+	)
+	return run_checks([
+		assert_true(giratina_score > backup_arceus_score, "Trinity Nova's Psychic Energy should go to Giratina before backup Arceus while Giratina still lacks Psychic"),
+		assert_true(giratina_score > 0.0, "Trinity Nova Psychic routing should stay live toward Giratina"),
+	])
+
+
+func test_arceus_trinity_nova_third_grass_prefers_backup_arceus_after_giratina_core_is_pending() -> String:
+	var strategy := _new_strategy(ARCEUS_SCRIPT_PATH)
+	if strategy == null:
+		return "DeckStrategyArceusGiratina.gd should exist before Trinity Nova late assignment routing can be verified"
+	var gs := _make_game_state(4)
+	var player := gs.players[0]
+	var active_arceus := _make_slot(_make_pokemon_cd("Arceus VSTAR", "VSTAR", "C", 280, "Arceus V", "V", [], [{"name": "Trinity Nova", "cost": "CCC", "damage": "200"}]), 0)
+	active_arceus.attached_energy.append(CardInstance.create(_make_energy_cd("Double Turbo Energy", "", "Special Energy"), 0))
+	active_arceus.attached_energy.append(CardInstance.create(_make_energy_cd("Grass Energy", "G"), 0))
+	var backup_arceus := _make_slot(_make_pokemon_cd("Arceus V", "Basic", "C", 220, "", "V"), 0)
+	var giratina := _make_slot(_make_pokemon_cd("Giratina VSTAR", "VSTAR", "P", 280, "Giratina V", "V", [], [{"name": "Lost Impact", "cost": "GPC", "damage": "280"}]), 0)
+	player.active_pokemon = active_arceus
+	player.bench.append(backup_arceus)
+	player.bench.append(giratina)
+	var grass := CardInstance.create(_make_energy_cd("Grass Energy", "G"), 0)
+	var pending_assignments: Array = [
+		{"source": CardInstance.create(_make_energy_cd("Grass Pending", "G"), 0), "target": giratina},
+		{"source": CardInstance.create(_make_energy_cd("Psychic Pending", "P"), 0), "target": giratina},
+	]
+	var giratina_score: float = strategy.score_interaction_target(
+		giratina,
+		{"id": "energy_assignments"},
+		{
+			"game_state": gs,
+			"player_index": 0,
+			"source_card": grass,
+			"pending_assignment_counts": {int(giratina.get_instance_id()): 2},
+			"pending_assignments": pending_assignments,
+		}
+	)
+	var backup_arceus_score: float = strategy.score_interaction_target(
+		backup_arceus,
+		{"id": "energy_assignments"},
+		{
+			"game_state": gs,
+			"player_index": 0,
+			"source_card": grass,
+			"pending_assignment_counts": {int(giratina.get_instance_id()): 2},
+			"pending_assignments": pending_assignments,
+		}
+	)
+	return run_checks([
+		assert_true(backup_arceus_score > giratina_score, "Once Giratina already has pending Grass and Psychic from Trinity Nova, the third Grass should pivot into the backup Arceus lane"),
+		assert_true(backup_arceus_score > 0.0, "The backup Arceus lane should remain live for the leftover Trinity Nova attachment"),
+	])
 
 
 func test_arceus_assignment_stops_overfilling_active_arceus_when_shell_still_needs_targets() -> String:
@@ -764,7 +1054,10 @@ func test_arceus_double_turbo_prefers_bench_arceus_over_giratina_after_launch() 
 		gs,
 		0
 	)
-	return assert_true(bench_arceus_score > giratina_score, "Once the lead Arceus is online, Double Turbo should build the backup Arceus before Giratina")
+	return run_checks([
+		assert_true(bench_arceus_score > giratina_score, "Once the lead Arceus is online, Double Turbo should build the backup Arceus before Giratina"),
+		assert_eq(giratina_score, 0.0, "Once the lead Arceus is online, Double Turbo should remain dead on Giratina"),
+	])
 
 
 func test_arceus_bibarel_engine_outranks_off_plan_support_once_core_board_missing() -> String:
@@ -793,6 +1086,55 @@ func test_arceus_bibarel_engine_outranks_off_plan_support_once_core_board_missin
 	return run_checks([
 		assert_true(bidoof_score > radiant_score, "The Bibarel line should outrank off-plan support while the core board is still incomplete"),
 		assert_true(skwovet_score > radiant_score, "Skwovet should also outrank off-plan support while the draw engine is still missing"),
+	])
+
+
+func test_arceus_skwovet_ability_is_dead_without_bibarel() -> String:
+	var strategy := _new_strategy(ARCEUS_SCRIPT_PATH)
+	if strategy == null:
+		return "DeckStrategyArceusGiratina.gd should exist before Skwovet ability gating can be verified"
+	var gs := _make_game_state(4)
+	var player := gs.players[0]
+	player.active_pokemon = _make_slot(_make_pokemon_cd("Arceus VSTAR", "VSTAR", "C", 280, "Arceus V", "V"), 0)
+	var skwovet_slot := _make_slot(_make_pokemon_cd("Skwovet", "Basic", "C", 70), 0)
+	player.bench.append(skwovet_slot)
+	player.hand.append(CardInstance.create(_make_trainer_cd("Card A", "Item"), 0))
+	player.hand.append(CardInstance.create(_make_trainer_cd("Card B", "Item"), 0))
+	var skwovet_score: float = strategy.score_action_absolute(
+		{"kind": "use_ability", "source_slot": skwovet_slot},
+		gs,
+		0
+	)
+	return assert_eq(skwovet_score, 0.0, "Without Bibarel on the field, Skwovet should never spend its ability first")
+
+
+func test_arceus_skwovet_ability_outranks_bibarel_when_both_are_online() -> String:
+	var strategy := _new_strategy(ARCEUS_SCRIPT_PATH)
+	if strategy == null:
+		return "DeckStrategyArceusGiratina.gd should exist before Skwovet/Bibarel sequencing can be verified"
+	var gs := _make_game_state(4)
+	var player := gs.players[0]
+	player.active_pokemon = _make_slot(_make_pokemon_cd("Arceus VSTAR", "VSTAR", "C", 280, "Arceus V", "V"), 0)
+	var bibarel_slot := _make_slot(_make_pokemon_cd("Bibarel", "Stage1", "C", 120, "Bidoof"), 0)
+	var skwovet_slot := _make_slot(_make_pokemon_cd("Skwovet", "Basic", "C", 70), 0)
+	player.bench.append(bibarel_slot)
+	player.bench.append(skwovet_slot)
+	player.hand.append(CardInstance.create(_make_trainer_cd("Card A", "Item"), 0))
+	player.hand.append(CardInstance.create(_make_trainer_cd("Card B", "Item"), 0))
+	player.hand.append(CardInstance.create(_make_trainer_cd("Card C", "Item"), 0))
+	var bibarel_score: float = strategy.score_action_absolute(
+		{"kind": "use_ability", "source_slot": bibarel_slot},
+		gs,
+		0
+	)
+	var skwovet_score: float = strategy.score_action_absolute(
+		{"kind": "use_ability", "source_slot": skwovet_slot},
+		gs,
+		0
+	)
+	return run_checks([
+		assert_true(skwovet_score > bibarel_score, "When Bibarel is online, Skwovet should be taken first so Bibarel can draw after the hand reset"),
+		assert_true(skwovet_score > 0.0, "When Bibarel is online, Skwovet should become a live sequencing action"),
 	])
 
 
@@ -935,47 +1277,271 @@ func test_arceus_lost_vacuum_stays_low_without_any_valid_target() -> String:
 	])
 
 
-func test_arceus_iron_leaves_only_rises_into_dark_active_with_two_colored_energy_in_play() -> String:
+func test_arceus_lost_city_stays_live_once_shell_is_online() -> String:
+	var strategy := _new_strategy(ARCEUS_SCRIPT_PATH)
+	if strategy == null:
+		return "DeckStrategyArceusGiratina.gd should exist before Lost City timing can be verified"
+	var gs := _make_game_state(4)
+	var player := gs.players[0]
+	var opponent := gs.players[1]
+	var active_arceus := _make_slot(_make_pokemon_cd("Arceus VSTAR", "VSTAR", "C", 280, "Arceus V", "V", [], [{"name": "Trinity Nova", "cost": "CCC", "damage": "200"}]), 0)
+	active_arceus.attached_energy.append(CardInstance.create(_make_energy_cd("Double Turbo Energy", "", "Special Energy"), 0))
+	active_arceus.attached_energy.append(CardInstance.create(_make_energy_cd("Grass Energy", "G"), 0))
+	player.active_pokemon = active_arceus
+	player.bench.append(_make_slot(_make_pokemon_cd("Giratina V", "Basic", "P", 220, "", "V"), 0))
+	player.bench.append(_make_slot(_make_pokemon_cd("Bidoof", "Basic", "C", 70), 0))
+	opponent.active_pokemon = _make_slot(_make_pokemon_cd("Miraidon ex", "Basic", "L", 220, "", "ex"), 1)
+	var lost_city_score: float = strategy.score_action_absolute(
+		{"kind": "play_stadium", "card": CardInstance.create(_make_trainer_cd("Lost City", "Stadium"), 0)},
+		gs,
+		0
+	)
+	return assert_true(lost_city_score > 0.0, "Once Arceus is online, Lost City should stay a live stadium action instead of being invisible to absolute scoring")
+
+
+func test_arceus_deck_out_pressure_cools_off_draw_and_search_churn() -> String:
+	var strategy := _new_strategy(ARCEUS_SCRIPT_PATH)
+	if strategy == null:
+		return "DeckStrategyArceusGiratina.gd should exist before deck-out cooloff rules can be verified"
+	var gs := _make_game_state(6)
+	var player := gs.players[0]
+	var opponent := gs.players[1]
+	var active_giratina := _make_slot(_make_pokemon_cd("Giratina VSTAR", "VSTAR", "P", 280, "Giratina V", "V", [], [{"name": "Lost Impact", "cost": "PPC", "damage": "280"}]), 0)
+	active_giratina.attached_energy.append(CardInstance.create(_make_energy_cd("Grass Energy", "G"), 0))
+	active_giratina.attached_energy.append(CardInstance.create(_make_energy_cd("Psychic Energy", "P"), 0))
+	active_giratina.attached_energy.append(CardInstance.create(_make_energy_cd("Jet Energy", "C", "Special Energy"), 0))
+	var backup_arceus := _make_slot(_make_pokemon_cd("Arceus VSTAR", "VSTAR", "C", 280, "Arceus V", "V", [], [{"name": "Trinity Nova", "cost": "CCC", "damage": "200"}]), 0)
+	backup_arceus.attached_energy.append(CardInstance.create(_make_energy_cd("Double Turbo Energy", "", "Special Energy"), 0))
+	backup_arceus.attached_energy.append(CardInstance.create(_make_energy_cd("Grass Energy", "G"), 0))
+	var bibarel := _make_slot(_make_pokemon_cd("Bibarel", "Stage1", "C", 120, "Bidoof"), 0)
+	var skwovet := _make_slot(_make_pokemon_cd("Skwovet", "Basic", "C", 70), 0)
+	player.active_pokemon = active_giratina
+	player.bench.append(backup_arceus)
+	player.bench.append(bibarel)
+	player.bench.append(skwovet)
+	for i: int in 6:
+		player.deck.append(CardInstance.create(_make_trainer_cd("Deck Filler %d" % i, "Item"), 0))
+	opponent.active_pokemon = _make_slot(_make_pokemon_cd("Miraidon ex", "Basic", "L", 220, "", "ex"), 1)
+	var skwovet_score: float = strategy.score_action_absolute(
+		{"kind": "use_ability", "source_slot": skwovet},
+		gs,
+		0
+	)
+	var bibarel_score: float = strategy.score_action_absolute(
+		{"kind": "use_ability", "source_slot": bibarel},
+		gs,
+		0
+	)
+	var nest_ball_score: float = strategy.score_action_absolute(
+		{"kind": "play_trainer", "card": CardInstance.create(_make_trainer_cd("Nest Ball"), 0)},
+		gs,
+		0
+	)
+	var attack_score: float = strategy.score_action_absolute(
+		{"kind": "attack", "source_slot": active_giratina, "attack_name": "Lost Impact", "projected_damage": 280},
+		gs,
+		0
+	)
+	return run_checks([
+		assert_eq(skwovet_score, 0.0, "Under deck-out pressure with a ready attacker, Skwovet should cool off instead of churning extra draws"),
+		assert_eq(bibarel_score, 0.0, "Under deck-out pressure with a ready attacker, Bibarel should also stop low-value redraw churn"),
+		assert_eq(nest_ball_score, 0.0, "Under deck-out pressure with a ready attacker, extra Nest Ball shell padding should shut off"),
+		assert_true(attack_score > 0.0, "The live finisher should remain available while the churn actions cool off"),
+	])
+
+
+func test_arceus_conversion_cools_off_midgame_search_and_redraw_churn() -> String:
+	var strategy := _new_strategy(ARCEUS_SCRIPT_PATH)
+	if strategy == null:
+		return "DeckStrategyArceusGiratina.gd should exist before conversion cooloff rules can be verified"
+	var gs := _make_game_state(10)
+	var player := gs.players[0]
+	var opponent := gs.players[1]
+	var active_arceus := _make_slot(_make_pokemon_cd("Arceus VSTAR", "VSTAR", "C", 280, "Arceus V", "V", [], [{"name": "Trinity Nova", "cost": "CCC", "damage": "200"}]), 0)
+	active_arceus.attached_energy.append(CardInstance.create(_make_energy_cd("Double Turbo Energy", "", "Special Energy"), 0))
+	active_arceus.attached_energy.append(CardInstance.create(_make_energy_cd("Grass Energy", "G"), 0))
+	var backup_arceus := _make_slot(_make_pokemon_cd("Arceus VSTAR", "VSTAR", "C", 280, "Arceus V", "V", [], [{"name": "Trinity Nova", "cost": "CCC", "damage": "200"}]), 0)
+	backup_arceus.attached_energy.append(CardInstance.create(_make_energy_cd("Double Turbo Energy", "", "Special Energy"), 0))
+	backup_arceus.attached_energy.append(CardInstance.create(_make_energy_cd("Grass Energy", "G"), 0))
+	var giratina := _make_slot(_make_pokemon_cd("Giratina VSTAR", "VSTAR", "P", 280, "Giratina V", "V", [], [{"name": "Lost Impact", "cost": "PPC", "damage": "280"}]), 0)
+	giratina.attached_energy.append(CardInstance.create(_make_energy_cd("Grass Energy", "G"), 0))
+	giratina.attached_energy.append(CardInstance.create(_make_energy_cd("Psychic Energy", "P"), 0))
+	giratina.attached_energy.append(CardInstance.create(_make_energy_cd("Jet Energy", "C", "Special Energy"), 0))
+	var bibarel := _make_slot(_make_pokemon_cd("Bibarel", "Stage1", "C", 120, "Bidoof"), 0)
+	var skwovet := _make_slot(_make_pokemon_cd("Skwovet", "Basic", "C", 70), 0)
+	player.active_pokemon = active_arceus
+	player.bench.append(backup_arceus)
+	player.bench.append(giratina)
+	player.bench.append(bibarel)
+	player.bench.append(skwovet)
+	for i: int in 10:
+		player.deck.append(CardInstance.create(_make_trainer_cd("Deck Filler %d" % i, "Item"), 0))
+	opponent.active_pokemon = _make_slot(_make_pokemon_cd("Miraidon ex", "Basic", "L", 220, "", "ex"), 1)
+	var aroma_score: float = strategy.score_action_absolute(
+		{"kind": "play_trainer", "card": CardInstance.create(_make_trainer_cd("Capturing Aroma"), 0)},
+		gs,
+		0
+	)
+	var judge_score: float = strategy.score_action_absolute(
+		{"kind": "play_trainer", "card": CardInstance.create(_make_trainer_cd("Judge"), 0)},
+		gs,
+		0
+	)
+	var skwovet_score: float = strategy.score_action_absolute(
+		{"kind": "use_ability", "source_slot": skwovet},
+		gs,
+		0
+	)
+	var bibarel_score: float = strategy.score_action_absolute(
+		{"kind": "use_ability", "source_slot": bibarel},
+		gs,
+		0
+	)
+	var attack_score: float = strategy.score_action_absolute(
+		{"kind": "attack", "source_slot": active_arceus, "attack_name": "Trinity Nova", "projected_damage": 200},
+		gs,
+		0
+	)
+	return run_checks([
+		assert_eq(aroma_score, 0.0, "Once the active attacker is live and the core shell is already formed, Capturing Aroma should cool off instead of padding the turn"),
+		assert_eq(judge_score, 0.0, "Once the active attacker is live and the core shell is already formed, Judge should cool off instead of burning a redraw window"),
+		assert_eq(skwovet_score, 0.0, "Once the active attacker is live and the core shell is already formed, Skwovet should stop midgame redraw churn"),
+		assert_eq(bibarel_score, 0.0, "Once the active attacker is live and the core shell is already formed, Bibarel should also cool off"),
+		assert_true(attack_score > 0.0, "The live attack should remain available while the midgame churn actions cool off"),
+	])
+
+
+func test_arceus_switch_outranks_redraw_when_ready_bench_finisher_unlocks_attack() -> String:
+	var strategy := _new_strategy(ARCEUS_SCRIPT_PATH)
+	if strategy == null:
+		return "DeckStrategyArceusGiratina.gd should exist before Switch attack-window timing can be verified"
+	var gs := _make_game_state(6)
+	var player := gs.players[0]
+	var opponent := gs.players[1]
+	var active_skwovet := _make_slot(_make_pokemon_cd("Skwovet", "Basic", "C", 70), 0)
+	active_skwovet.attached_energy.append(CardInstance.create(_make_energy_cd("Double Turbo Energy", "", "Special Energy"), 0))
+	var giratina := _make_slot(_make_pokemon_cd("Giratina VSTAR", "VSTAR", "P", 280, "Giratina V", "V", [], [{"name": "Lost Impact", "cost": "PPC", "damage": "280"}]), 0)
+	giratina.attached_energy.append(CardInstance.create(_make_energy_cd("Grass Energy", "G"), 0))
+	giratina.attached_energy.append(CardInstance.create(_make_energy_cd("Psychic Energy", "P"), 0))
+	giratina.attached_energy.append(CardInstance.create(_make_energy_cd("Jet Energy", "C", "Special Energy"), 0))
+	var bibarel := _make_slot(_make_pokemon_cd("Bibarel", "Stage1", "C", 120, "Bidoof"), 0)
+	player.active_pokemon = active_skwovet
+	player.bench.append(giratina)
+	player.bench.append(bibarel)
+	opponent.active_pokemon = _make_slot(_make_pokemon_cd("Miraidon ex", "Basic", "L", 220, "", "ex"), 1)
+	var switch_score: float = strategy.score_action_absolute(
+		{"kind": "play_trainer", "card": CardInstance.create(_make_trainer_cd("Switch"), 0)},
+		gs,
+		0
+	)
+	var iono_score: float = strategy.score_action_absolute(
+		{"kind": "play_trainer", "card": CardInstance.create(_make_trainer_cd("Iono"), 0)},
+		gs,
+		0
+	)
+	var bibarel_score: float = strategy.score_action_absolute(
+		{"kind": "use_ability", "source_slot": bibarel},
+		gs,
+		0
+	)
+	return run_checks([
+		assert_true(switch_score > iono_score, "When Switch immediately unlocks the ready bench finisher, it should outrank Iono redraw churn"),
+		assert_true(switch_score > bibarel_score, "When Switch immediately unlocks the ready bench finisher, it should also outrank Bibarel redraw churn"),
+		assert_true(switch_score >= 300.0, "Switch should become a real positive action when it opens the live attack window"),
+	])
+
+
+func test_arceus_post_launch_reentry_keeps_giratina_transition_live() -> String:
+	var strategy := _new_strategy(ARCEUS_SCRIPT_PATH)
+	if strategy == null:
+		return "DeckStrategyArceusGiratina.gd should exist before post-launch re-entry timing can be verified"
+	var gs := _make_game_state(8)
+	var player := gs.players[0]
+	var opponent := gs.players[1]
+	var active_arceus := _make_slot(_make_pokemon_cd("Arceus V", "Basic", "C", 220, "", "V"), 0)
+	active_arceus.attached_energy.append(CardInstance.create(_make_energy_cd("Grass Energy", "G"), 0))
+	var giratina := _make_slot(_make_pokemon_cd("Giratina VSTAR", "VSTAR", "P", 280, "Giratina V", "V", [], [{"name": "Lost Impact", "cost": "PPC", "damage": "280"}]), 0)
+	giratina.attached_energy.append(CardInstance.create(_make_energy_cd("Grass Energy", "G"), 0))
+	giratina.attached_energy.append(CardInstance.create(_make_energy_cd("Psychic Energy", "P"), 0))
+	var bibarel := _make_slot(_make_pokemon_cd("Bibarel", "Stage1", "C", 120, "Bidoof"), 0)
+	var skwovet := _make_slot(_make_pokemon_cd("Skwovet", "Basic", "C", 70), 0)
+	player.active_pokemon = active_arceus
+	player.bench.append(giratina)
+	player.bench.append(bibarel)
+	player.bench.append(skwovet)
+	for i: int in 5:
+		player.prizes.append(CardInstance.create(_make_pokemon_cd("My Prize %d" % i), 0))
+	for i: int in 2:
+		opponent.prizes.append(CardInstance.create(_make_pokemon_cd("Opp Prize %d" % i), 1))
+	player.hand.append(CardInstance.create(_make_trainer_cd("Card A", "Item"), 0))
+	player.hand.append(CardInstance.create(_make_trainer_cd("Card B", "Item"), 0))
+	player.hand.append(CardInstance.create(_make_trainer_cd("Card C", "Item"), 0))
+	player.hand.append(CardInstance.create(_make_trainer_cd("Card D", "Item"), 0))
+	opponent.active_pokemon = _make_slot(_make_pokemon_cd("Miraidon ex", "Basic", "L", 220, "", "ex"), 1)
+	var attach_score: float = strategy.score_action_absolute(
+		{"kind": "attach_energy", "card": CardInstance.create(_make_energy_cd("Psychic Energy", "P"), 0), "target_slot": giratina},
+		gs,
+		0
+	)
+	var iono_score: float = strategy.score_action_absolute(
+		{"kind": "play_trainer", "card": CardInstance.create(_make_trainer_cd("Iono", "Supporter"), 0)},
+		gs,
+		0
+	)
+	var skwovet_score: float = strategy.score_action_absolute(
+		{"kind": "use_ability", "source_slot": skwovet},
+		gs,
+		0
+	)
+	var bibarel_score: float = strategy.score_action_absolute(
+		{"kind": "use_ability", "source_slot": bibarel},
+		gs,
+		0
+	)
+	return run_checks([
+		assert_true(attach_score > iono_score, "After the first Arceus shell breaks, near-ready Giratina should keep the deck in transition rather than falling back to Iono-first launch logic"),
+		assert_true(attach_score > skwovet_score, "After the first Arceus shell breaks, near-ready Giratina should outrank Skwovet redraw churn"),
+		assert_true(attach_score > bibarel_score, "After the first Arceus shell breaks, near-ready Giratina should also outrank Bibarel redraw churn"),
+	])
+
+
+func test_arceus_iron_leaves_only_rises_when_it_can_take_immediate_charizard_ko() -> String:
 	var strategy := _new_strategy(ARCEUS_SCRIPT_PATH)
 	if strategy == null:
 		return "DeckStrategyArceusGiratina.gd should exist before Iron Leaves deployment rules can be verified"
 
-	var dark_gs := _make_game_state(4)
-	var dark_player := dark_gs.players[0]
-	var dark_arceus := _make_slot(_make_pokemon_cd("Arceus VSTAR", "VSTAR", "C", 280, "Arceus V", "V"), 0)
-	dark_arceus.attached_energy.append(CardInstance.create(_make_energy_cd("Psychic Energy", "P"), 0))
-	var dark_giratina := _make_slot(_make_pokemon_cd("Giratina V", "Basic", "P", 220, "", "V"), 0)
-	dark_giratina.attached_energy.append(CardInstance.create(_make_energy_cd("Grass Energy", "G"), 0))
-	dark_player.active_pokemon = dark_arceus
-	dark_player.bench.append(dark_giratina)
-	dark_gs.players[1].active_pokemon = _make_slot(_make_pokemon_cd("Roaring Moon ex", "Basic", "D", 230, "", "ex"), 1)
-	var dark_score: float = strategy.score_action_absolute(
+	var charizard_gs := _make_game_state(4)
+	var charizard_player := charizard_gs.players[0]
+	var charizard_arceus := _make_slot(_make_pokemon_cd("Arceus VSTAR", "VSTAR", "C", 280, "Arceus V", "V"), 0)
+	charizard_arceus.attached_energy.append(CardInstance.create(_make_energy_cd("Double Turbo Energy", "", "Special Energy"), 0))
+	charizard_arceus.attached_energy.append(CardInstance.create(_make_energy_cd("Grass Energy", "G"), 0))
+	charizard_player.active_pokemon = charizard_arceus
+	charizard_gs.players[1].active_pokemon = _make_slot(_make_pokemon_cd("Charizard ex", "Stage2", "D", 330, "Charmeleon", "ex"), 1)
+	var charizard_score: float = strategy.score_action_absolute(
 		{"kind": "play_basic_to_bench", "card": CardInstance.create(_make_pokemon_cd("Iron Leaves ex", "Basic", "G", 210, "", "ex"), 0)},
-		dark_gs,
+		charizard_gs,
 		0
 	)
 
-	var non_dark_gs := _make_game_state(4)
-	var non_dark_player := non_dark_gs.players[0]
-	var non_dark_arceus := _make_slot(_make_pokemon_cd("Arceus VSTAR", "VSTAR", "C", 280, "Arceus V", "V"), 0)
-	non_dark_arceus.attached_energy.append(CardInstance.create(_make_energy_cd("Psychic Energy", "P"), 0))
-	var non_dark_giratina := _make_slot(_make_pokemon_cd("Giratina V", "Basic", "P", 220, "", "V"), 0)
-	non_dark_giratina.attached_energy.append(CardInstance.create(_make_energy_cd("Grass Energy", "G"), 0))
-	non_dark_player.active_pokemon = non_dark_arceus
-	non_dark_player.bench.append(non_dark_giratina)
-	non_dark_gs.players[1].active_pokemon = _make_slot(_make_pokemon_cd("Miraidon ex", "Basic", "L", 220, "", "ex"), 1)
-	var non_dark_score: float = strategy.score_action_absolute(
+	var moon_gs := _make_game_state(4)
+	var moon_player := moon_gs.players[0]
+	var moon_arceus := _make_slot(_make_pokemon_cd("Arceus VSTAR", "VSTAR", "C", 280, "Arceus V", "V"), 0)
+	moon_arceus.attached_energy.append(CardInstance.create(_make_energy_cd("Double Turbo Energy", "", "Special Energy"), 0))
+	moon_arceus.attached_energy.append(CardInstance.create(_make_energy_cd("Grass Energy", "G"), 0))
+	moon_player.active_pokemon = moon_arceus
+	moon_gs.players[1].active_pokemon = _make_slot(_make_pokemon_cd("Roaring Moon ex", "Basic", "D", 230, "", "ex"), 1)
+	var moon_score: float = strategy.score_action_absolute(
 		{"kind": "play_basic_to_bench", "card": CardInstance.create(_make_pokemon_cd("Iron Leaves ex", "Basic", "G", 210, "", "ex"), 0)},
-		non_dark_gs,
+		moon_gs,
 		0
 	)
 
 	var low_energy_gs := _make_game_state(4)
 	var low_energy_player := low_energy_gs.players[0]
 	var low_energy_arceus := _make_slot(_make_pokemon_cd("Arceus VSTAR", "VSTAR", "C", 280, "Arceus V", "V"), 0)
-	low_energy_arceus.attached_energy.append(CardInstance.create(_make_energy_cd("Psychic Energy", "P"), 0))
+	low_energy_arceus.attached_energy.append(CardInstance.create(_make_energy_cd("Grass Energy", "G"), 0))
 	low_energy_player.active_pokemon = low_energy_arceus
-	low_energy_gs.players[1].active_pokemon = _make_slot(_make_pokemon_cd("Roaring Moon ex", "Basic", "D", 230, "", "ex"), 1)
+	low_energy_gs.players[1].active_pokemon = _make_slot(_make_pokemon_cd("Charizard ex", "Stage2", "D", 330, "Charmeleon", "ex"), 1)
 	var low_energy_score: float = strategy.score_action_absolute(
 		{"kind": "play_basic_to_bench", "card": CardInstance.create(_make_pokemon_cd("Iron Leaves ex", "Basic", "G", 210, "", "ex"), 0)},
 		low_energy_gs,
@@ -983,9 +1549,11 @@ func test_arceus_iron_leaves_only_rises_into_dark_active_with_two_colored_energy
 	)
 
 	return run_checks([
-		assert_true(dark_score > non_dark_score, "Iron Leaves should rise mainly when the opposing active is Dark type"),
-		assert_true(dark_score > low_energy_score, "Iron Leaves should also require two Grass/Psychic energy already in play before it becomes a serious bench target"),
-		assert_true(low_energy_score <= 40.0, "Without the two-energy setup, Iron Leaves should stay a low-probability bench target"),
+		assert_true(charizard_score > moon_score, "Iron Leaves should rise specifically into Charizard ex rather than generic Dark attackers"),
+		assert_true(charizard_score > low_energy_score, "Iron Leaves should only spike when the current board can actually convert into an immediate Charizard knockout"),
+		assert_true(charizard_score >= 600.0, "When Iron Leaves can immediately take a Charizard knockout, it should become a top-priority bench action"),
+		assert_true(moon_score <= 40.0, "Against non-Charizard Dark decks, Iron Leaves should stay a low-probability bench target"),
+		assert_true(low_energy_score <= 40.0, "Without enough movable energy to threaten Prism Edge immediately, Iron Leaves should stay a low-probability bench target"),
 	])
 
 
@@ -1212,6 +1780,41 @@ func test_arceus_convert_retreat_is_allowed_when_ready_giratina_finishes_the_gam
 	])
 
 
+func test_arceus_retreat_prefers_ready_giratina_target_over_engine_pivot() -> String:
+	var strategy := _new_strategy(ARCEUS_SCRIPT_PATH)
+	if strategy == null:
+		return "DeckStrategyArceusGiratina.gd should exist before retreat target ordering can be verified"
+	var gs := _make_game_state(6)
+	var player := gs.players[0]
+	var opponent := gs.players[1]
+	var active_arceus := _make_slot(_make_pokemon_cd("Arceus VSTAR", "VSTAR", "C", 280, "Arceus V", "V", [], [{"name": "Trinity Nova", "cost": "CCC", "damage": "200"}]), 0)
+	active_arceus.attached_energy.append(CardInstance.create(_make_energy_cd("Double Turbo Energy", "", "Special Energy"), 0))
+	active_arceus.attached_energy.append(CardInstance.create(_make_energy_cd("Grass Energy", "G"), 0))
+	var giratina := _make_slot(_make_pokemon_cd("Giratina VSTAR", "VSTAR", "P", 280, "Giratina V", "V", [], [{"name": "Lost Impact", "cost": "PPC", "damage": "280"}]), 0)
+	giratina.attached_energy.append(CardInstance.create(_make_energy_cd("Grass Energy", "G"), 0))
+	giratina.attached_energy.append(CardInstance.create(_make_energy_cd("Psychic Energy", "P"), 0))
+	giratina.attached_energy.append(CardInstance.create(_make_energy_cd("Jet Energy", "C", "Special Energy"), 0))
+	var skwovet := _make_slot(_make_pokemon_cd("Skwovet", "Basic", "C", 70), 0)
+	player.active_pokemon = active_arceus
+	player.bench.append(giratina)
+	player.bench.append(skwovet)
+	opponent.active_pokemon = _make_slot(_make_pokemon_cd("Miraidon ex", "Basic", "L", 280, "", "ex"), 1)
+	var giratina_retreat_score: float = strategy.score_action_absolute(
+		{"kind": "retreat", "bench_target": giratina},
+		gs,
+		0
+	)
+	var skwovet_retreat_score: float = strategy.score_action_absolute(
+		{"kind": "retreat", "bench_target": skwovet},
+		gs,
+		0
+	)
+	return run_checks([
+		assert_true(giratina_retreat_score > skwovet_retreat_score, "When retreat is correct, Arceus/Giratina should prefer the ready Giratina finisher over an engine pivot target"),
+		assert_true(giratina_retreat_score >= 300.0, "Retreating into the ready Giratina finisher should stay a real positive action"),
+	])
+
+
 func test_arceus_send_out_prefers_backup_arceus_over_one_prize_engine() -> String:
 	var strategy := _new_strategy(ARCEUS_SCRIPT_PATH)
 	if strategy == null:
@@ -1229,6 +1832,36 @@ func test_arceus_send_out_prefers_backup_arceus_over_one_prize_engine() -> Strin
 	player.bench.append(bidoof)
 	var picked := _best_slot_name(strategy, [backup_arceus, giratina, bidoof], "send_out", {"game_state": gs, "player_index": 0})
 	return assert_eq(picked, "Arceus VSTAR", "When the lead Arceus falls, Arceus/Giratina should send out the backup Arceus before one-prize engine pieces")
+
+
+func test_arceus_handoff_prefers_ready_giratina_over_backup_arceus_after_launch() -> String:
+	var strategy := _new_strategy(ARCEUS_SCRIPT_PATH)
+	if strategy == null:
+		return "DeckStrategyArceusGiratina.gd should exist before handoff priorities can be verified"
+	var gs := _make_game_state(7)
+	var player := gs.players[0]
+	var active_arceus := _make_slot(_make_pokemon_cd("Arceus VSTAR", "VSTAR", "C", 280, "Arceus V", "V", [], [{"name": "Trinity Nova", "cost": "CCC", "damage": "200"}]), 0)
+	active_arceus.attached_energy.append(CardInstance.create(_make_energy_cd("Double Turbo Energy", "", "Special Energy"), 0))
+	active_arceus.attached_energy.append(CardInstance.create(_make_energy_cd("Grass Energy", "G"), 0))
+	var ready_giratina := _make_slot(_make_pokemon_cd("Giratina VSTAR", "VSTAR", "P", 280, "Giratina V", "V", [], [{"name": "Lost Impact", "cost": "PPC", "damage": "280"}]), 0)
+	ready_giratina.attached_energy.append(CardInstance.create(_make_energy_cd("Grass Energy", "G"), 0))
+	ready_giratina.attached_energy.append(CardInstance.create(_make_energy_cd("Psychic Energy", "P"), 0))
+	ready_giratina.attached_energy.append(CardInstance.create(_make_energy_cd("Jet Energy", "C", "Special Energy"), 0))
+	var backup_arceus := _make_slot(_make_pokemon_cd("Arceus VSTAR", "VSTAR", "C", 280, "Arceus V", "V", [], [{"name": "Trinity Nova", "cost": "CCC", "damage": "200"}]), 0)
+	backup_arceus.attached_energy.append(CardInstance.create(_make_energy_cd("Double Turbo Energy", "", "Special Energy"), 0))
+	backup_arceus.attached_energy.append(CardInstance.create(_make_energy_cd("Jet Energy", "C", "Special Energy"), 0))
+	var bidoof := _make_slot(_make_pokemon_cd("Bidoof", "Basic", "C", 70), 0)
+	player.active_pokemon = active_arceus
+	player.bench.append(ready_giratina)
+	player.bench.append(backup_arceus)
+	player.bench.append(bidoof)
+	gs.players[1].active_pokemon = _make_slot(_make_pokemon_cd("Miraidon ex", "Basic", "L", 220, "", "ex"), 1)
+	var send_out_pick := _best_slot_name(strategy, [ready_giratina, backup_arceus, bidoof], "send_out", {"game_state": gs, "player_index": 0})
+	var switch_pick := _best_slot_name(strategy, [ready_giratina, backup_arceus, bidoof], "self_switch_target", {"game_state": gs, "player_index": 0})
+	return run_checks([
+		assert_eq(send_out_pick, "Giratina VSTAR", "Once launch is online and Giratina VSTAR is ready, knockout replacement should hand off to the finisher instead of recycling backup Arceus"),
+		assert_eq(switch_pick, "Giratina VSTAR", "Switch-like handoff prompts should agree with send_out and keep attack ownership on the ready Giratina finisher"),
+	])
 
 
 func test_arceus_attach_tool_prefers_maximum_belt_on_online_active_arceus() -> String:
@@ -1331,6 +1964,179 @@ func test_arceus_stops_benching_basic_pokemon_once_target_formation_is_complete(
 	return run_checks([
 		assert_eq(extra_arceus_score, 0.0, "Once the target formation is complete, Arceus should stop benching more basics"),
 		assert_eq(extra_bidoof_score, 0.0, "Once the target formation is complete, Arceus should stop benching extra engine basics"),
+	])
+
+
+func test_arceus_stops_padding_shell_once_launch_and_giratina_lane_are_live() -> String:
+	var strategy := _new_strategy(ARCEUS_SCRIPT_PATH)
+	if strategy == null:
+		return "DeckStrategyArceusGiratina.gd should exist before post-launch shell padding can be verified"
+	var gs := _make_game_state(5)
+	var player := gs.players[0]
+	var active_arceus := _make_slot(_make_pokemon_cd("Arceus VSTAR", "VSTAR", "C", 280, "Arceus V", "V", [], [{"name": "Trinity Nova", "cost": "CCC", "damage": "200"}]), 0)
+	active_arceus.attached_energy.append(CardInstance.create(_make_energy_cd("Double Turbo Energy", "", "Special Energy"), 0))
+	active_arceus.attached_energy.append(CardInstance.create(_make_energy_cd("Grass Energy", "G"), 0))
+	var giratina := _make_slot(_make_pokemon_cd("Giratina VSTAR", "VSTAR", "P", 280, "Giratina V", "V", [], [{"name": "Lost Impact", "cost": "PPC", "damage": "280"}]), 0)
+	giratina.attached_energy.append(CardInstance.create(_make_energy_cd("Grass Energy", "G"), 0))
+	giratina.attached_energy.append(CardInstance.create(_make_energy_cd("Psychic Energy", "P"), 0))
+	player.active_pokemon = active_arceus
+	player.bench.append(giratina)
+	gs.players[1].active_pokemon = _make_slot(_make_pokemon_cd("Miraidon ex", "Basic", "L", 220, "", "ex"), 1)
+	var extra_arceus_score: float = strategy.score_action_absolute(
+		{"kind": "play_basic_to_bench", "card": CardInstance.create(_make_pokemon_cd("Arceus V", "Basic", "C", 220, "", "V"), 0)},
+		gs,
+		0
+	)
+	var bidoof_score: float = strategy.score_action_absolute(
+		{"kind": "play_basic_to_bench", "card": CardInstance.create(_make_pokemon_cd("Bidoof", "Basic", "C", 70), 0)},
+		gs,
+		0
+	)
+	var skwovet_score: float = strategy.score_action_absolute(
+		{"kind": "play_basic_to_bench", "card": CardInstance.create(_make_pokemon_cd("Skwovet", "Basic", "C", 70), 0)},
+		gs,
+		0
+	)
+	return run_checks([
+		assert_eq(extra_arceus_score, 0.0, "Once Arceus is online and a Giratina lane exists, extra Arceus padding should stop"),
+		assert_eq(bidoof_score, 0.0, "Once Arceus is online and a Giratina lane exists, engine basics should stop padding the shell"),
+		assert_eq(skwovet_score, 0.0, "Once Arceus is online and a Giratina lane exists, Skwovet should not be benched ahead of conversion"),
+	])
+
+
+func test_arceus_keeps_second_arceus_live_into_charizard_after_launch() -> String:
+	var strategy := _new_strategy(ARCEUS_SCRIPT_PATH)
+	if strategy == null:
+		return "DeckStrategyArceusGiratina.gd should exist before Charizard backup-Arceus windows can be verified"
+	var gs := _make_game_state(5)
+	var player := gs.players[0]
+	var active_arceus := _make_slot(_make_pokemon_cd("Arceus VSTAR", "VSTAR", "C", 280, "Arceus V", "V", [], [{"name": "Trinity Nova", "cost": "CCC", "damage": "200"}]), 0)
+	active_arceus.attached_energy.append(CardInstance.create(_make_energy_cd("Double Turbo Energy", "", "Special Energy"), 0))
+	active_arceus.attached_energy.append(CardInstance.create(_make_energy_cd("Grass Energy", "G"), 0))
+	var giratina := _make_slot(_make_pokemon_cd("Giratina V", "Basic", "P", 220, "", "V"), 0)
+	player.active_pokemon = active_arceus
+	player.bench.append(giratina)
+	for i: int in 12:
+		player.deck.append(CardInstance.create(_make_trainer_cd("Judge", "Supporter"), i))
+	gs.players[1].active_pokemon = _make_slot(_make_pokemon_cd("Charmander", "Basic", "R", 70), 1)
+	gs.players[1].bench.append(_make_slot(_make_pokemon_cd("Pidgey", "Basic", "C", 60), 1))
+	var extra_arceus_score: float = strategy.score_action_absolute(
+		{"kind": "play_basic_to_bench", "card": CardInstance.create(_make_pokemon_cd("Arceus V", "Basic", "C", 220, "", "V"), 0)},
+		gs,
+		0
+	)
+	var bidoof_score: float = strategy.score_action_absolute(
+		{"kind": "play_basic_to_bench", "card": CardInstance.create(_make_pokemon_cd("Bidoof", "Basic", "C", 70), 0)},
+		gs,
+		0
+	)
+	var skwovet_score: float = strategy.score_action_absolute(
+		{"kind": "play_basic_to_bench", "card": CardInstance.create(_make_pokemon_cd("Skwovet", "Basic", "C", 70), 0)},
+		gs,
+		0
+	)
+	return run_checks([
+		assert_true(extra_arceus_score > 0.0, "Into Charizard, the second Arceus lane should stay live after launch if backup Arceus is still missing"),
+		assert_true(extra_arceus_score > bidoof_score, "Into Charizard, the second Arceus lane should outrank rebuilding the Bidoof engine once launch is already online"),
+		assert_true(extra_arceus_score > skwovet_score, "Into Charizard, the second Arceus lane should also outrank Skwovet padding once launch is already online"),
+	])
+
+
+func test_arceus_search_keeps_second_arceus_ahead_of_engine_into_charizard() -> String:
+	var strategy := _new_strategy(ARCEUS_SCRIPT_PATH)
+	if strategy == null:
+		return "DeckStrategyArceusGiratina.gd should exist before Charizard search ordering can be verified"
+	var gs := _make_game_state(5)
+	var player := gs.players[0]
+	var active_arceus := _make_slot(_make_pokemon_cd("Arceus VSTAR", "VSTAR", "C", 280, "Arceus V", "V", [], [{"name": "Trinity Nova", "cost": "CCC", "damage": "200"}]), 0)
+	active_arceus.attached_energy.append(CardInstance.create(_make_energy_cd("Double Turbo Energy", "", "Special Energy"), 0))
+	active_arceus.attached_energy.append(CardInstance.create(_make_energy_cd("Grass Energy", "G"), 0))
+	var giratina := _make_slot(_make_pokemon_cd("Giratina V", "Basic", "P", 220, "", "V"), 0)
+	player.active_pokemon = active_arceus
+	player.bench.append(giratina)
+	player.bench.append(_make_slot(_make_pokemon_cd("Bidoof", "Basic", "C", 70), 0))
+	player.bench.append(_make_slot(_make_pokemon_cd("Skwovet", "Basic", "C", 70), 0))
+	gs.players[1].active_pokemon = _make_slot(_make_pokemon_cd("Charmander", "Basic", "R", 70), 1)
+	gs.players[1].bench.append(_make_slot(_make_pokemon_cd("Pidgey", "Basic", "C", 60), 1))
+	var options: Array = [
+		CardInstance.create(_make_pokemon_cd("Arceus V", "Basic", "C", 220, "", "V"), 0),
+		CardInstance.create(_make_pokemon_cd("Bidoof", "Basic", "C", 70), 0),
+		CardInstance.create(_make_pokemon_cd("Skwovet", "Basic", "C", 70), 0),
+	]
+	var picked := _best_card_name(strategy, options, "search_pokemon", {"game_state": gs, "player_index": 0})
+	return assert_eq(picked, "Arceus V", "Into Charizard, second-Arceus search should stay ahead of extra engine hits after launch")
+
+
+func test_arceus_charizard_reentry_cools_off_redraw_before_backup_arceus_ready() -> String:
+	var strategy := _new_strategy(ARCEUS_SCRIPT_PATH)
+	if strategy == null:
+		return "DeckStrategyArceusGiratina.gd should exist before Charizard re-entry cooloff can be verified"
+	var gs := _make_game_state(7)
+	var player := gs.players[0]
+	var live_arceus := _make_slot(_make_pokemon_cd("Arceus VSTAR", "VSTAR", "C", 280, "Arceus V", "V", [], [{"name": "Trinity Nova", "cost": "CCC", "damage": "200"}]), 0)
+	live_arceus.attached_energy.append(CardInstance.create(_make_energy_cd("Double Turbo Energy", "", "Special Energy"), 0))
+	live_arceus.attached_energy.append(CardInstance.create(_make_energy_cd("Grass Energy", "G"), 0))
+	var backup_arceus := _make_slot(_make_pokemon_cd("Arceus V", "Basic", "C", 220, "", "V"), 0)
+	var stranded_giratina := _make_slot(_make_pokemon_cd("Giratina V", "Basic", "P", 220, "", "V"), 0)
+	player.active_pokemon = stranded_giratina
+	player.bench.append(live_arceus)
+	player.bench.append(backup_arceus)
+	gs.players[1].active_pokemon = _make_slot(_make_pokemon_cd("Charizard ex", "Stage2", "D", 330, "Charmeleon", "ex"), 1)
+	gs.players[1].bench.append(_make_slot(_make_pokemon_cd("Pidgeot ex", "Stage2", "C", 280, "Pidgeotto", "ex"), 1))
+	var judge_score: float = strategy.score_action_absolute(
+		{"kind": "play_trainer", "card": CardInstance.create(_make_trainer_cd("Judge", "Supporter"), 0)},
+		gs,
+		0
+	)
+	var iono_score: float = strategy.score_action_absolute(
+		{"kind": "play_trainer", "card": CardInstance.create(_make_trainer_cd("Iono", "Supporter"), 0)},
+		gs,
+		0
+	)
+	var attach_score: float = strategy.score_action_absolute(
+		{"kind": "attach_energy", "card": CardInstance.create(_make_energy_cd("Double Turbo Energy", "", "Special Energy"), 0), "target_slot": backup_arceus},
+		gs,
+		0
+	)
+	return run_checks([
+		assert_eq(judge_score, 0.0, "Into Charizard re-entry, Judge should not interrupt the backup-Arceus rebuild window"),
+		assert_eq(iono_score, 0.0, "Into Charizard re-entry, Iono should also stay dead while the backup Arceus still needs to be rebuilt"),
+		assert_true(attach_score > 0.0, "Into Charizard re-entry, manual Double Turbo attachment to the backup Arceus should remain live"),
+	])
+
+
+func test_arceus_charizard_reentry_cools_off_bibarel_and_skwovet_abilities() -> String:
+	var strategy := _new_strategy(ARCEUS_SCRIPT_PATH)
+	if strategy == null:
+		return "DeckStrategyArceusGiratina.gd should exist before Charizard re-entry draw churn can be verified"
+	var gs := _make_game_state(7)
+	var player := gs.players[0]
+	var live_arceus := _make_slot(_make_pokemon_cd("Arceus VSTAR", "VSTAR", "C", 280, "Arceus V", "V", [], [{"name": "Trinity Nova", "cost": "CCC", "damage": "200"}]), 0)
+	live_arceus.attached_energy.append(CardInstance.create(_make_energy_cd("Double Turbo Energy", "", "Special Energy"), 0))
+	live_arceus.attached_energy.append(CardInstance.create(_make_energy_cd("Grass Energy", "G"), 0))
+	var backup_arceus := _make_slot(_make_pokemon_cd("Arceus V", "Basic", "C", 220, "", "V"), 0)
+	var stranded_giratina := _make_slot(_make_pokemon_cd("Giratina V", "Basic", "P", 220, "", "V"), 0)
+	var bibarel := _make_slot(_make_pokemon_cd("Bibarel", "Stage1", "C", 120, "Bidoof"), 0)
+	var skwovet := _make_slot(_make_pokemon_cd("Skwovet", "Basic", "C", 70), 0)
+	player.active_pokemon = stranded_giratina
+	player.bench.append(live_arceus)
+	player.bench.append(backup_arceus)
+	player.bench.append(bibarel)
+	player.bench.append(skwovet)
+	gs.players[1].active_pokemon = _make_slot(_make_pokemon_cd("Charizard ex", "Stage2", "D", 330, "Charmeleon", "ex"), 1)
+	gs.players[1].bench.append(_make_slot(_make_pokemon_cd("Pidgeot ex", "Stage2", "C", 280, "Pidgeotto", "ex"), 1))
+	var bibarel_score: float = strategy.score_action_absolute({"kind": "use_ability", "source_slot": bibarel, "ability_index": 0}, gs, 0)
+	var skwovet_score: float = strategy.score_action_absolute({"kind": "use_ability", "source_slot": skwovet, "ability_index": 0}, gs, 0)
+	var attach_score: float = strategy.score_action_absolute(
+		{"kind": "attach_energy", "card": CardInstance.create(_make_energy_cd("Double Turbo Energy", "", "Special Energy"), 0), "target_slot": backup_arceus},
+		gs,
+		0
+	)
+	return run_checks([
+		assert_eq(bibarel_score, 0.0, "Into Charizard re-entry, Bibarel should cool off until the backup Arceus line is actually online"),
+		assert_eq(skwovet_score, 0.0, "Into Charizard re-entry, Skwovet should also cool off instead of spending the rebuild turn on redraw churn"),
+		assert_true(attach_score > bibarel_score, "Into Charizard re-entry, rebuilding the backup Arceus should outrank Bibarel draw"),
+		assert_true(attach_score > skwovet_score, "Into Charizard re-entry, rebuilding the backup Arceus should also outrank Skwovet"),
 	])
 
 

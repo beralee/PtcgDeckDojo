@@ -76,7 +76,7 @@ func try_play_trainer_with_interaction(scene: Object, player_index: int, card: C
 		if not gsm.play_trainer(player_index, card, []):
 			scene.call("_log", _bt(scene, "battle.log.cannot_use_card", {"name": card.card_data.name}))
 		else:
-			scene.call("_refresh_ui_after_successful_action")
+			scene.call("_refresh_ui_after_successful_action", false, player_index)
 		return
 	if not effect.can_execute(card, gsm.game_state):
 		scene.call("_log", _bt(scene, "battle.log.card_currently_unavailable", {"name": card.card_data.name}))
@@ -89,7 +89,7 @@ func try_play_trainer_with_interaction(scene: Object, player_index: int, card: C
 			var empty_message: String = effect.get_empty_interaction_message(card, gsm.game_state)
 			if empty_message != "":
 				scene.call("_log", empty_message)
-			scene.call("_refresh_ui_after_successful_action")
+			scene.call("_refresh_ui_after_successful_action", false, player_index)
 		return
 	scene.call("_start_effect_interaction", "trainer", player_index, steps, card)
 	scene.call("_maybe_run_ai")
@@ -102,14 +102,14 @@ func try_play_stadium_with_interaction(scene: Object, player_index: int, card: C
 		if not gsm.play_stadium(player_index, card):
 			scene.call("_log", _bt(scene, "battle.log.cannot_play_stadium"))
 		else:
-			scene.call("_refresh_ui_after_successful_action")
+			scene.call("_refresh_ui_after_successful_action", false, player_index)
 		return
 	var steps: Array[Dictionary] = effect.get_on_play_interaction_steps(card, gsm.game_state)
 	if steps.is_empty():
 		if not gsm.play_stadium(player_index, card):
 			scene.call("_log", _bt(scene, "battle.log.cannot_play_stadium"))
 		else:
-			scene.call("_refresh_ui_after_successful_action")
+			scene.call("_refresh_ui_after_successful_action", false, player_index)
 		return
 	scene.call("_start_effect_interaction", "play_stadium", player_index, steps, card)
 	scene.call("_maybe_run_ai")
@@ -123,7 +123,7 @@ func try_use_ability_with_interaction(scene: Object, player_index: int, slot: Po
 	var effect: BaseEffect = gsm.effect_processor.get_ability_effect(slot, ability_index, gsm.game_state)
 	if effect == null:
 		if gsm.use_ability(player_index, slot, ability_index):
-			scene.call("_refresh_ui_after_successful_action", true)
+			scene.call("_refresh_ui_after_successful_action", true, player_index)
 		else:
 			scene.call("_log", _bt(scene, "battle.log.ability_unavailable", {"name": card.card_data.name}))
 		return
@@ -135,7 +135,7 @@ func try_use_ability_with_interaction(scene: Object, player_index: int, slot: Po
 		if gsm.use_ability(player_index, slot, ability_index):
 			var ability_name: String = gsm.effect_processor.get_ability_name(slot, ability_index, gsm.game_state)
 			scene.call("_log", _bt(scene, "battle.log.ability_used", {"name": ability_name}))
-			scene.call("_refresh_ui_after_successful_action", true)
+			scene.call("_refresh_ui_after_successful_action", true, player_index)
 		else:
 			scene.call("_log", _bt(scene, "battle.log.ability_unavailable", {"name": card.card_data.name}))
 		return
@@ -151,7 +151,7 @@ func try_use_stadium_with_interaction(scene: Object, player_index: int) -> void:
 	var effect: BaseEffect = gsm.effect_processor.get_effect(stadium_card.card_data.effect_id)
 	if effect == null:
 		if gsm.use_stadium_effect(player_index):
-			scene.call("_refresh_ui_after_successful_action")
+			scene.call("_refresh_ui_after_successful_action", false, player_index)
 		else:
 			scene.call("_log", _bt(scene, "battle.log.stadium_unavailable"))
 		return
@@ -161,7 +161,7 @@ func try_use_stadium_with_interaction(scene: Object, player_index: int) -> void:
 	var steps: Array[Dictionary] = effect.get_interaction_steps(stadium_card, gsm.game_state)
 	if steps.is_empty():
 		if gsm.use_stadium_effect(player_index):
-			scene.call("_refresh_ui_after_successful_action")
+			scene.call("_refresh_ui_after_successful_action", false, player_index)
 		else:
 			scene.call("_log", _bt(scene, "battle.log.stadium_unavailable"))
 		return

@@ -1,4 +1,4 @@
-class_name DeckStrategyGardevoir
+﻿class_name DeckStrategyGardevoir
 extends "res://scripts/ai/DeckStrategyBase.gd"
 
 ## 沙奈朵卡组专属 AI 策略
@@ -84,6 +84,12 @@ const SECRET_BOX := "秘密箱"
 const HISUIAN_HEAVY_BALL := "洗翠的沉重球"
 const PSYCHIC_ENERGY := "基本超能量"
 const DARK_ENERGY := "基本恶能量"
+const CHARIZARD_EX_EN := "Charizard ex"
+const PIDGEOT_EX_EN := "Pidgeot ex"
+const PIDGEY_EN := "Pidgey"
+const CHARMANDER_EN := "Charmander"
+const DUSKULL_EN := "Duskull"
+const ROTOM_V_EN := "Rotom V"
 
 # -- 角色分类 --
 const CORE_NAMES: Array[String] = ["拉鲁拉丝", "奇鲁莉安", "沙奈朵ex"]
@@ -122,7 +128,9 @@ func score_action_absolute(action: Dictionary, game_state: GameState, player_ind
 	var phase: String = _detect_game_phase(turn, player)
 	match kind:
 		"play_basic_to_bench":
-			return _abs_play_basic(action, player, phase)
+			return _abs_play_basic(action, game_state, player, player_index, phase)
+		"play_stadium":
+			return _abs_play_trainer(action, game_state, player, player_index, phase)
 		"evolve":
 			return _abs_evolve(action, player, phase)
 		"attach_energy":
@@ -142,57 +150,112 @@ func score_action_absolute(action: Dictionary, game_state: GameState, player_ind
 	return 0.0
 
 
-func _abs_play_basic(action: Dictionary, player: PlayerState, phase: String) -> float:
+func _abs_play_basic(action: Dictionary, game_state: GameState, player: PlayerState, player_index: int, phase: String) -> float:
 	var card: CardInstance = action.get("card")
 	if card == null or card.card_data == null:
 		return 0.0
 	var name: String = str(card.card_data.name)
 	var bench_size: int = player.bench.size()
 	if bench_size >= 5:
-		return 0.0  # 满板
-
-	# --- 板位预算系统 ---
-	# 目标阵容（5 板位）：2× 拉鲁拉丝线 + 1× 愿增猿 + 1× 攻击手 + 1× 灵活位
-	# 核心位未满时不放非核心宝可梦占位
+		return 0.0  # 婵犲ň鍓濆?
+	var shell_lock: bool = _shell_lock_active(player)
+	var transition_shell: bool = _has_transition_shell(player)
+	var ready_attackers: int = _count_ready_attackers(player)
+	var attacker_bodies: int = _count_attackers_on_field(player)
 	var essential_slots_needed: int = _count_essential_slots_needed(player)
 	var free_slots: int = 5 - bench_size
 	var is_essential: bool = _is_essential_pokemon(name, player)
+	var charizard_rebuild_lock: bool = _charizard_rebuild_lock(game_state, player, player_index)
 
-	# 非核心宝可梦 + 板位紧张（空位 ≤ 核心缺口）→ 不放
 	if not is_essential and free_slots <= essential_slots_needed:
-		return -50.0  # 留位给核心
+		return 0.0
 
-	# --- 核心宝可梦评分 ---
-	if name == RALTS:
-		var ralts_on_field: int = _count_pokemon_on_field(player, RALTS)
-		var kirlia_on_field: int = _count_pokemon_on_field(player, KIRLIA)
-		var total_line: int = ralts_on_field + kirlia_on_field + _count_pokemon_on_field(player, GARDEVOIR_EX)
-		if total_line >= 3:
-			return 0.0  # 进化线已够
-		return 350.0 if phase == "early" else 280.0
-	if name == MUNKIDORI:
-		if _count_pokemon_on_field(player, MUNKIDORI) >= 1:
+	if shell_lock:
+		if name == RALTS:
+			if _count_primary_shell_bodies(player) >= 2:
+				return 20.0
+			return 420.0 if phase == "early" else 340.0
+		if name in [SCREAM_TAIL, MUNKIDORI, RADIANT_GRENINJA, DRIFLOON, MANAPHY]:
+			return -120.0
+		if name in [KLEFKI, FLUTTER_MANE]:
+			return -40.0
+		return -80.0
+
+	if not transition_shell:
+		if name == RALTS:
+			return 120.0
+		if name == DRIFLOON:
+			if attacker_bodies == 0 and _opponent_has_scream_tail_prize_target(game_state, player_index):
+				return 260.0
+			return 320.0 if attacker_bodies == 0 else 80.0
+		if name == SCREAM_TAIL:
+			if attacker_bodies == 0 and _opponent_has_scream_tail_prize_target(game_state, player_index):
+				return 360.0
+			return 260.0 if attacker_bodies == 0 else 40.0
+		if name == MUNKIDORI:
+			return -80.0 if attacker_bodies == 0 else 20.0
+		if name == RADIANT_GRENINJA:
+			return -60.0
+		if name in [KLEFKI, FLUTTER_MANE]:
+			return 20.0
+		if name == MANAPHY:
+			return 60.0 if _count_pokemon_on_field(player, MANAPHY) == 0 else 0.0
+		return -20.0
+
+	if charizard_rebuild_lock:
+		if name == MUNKIDORI:
+			return -140.0
+		if name == RALTS:
+			return -80.0
+		if name in [FLUTTER_MANE, KLEFKI, MANAPHY, RADIANT_GRENINJA]:
+			return -120.0
+
+	if transition_shell and _opponent_has_scream_tail_prize_target(game_state, player_index):
+		if name == SCREAM_TAIL and _count_pokemon_on_field(player, SCREAM_TAIL) == 0:
+			if ready_attackers >= 1:
+				return 180.0
+			if attacker_bodies >= 1:
+				return 240.0
+
+	if transition_shell and attacker_bodies >= 1 and ready_attackers == 0:
+		if name in [FLUTTER_MANE, KLEFKI, MANAPHY, MUNKIDORI]:
+			return -90.0
+		if name == RADIANT_GRENINJA:
+			return -60.0
+		if name == RALTS:
 			return 0.0
-		return 200.0 if phase == "early" else 150.0
-	if name == DRIFLOON:
-		if _count_attackers_on_field(player) >= 1:
-			return 150.0  # 已有攻击手，第二个优先级降低
-		return 280.0
-	if name == SCREAM_TAIL:
-		if _count_attackers_on_field(player) >= 1:
-			return 130.0
-		return 260.0
 
-	# --- 非核心宝可梦（仅在有空余板位时放）---
-	if name == MANAPHY:
-		return 120.0 if _count_pokemon_on_field(player, MANAPHY) == 0 else 0.0
-	if name == RADIANT_GRENINJA:
-		return 100.0
-	if name == KLEFKI:
-		return 80.0
-	if name == FLUTTER_MANE:
-		return 80.0
-	return 50.0
+	if _has_deck_out_pressure(player) and ready_attackers >= 1:
+		if name == RALTS:
+			return -40.0
+		if name in [RADIANT_GRENINJA, FLUTTER_MANE, KLEFKI, MANAPHY, MUNKIDORI]:
+			return -80.0
+
+	if attacker_bodies == 0:
+		if name == DRIFLOON:
+			if _opponent_has_scream_tail_prize_target(game_state, player_index):
+				return 260.0
+			return 320.0
+		if name == SCREAM_TAIL:
+			if _opponent_has_scream_tail_prize_target(game_state, player_index):
+				return 360.0
+			return 260.0
+		if name == RALTS:
+			return 20.0
+		if name == MUNKIDORI:
+			return -60.0
+		if name == RADIANT_GRENINJA:
+			return -50.0
+		return 0.0
+
+	if ready_attackers >= 1:
+		if name == RALTS:
+			return -80.0
+		if name in [FLUTTER_MANE, KLEFKI, RADIANT_GRENINJA, MUNKIDORI, MANAPHY]:
+			return -100.0
+		if name in [DRIFLOON, SCREAM_TAIL]:
+			return -20.0
+	return 20.0
 
 
 func _abs_evolve(action: Dictionary, player: PlayerState, phase: String) -> float:
@@ -227,37 +290,88 @@ func _abs_attach_energy(action: Dictionary, game_state: GameState, player: Playe
 		return 0.0
 	var target_name: String = target_slot.get_pokemon_name()
 	var energy_type: String = str(energy_card.card_data.energy_provides)
+	var shell_lock: bool = _shell_lock_active(player)
+	var tm_live: bool = _tm_setup_priority_live(player, "mid")
+	var stage2_shell: bool = _has_established_stage2_shell(player)
+	var ready_attackers: int = _count_ready_attackers(player)
+	var live_attackers: int = _count_live_attackers(player)
+	var active_name: String = player.active_pokemon.get_pokemon_name() if player.active_pokemon != null else ""
+	var charizard_matchup: bool = _is_charizard_pressure_matchup(game_state, player_index)
+	var delay_attacker_investment: bool = _should_delay_attacker_investment_during_shell_lock(player)
 
-	# --- 通用规则：手贴能量给前场非攻击手以解锁撤退 ---
+	if target_slot == player.active_pokemon and target_name == SCREAM_TAIL and _get_attack_energy_gap(target_slot) <= 1:
+		if delay_attacker_investment:
+			return -160.0
+		if energy_type == "D":
+			return 900.0
+		if energy_type == "P":
+			return 520.0
+	if target_slot == player.active_pokemon and target_name == DRIFLOON and _get_attack_energy_gap(target_slot) <= 1 and energy_type == "P":
+		if delay_attacker_investment:
+			return -160.0
+		return 520.0
+	if shell_lock and target_slot == player.active_pokemon and (_hand_has_card(player, TM_EVOLUTION) or _active_has_tm_evolution(player)) and _count_evolvable_bench_targets(player) >= 2:
+		return 760.0
+	if tm_live and target_slot == player.active_pokemon and _tm_attack_payment_gap(target_slot) <= 1:
+		return 760.0
+	if shell_lock and target_slot == player.active_pokemon and _count_primary_shell_bodies(player) >= 2:
+		if active_name in [FLUTTER_MANE, KLEFKI, MUNKIDORI, DRIFLOON]:
+			if target_slot.attached_energy.size() == 0:
+				return 260.0
+
+	# --- 闂侇偅姘ㄩ弫銈囨喆閸曨偄鐏熼柨娑欑婢ф粎鎷圭壕瀣幋闂佹彃绻掔划浼村礈瀹ュ懏绨氶梻鍫㈠仦閺侀箖宕欑紒妯侯杹濞寸姰鍎磋闂佸じ鐒﹂幐娆撴焻閳?---
 	if target_slot == player.active_pokemon \
 	   and target_name not in ATTACKER_NAMES and target_name != SCREAM_TAIL:
 		var retreat_gap: int = _get_retreat_energy_gap(target_slot)
-		if retreat_gap > 0 and retreat_gap <= 1:  # 差1能就能撤退
+		if retreat_gap > 0 and retreat_gap <= 1:  # 鐎?闁煎疇妫勫銊╂嚄閼恒儲瀵甸梺顐熷亾
 			var has_bench_attacker: bool = false
 			for bench_slot: PokemonSlot in player.bench:
 				if _is_ready_attacker(bench_slot):
 					has_bench_attacker = true
 					break
 			if has_bench_attacker:
-				return 380.0  # B 段：手贴解锁撤退 → 攻击手上前
+				return 380.0  # B 婵炲牏顣槐浼村箥鐎ｎ厼鍨遍悷娆欑秮閺€锝夊箻閵堝鍋撻埀?闁?闁衡偓鐠囨彃姣婇柟闈涱儎缁楀倿宕?
 
-	# 超能量一般走弃牌堆 + Embrace，不手贴
 	if energy_type == "P":
+		if shell_lock:
+			return -100.0
+		if stage2_shell and live_attackers == 0:
+			if target_name == DRIFLOON or target_name == DRIFBLIM:
+				if _get_attack_energy_gap(target_slot) <= 1:
+					return 520.0 if target_slot == player.active_pokemon else 420.0
+			if target_name == SCREAM_TAIL and _get_attack_energy_gap(target_slot) <= 1:
+				if _opponent_has_scream_tail_prize_target(game_state, player_index):
+					return 560.0 if target_slot == player.active_pokemon else 460.0
+				return 480.0 if target_slot == player.active_pokemon else 380.0
+		if target_slot == player.active_pokemon and target_name == DRIFLOON and live_attackers == 0 and _get_attack_energy_gap(target_slot) <= 1:
+			return 560.0
+		if target_slot == player.active_pokemon and target_name == SCREAM_TAIL and live_attackers == 0 and _get_attack_energy_gap(target_slot) <= 1:
+			return 520.0
 		return -100.0
-	# 恶能量只给 Munkidori（Combo: 愿增猿收割），且只贴1个
 	if energy_type == "D":
+		if target_name == SCREAM_TAIL and live_attackers == 0 and _get_attack_energy_gap(target_slot) <= 1:
+			if stage2_shell:
+				if _opponent_has_scream_tail_prize_target(game_state, player_index):
+					return 720.0 if target_slot == player.active_pokemon else 620.0
+				return 640.0 if target_slot == player.active_pokemon else 520.0
+			if target_slot == player.active_pokemon:
+				return 580.0
+		if shell_lock and not (tm_live and target_slot == player.active_pokemon):
+			return -100.0
 		if target_name == MUNKIDORI:
+			if charizard_matchup and _has_transition_shell(player) and not _munkidori_can_threaten_ko(game_state, player_index):
+				return -140.0
+			if _has_transition_shell(player) and ready_attackers >= 1:
+				return 0.0
 			if not _slot_has_energy_type(target_slot, "D"):
-				return 250.0  # B 段：首贴
-			return -100.0  # D 段：已有1恶能，绝不贴第2个
-		# 恶能量贴给前场非攻击手也能支付撤退费（通用能量）
+				return 120.0
+			return -100.0
 		if target_slot == player.active_pokemon and target_name not in ATTACKER_NAMES and target_name != SCREAM_TAIL:
 			var retreat_gap: int = _get_retreat_energy_gap(target_slot)
 			if retreat_gap > 0 and retreat_gap <= 1:
 				for bench_slot: PokemonSlot in player.bench:
 					if _is_ready_attacker(bench_slot):
-						return 350.0  # B 段：恶能当撤退费
-				# 没有就绪攻击手就别贴
+						return 350.0
 		return -100.0
 	return -100.0
 
@@ -269,21 +383,29 @@ func _abs_attach_tool(action: Dictionary, player: PlayerState, phase: String = "
 		return 0.0
 	var tool_name: String = str(card.card_data.name)
 	var target_name: String = target_slot.get_pokemon_name()
-	# TM Evolution：必须贴给战斗场宝可梦，且必须能配套贴能量使用进化招式
-	# 进化招式费用 = C（1个任意能量）
 	if tool_name == TM_EVOLUTION:
-		# 只贴给前场
 		if target_slot != player.active_pokemon:
-			return -200.0  # 不贴后备
+			return -200.0
+		if _tm_support_carrier_cools_off(player, phase):
+			return -220.0
+		if _has_online_shell(player):
+			return -180.0
+		if _must_force_first_gardevoir(player):
+			return 10.0
 		if not _has_evolvable_bench_targets(player):
-			return -100.0  # 无可进化目标
-		# 检查能否配套贴能量：前场已有≥1能量 或 手里有能量可贴
+			return -100.0
 		var active_energy: int = target_slot.attached_energy.size()
 		var can_power: bool = active_energy >= 1 or _hand_has_any_energy(player)
-		if not can_power:
-			return -50.0  # 无法支付进化招式费用
-		return 550.0  # A 段：完整 combo
+		if _shell_lock_active(player):
+			if can_power:
+				return 550.0
+			return 180.0
+		if _tm_precharge_window(player):
+			return 160.0
+		return -80.0
 	if tool_name == BRAVERY_CHARM:
+		if _shell_lock_active(player):
+			return -120.0
 		if target_name == SCREAM_TAIL:
 			return 250.0  # B 段
 		if target_name == DRIFBLIM or target_name == DRIFLOON:
@@ -302,30 +424,45 @@ func _abs_use_ability(action: Dictionary, game_state: GameState, player: PlayerS
 	var card_data: CardData = source_slot.get_card_data()
 	if card_data == null:
 		return 0.0
-	# 精神拥抱 / Psychic Embrace（Combo: 弃牌堆加速 / 飘飘球高伤 / 吼叫尾狙杀）
+	# 缂侇喖澧介〃锝夊箯閵夛箑小 / Psychic Embrace闁挎稑婀憃mbo: 鐎殿喖鍟版晶婵嬪醇閸℃顫ｉ梺?/ 濡炲锕㈤ˉ婵嬫偠閸愵喚褰ù?/ 闁告氨鍘цぐ銊т焊閸撗冪彙闁哄鍋撻柨?
 	if source_name == GARDEVOIR_EX and _has_any_ability(card_data, ["精神拥抱", "Psychic Embrace"]):
 		return _abs_psychic_embrace(game_state, player, player_index)
-	# 精炼 / Refinement（Combo: 弃牌堆加速 — 弃超能 + 抽牌）
+	# 缂侇喖澧介崑?/ Refinement闁挎稑婀憃mbo: 鐎殿喖鍟版晶婵嬪醇閸℃顫ｉ梺?闁?鐎殿喖鍟崇粔鎾嚄?+ 闁瑰墎鏅晶婵嬫晬?
 	if source_name == KIRLIA and _has_any_ability(card_data, ["精炼", "Refinement"]):
-		# 手牌越多弃牌选择越好，优先级高
+		if _has_deck_out_pressure(player) and _count_ready_attackers(player) >= 1:
+			return 0.0
+		if _has_transition_shell(player) and _count_ready_attackers(player) >= 1:
+			return 30.0
 		var hand_size: int = player.hand.size()
 		if hand_size <= 1:
-			return 50.0  # 手牌太少不值得精炼
-		return 400.0 if phase != "late" else 250.0  # A/B 段
-	# 隐藏牌 / Concealed Cards — 光辉甲贺忍蛙（弃能量抽2张）
+			return 50.0
+		return 400.0 if phase != "late" else 250.0
+	# 闂傚懏鍔樺Λ宀勬偋?/ Concealed Cards 闁?闁稿繐顦崇欢锝夋偨閼艰埖妲煫鍥хХ濞叉劙鏁嶉崼婵堢＞闁煎厖绮欓崳娲箮?鐎殿喚濯寸槐?
 	if source_name == RADIANT_GRENINJA and _has_any_ability(card_data, ["隐藏牌", "Concealed Cards"]):
+		if _has_deck_out_pressure(player) and _count_ready_attackers(player) >= 1:
+			return 0.0
+		if _shell_lock_active(player) and _count_primary_shell_bodies(player) >= 2 and _hand_has_energy_type(player, "P"):
+			return 460.0
+		if _shell_lock_active(player):
+			if _count_primary_shell_bodies(player) < 2 or _has_shell_search(player):
+				return -40.0
+		if _has_transition_shell(player) and _count_ready_attackers(player) >= 1:
+			return 20.0
 		if _hand_has_energy_type(player, "P"):
-			return 420.0  # A 段：弃超能 = Embrace 燃料 + 抽牌
+			return 420.0
 		if _hand_has_energy_type(player, "D"):
-			return 300.0  # B 段
-		return 0.0  # 无能量可弃
-	# Munkidori 特性（Combo: 愿增猿收割）
+			return 300.0
+		return 0.0  # 闁哄啰濮鹃崗姗€鏌岃箛鎾宠鐎?	# Munkidori 闁绘顫夐埀顑秶绀凜ombo: 闁规澘鐏濋·鍐偖閹稿孩鏆柛鎾诡嚋缁?
 	if source_name == MUNKIDORI:
 		if _munkidori_can_threaten_ko(game_state, player_index):
-			return 600.0  # A 段：可凑 KO
-		return 80.0  # C 段
+			return 600.0  # A 婵炲牏顣槐浼村矗椤栨艾娅?KO
+		if _is_charizard_pressure_matchup(game_state, player_index) and _has_transition_shell(player):
+			return -120.0
+		if _has_transition_shell(player) and _count_ready_attackers(player) >= 1:
+			return -80.0
+		return -20.0
 	if source_name == MANAPHY:
-		return 120.0  # C 段
+		return 120.0  # C 婵?
 	return 0.0
 
 
@@ -411,140 +548,204 @@ func _abs_play_trainer(action: Dictionary, game_state: GameState, player: Player
 	var has_kirlia: bool = _count_pokemon_on_field(player, KIRLIA) >= 1
 	var has_ralts: bool = _count_pokemon_on_field(player, RALTS) >= 1
 	var discard_p: int = _count_psychic_energy_in_discard(game_state, player_index)
+	var shell_lock: bool = _shell_lock_active(player)
+	var transition_shell: bool = _has_transition_shell(player)
+	var ready_attackers: int = _count_ready_attackers(player)
+	var attacker_bodies: int = _count_attackers_on_field(player)
+	var attacker_recovery_mode: bool = _needs_attacker_recovery(game_state, player, player_index)
+	var charizard_rebuild_lock: bool = _charizard_rebuild_lock(game_state, player, player_index)
 
-	# === 搜索型物品 ===
+	# === 闁瑰吋绮庨崒銊╁垂鐎ｎ剙鈷栭柛?===
 
-	# 友好宝芬：搜牌库2只<=70HP基础宝可梦上板
-	# 链：宝芬 → 拉鲁拉丝x2上板 → 下回合进化奇鲁莉安 → 精炼引擎
+	# 闁告瑥顑呴妶鐣屸偓瑙勭箚婵噣鏁嶅顓熷仢闁绘鑻花?闁?=70HP闁糕晞娅ｉ、鍛偓瑙勭箓瑜版彃顫忛敂璺ㄧ憪闁?
+	# 闂佺偓鎷濈槐鎵偓瑙勭箚婵?闁?闁瑰嘲顦甸惉楣冨箯婢跺顐緓2濞戞挸锕ュ?闁?濞戞挸顑呭ú鏍触閸絿绠婚柛鏍ㄧ墪椤ㄥ本銇旀担钘夌閻?闁?缂侇喖澧介崑褍顕ｉ弴鐔告儧
 	if name == BUDDY_BUDDY_POFFIN:
 		if bench_full:
 			return 0.0
+		if charizard_rebuild_lock:
+			return -140.0
+		if attacker_recovery_mode:
+			return 40.0
+		if shell_lock and _count_primary_shell_bodies(player) >= 2:
+			return -40.0
+		if transition_shell and ready_attackers >= 1:
+			return -120.0
 		var essential_needed: int = _count_essential_slots_needed(player)
 		if essential_needed >= 2 and phase == "early":
-			return 380.0  # 核心位缺口大，宝芬高优先
+			return 380.0  # 闁哄秶顭堢缓鐐媴瀹ュ洤绻侀柛娆欑到閵囧洭鏁嶇仦鐣屾澓闁间警鍓熼悵顔藉濡搫甯?
 		if essential_needed >= 1:
 			return 300.0
-		return 150.0  # 核心已齐，宝芬价值下降
+		return 150.0  # 闁哄秶顭堢缓鎯ь啅閺屻儳绉烽柨娑樿嫰閻ゅ倿鎳為璺ㄥ箚闁稿﹪妫跨粭鍛存⒔?
 
-	# 巢穴球：搜牌库1只基础宝可梦上板
-	# 链：巢穴球 → 拉鲁拉丝/飘飘球/吼叫尾上板
+	# 鐎规悶鍨婚埞鎰版偠閸愯法绐楅柟鍏肩矌婢ф繃鎯?闁告瑯浜滈悢鈧痪顓涘亾閻庤绻傝ぐ鎻掝潖閿旇法鐟愰柡?
+	# 闂佺偓鎷濈槐鏉款啅閵忊懇鏀奸柣?闁?闁瑰嘲顦甸惉楣冨箯婢跺顐?濡炲锕㈤ˉ婵嬫偠?闁告氨鍘цぐ銊т焊閸欍儳鐟愰柡?
 	if name == NEST_BALL:
 		if bench_full:
 			return 0.0
+		if charizard_rebuild_lock:
+			return -140.0
+		if attacker_recovery_mode:
+			return 30.0
+		if shell_lock and _count_primary_shell_bodies(player) >= 2:
+			return -20.0
+		if transition_shell and ready_attackers >= 1:
+			return -120.0
 		var essential_needed: int = _count_essential_slots_needed(player)
 		if essential_needed >= 1 and phase == "early":
-			return 300.0  # 核心位有缺
-		if essential_needed >= 1:
+			return 300.0  # 闁哄秶顭堢缓鐐媴瀹ュ棙绠掔紓?		if essential_needed >= 1:
 			return 200.0
-		return 100.0  # 核心已齐
+		return 100.0  # 闁哄秶顭堢缓鎯ь啅閺屻儳绉?
 
-	# 高级球：弃2搜任意宝可梦
-	# 链1：高级球(弃2超能) → 沙奈朵ex → 进化启动引擎（弃超能还加速燃料）
-	# 链2：高级球(弃2超能) → 奇鲁莉安 → 进化获得精炼
-	# 链3：高级球 → 攻击手/工具宝可梦
+	# 濡ゅ倹顭囨鍥偠閸愯法绐楃€?闁瑰吋绮堥幑銏ゅ箛韫囨挾鏉洪柛娆樺灡閳?
+	# 闂?闁挎稒宀搁悵顔剧棯瑜忛幃?鐎?閻℃帒鎳撻崗? 闁?婵炲本鐟ラ〃宥夊嫉缁€绉?闁?閺夆晜绋戠€垫煡宕ラ姘楃€殿喗娲橀幖鎼佹晬閸繄纾鹃悺鎺戞嚀閸忔ɑ娼诲Ο鍝勵潱闂侇偆鍠撻崳褔寮▎娆戠
+	# 闂?闁挎稒宀搁悵顔剧棯瑜忛幃?鐎?閻℃帒鎳撻崗? 闁?濠靛倸娲惉楣冩嚔婢跺﹦鏆?闁?閺夆晜绋戠€垫煡鎳㈠畡鎵箒缂侇喖澧介崑?
+	# 闂?闁挎稒宀搁悵顔剧棯瑜忛幃?闁?闁衡偓鐠囨彃姣婇柟?鐎规悶鍎遍崣璺ㄢ偓瑙勭箓瑜版彃顫?
 	if name == ULTRA_BALL:
 		return _abs_ultra_ball(game_state, player, player_index, phase, hand_size)
 
-	# 秘密箱：弃3搜(物品+道具+支援者+场地各1)
-	# 链：秘密箱(弃3含超能) → 获得4张卡（巨大卡差）→ 后续展开
+	# 缂佸锚閻︽垹绮婚幉瀣獥鐎?闁?闁绘せ鏅涢幖?闂侇剚鎸搁崣?闁衡偓椤栨稑鑳堕柤?闁革箑鎼﹢鎾触?)
+	# 闂佺偓鎷濈槐鎵矓濡櫣妲曠紒?鐎?闁告凹鍋夌粔鎾嚄? 闁?闁兼儳鍢茬欢?鐎殿喚濮村畷閬嶆晬閸繃纭跺鍫嗗啫骞㈢€瑰壊鍣槐姘跺焼?闁告艾娴烽悽鑽や沪閺囩偟纾?
 	if name == SECRET_BOX:
+		if transition_shell and ready_attackers >= 1:
+			return -120.0
 		return _abs_secret_box(game_state, player, player_index, phase, hand_size)
 
-	# 派帕：搜1物品+1道具
-	# 链：派帕 → 高级球+TM进化 / 宝芬+勇气护符 等
+	# 婵炲弶鍎崇粭妤呮晬濮橆厽鍋?闁绘せ鏅涢幖?1闂侇剚鎸搁崣?
+	# 闂佺偓鎷濈槐鏉棵洪幆褏鐟?闁?濡ゅ倹顭囨鍥偠?TM閺夆晜绋戠€?/ 閻庤绻嗘慨?闁告洖娲﹂惃鐢稿箮閵堝浂鍎?缂?
 	if name == ARVEN:
+		if transition_shell and ready_attackers >= 1:
+			return -120.0
 		return _abs_arven(game_state, player, player_index, phase)
 
-	# === 弃牌堆加速型物品 ===
+	# === 鐎殿喖鍟版晶婵嬪醇閸℃顫ｉ梺顐ゅ枎閻庣兘鎮ч埡浣规儌 ===
 
-	# 大地容器：弃1超能，从牌库搜2张基础能量
-	# 链：大地容器(弃超能→燃料) → 搜2能量(恶能给愿增猿/超能做备用)
+	# 濠㈠爢鍐╁嬀閻庡湱鎳撳▍鎺楁晬濮橆剛纾?閻℃帒鎳撻崗姗€鏁嶇仦鑲╃煠闁绘鑻花閬嶅箹?鐎殿喚濮撮悢鈧痪顓涘亾闁煎厖绮欓崳?
+	# 闂佺偓鎷濈槐鐗堝緞瑜嶅﹢瀵糕偓鍦嚀濞?鐎殿喖鍟崇粔鎾嚄鐟欙絽鏅柣鏇炲暞閺? 闁?闁?闁煎厖绮欓崳?闁诡厽鍎奸崗妯肩磼濞嗘劕濮藉褏鍋熺亸?閻℃帒鎳撻崗姗€宕戝顒夋У闁?
 	if name == EARTHEN_VESSEL:
+		if _tm_setup_priority_live(player, phase) and not _hand_has_any_energy(player):
+			return 340.0
+		if shell_lock and _count_primary_shell_bodies(player) < 2:
+			return -40.0
+		if transition_shell and ready_attackers >= 1:
+			return -70.0
 		if _hand_has_energy_type(player, "P"):
-			return 350.0 if phase != "late" else 120.0  # 弃超能 = 双重收益
+			return 350.0 if phase != "late" else 120.0  # 鐎殿喖鍟崇粔鎾嚄?= 闁告瑥鐭傞崳鎼佸绩閸撲焦鎶?
 		return 200.0 if phase != "late" else 80.0
 
-	# === 回收型物品 ===
+	# === 闁搞儳鍋為弫褰掑垂鐎ｎ剙鈷栭柛?===
 
-	# 夜间担架：从弃牌堆捡1只宝可梦到手/2只到牌库
-	# 链1：夜间担架 → 捡沙奈朵ex/奇鲁莉安到手 → 进化
-	# 链2：夜间担架 → 捡攻击手 → 上板 → Embrace加速
+	# 濠㈣埖绮撳Λ鍧楀箯閸涱喚浠搁柨娑欑煯缁姴顕ｉ崘顏勵杺闁割偄妫欏畷?闁告瑯浜滈悿鍌炲矗椤栨稈鍙洪柛鎺斿婢?2闁告瑯浜滈崺宀勬偋鐏炵晫姘?
+	# 闂?闁挎稒鑹鹃¨渚€姊荤€涙ê顎撻柡?闁?闁瑰厜鍓濋惌娆愮附閸喐鏋別x/濠靛倸娲惉楣冩嚔婢跺﹦鏆旈柛鎺斿婢?闁?閺夆晜绋戠€?
+	# 闂?闁挎稒鑹鹃¨渚€姊荤€涙ê顎撻柡?闁?闁瑰厜鍓濋弫楣冨礄缂佹ê顤?闁?濞戞挸锕ュ?闁?Embrace闁告梻濞€閳?
 	if name == NIGHT_STRETCHER:
+		if attacker_recovery_mode:
+			return 360.0
 		return _abs_night_stretcher(game_state, player, player_index, phase)
 
-	# 救援担架：同上（旧版）
+	# 闁轰焦鍨惰ぐ娲箯閸涱喚浠搁柨娑欒壘閹挻绋夋繝蹇曠闁哄唲鍛暭闁?
 	if name == RESCUE_STRETCHER:
+		if attacker_recovery_mode:
+			return 360.0
 		return _abs_night_stretcher(game_state, player, player_index, phase)
 
-	# 厉害钓竿：从弃牌堆选最多3张宝可梦/基础能量洗回牌库
-	# 链：钓竿 → 回收超能量到牌库（大地容器再搜出来）/ 回收核心宝可梦
+	# 闁告ê顦濠囨煢閹鹃浼￠柨娑欑煯缁姴顕ｉ崘顏勵杺闁割偄妫濋埀顒€顦板〒鑸靛緞?鐎殿喚濮撮悿鍌炲矗椤栨稈鍙?闁糕晞娅ｉ、鍛存嚄娴犲娅ゆ繛鍙夘殔濞叉牠鎮х仦鐣屾皑
+	# 闂佺偓鎷濈槐浼存煢閹鹃浼?闁?闁搞儳鍋為弫鍦惥閸涙澘鍘撮梺鎻掔箰閸╁矂鎮х仦鐣屾皑闁挎稑鐗嗛妵鍥捶閺夋鍟囬柛锝冨妼閸熲偓闁瑰吋绮岄崵顓㈠级閵夘垳绀? 闁搞儳鍋為弫褰掑冀缁嬭法濡囬悗瑙勭箓瑜版彃顫?
 	if name == SUPER_ROD:
+		if attacker_recovery_mode:
+			return 180.0
 		var discard_value: int = 0
 		if _has_core_in_discard(game_state, player_index):
 			discard_value += 80
 		if _has_attacker_in_discard(game_state, player_index):
 			discard_value += 60
 		if discard_p >= 3:
-			discard_value += 40  # 弃牌堆超能量充足，不急回收
-		else:
-			discard_value += 80  # 超能量不足，回收有价值
+			discard_value += 40
+		if shell_lock and discard_value <= 80:
+			return -40.0
+		if transition_shell and ready_attackers >= 1 and discard_value <= 120:
+			return -80.0
 		return float(maxi(60, discard_value))
 
-	# 洗翠的沉重球：翻开奖品区，取1只基础宝可梦到手，沉重球入奖品
-	# 链：沉重球 → 救出被卡在奖品区的拉鲁拉丝/飘飘球
+	# 婵炲弶顨堢换婵嬫儍閸曨剛鐒介梺鎻掔Ф閹棝鏁嶅杈╁€崇€殿喒鍋撳┑鍌涚墪閹佳囧礌閻氬绀夐柛?闁告瑯浜滈悢鈧痪顓涘亾閻庤绻傝ぐ鎻掝潖閿曗偓閸╁矂骞嶇€ｅ墎绀夋繛灞筋樀閸ｆ悂鎮堕崘銊ュ汲濠靛倹鐗曢幖?
+	# 闂佺偓鎷濈槐鏉库柦婢舵劕娅㈤柣?闁?闁轰焦鍨甸崵顓犳偖椤愩垹骞㈤柛锔哄妼椤ㄦ盯宕担绋块殬闁汇劌瀚刊鐑樸仈娴ｇ懓顎欏☉?濡炲锕㈤ˉ婵嬫偠?
 	if name == HISUIAN_HEAVY_BALL:
-		if phase == "early" and _count_pokemon_on_field(player, RALTS) < 2:
-			return 200.0  # 可能救出关键拉鲁拉丝
-		return 100.0
+		if attacker_recovery_mode:
+			return 10.0
+		if charizard_rebuild_lock:
+			return -100.0
+		if _count_pokemon_on_field(player, RALTS) < 2 and not _has_shell_search(player):
+			return 220.0
+		if transition_shell and ready_attackers >= 1:
+			return -60.0
+		return 20.0
 
-	# === 干扰/狙击型 ===
+	# === 妤犵偛寮舵竟?闁绘瑦鐟ラ崵顕€宕?===
 
-	# 反击捕捉器：己方奖品>对手时，换对手后备到前场
-	# 链：反击捕捉器 → 拉弱目标到前场 → 攻击击杀
+	# 闁告瑥绉撮崵顕€骞戦弴鐔风８闁革綆鐓夌槐鏉款啅鏉堛劍鐓欏┑鍌涚墪閹?閻庝絻顫夋晶婊堝籍鐠佸湱绀夐柟骞垮灩椤曨噣骞嶇€ｎ亝鍊靛璺烘搐閸╁矂宕滃鍛皻
+	# 闂佺偓鎷濈槐浼村矗瀹ュ懎姣婇柟瑙勬礃瀹曞繘宕?闁?闁瑰嘲顦幀銉╂儎椤旂晫鍨奸柛鎺撴緲婢х娀宕?闁?闁衡偓鐠囨彃姣婇柛鎴犵帛濞?
 	if name == COUNTER_CATCHER:
+		if not _has_immediate_attack_window(game_state, player, player_index):
+			return -40.0
 		if _can_ko_bench_target(game_state, player, player_index):
-			return 700.0  # A 段：能击杀
-		return 200.0  # B 段：干扰对手节奏
+			return 700.0
+		return 120.0
 
-	# 老大的指令：换对手后备到前场（支援者）
-	# 链：老大指令 → 拉ex/V弱目标到前场 → 攻击拿2-3张奖品
+	# 闁奸绀侀妵鍥儍閸曨剙鐦瑰ù鐘€х槐浼村箲閵忕媭鍤犻柟闈涱儏閹寰勯崶褍鐓傞柛鎾崇Т濠р偓闁挎稑鐗婇弫顕€骞撶壕瀣у亾閸滃啰绀?
+	# 闂佺偓鎷濈槐浼存嚀娴ｆ悶浜ｉ柟绋挎矗閹?闁?闁瑰嘲鈥/V鐎殿喛浜ú浼村冀閸パ冪厒闁告挸绉村┃鈧?闁?闁衡偓鐠囨彃姣婇柟?-3鐎殿喚濮撮〃娑㈠传?
 	if name == BOSSS_ORDERS:
+		if not _has_immediate_attack_window(game_state, player, player_index):
+			return -40.0
 		if _can_ko_bench_target(game_state, player, player_index):
-			return 800.0  # S 段
+			return 800.0
 		if phase == "late":
-			return 300.0  # B 段：后期干扰
-		return 200.0
+			return 120.0
+		return 40.0
 
-	# === 支援者 ===
+	# === 闁衡偓椤栨稑鑳堕柤?===
 
-	# 奇树(Iono)：双方洗手牌回牌库，各抽奖品数张
-	# 链1：(己方手牌差) 奇树 → 换手抽4-6张 → 翻转手牌质量
-	# 链2：(对手少奖品) 奇树 → 对手只抽1-2张 → 压缩对手手牌
+	# 濠靛倸娲﹂悥?Iono)闁挎稒鑹惧濠氬棘鐟欏嫮顦ч柟闈涱儑婢ф繈宕堕悙闈涱杺閹煎瓨鎼槐婵嬪触閸曨剙鈻曞┑鍌涚墪閹佳囧极閺夎法鐐?
+	# 闂?闁?鐎规瓕椴搁弻鐔煎箥鐎ｎ剙顤傜€? 濠靛倸娲﹂悥?闁?闁瑰箍鍨烘晶婊堝箮?-6鐎?闁?缂傚牊妲掑ù鍡涘箥鐎ｎ剙顤傞悹鎰╁姂閸?
+	# 闂?闁?閻庝絻顫夋晶婊呬焊閹存繍娈柛? 濠靛倸娲﹂悥?闁?閻庝絻顫夋晶婊堝矗椤忓懎鈻?-2鐎?闁?闁告ê顑囩紓澶屸偓浣冾潐婢ф粓骞嶇€ｎ剙顤?
 	if name == IONO:
+		if attacker_recovery_mode and hand_size >= 3:
+			return -20.0
 		return _abs_iono(game_state, player, player_index, phase, hand_size)
 
-	# 深钵镇(Artazon)：场地，每回合可搜1只基础宝可梦上板
-	# 链：深钵镇 → 每回合免费上基础 → 持续铺板
+	# 婵烇綁浜堕幐濂告⒐?Artazon)闁挎稒鑹惧┃鈧柛锕€搴滅槐婵喰掕箛鎾寸闁告艾鐗嗚ぐ鏌ュ箹?闁告瑯浜滈悢鈧痪顓涘亾閻庤绻傝ぐ鎻掝潖閿旇法鐟愰柡?
+	# 闂佺偓鎷濈槐鏉壳庨柆宥嗗安闂傗偓?闁?婵絽绻愬ú鏍触閸繂甯抽悹鎰扳偓娑氱憪闁糕晞娅ｉ、?闁?闁归晲鑳堕悽濠氭煣閻戞ɑ绶?
 	if name == ARTAZON:
-		if bench_full:
-			return 30.0
-		if phase == "early" and _count_pokemon_on_field(player, RALTS) < 3:
-			return 250.0  # A 段：早期铺板引擎
-		return 150.0
+		if bench_full or _count_searchable_basic_targets(player) == 0:
+			return 0.0
+		if charizard_rebuild_lock:
+			return -140.0
+		if attacker_recovery_mode:
+			return 40.0
+		if shell_lock and _count_primary_shell_bodies(player) >= 2:
+			return -20.0
+		if shell_lock and _count_primary_shell_bodies(player) < 2:
+			var other_shell_search: bool = _hand_has_card(player, ULTRA_BALL) \
+				or _hand_has_card(player, NEST_BALL) \
+				or _hand_has_card(player, BUDDY_BUDDY_POFFIN) \
+				or _hand_has_card(player, ARVEN) \
+				or _hand_has_card(player, SECRET_BOX)
+			return 40.0 if other_shell_search else 220.0
+		if transition_shell and ready_attackers >= 1:
+			return -120.0
+		return 120.0
 
-	# 弗图博士的剧本：收回1只己方宝可梦到手（弃所有附卡）
-	# 链1：弗图 → 收回快被打倒的ex（保奖品）→ 重新上板
-	# 链2：弗图 → 收回贴了能量的辅助型（救能量）
+	# 鐎殿喗顨呭ù姗€宕″顒婄礈闁汇劌瀚晶浠嬪嫉椤掑﹦绐楅柡鈧捄鐑樼1闁告瑯浜滅换渚€寮悷鎵澓闁告瑯鍨遍埅鐢稿礆閻楀牆顤侀柨娑樼墕缁辨棃骞嶉埀顒勫嫉婢舵劖顎嶉柛妞绘缁?
+	# 闂?闁挎稒鑹剧槐顒勫炊?闁?闁衡偓鐠虹儤绀€闊浂鍋夐～锕傚箥閹炬枼鍋撻幒鏃€鐣眅x闁挎稑鐗呯换姘附閺嵮勬儌闁挎稑顦崯?闂佹彃绉甸弻濠冪▔婵犲啯绶?
+	# 闂?闁挎稒鑹剧槐顒勫炊?闁?闁衡偓鐠虹儤绀€閻犳劗绻濈花锟犳嚄娴犲娅ら柣銊ュ缁剁喖宕濋埡浣衡偓鐑芥晬閸喐娅濋柤鍏呯矙閸ｆ椽鏁?
 	if name == PROF_TURO:
 		return _abs_prof_turo(game_state, player, player_index, phase)
 
-	# Rare Candy（Combo: 跳阶 → 快速启动 Gardevoir ex 引擎）
+	# Rare Candy闁挎稑婀憃mbo: 閻犵儤濞婂Ο?闁?闊浂鍋婇埀顒傚枎閹酣宕?Gardevoir ex 鐎殿喗娲橀幖鎼佹晬?
 	if name == RARE_CANDY:
 		if has_ralts and _hand_has_card(player, GARDEVOIR_EX):
-			return 500.0  # A 段
+			return 500.0  # A 婵?
 		return 50.0
 
-	return 50.0  # C 段 默认
+	return 50.0  # C 婵?濮掓稒顭堥?
 
 
 func _abs_retreat(action: Dictionary, game_state: GameState, player: PlayerState, player_index: int) -> float:
@@ -557,6 +758,10 @@ func _abs_retreat(action: Dictionary, game_state: GameState, player: PlayerState
 		return 0.0
 	var bench_name: String = bench_target.get_pokemon_name()
 	var bench_is_ready_attacker: bool = _is_ready_attacker(bench_target)
+	var phase: String = _detect_game_phase(int(game_state.turn_number), player)
+	if _active_has_tm_evolution(player) and active.attached_energy.size() >= 1 and _has_evolvable_bench_targets(player):
+		if _shell_lock_active(player) or _tm_precharge_window(player) or not _tm_support_carrier_cools_off(player, phase):
+			return -250.0
 	# 关键检查：前场是能打伤害的攻击手 → 不要撤退（攻击分会在攻击阶段评估）
 	if active_name in ATTACKER_NAMES or active_name == SCREAM_TAIL:
 		var pred: Dictionary = predict_attacker_damage(active)
@@ -580,6 +785,10 @@ func _abs_attack(action: Dictionary, game_state: GameState, player_index: int) -
 	## 攻击评分
 	var damage: int = int(action.get("projected_damage", 0))
 	var player: PlayerState = game_state.players[player_index]
+	if _should_delay_attacker_investment_during_shell_lock(player) and player.active_pokemon != null:
+		var opening_name: String = player.active_pokemon.get_pokemon_name()
+		if opening_name in ATTACKER_NAMES or opening_name == SCREAM_TAIL:
+			return -180.0
 	# 对于伤害指示物型攻击手，projected_damage 可能为 0，用 predict 补算
 	if damage <= 0 and player.active_pokemon != null:
 		var pred: Dictionary = predict_attacker_damage(player.active_pokemon)
@@ -622,11 +831,18 @@ func _abs_granted_attack(action: Dictionary, game_state: GameState, player: Play
 	## 道具赋予招式（TM Evolution 等）的评分
 	var ga_data: Dictionary = action.get("granted_attack_data", {})
 	var attack_name: String = str(ga_data.get("name", ""))
-	# TM Evolution 进化招式：早期有可进化后备时 A 段
 	if attack_name == "进化" or attack_name == "Evolution":
+		if _tm_support_carrier_cools_off(player, phase):
+			return -220.0
+		if _has_online_shell(player):
+			return -180.0
+		if _must_force_first_gardevoir(player):
+			return 10.0
+		if _shell_lock_active(player) and _count_evolvable_bench_targets(player) >= 2:
+			return 900.0
 		if _has_evolvable_bench_targets(player):
-			return 600.0  # A 段：核心 combo
-		return 50.0  # 无目标时低分
+			return 600.0
+		return 50.0
 	# 通用 granted_attack：按伤害评估
 	var damage: int = int(ga_data.get("damage", 0))
 	if damage > 0:
@@ -759,36 +975,33 @@ func pick_search_item(items: Array, game_state: GameState, player_index: int) ->
 
 	var player: PlayerState = game_state.players[player_index]
 	var phase: String = _detect_game_phase(int(game_state.turn_number), player)
-	var need_gardevoir: bool = _count_pokemon_on_field(player, GARDEVOIR_EX) == 0
-	var has_kirlia_on_field: bool = _count_pokemon_on_field(player, KIRLIA) >= 1
-	var has_ralts_on_field: bool = _count_pokemon_on_field(player, RALTS) >= 1
 	var bench_full: bool = player.bench.size() >= 5
 
-	# 按决策链优先级排序
 	var priority_list: Array[String] = []
-	# 最高优先：高级球（搜沙奈朵ex启动引擎 — 尤其是2只奇鲁莉安等进化时）
-	if need_gardevoir and (has_kirlia_on_field or has_ralts_on_field):
+	if _count_pokemon_on_field(player, GARDEVOIR_EX) == 0 and _count_pokemon_on_field(player, KIRLIA) >= 1 and _discard_has_card(game_state, player_index, GARDEVOIR_EX):
+		priority_list.append(NIGHT_STRETCHER)
+		priority_list.append(RESCUE_STRETCHER)
+	if _shell_lock_active(player):
+		if _count_pokemon_on_field(player, RALTS) < 2 and not bench_full:
+			priority_list.append(BUDDY_BUDDY_POFFIN)
+		elif not _hand_has_any_energy(player):
+			priority_list.append(EARTHEN_VESSEL)
 		priority_list.append(ULTRA_BALL)
-	# 秘密箱（弃3搜4，展开加速）— 但不如高级球找沙奈朵紧迫
-	if phase == "early" and not (need_gardevoir and has_kirlia_on_field):
+		if not bench_full:
+			priority_list.append(NEST_BALL)
+	elif _must_force_first_gardevoir(player):
+		priority_list.append(ULTRA_BALL)
 		priority_list.append(SECRET_BOX)
-	# 宝芬（铺板）
-	if not bench_full and phase == "early":
-		priority_list.append(BUDDY_BUDDY_POFFIN)
-	# 高级球（通用搜索）
-	if ULTRA_BALL not in priority_list:
+	else:
 		priority_list.append(ULTRA_BALL)
-	# 大地容器
-	priority_list.append(EARTHEN_VESSEL)
-	# 巢穴球
-	if not bench_full:
-		priority_list.append(NEST_BALL)
-	# 夜间/救援担架
+		if phase == "early" and not bench_full:
+			priority_list.append(BUDDY_BUDDY_POFFIN)
+		priority_list.append(EARTHEN_VESSEL)
+		if not bench_full:
+			priority_list.append(NEST_BALL)
 	priority_list.append(NIGHT_STRETCHER)
 	priority_list.append(RESCUE_STRETCHER)
-	# 秘密箱（兜底）
-	if SECRET_BOX not in priority_list:
-		priority_list.append(SECRET_BOX)
+	priority_list.append(SECRET_BOX)
 
 	for preferred: String in priority_list:
 		for item: Variant in items:
@@ -806,14 +1019,14 @@ func pick_search_tool(items: Array, game_state: GameState, player_index: int) ->
 		return items[0]
 
 	var player: PlayerState = game_state.players[player_index]
+	var phase: String = _detect_game_phase(int(game_state.turn_number), player)
 	var priority_list: Array[String] = []
-	# TM Evolution：有可进化后备时最优
-	if _has_evolvable_bench_targets(player):
+	if _shell_lock_active(player) and _count_pokemon_on_field(player, RALTS) < 2 and _count_pokemon_on_field(player, KIRLIA) == 0:
 		priority_list.append(TM_EVOLUTION)
-	# 勇气护符
+	elif _shell_lock_active(player) and _count_evolvable_bench_targets(player) >= 2:
+		priority_list.append(TM_EVOLUTION)
 	priority_list.append(BRAVERY_CHARM)
-	# TM Evolution 兜底
-	if TM_EVOLUTION not in priority_list:
+	if TM_EVOLUTION not in priority_list and not _tm_support_carrier_cools_off(player, phase) and not _must_force_first_gardevoir(player):
 		priority_list.append(TM_EVOLUTION)
 
 	for preferred: String in priority_list:
@@ -895,10 +1108,6 @@ func _abs_secret_box(game_state: GameState, player: PlayerState, player_index: i
 
 
 func _abs_night_stretcher(game_state: GameState, player: PlayerState, player_index: int, phase: String) -> float:
-	## 夜间担架/救援担架：从弃牌堆取宝可梦
-	## 链1：捡沙奈朵ex到手 → 立即进化（如果有奇鲁莉安在场）
-	## 链2：捡攻击手到手 → 上板 → Embrace加速
-	## 链3：捡2只宝可梦洗入牌库（长期资源）
 	var discard: Array[CardInstance] = game_state.players[player_index].discard_pile
 	var has_gardevoir_in_discard: bool = false
 	var has_kirlia_in_discard: bool = false
@@ -916,79 +1125,77 @@ func _abs_night_stretcher(game_state: GameState, player: PlayerState, player_ind
 			has_attacker = true
 		elif cname == RALTS:
 			has_ralts = true
-	# 链1：捡沙奈朵ex + 场上有奇鲁莉安 → 可立即进化
+	var shell_lock: bool = _shell_lock_active(player)
+	var transition_shell: bool = _has_transition_shell(player)
+	var ready_attackers: int = _count_ready_attackers(player)
+	var attacker_bodies: int = _count_attackers_on_field(player)
 	if has_gardevoir_in_discard and _count_pokemon_on_field(player, GARDEVOIR_EX) == 0:
 		if _count_pokemon_on_field(player, KIRLIA) >= 1:
-			return 450.0  # A 段：恢复引擎
-		return 300.0  # B 段
-	# 链2：捡奇鲁莉安 + 场上有拉鲁拉丝
-	if has_kirlia_in_discard and _count_pokemon_on_field(player, RALTS) >= 1:
-		return 300.0  # B 段
-	# 链3：捡攻击手
-	if has_attacker:
+			return 460.0
+		return 320.0
+	if has_kirlia_in_discard and _count_pokemon_on_field(player, RALTS) >= 1 and _count_pokemon_on_field(player, KIRLIA) == 0:
+		return 320.0
+	if has_attacker and transition_shell and attacker_bodies == 0:
 		return 250.0
-	# 链4：捡拉鲁拉丝
 	if has_ralts and not player.bench.size() >= 5:
-		return 200.0
-	return 60.0  # 弃牌堆没好东西
+		return 180.0 if _count_primary_shell_bodies(player) < 2 else 60.0
+	if shell_lock:
+		return -40.0
+	if transition_shell and ready_attackers >= 1:
+		return 20.0
+	if attacker_bodies >= 1 and ready_attackers == 0:
+		return 20.0
+	return 20.0
 
 
 func _abs_iono(game_state: GameState, player: PlayerState, player_index: int, phase: String, hand_size: int) -> float:
-	## 奇树(Iono)：双方洗手牌回牌库，各抽奖品数张
-	## 链1：己方手牌差 → 换手翻转手牌质量
-	## 链2：对手少奖品 → 压缩对手手牌
-	## 关键：己方奖品多=自己抽多张，对手奖品少=对手只抽少量
 	var my_prizes: int = player.prizes.size()
 	var opp_index: int = 1 - player_index
 	var opp_prizes: int = game_state.players[opp_index].prizes.size() if opp_index >= 0 and opp_index < game_state.players.size() else 6
-
-	# 己方收益 = 抽 my_prizes 张（替代当前 hand_size 张手牌）
-	var my_gain: float = float(my_prizes) - float(hand_size) * 0.5  # 手牌少时换手更值
-	# 对手损失 = 对手当前手牌被压缩到 opp_prizes 张
+	var shell_lock: bool = _shell_lock_active(player)
+	var shell_online: bool = _has_established_stage2_shell(player)
+	var ready_attackers: int = _count_ready_attackers(player)
+	var stable_hand: bool = hand_size >= 3
+	var strong_comeback_need: bool = my_prizes >= opp_prizes + 2
+	if shell_lock and hand_size >= 4:
+		return 0.0
+	if _has_deck_out_pressure(player) and ready_attackers >= 1:
+		return 0.0
+	if shell_online and ready_attackers >= 1:
+		if opp_prizes <= 2 and my_prizes > opp_prizes:
+			return 120.0
+		if stable_hand:
+			return -40.0
+		if not strong_comeback_need:
+			return 0.0
+	var my_gain: float = float(my_prizes) - float(hand_size) * 0.5
 	var opp_loss: float = 0.0
 	if opp_prizes <= 2:
-		opp_loss = 80.0  # 对手只能抽1-2张，强力干扰
+		opp_loss = 80.0
 	elif opp_prizes <= 3:
 		opp_loss = 40.0
 
 	var base: float = 100.0 + my_gain * 15.0 + opp_loss
-	# 早期使用奇树不好（自己手牌质量还可以，且奖品多不算优势）
 	if phase == "early" and hand_size >= 4:
-		base -= 60.0
-	# 手牌只剩1-2张时急需换手
+		base -= 80.0
 	if hand_size <= 2:
 		base += 100.0
-	return maxf(base, 50.0)
+	return maxf(base, 0.0)
 
 
 func _abs_prof_turo(game_state: GameState, player: PlayerState, player_index: int, phase: String) -> float:
-	## 弗图博士的剧本：收回1只己方宝可梦到手（弃所有附卡）
-	## 链1：收回快被打倒的ex（保住2张奖品）
-	## 链2：收回前场辅助型，换攻击手上前
-	## 链3：收回贴了很多能量的宝可梦（能量进弃牌堆 = Embrace 燃料）
-	var best: float = 80.0
-
-	# 检查是否有快被打倒的ex
+	if _has_transition_shell(player) and _count_ready_attackers(player) >= 1:
+		return 20.0
+	var best: float = 20.0
 	for slot: PokemonSlot in _get_all_slots(player):
 		var cd: CardData = slot.get_card_data()
 		if cd == null:
 			continue
 		var remaining_hp: int = slot.get_remaining_hp()
-		var energy_count: int = slot.attached_energy.size()
-
 		if cd.mechanic == "ex" and remaining_hp <= 60:
-			# 保ex = 保2张奖品，极高价值
 			best = maxf(best, 500.0)
 		elif cd.mechanic == "ex" and remaining_hp <= 100:
 			best = maxf(best, 300.0)
-		# 收回贴了超能量的宝可梦 = 超能量进弃牌堆 = 燃料
-		if energy_count >= 2:
-			var psychic_energy_attached: int = 0
-			for e: CardInstance in slot.attached_energy:
-				if e != null and e.card_data != null and str(e.card_data.energy_provides) == "P":
-					psychic_energy_attached += 1
-			if psychic_energy_attached >= 2:
-				best = maxf(best, 200.0)  # 能量回收价值
 	return best
 
 
@@ -1261,61 +1468,51 @@ func plan_opening_setup(player: PlayerState) -> Dictionary:
 		return int(a["priority"]) > int(b["priority"])
 	)
 	var ralts_count: int = 0
-	for b: Dictionary in basics:
+	for b in basics:
 		if str(b["name"]) == RALTS:
 			ralts_count += 1
 	var active_index: int = -1
-	# 优先选控制型上前场：振翼发 > 钥圈儿 > 飘飘球
-	for preferred: String in [FLUTTER_MANE, KLEFKI, DRIFLOON]:
+	var active_preference: Array[String] = [RALTS, FLUTTER_MANE, KLEFKI, DRIFLOON]
+	if ralts_count >= 2:
+		active_preference = [FLUTTER_MANE, KLEFKI, DRIFLOON, MUNKIDORI, RALTS]
+	for preferred in active_preference:
 		if active_index != -1:
 			break
-		for b: Dictionary in basics:
-			if str(b["name"]) == preferred:
-				# 钥圈儿/飘飘球需要至少有 1 只拉鲁拉丝才值得上前场
-				if preferred != FLUTTER_MANE and ralts_count < 1:
-					continue
-				active_index = int(b["index"])
-				break
+		for b in basics:
+			if str(b["name"]) != preferred:
+				continue
+			if preferred != FLUTTER_MANE and ralts_count < 1:
+				continue
+			active_index = int(b["index"])
+			break
 	if active_index == -1:
 		active_index = int(basics[0]["index"])
-	# 开局铺板：核心宝可梦优先，非核心只在有空余位时放
-	# 核心：拉鲁拉丝(最多2), 愿增猿(1), 攻击手(1)
 	var bench_indices: Array[int] = []
-	var essentials_placed: Array[String] = []
 	var non_essentials: Array[int] = []
-	for b: Dictionary in basics:
+	for b in basics:
 		if int(b["index"]) == active_index:
 			continue
 		var bname: String = str(b["name"])
-		if bname == RALTS and essentials_placed.count(RALTS) < 2:
+		if bname == RALTS and bench_indices.size() < 2:
 			bench_indices.append(int(b["index"]))
-			essentials_placed.append(RALTS)
-		elif bname == MUNKIDORI and MUNKIDORI not in essentials_placed:
-			bench_indices.append(int(b["index"]))
-			essentials_placed.append(MUNKIDORI)
-		elif (bname == DRIFLOON or bname == SCREAM_TAIL) and "ATTACKER" not in essentials_placed:
-			bench_indices.append(int(b["index"]))
-			essentials_placed.append("ATTACKER")
 		else:
 			non_essentials.append(int(b["index"]))
-	# 非核心补满剩余位（最多 1 个灵活位）
-	for idx: int in non_essentials:
-		if bench_indices.size() >= 5:
+	for idx in non_essentials:
+		if bench_indices.size() >= 2:
 			break
 		bench_indices.append(idx)
 	return {"active_hand_index": active_index, "bench_hand_indices": bench_indices}
 
 
 func _get_setup_priority(pokemon_name: String) -> int:
-	## 开局前场优先级（高 = 更适合做前场挡板）
 	match pokemon_name:
-		FLUTTER_MANE: return 95  # 控制型优先上前场
+		RALTS: return 110
+		FLUTTER_MANE: return 95
 		KLEFKI: return 90
-		DRIFLOON: return 80       # 攻击手也可以挡
-		SCREAM_TAIL: return 75
-		MUNKIDORI: return 70      # 核心
-		RALTS: return 65          # 核心但不想在前场
-		MANAPHY: return 40        # 非核心
+		DRIFLOON: return 80
+		SCREAM_TAIL: return 70
+		MUNKIDORI: return 60
+		MANAPHY: return 40
 		RADIANT_GRENINJA: return 35
 		_: return 30
 
@@ -1374,6 +1571,15 @@ func get_discard_priority_contextual(card: CardInstance, game_state: GameState, 
 	var cname: String = str(card.card_data.name)
 	var bench_full: bool = player.bench.size() >= 5
 	var hand_size: int = player.hand.size()
+	if _shell_lock_active(player):
+		if cname == TM_EVOLUTION:
+			return 20
+		if cname == ARVEN:
+			return 30
+		if cname == ULTRA_BALL:
+			return 60
+		if cname == NIGHT_STRETCHER or cname == RESCUE_STRETCHER:
+			return 100
 
 	# --- 第一层：弃了反而有收益的牌 ---
 	# 超能量 → 最高优先（弃入弃牌堆 = Embrace 燃料，正收益）
@@ -1477,6 +1683,8 @@ func score_interaction_target(item: Variant, step: Dictionary, context: Dictiona
 		if step_id == "search_tool":
 			return _score_search_tool_target(card, all_items, game_state, player_index)
 		if step_id in ["search_pokemon", "search_cards", "basic_pokemon", "buddy_poffin_pokemon", "bench_pokemon"]:
+			if game_state != null and player_index >= 0:
+				return _score_search_pokemon_target(card, game_state, player_index)
 			return float(get_search_priority(card))
 		if step_id in ["discard_cards", "discard_card", "discard_energy"]:
 			if game_state != null and player_index >= 0:
@@ -1529,6 +1737,42 @@ func _score_search_tool_target(card: CardInstance, all_items: Array, game_state:
 	if name == BRAVERY_CHARM:
 		return 250.0
 	return 50.0
+
+
+func _score_search_pokemon_target(card: CardInstance, game_state: GameState, player_index: int) -> float:
+	if card == null or card.card_data == null or game_state == null:
+		return float(get_search_priority(card))
+	if player_index < 0 or player_index >= game_state.players.size():
+		return float(get_search_priority(card))
+	var player: PlayerState = game_state.players[player_index]
+	var name: String = str(card.card_data.name)
+	var shell_online: bool = _has_established_stage2_shell(player)
+	var attacker_bodies: int = _count_attackers_on_field(player)
+	var ready_attackers: int = _count_ready_attackers(player)
+	var weak_bench_target: bool = _opponent_has_scream_tail_prize_target(game_state, player_index)
+	var charizard_rebuild_lock: bool = _charizard_rebuild_lock(game_state, player, player_index)
+	if _must_force_first_gardevoir(player):
+		if name == GARDEVOIR_EX:
+			return 1000.0
+		if name == RALTS:
+			return -40.0
+	if shell_online and weak_bench_target and name == SCREAM_TAIL and _count_pokemon_on_field(player, SCREAM_TAIL) == 0:
+		return 360.0 if ready_attackers == 0 else 320.0
+	if shell_online and attacker_bodies == 0:
+		if name == DRIFLOON:
+			return 320.0
+		if name == SCREAM_TAIL:
+			return 260.0
+		if name == MUNKIDORI:
+			return -40.0
+	if charizard_rebuild_lock:
+		if name == MUNKIDORI:
+			return -80.0
+		if name == RALTS:
+			return -60.0
+	if name == RALTS and _count_pokemon_on_field(player, RALTS) >= 2:
+		return -20.0
+	return float(get_search_priority(card))
 
 
 # ============================================================
@@ -1684,33 +1928,19 @@ func _get_all_slots(player: PlayerState) -> Array[PokemonSlot]:
 
 
 func _count_essential_slots_needed(player: PlayerState) -> int:
-	## 计算核心阵容还差几个板位
-	## 目标：2× 拉鲁拉丝线（拉鲁拉丝/奇鲁莉安/沙奈朵ex）+ 1× 愿增猿 + 1× 攻击手
 	var needed: int = 0
-	# 拉鲁拉丝线：目标 2 只（1 只进化成沙奈朵，1 只留奇鲁莉安精炼）
-	var ralts_line: int = _count_pokemon_on_field(player, RALTS) \
-		+ _count_pokemon_on_field(player, KIRLIA) \
-		+ _count_pokemon_on_field(player, GARDEVOIR_EX)
+	var ralts_line: int = _count_primary_shell_bodies(player)
 	needed += maxi(0, 2 - ralts_line)
-	# 愿增猿：目标 1 只
-	if _count_pokemon_on_field(player, MUNKIDORI) == 0:
-		needed += 1
-	# 攻击手：目标 1 只
-	if _count_attackers_on_field(player) == 0:
-		needed += 1
+	if _has_established_stage2_shell(player):
+		if _count_attackers_on_field(player) == 0:
+			needed += 1
 	return needed
 
 
 func _is_essential_pokemon(pname: String, player: PlayerState) -> bool:
-	## 判断一只基础宝可梦是否是核心阵容所需
 	if pname == RALTS:
-		var line: int = _count_pokemon_on_field(player, RALTS) \
-			+ _count_pokemon_on_field(player, KIRLIA) \
-			+ _count_pokemon_on_field(player, GARDEVOIR_EX)
-		return line < 3  # 目标 2-3 只拉鲁拉丝线
-	if pname == MUNKIDORI:
-		return _count_pokemon_on_field(player, MUNKIDORI) == 0
-	if pname == DRIFLOON or pname == SCREAM_TAIL:
+		return _count_primary_shell_bodies(player) < 2
+	if _has_established_stage2_shell(player) and (pname == DRIFLOON or pname == SCREAM_TAIL):
 		return _count_attackers_on_field(player) == 0
 	return false
 
@@ -1729,15 +1959,15 @@ func _should_bench(pname: String, player: PlayerState, phase: String) -> bool:
 		return false
 	if player.bench.size() >= 5:
 		return false
-	# 核心宝可梦始终可放
+	# 闁哄秶顭堢缓鍓р偓瑙勭箓瑜版彃顫忛敃鈧～鎰磼閸繂璁查柡鈧?
 	if _is_essential_pokemon(pname, player):
 		return true
-	# 非核心宝可梦：只在有空余板位时放
+	# 闂傚牏鍋為悧瀹犵疀閸愩劎鏉洪柛娆樺灡閳敻鏁嶅顒€娑ч柛锔哄妽濠€浣虹矚鏉炴壆绋囬柡澶娿仒缂嶅懘寮懜鍨澒
 	var essential_needed: int = _count_essential_slots_needed(player)
 	var free_slots: int = 5 - player.bench.size()
 	if free_slots <= essential_needed:
-		return false  # 留位给核心
-	# 其他限制
+		return false  # 闁伙絾鐟ょ紞鍛磼濞嗘劗澹嬮煫?
+	# 闁稿繑婀圭划顒勬⒔閹邦剙鐓?
 	if pname == MANAPHY and _count_pokemon_on_field(player, MANAPHY) >= 1:
 		return false
 	return true
@@ -1753,7 +1983,7 @@ func _best_attacker_for_tool(player: PlayerState) -> String:
 
 
 func _best_energy_target(player: PlayerState) -> String:
-	## 手贴超能量应急目标（Embrace 不可用时）
+	## 闁归潧顑堥崚娑氭惥閸涙澘鍘撮梺鎻掔箰缁ㄦ煡骞€閵壯勭獥闁哄秴娴勭槐姗brace 濞戞挸绉磋ぐ鏌ユ偨閵婏附顦ч柨?
 	for pname: String in [GARDEVOIR_EX, DRIFBLIM, DRIFLOON, SCREAM_TAIL]:
 		for slot: PokemonSlot in _get_all_slots(player):
 			if slot.get_pokemon_name() == pname and _get_attack_energy_gap(slot) > 0:
@@ -1809,6 +2039,119 @@ func _has_evolvable_bench_targets(player: PlayerState) -> bool:
 	return false
 
 
+func _count_evolvable_bench_targets(player: PlayerState) -> int:
+	var count: int = 0
+	for slot: PokemonSlot in player.bench:
+		if slot == null or slot.get_top_card() == null:
+			continue
+		var cd: CardData = slot.get_card_data()
+		if cd == null:
+			continue
+		if cd.stage == "Basic" and cd.name == RALTS:
+			count += 1
+		elif cd.stage == "Stage 1" and cd.name == KIRLIA:
+			count += 1
+	return count
+
+
+func _active_has_tm_evolution(player: PlayerState) -> bool:
+	if player == null or player.active_pokemon == null:
+		return false
+	for card: CardInstance in player.active_pokemon.pokemon_stack:
+		if card != null and card.card_data != null and str(card.card_data.name) == TM_EVOLUTION:
+			return true
+	return false
+
+
+func _shell_lock_active(player: PlayerState) -> bool:
+	return not _has_online_shell(player)
+
+
+func _should_delay_attacker_investment_during_shell_lock(player: PlayerState) -> bool:
+	if not _shell_lock_active(player):
+		return false
+	if _count_primary_shell_bodies(player) < 2:
+		return true
+	if _must_force_first_gardevoir(player):
+		return true
+	if _has_shell_search(player):
+		return true
+	return false
+
+
+func _must_force_first_gardevoir(player: PlayerState) -> bool:
+	return _count_pokemon_on_field(player, GARDEVOIR_EX) == 0 and _count_pokemon_on_field(player, KIRLIA) >= 1
+
+
+func _has_transition_shell(player: PlayerState) -> bool:
+	return _has_established_stage2_shell(player)
+
+
+func _has_online_shell(player: PlayerState) -> bool:
+	return _count_pokemon_on_field(player, GARDEVOIR_EX) >= 1
+
+
+func _tm_precharge_window(player: PlayerState) -> bool:
+	return _shell_lock_active(player) and _count_pokemon_on_field(player, RALTS) >= 2
+
+
+func _tm_support_carrier_cools_off(player: PlayerState, phase: String) -> bool:
+	if player == null or player.active_pokemon == null:
+		return false
+	var active_name: String = player.active_pokemon.get_pokemon_name()
+	if active_name not in [MUNKIDORI, KLEFKI]:
+		return false
+	if _count_pokemon_on_field(player, KIRLIA) >= 1:
+		return true
+	if _has_transition_shell(player) and phase != "early":
+		return true
+	return false
+
+
+func _charizard_rebuild_lock(game_state: GameState, player: PlayerState, player_index: int) -> bool:
+	if not _is_charizard_pressure_matchup(game_state, player_index):
+		return false
+	if not _has_established_stage2_shell(player):
+		return false
+	if _needs_attacker_recovery(game_state, player, player_index):
+		return false
+	return _count_attackers_on_field(player) >= 1
+
+
+func _is_charizard_pressure_matchup(game_state: GameState, player_index: int) -> bool:
+	if game_state == null:
+		return false
+	var opponent_index: int = 1 - player_index
+	if opponent_index < 0 or opponent_index >= game_state.players.size():
+		return false
+	var opponent: PlayerState = game_state.players[opponent_index]
+	for slot: PokemonSlot in _get_all_slots(opponent):
+		if slot == null or slot.get_top_card() == null:
+			continue
+		var cd: CardData = slot.get_card_data()
+		var cname: String = slot.get_pokemon_name()
+		var name_en: String = str(cd.name_en) if cd != null else ""
+		if cname in ["喷火龙ex", "大比鸟ex", "波波", "小火龙", "夜巡灵", "洛托姆V"]:
+			return true
+		if name_en in [CHARIZARD_EX_EN, PIDGEOT_EX_EN, PIDGEY_EN, CHARMANDER_EN, DUSKULL_EN, ROTOM_V_EN]:
+			return true
+	return false
+func _tm_setup_priority_live(player: PlayerState, phase: String) -> bool:
+	if not _shell_lock_active(player):
+		return false
+	if not _has_evolvable_bench_targets(player):
+		return false
+	if player.active_pokemon == null:
+		return false
+	if _tm_support_carrier_cools_off(player, phase):
+		return false
+	if not (_hand_has_card(player, TM_EVOLUTION) or _active_has_tm_evolution(player)):
+		return false
+	if player.active_pokemon.attached_energy.size() >= 1 or _hand_has_any_energy(player):
+		return true
+	return phase == "early"
+
+
 func _can_ko_bench_target(game_state: GameState, player: PlayerState, player_index: int) -> bool:
 	## 检查当前攻击手是否能击倒对手后备的某个弱目标
 	var active: PokemonSlot = player.active_pokemon
@@ -1844,3 +2187,170 @@ func _has_core_in_discard(state: GameState, player_index: int) -> bool:
 		if card != null and card.card_data != null and str(card.card_data.name) in CORE_NAMES:
 			return true
 	return false
+
+
+func _count_ready_attackers(player: PlayerState) -> int:
+	var count: int = 0
+	for slot: PokemonSlot in _get_all_slots(player):
+		if _is_ready_attacker(slot):
+			count += 1
+	return count
+
+
+func _count_live_attackers(player: PlayerState) -> int:
+	var count: int = 0
+	for slot: PokemonSlot in _get_all_slots(player):
+		if slot == null or slot.get_top_card() == null:
+			continue
+		var name: String = slot.get_pokemon_name()
+		if name not in ATTACKER_NAMES and name != SCREAM_TAIL:
+			continue
+		var pred: Dictionary = predict_attacker_damage(slot)
+		if bool(pred.get("can_attack", false)) and int(pred.get("damage", 0)) > 0:
+			count += 1
+	return count
+
+
+func _count_primary_shell_bodies(player: PlayerState) -> int:
+	return _count_pokemon_on_field(player, RALTS) + _count_pokemon_on_field(player, KIRLIA)
+
+
+func _has_established_stage2_shell(player: PlayerState) -> bool:
+	return _has_online_shell(player) and _count_pokemon_on_field(player, KIRLIA) >= 1
+
+
+func _needs_attacker_recovery(state: GameState, player: PlayerState, player_index: int) -> bool:
+	if state == null:
+		return false
+	if not _has_established_stage2_shell(player):
+		return false
+	if _count_ready_attackers(player) >= 1:
+		return false
+	if _count_attackers_on_field(player) >= 1:
+		return false
+	return _has_attacker_in_discard(state, player_index)
+
+
+func _has_deck_out_pressure(player: PlayerState) -> bool:
+	return player.deck.size() > 0 and player.deck.size() <= 8
+
+
+func _has_shell_search(player: PlayerState) -> bool:
+	for card: CardInstance in player.hand:
+		if card == null or card.card_data == null:
+			continue
+		var cname: String = str(card.card_data.name)
+		if cname in [ULTRA_BALL, NEST_BALL, BUDDY_BUDDY_POFFIN, ARVEN, ARTAZON]:
+			return true
+	return false
+
+
+func _opponent_has_scream_tail_prize_target(game_state: GameState, player_index: int) -> bool:
+	return _best_scream_tail_bench_prize_value(game_state, player_index, 120) > 0.0
+
+
+
+
+func _tm_attack_payment_gap(slot: PokemonSlot) -> int:
+	if slot == null:
+		return 999
+	return maxi(0, 1 - slot.attached_energy.size())
+
+
+
+
+func _has_immediate_attack_window(game_state: GameState, player: PlayerState, player_index: int) -> bool:
+	if player == null or player.active_pokemon == null:
+		return false
+	var pred: Dictionary = predict_attacker_damage(player.active_pokemon)
+	if bool(pred.get("can_attack", false)) and int(pred.get("damage", 0)) > 0:
+		return true
+	return _count_ready_attackers(player) >= 1
+
+
+
+
+func _count_searchable_basic_targets(player: PlayerState) -> int:
+	if player.bench.size() >= 5:
+		return 0
+	if player.deck.size() > 0:
+		var searchable_in_deck: bool = false
+		for card: CardInstance in player.deck:
+			if card == null or card.card_data == null:
+				continue
+			if str(card.card_data.card_type) != "Pokemon" or str(card.card_data.stage) != "Basic":
+				continue
+			searchable_in_deck = true
+			break
+		if not searchable_in_deck:
+			return 0
+	var count: int = 0
+	if _count_primary_shell_bodies(player) < 2:
+		count += 1
+	elif _has_established_stage2_shell(player) and _count_attackers_on_field(player) == 0:
+		count += 1
+	return count
+
+
+
+
+func _best_scream_tail_bench_prize_value(game_state: GameState, player_index: int, damage: int) -> float:
+	if game_state == null or damage <= 0:
+		return 0.0
+	var opponent_index: int = 1 - player_index
+	if opponent_index < 0 or opponent_index >= game_state.players.size():
+		return 0.0
+	var best: float = 0.0
+	for slot: PokemonSlot in game_state.players[opponent_index].bench:
+		if slot == null or slot.get_top_card() == null:
+			continue
+		if slot.get_remaining_hp() > damage:
+			continue
+		var slot_value: float = 220.0
+		var cd: CardData = slot.get_card_data()
+		if cd != null:
+			var name_en: String = str(cd.name_en)
+			if cd.mechanic == "ex" or cd.mechanic == "V":
+				slot_value = 420.0
+			elif name_en in ["Pidgey", "Charmander", "Duskull"]:
+				slot_value = 320.0
+			elif name_en in ["Rotom V", "Lumineon V"]:
+				slot_value = 380.0
+		best = maxf(best, slot_value)
+	return best
+
+
+
+
+func _discard_has_card(state: GameState, player_index: int, card_name: String) -> bool:
+	if state == null or player_index < 0 or player_index >= state.players.size():
+		return false
+	for card: CardInstance in state.players[player_index].discard_pile:
+		if card != null and card.card_data != null and str(card.card_data.name) == card_name:
+			return true
+	return false
+
+
+
+
+func _active_attack_can_be_finished_with_one_attach(player: PlayerState) -> bool:
+	if player == null or player.active_pokemon == null:
+		return false
+	var active_name: String = player.active_pokemon.get_pokemon_name()
+	if active_name not in [SCREAM_TAIL, DRIFLOON]:
+		return false
+	return _get_attack_energy_gap(player.active_pokemon) <= 1
+
+
+
+
+func _should_cool_off_tm_evolution(player: PlayerState, phase: String) -> bool:
+	if _must_force_first_gardevoir(player) and _count_pokemon_on_field(player, KIRLIA) >= 2:
+		return true
+	if _has_transition_shell(player) and (_count_ready_attackers(player) >= 1 or phase != "early"):
+		return true
+	if _has_online_shell(player) and phase == "late":
+		return true
+	return false
+
+

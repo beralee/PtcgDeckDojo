@@ -377,6 +377,38 @@ func test_csv6c_125_professor_turos_scenario_exposes_required_interaction_steps(
 	])
 
 
+func test_csv6c_125_professor_turos_scenario_does_not_offer_empty_active_slot_as_target() -> String:
+	var gsm := GameStateMachine.new()
+	gsm.game_state = _make_state()
+	var player: PlayerState = gsm.game_state.players[0]
+	player.hand.clear()
+	player.active_pokemon = PokemonSlot.new()
+	player.bench.clear()
+	var bench_a := PokemonSlot.new()
+	bench_a.pokemon_stack.append(CardInstance.create(_make_basic_pokemon_data("Bench A", "P", 70), 0))
+	var bench_b := PokemonSlot.new()
+	bench_b.pokemon_stack.append(CardInstance.create(_make_basic_pokemon_data("Bench B", "P", 70), 0))
+	player.bench.append(bench_a)
+	player.bench.append(bench_b)
+
+	var card_data := _make_trainer_data(
+		"CSV6C_125 Professor Turo's Scenario",
+		"Supporter",
+		"73d5f46ecf3a6d71b23ce7bc1a28d4f4"
+	)
+	var card := CardInstance.create(card_data, 0)
+	player.hand.append(card)
+	var effect: BaseEffect = gsm.effect_processor.get_effect(card_data.effect_id)
+	var steps: Array[Dictionary] = effect.get_interaction_steps(card, gsm.game_state)
+	var target_items: Array = steps[0].get("items", []) if not steps.is_empty() else []
+
+	return run_checks([
+		assert_eq(steps.size(), 1, "CSV6C_125 should not ask for a replacement when the active slot is empty"),
+		assert_false(player.active_pokemon in target_items, "CSV6C_125 should not offer an empty active slot as a legal target"),
+		assert_true(bench_a in target_items and bench_b in target_items, "CSV6C_125 should still allow selecting real benched Pokemon"),
+	])
+
+
 func test_csv6c_125_professor_turos_scenario_respects_selection_and_returns_entire_pokemon_stack_to_hand() -> String:
 	var gsm := GameStateMachine.new()
 	gsm.game_state = _make_state()
@@ -1121,6 +1153,50 @@ func test_csv8c_165_blissey_ex_moves_basic_energy_to_another_pokemon_once_per_tu
 	])
 
 
+func test_csv7c_033_iron_leaves_ex_switches_in_and_moves_selected_energy_on_bench_entry() -> String:
+	var processor := EffectProcessor.new()
+	var state := _make_state()
+	state.current_player_index = 0
+	state.turn_number = 3
+	var player: PlayerState = state.players[0]
+	player.bench.clear()
+
+	var iron_cd := _make_basic_pokemon_data("CSV7C_033 Iron Leaves ex", "G", 220, "Basic", "ex", "2e307380eb013c4e20db0a19816ba3b9")
+	iron_cd.abilities = [{"name": "快速游标", "text": ""}]
+	iron_cd.attacks = [{"name": "Prism Edge", "cost": "GGC", "damage": "180", "text": "", "is_vstar_power": false}]
+	processor.register_pokemon_card(iron_cd)
+
+	var active_cd := _make_basic_pokemon_data("CSV7C_107 Arceus VSTAR", "C", 280, "Basic", "VSTAR")
+	var old_active := _make_slot(active_cd, 0)
+	var grass := CardInstance.create(_make_energy_data("Basic Grass", "G"), 0)
+	var dte := CardInstance.create(_make_energy_data("Double Turbo", "C", "Special Energy"), 0)
+	old_active.attached_energy.append(grass)
+	old_active.attached_energy.append(dte)
+	player.active_pokemon = old_active
+
+	var iron_slot := _make_slot(iron_cd, 0)
+	iron_slot.turn_played = state.turn_number
+	player.bench.append(iron_slot)
+
+	var effect: BaseEffect = processor.get_ability_effect(iron_slot, 0, state)
+	var steps := effect.get_interaction_steps(iron_slot.get_top_card(), state) if effect != null else []
+	var execute_ok := processor.execute_ability_effect(iron_slot, 0, [{
+		"iron_leaves_energy_to_move": [grass, dte],
+	}], state)
+
+	return run_checks([
+		assert_not_null(effect, "CSV7C_033 should register its bench-entry Ability"),
+		assert_eq(steps.size(), 1, "CSV7C_033 should expose one bench-entry energy selection step when Energy is available"),
+		assert_true(execute_ok, "CSV7C_033 should execute its bench-entry Ability"),
+		assert_eq(player.active_pokemon, iron_slot, "CSV7C_033 should switch itself into the Active Spot when its Ability resolves"),
+		assert_true(player.bench.has(old_active), "CSV7C_033 should move the previous Active Pokemon to the Bench"),
+		assert_contains(iron_slot.attached_energy, grass, "CSV7C_033 should move selected Basic Energy onto Iron Leaves ex"),
+		assert_contains(iron_slot.attached_energy, dte, "CSV7C_033 should also move selected Special Energy onto Iron Leaves ex"),
+		assert_false(old_active.attached_energy.has(grass), "CSV7C_033 should remove moved Basic Energy from the old source"),
+		assert_false(old_active.attached_energy.has(dte), "CSV7C_033 should remove moved Special Energy from the old source"),
+	])
+
+
 func test_csv8c_165_blissey_ex_attack_draws_until_hand_has_six_cards() -> String:
 	var processor := EffectProcessor.new()
 	var state := _make_state()
@@ -1628,6 +1704,72 @@ func test_cs5_5c_064_cherens_care_returns_damaged_colorless_pokemon_and_all_atta
 		assert_contains(player.hand, attached_energy, "CS5.5C_064 should return attached Energy to hand"),
 		assert_contains(player.hand, attached_tool, "CS5.5C_064 should return the attached Tool to hand"),
 		assert_eq(player.discard_pile.size(), 1, "CS5.5C_064 should only discard itself"),
+	])
+
+
+func test_csv1c_124_penny_returns_active_basic_and_all_attached_cards_to_hand_with_replacement() -> String:
+	var gsm := GameStateMachine.new()
+	gsm.game_state = _make_state()
+	var state := gsm.game_state
+	var player: PlayerState = state.players[0]
+	player.hand.clear()
+	player.discard_pile.clear()
+
+	var target_cd := _make_basic_pokemon_data("Penny Target", "C", 120, "Basic")
+	var target := _make_slot(target_cd, 0)
+	var target_card := target.get_top_card()
+	target.damage_counters = 30
+	var attached_energy := CardInstance.create(_make_energy_data("Psychic", "P"), 0)
+	var attached_tool := CardInstance.create(_make_trainer_data("Tool", "Tool"), 0)
+	target.attached_energy.append(attached_energy)
+	target.attached_tool = attached_tool
+	player.active_pokemon = target
+
+	var replacement := _make_slot(_make_basic_pokemon_data("Penny Replacement", "C", 100, "Basic"), 0)
+	player.bench.clear()
+	player.bench.append(replacement)
+
+	var card_data := _make_trainer_data("CSV1C_124 Penny", "Supporter", "9fb5f53c9952d10b4fe26508ecbc644a")
+	var card := CardInstance.create(card_data, 0)
+	player.hand.append(card)
+	var effect: BaseEffect = gsm.effect_processor.get_effect(card_data.effect_id)
+	var steps := effect.get_interaction_steps(card, state) if effect != null else []
+	var success := gsm.play_trainer(0, card, [{
+		"penny_target": [target],
+		"penny_replacement": [replacement],
+	}])
+
+	return run_checks([
+		assert_not_null(effect, "CSV1C_124 should be registered"),
+		assert_eq(steps.size(), 2, "CSV1C_124 should ask for the target and an Active replacement when the Active is selected"),
+		assert_true(success, "CSV1C_124 should resolve through GameStateMachine"),
+		assert_eq(player.active_pokemon, replacement, "CSV1C_124 should promote the chosen replacement when the Active is returned"),
+		assert_contains(player.hand, target_card, "CSV1C_124 should return the Pokemon card to hand"),
+		assert_contains(player.hand, attached_energy, "CSV1C_124 should return attached Energy to hand"),
+		assert_contains(player.hand, attached_tool, "CSV1C_124 should return the attached Tool to hand"),
+		assert_eq(player.discard_pile.size(), 1, "CSV1C_124 should only discard itself"),
+	])
+
+
+func test_csv1c_124_penny_cannot_target_lone_active_basic() -> String:
+	var gsm := GameStateMachine.new()
+	gsm.game_state = _make_state()
+	var state := gsm.game_state
+	var player: PlayerState = state.players[0]
+	player.hand.clear()
+	player.bench.clear()
+	player.active_pokemon = _make_slot(_make_basic_pokemon_data("Lone Active", "C", 120, "Basic"), 0)
+
+	var card_data := _make_trainer_data("CSV1C_124 Penny", "Supporter", "9fb5f53c9952d10b4fe26508ecbc644a")
+	var card := CardInstance.create(card_data, 0)
+	player.hand.append(card)
+	var effect: BaseEffect = gsm.effect_processor.get_effect(card_data.effect_id)
+	var steps := effect.get_interaction_steps(card, state) if effect != null else []
+
+	return run_checks([
+		assert_not_null(effect, "CSV1C_124 should be registered"),
+		assert_false(effect.can_execute(card, state), "CSV1C_124 should be unusable when the lone Active Basic has no replacement"),
+		assert_eq(steps.size(), 0, "CSV1C_124 should not expose interaction steps when no legal target exists"),
 	])
 
 

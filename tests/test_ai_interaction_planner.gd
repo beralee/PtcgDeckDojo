@@ -16,6 +16,28 @@ class FakeInteractionStrategy:
 		return float(scores.get(str(item), 0.0))
 
 
+class FakeHandoffStrategy:
+	extends RefCounted
+
+	var handoff_scores: Dictionary = {}
+	var interaction_scores: Dictionary = {}
+
+	func score_handoff_target(item: Variant, _step: Dictionary, _context: Dictionary = {}) -> float:
+		return float(handoff_scores.get(str(item), 0.0))
+
+	func score_interaction_target(item: Variant, _step: Dictionary, _context: Dictionary = {}) -> float:
+		return float(interaction_scores.get(str(item), 0.0))
+
+
+class FakeLegacyInteractionStrategy:
+	extends RefCounted
+
+	var interaction_scores: Dictionary = {}
+
+	func score_interaction_target(item: Variant, _step: Dictionary, _context: Dictionary = {}) -> float:
+		return float(interaction_scores.get(str(item), 0.0))
+
+
 func _load_script(script_path: String) -> GDScript:
 	var script: Variant = load(script_path)
 	return script if script is GDScript else null
@@ -90,6 +112,81 @@ func test_planner_skips_excluded_targets_for_assignment() -> String:
 		{}
 	))
 	return assert_eq(best_index, 1, "Planner should skip excluded targets and pick the best remaining legal target")
+
+
+func test_planner_prefers_handoff_contract_for_switch_steps() -> String:
+	var planner_script := _load_script(AI_INTERACTION_PLANNER_SCRIPT_PATH)
+	if planner_script == null:
+		return "AIInteractionPlanner.gd should exist before handoff target selection can be unified"
+	var planner = planner_script.new()
+	var strategy := FakeHandoffStrategy.new()
+	strategy.handoff_scores = {"bench_engine": 10.0, "ready_attacker": 120.0}
+	strategy.interaction_scores = {"bench_engine": 200.0, "ready_attacker": 5.0}
+	var best_index: int = int(planner.call(
+		"pick_best_legal_target_index",
+		strategy,
+		["bench_engine", "ready_attacker"],
+		[],
+		{"id": "self_switch_target"},
+		{}
+	))
+	return assert_eq(best_index, 1, "Planner should route handoff-like switch steps through score_handoff_target before generic interaction scoring")
+
+
+func test_planner_treats_own_bench_target_as_handoff_step() -> String:
+	var planner_script := _load_script(AI_INTERACTION_PLANNER_SCRIPT_PATH)
+	if planner_script == null:
+		return "AIInteractionPlanner.gd should exist before Prime Catcher self-switch targets can be routed through the handoff contract"
+	var planner = planner_script.new()
+	var strategy := FakeHandoffStrategy.new()
+	strategy.handoff_scores = {"bench_engine": 10.0, "ready_attacker": 120.0}
+	strategy.interaction_scores = {"bench_engine": 200.0, "ready_attacker": 5.0}
+	var best_index: int = int(planner.call(
+		"pick_best_legal_target_index",
+		strategy,
+		["bench_engine", "ready_attacker"],
+		[],
+		{"id": "own_bench_target"},
+		{}
+	))
+	return assert_eq(best_index, 1, "Prime Catcher-style own_bench_target steps should use score_handoff_target before generic interaction scoring")
+
+
+func test_planner_keeps_generic_interaction_scoring_for_non_handoff_steps() -> String:
+	var planner_script := _load_script(AI_INTERACTION_PLANNER_SCRIPT_PATH)
+	if planner_script == null:
+		return "AIInteractionPlanner.gd should exist before generic interaction target selection can be unified"
+	var planner = planner_script.new()
+	var strategy := FakeHandoffStrategy.new()
+	strategy.handoff_scores = {"bench_engine": 10.0, "ready_attacker": 120.0}
+	strategy.interaction_scores = {"bench_engine": 200.0, "ready_attacker": 5.0}
+	var best_index: int = int(planner.call(
+		"pick_best_legal_target_index",
+		strategy,
+		["bench_engine", "ready_attacker"],
+		[],
+		{"id": "search_item"},
+		{}
+	))
+	return assert_eq(best_index, 0, "Non-handoff steps should continue to use score_interaction_target")
+
+
+func test_planner_falls_back_to_interaction_scoring_for_handoff_steps_without_handoff_hook() -> String:
+	var planner_script := _load_script(AI_INTERACTION_PLANNER_SCRIPT_PATH)
+	if planner_script == null:
+		return "AIInteractionPlanner.gd should exist before legacy handoff fallback can be preserved"
+	var planner = planner_script.new()
+	var strategy := FakeLegacyInteractionStrategy.new()
+	strategy.interaction_scores = {"bench_engine": 10.0, "ready_attacker": 120.0}
+	var best_index: int = int(planner.call(
+		"pick_best_legal_target_index",
+		strategy,
+		["bench_engine", "ready_attacker"],
+		[],
+		{"id": "send_out"},
+		{}
+	))
+	return assert_eq(best_index, 1, "Handoff steps should still fall back to score_interaction_target for legacy strategies without score_handoff_target")
 
 
 func test_planner_uses_gardevoir_search_scoring_for_real_targets() -> String:

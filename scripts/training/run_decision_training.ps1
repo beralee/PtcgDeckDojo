@@ -6,6 +6,7 @@ param(
     [string]$PipelineSuffix = "gardevoir_focus",
     [int]$OptimizedDeck = 578647,
     [int[]]$Opponents = @(575720, 575716, 569061),
+    [string]$OpponentsCsv = "",
     [int]$Rounds = 4,
     [int]$TimeBudgetSeconds = 1800,
     [int]$MirrorGames = 160,
@@ -27,6 +28,75 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 if (Get-Variable PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
     $PSNativeCommandUseErrorActionPreference = $false
+}
+
+function Resolve-PythonCommand {
+    param([string]$PreferredPython)
+
+    $candidates = @()
+    if (-not [string]::IsNullOrWhiteSpace($PreferredPython)) {
+        $candidates += @(@{ FilePath = $PreferredPython; Arguments = @() })
+    }
+    $candidates += @(
+        @{ FilePath = 'C:\Users\24726\AppData\Local\Programs\Python\Python310\python.exe'; Arguments = @() },
+        @{ FilePath = 'C:\Users\24726\miniconda3\python.exe'; Arguments = @() },
+        @{ FilePath = 'py'; Arguments = @('-3.10') },
+        @{ FilePath = 'py'; Arguments = @('-3.13') },
+        @{ FilePath = 'python'; Arguments = @() }
+    )
+
+    foreach ($candidate in $candidates) {
+        try {
+            & $candidate.FilePath @($candidate.Arguments + @('-c', 'import numpy, torch')) *> $null
+            if ($LASTEXITCODE -eq 0) {
+                return $candidate
+            }
+        } catch {
+            continue
+        }
+    }
+
+    throw "Unable to resolve a Python interpreter with numpy and torch."
+}
+
+function Resolve-OpponentList {
+    param(
+        [int[]]$DeclaredOpponents,
+        [string]$Csv,
+        [object[]]$ExtraArgs
+    )
+
+    $resolved = @()
+    foreach ($value in $DeclaredOpponents) {
+        if ($value -gt 0) {
+            $resolved += [int]$value
+        }
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($Csv)) {
+        foreach ($token in $Csv.Split(',')) {
+            $trimmed = $token.Trim()
+            $parsed = 0
+            if ($trimmed -ne '' -and [int]::TryParse($trimmed, [ref]$parsed)) {
+                $resolved += $parsed
+            }
+        }
+    }
+
+    foreach ($extra in $ExtraArgs) {
+        $text = [string]$extra
+        if ($text -match '^\d+$') {
+            $resolved += [int]$text
+        }
+    }
+
+    $deduped = @()
+    foreach ($value in $resolved) {
+        if ($value -gt 0 -and -not $deduped.Contains($value)) {
+            $deduped += $value
+        }
+    }
+    return $deduped
 }
 
 function Resolve-UserRoot {
@@ -160,6 +230,40 @@ function Count-Files {
     return (Get-ChildItem -Path $Path -File -Filter $Filter | Measure-Object).Count
 }
 
+function Get-MetricValue {
+    param(
+        [string]$MetricsPath,
+        [string[]]$CandidateKeys
+    )
+
+    if (-not (Test-Path $MetricsPath)) {
+        return $null
+    }
+
+    $metrics = $null
+    for ($attempt = 0; $attempt -lt 5; $attempt++) {
+        try {
+            $jsonText = [System.IO.File]::ReadAllText($MetricsPath, [System.Text.Encoding]::UTF8)
+            $metrics = $jsonText | ConvertFrom-Json
+            break
+        } catch {
+            Start-Sleep -Milliseconds 250
+        }
+    }
+
+    if ($null -eq $metrics -or $null -eq $metrics.overall) {
+        return $null
+    }
+
+    foreach ($key in $CandidateKeys) {
+        $property = $metrics.overall.PSObject.Properties | Where-Object { $_.Name -eq $key } | Select-Object -First 1
+        if ($null -ne $property -and $null -ne $property.Value) {
+            return [double]$property.Value
+        }
+    }
+    return $null
+}
+
 function Invoke-Collector {
     param(
         [int]$DeckA,
@@ -201,12 +305,18 @@ function Invoke-Collector {
 
 function Invoke-PythonTrain {
     param([string]$ScriptPath, [string[]]$ScriptArgs)
-    $pythonArgs = @($ScriptPath)
+    $pythonArgs = @()
+    $pythonArgs += $script:PythonArgsPrefix
+    $pythonArgs += @($ScriptPath)
     $pythonArgs += $ScriptArgs
     Invoke-NativeCommand -FilePath $Python -ArgumentList $pythonArgs -StepName ("training {0}" -f [System.IO.Path]::GetFileName($ScriptPath))
 }
 
 $UserRoot = Resolve-UserRoot
+$PythonCommand = Resolve-PythonCommand -PreferredPython $Python
+$Python = $PythonCommand.FilePath
+$PythonArgsPrefix = @($PythonCommand.Arguments)
+$Opponents = Resolve-OpponentList -DeclaredOpponents $Opponents -Csv $OpponentsCsv -ExtraArgs $args
 $RunsUserDir = "user://training_data/$DeckPrefix/runs"
 $RunsGlobalDir = Globalize-UserPath $RunsUserDir
 $RunRegistryUserDir = "user://training_runs/$PipelineSuffix"
@@ -320,6 +430,8 @@ for ($round = 1; $round -le $Rounds; $round++) {
     $RoundActionUserPath = "$RoundUserDir/models/${DeckPrefix}_action_scorer_candidate_round_$roundLabel.json"
     $RoundInteractionGlobalPath = Join-Path $RoundModelDir "${DeckPrefix}_interaction_scorer_candidate_round_$roundLabel.json"
     $RoundInteractionUserPath = "$RoundUserDir/models/${DeckPrefix}_interaction_scorer_candidate_round_$roundLabel.json"
+    $RoundDecisionMetricsPath = Join-Path $RoundModelDir "decision_metrics.json"
+    $RoundInteractionMetricsPath = Join-Path $RoundModelDir "interaction_metrics.json"
     $RoundSummaryGlobalPath = Join-Path $RoundBenchmarkDir "summary.json"
     $RoundSummaryUserPath = "$RoundUserDir/benchmark/summary.json"
     $RoundAnomalyUserPath = "$RoundUserDir/benchmark/anomaly_summary.json"
@@ -381,6 +493,23 @@ for ($round = 1; $round -le $Rounds; $round++) {
         continue
     }
 
+    $actionCandidateEnabled = $true
+    $actionTop1Gain = Get-MetricValue -MetricsPath $RoundDecisionMetricsPath -CandidateKeys @("top1_gain_vs_heuristic")
+    if ($null -ne $actionTop1Gain -and $actionTop1Gain -lt 0.0) {
+        $actionCandidateEnabled = $false
+        Write-Log ("[R{0}] Action scorer disabled for benchmark (top1_gain_vs_heuristic={1:N4})" -f $round, $actionTop1Gain)
+    }
+
+    $interactionCandidateEnabled = $true
+    $interactionTop1Gain = Get-MetricValue -MetricsPath $RoundInteractionMetricsPath -CandidateKeys @("top1_gain_vs_strategy", "top1_gain_vs_teacher")
+    if ($DeckPrefix -eq "gardevoir" -and ($null -eq $interactionTop1Gain -or $interactionTop1Gain -lt 0.0)) {
+        $interactionCandidateEnabled = $false
+        Write-Log ("[R{0}] Interaction scorer disabled for benchmark (gardevoir guardrail; top1_gain={1})" -f $round, ($(if ($null -eq $interactionTop1Gain) { "unavailable" } else { "{0:N4}" -f $interactionTop1Gain })))
+    } elseif ($null -ne $interactionTop1Gain -and $interactionTop1Gain -lt 0.0) {
+        $interactionCandidateEnabled = $false
+        Write-Log ("[R{0}] Interaction scorer disabled for benchmark (top1_gain={1:N4})" -f $round, $interactionTop1Gain)
+    }
+
     $roundGateThreshold = if ($CurrentBaselineValueUserPath -eq "") { $BootstrapGateThreshold } else { $BenchmarkGateThreshold }
     Write-Log "[R$round] Benchmark gate via BenchmarkRunner (threshold=$roundGateThreshold)..."
     $benchmarkArgs = @(
@@ -393,8 +522,6 @@ for ($round = 1; $round -le $Rounds; $round++) {
         "--seed-set=$BenchmarkSeedSet",
         "--gate-threshold=$roundGateThreshold",
         "--value-net-a=$RoundValueUserPath",
-        "--action-scorer-a=$RoundActionUserPath",
-        "--interaction-scorer-a=$RoundInteractionUserPath",
         "--summary-output=$RoundSummaryUserPath",
         "--anomaly-output=$RoundAnomalyUserPath",
         "--run-id=$RoundRunId",
@@ -409,6 +536,8 @@ for ($round = 1; $round -le $Rounds; $round++) {
         "--baseline-action-scorer=$CurrentBaselineActionUserPath",
         "--baseline-interaction-scorer=$CurrentBaselineInteractionUserPath"
     )
+    if ($actionCandidateEnabled) { $benchmarkArgs += "--action-scorer-a=$RoundActionUserPath" }
+    if ($interactionCandidateEnabled) { $benchmarkArgs += "--interaction-scorer-a=$RoundInteractionUserPath" }
     if ($CurrentBaselineValueUserPath -ne "") { $benchmarkArgs += "--value-net-b=$CurrentBaselineValueUserPath" }
     if ($CurrentBaselineActionUserPath -ne "") { $benchmarkArgs += "--action-scorer-b=$CurrentBaselineActionUserPath" }
     if ($CurrentBaselineInteractionUserPath -ne "") { $benchmarkArgs += "--interaction-scorer-b=$CurrentBaselineInteractionUserPath" }
@@ -435,7 +564,9 @@ for ($round = 1; $round -le $Rounds; $round++) {
     $winRate = [double]$summary.win_rate_vs_current_best * 100.0
     $gatePassed = [bool]$summary.gate_passed
     if ($gatePassed) {
-        Sync-CurrentBest $RoundValueUserPath $RoundActionUserPath $RoundInteractionUserPath
+        $publishActionUserPath = if ($actionCandidateEnabled) { $RoundActionUserPath } else { "" }
+        $publishInteractionUserPath = if ($interactionCandidateEnabled) { $RoundInteractionUserPath } else { "" }
+        Sync-CurrentBest $RoundValueUserPath $publishActionUserPath $publishInteractionUserPath
         $CurrentBaselineSource = "published-run"
         $Promotions += 1
         if ($benchmarkFailed) {

@@ -832,6 +832,9 @@ func _schedule_followup_ai_step_if_ready(scene: Object, gsm: Variant) -> void:
 		return
 	if gsm.game_state.current_player_index != ai_opponent.player_index:
 		return
+	if bool(scene.get("_ai_running")):
+		scene.set("_ai_followup_requested", true)
+		return
 	if bool(scene.get("_ai_step_scheduled")):
 		return
 	scene.set("_ai_step_scheduled", true)

@@ -2,6 +2,29 @@ class_name TestBattleSetupMusic
 extends TestBase
 
 const BattleSetupScene := preload("res://scenes/battle_setup/BattleSetup.tscn")
+const SETTINGS_PATH := "user://battle_setup.json"
+
+
+func _read_settings_text() -> String:
+	var file := FileAccess.open(SETTINGS_PATH, FileAccess.READ)
+	if file == null:
+		return ""
+	var text := file.get_as_text()
+	file.close()
+	return text
+
+
+func _restore_settings_text(original_text: String) -> void:
+	if original_text == "":
+		var absolute_path := ProjectSettings.globalize_path(SETTINGS_PATH)
+		if FileAccess.file_exists(absolute_path):
+			DirAccess.remove_absolute(absolute_path)
+		return
+	var file := FileAccess.open(SETTINGS_PATH, FileAccess.WRITE)
+	if file == null:
+		return
+	file.store_string(original_text)
+	file.close()
 
 
 func test_battle_setup_populates_bgm_option() -> String:
@@ -61,6 +84,55 @@ func test_battle_setup_applies_selected_bgm_volume_to_game_manager() -> String:
 	scene.queue_free()
 	return run_checks([
 		assert_eq(applied, 37, "应把对战 BGM 音量写入 GameManager"),
+	])
+
+
+func test_battle_setup_defaults_bgm_volume_to_20_without_saved_settings() -> String:
+	var original_settings_text := _read_settings_text()
+	_restore_settings_text("")
+	var previous_track := GameManager.selected_battle_music_id
+	var previous_volume := int(GameManager.battle_bgm_volume_percent)
+	GameManager.load_battle_setup_preferences()
+
+	var scene := BattleSetupScene.instantiate()
+	var tree := Engine.get_main_loop() as SceneTree
+	tree.root.add_child(scene)
+	var bgm_volume_slider := scene.get_node("%BgmVolumeSlider") as HSlider
+	var bgm_volume_value := scene.get_node("%BgmVolumeValue") as Label
+
+	var result := run_checks([
+		assert_eq(int(round(bgm_volume_slider.value)), 20, "首次启动且没有保存设置时，BGM 音量应默认为 20"),
+		assert_eq(bgm_volume_value.text, "20%", "首次启动时应显示 20% 的默认 BGM 音量"),
+	])
+
+	scene.queue_free()
+	GameManager.selected_battle_music_id = previous_track
+	GameManager.battle_bgm_volume_percent = previous_volume
+	_restore_settings_text(original_settings_text)
+	return result
+
+
+func test_battle_setup_back_persists_bgm_volume_setting() -> String:
+	var original_settings_text := _read_settings_text()
+	_restore_settings_text("")
+	var scene := BattleSetupScene.instantiate()
+	var tree := Engine.get_main_loop() as SceneTree
+	tree.root.add_child(scene)
+
+	var bgm_volume_slider := scene.get_node("%BgmVolumeSlider") as HSlider
+	bgm_volume_slider.value = 24
+	scene.call("_on_back")
+
+	var saved_text := _read_settings_text()
+	var json := JSON.new()
+	var parse_ok := json.parse(saved_text) == OK
+	var saved_data: Dictionary = json.data if parse_ok and json.data is Dictionary else {}
+
+	scene.queue_free()
+	_restore_settings_text(original_settings_text)
+	return run_checks([
+		assert_true(parse_ok, "返回对战设置后应写入 battle_setup.json"),
+		assert_eq(int(saved_data.get("battle_bgm_volume_percent", -1)), 24, "返回主菜单时应持久化当前 BGM 音量"),
 	])
 
 

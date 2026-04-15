@@ -2,9 +2,9 @@ class_name DeckStrategyRegistry
 extends RefCounted
 
 
-const DeckStrategyGardevoirScript = preload("res://scripts/ai/DeckStrategyGardevoir.gd")
 const DeckStrategyMiraidonScript = preload("res://scripts/ai/DeckStrategyMiraidon.gd")
 const DeckStrategyCharizardExScript = preload("res://scripts/ai/DeckStrategyCharizardEx.gd")
+const DeckStrategyCharizardExBaselineScript = preload("res://scripts/ai/DeckStrategyCharizardExBaseline.gd")
 const DeckStrategyDragapultDusknoirScript = preload("res://scripts/ai/DeckStrategyDragapultDusknoir.gd")
 const DeckStrategyDragapultBanetteScript = preload("res://scripts/ai/DeckStrategyDragapultBanette.gd")
 const DeckStrategyDragapultCharizardScript = preload("res://scripts/ai/DeckStrategyDragapultCharizard.gd")
@@ -20,9 +20,12 @@ const DeckStrategyIronThornsScript = preload("res://scripts/ai/DeckStrategyIronT
 const DeckStrategyRagingBoltOgerponScript = preload("res://scripts/ai/DeckStrategyRagingBoltOgerpon.gd")
 const DeckStrategyBlisseyTankScript = preload("res://scripts/ai/DeckStrategyBlisseyTank.gd")
 const DeckStrategyGougingFireAncientScript = preload("res://scripts/ai/DeckStrategyGougingFireAncient.gd")
+const _GARDEVOIR_SCRIPT_PATH := "res://scripts/ai/DeckStrategyGardevoir.gd"
+const _GARDEVOIR_SIGNATURES: Array[String] = ["娌欏鏈礶x", "濂囬瞾鑾夊畨", "鎷夐瞾鎷変笣", "Gardevoir ex", "Kirlia", "Ralts"]
 
 const _STRATEGY_SCRIPTS := {
 	"charizard_ex": DeckStrategyCharizardExScript,
+	"charizard_ex_baseline": DeckStrategyCharizardExBaselineScript,
 	"dragapult_dusknoir": DeckStrategyDragapultDusknoirScript,
 	"dragapult_banette": DeckStrategyDragapultBanetteScript,
 	"dragapult_charizard": DeckStrategyDragapultCharizardScript,
@@ -38,7 +41,6 @@ const _STRATEGY_SCRIPTS := {
 	"raging_bolt_ogerpon": DeckStrategyRagingBoltOgerponScript,
 	"blissey_tank": DeckStrategyBlisseyTankScript,
 	"gouging_fire_ancient": DeckStrategyGougingFireAncientScript,
-	"gardevoir": DeckStrategyGardevoirScript,
 	"miraidon": DeckStrategyMiraidonScript,
 }
 
@@ -74,6 +76,8 @@ func detect_strategy_id_for_player(player: PlayerState) -> String:
 
 
 func create_strategy_by_id(strategy_id: String) -> RefCounted:
+	if strategy_id == "gardevoir":
+		return _instantiate_strategy_from_path(_GARDEVOIR_SCRIPT_PATH)
 	var script: Variant = _STRATEGY_SCRIPTS.get(strategy_id, null)
 	if script is GDScript:
 		return (script as GDScript).new()
@@ -116,6 +120,15 @@ func _best_strategy_id_for_visible_names(visible_names: Dictionary) -> String:
 	var best_strategy_id := ""
 	var best_match_count := 0
 	for strategy_id: String in _STRATEGY_ORDER:
+		if strategy_id == "gardevoir":
+			var gardevoir_match_count := 0
+			for signature_name: String in _GARDEVOIR_SIGNATURES:
+				if visible_names.has(signature_name):
+					gardevoir_match_count += 1
+			if gardevoir_match_count > best_match_count:
+				best_match_count = gardevoir_match_count
+				best_strategy_id = strategy_id
+			continue
 		var strategy = create_strategy_by_id(strategy_id)
 		if strategy == null or not strategy.has_method("get_signature_names"):
 			continue
@@ -129,6 +142,13 @@ func _best_strategy_id_for_visible_names(visible_names: Dictionary) -> String:
 	if best_match_count > 0:
 		return best_strategy_id
 	return ""
+
+
+func _instantiate_strategy_from_path(script_path: String) -> RefCounted:
+	var script: Variant = load(script_path)
+	if script is GDScript:
+		return (script as GDScript).new()
+	return null
 
 
 func _collect_visible_names(player: PlayerState) -> Array[String]:

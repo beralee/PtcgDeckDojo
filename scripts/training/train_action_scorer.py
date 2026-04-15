@@ -155,7 +155,32 @@ def _normalize_optional_scores(scores: list[float | None]) -> list[float]:
     return normalized
 
 
-def _action_kind_weight(deck_identity: str, action_kind: str) -> float:
+def _normalize_name(value: str | None) -> str:
+    return str(value or "").strip().lower()
+
+
+def _gardevoir_card_weight(action_kind: str, card_name: str, phase: str) -> float:
+    kind_key = _normalize_name(action_kind)
+    card_key = _normalize_name(card_name)
+    phase_key = _normalize_name(phase)
+    weight = 1.0
+    if kind_key == "play_basic_to_bench":
+        if card_key == "ralts":
+            weight *= 2.0 if phase_key in {"early", "mid"} else 1.4
+        elif card_key in {"munkidori", "drifloon", "scream tail"}:
+            weight *= 1.2
+    elif kind_key == "evolve":
+        if card_key == "kirlia":
+            weight *= 1.45
+        elif card_key == "gardevoir ex":
+            weight *= 1.55
+    elif kind_key == "play_trainer":
+        if card_key in {"buddy-buddy poffin", "nest ball", "ultra ball", "arven", "technical machine: evolution"}:
+            weight *= 1.2 if phase_key in {"early", "mid"} else 1.05
+    return weight
+
+
+def _action_kind_weight(deck_identity: str, action_kind: str, card_name: str = "", phase: str = "") -> float:
     deck_key = str(deck_identity).strip().lower()
     kind_key = str(action_kind).strip().lower()
     weight = 1.0
@@ -170,6 +195,7 @@ def _action_kind_weight(deck_identity: str, action_kind: str) -> float:
             weight *= 1.2
         elif kind_key == "attack":
             weight *= 1.15
+        weight *= _gardevoir_card_weight(action_kind, card_name, phase)
     elif deck_key == "miraidon":
         if kind_key == "attach_energy":
             weight *= 1.35
@@ -182,19 +208,31 @@ def _action_kind_weight(deck_identity: str, action_kind: str) -> float:
     return weight
 
 
-def _plan_bonus(deck_identity: str, action_kind: str, chosen: bool, result: float) -> float:
+def _plan_bonus(deck_identity: str, action_kind: str, chosen: bool, result: float, card_name: str = "", phase: str = "") -> float:
     if not chosen:
         return 0.0
     deck_key = str(deck_identity).strip().lower()
     kind_key = str(action_kind).strip().lower()
+    card_key = _normalize_name(card_name)
+    phase_key = _normalize_name(phase)
     result_clamped = max(0.0, min(1.0, float(result)))
     if deck_key == "gardevoir":
         if kind_key == "evolve":
-            return 0.10 * result_clamped
+            if card_key == "gardevoir ex":
+                return 0.18 * result_clamped
+            if card_key == "kirlia":
+                return 0.16 * result_clamped
+            return 0.12 * result_clamped
         if kind_key == "play_basic_to_bench":
+            if card_key == "ralts" and phase_key in {"early", "mid"}:
+                return 0.20 * result_clamped
+            if card_key in {"munkidori", "drifloon", "scream tail"}:
+                return 0.10 * result_clamped
             return 0.08 * result_clamped
         if kind_key == "use_ability":
-            return 0.09 * result_clamped
+            return 0.12 * result_clamped if phase_key != "early" else 0.08 * result_clamped
+        if kind_key == "play_trainer" and card_key in {"buddy-buddy poffin", "nest ball", "ultra ball", "arven", "technical machine: evolution"}:
+            return 0.08 * result_clamped if phase_key in {"early", "mid"} else 0.03 * result_clamped
     if deck_key == "miraidon":
         if kind_key == "attach_energy":
             return 0.06 * result_clamped
@@ -297,6 +335,7 @@ def load_decision_samples(
                     "decision_key": decision_key,
                     "match_id": record.get("match_id", payload_match_id),
                     "turn_number": int(record.get("turn_number", 0)),
+                    "phase": str(record.get("phase", "")),
                     "player_index": int(record.get("player_index", 0)),
                     "pipeline_name": record.get("pipeline_name", payload.get("meta", {}).get("pipeline_name", "unknown")),
                     "deck_identity": str(record.get("deck_identity", "unknown")),
@@ -304,6 +343,8 @@ def load_decision_samples(
                     "used_mcts": used_mcts,
                     "action_kind": str(action.get("kind", "unknown")),
                     "action_index": int(action.get("action_index", len(decision_samples))),
+                    "card_name": str(action.get("card_name", "")),
+                    "target_name": str(action.get("target_name", "")),
                     "heuristic_score": float(action.get("score", 0.0)),
                     "score_rank": float(normalized_scores[action_index] if action_index < len(normalized_scores) else 0.5),
                     "result": float(record.get("result", 0.5)),
@@ -338,6 +379,8 @@ def load_decision_samples(
                                 str(sample.get("action_kind", "unknown")),
                                 bool(sample.get("chosen", False)),
                                 float(sample.get("result", 0.5)),
+                                str(sample.get("card_name", "")),
+                                str(sample.get("phase", "")),
                             ),
                         ),
                     )
@@ -348,6 +391,8 @@ def load_decision_samples(
                     sample_weight = payload_weight * _action_kind_weight(
                         str(sample.get("deck_identity", "unknown")),
                         str(sample.get("action_kind", "unknown")),
+                        str(sample.get("card_name", "")),
+                        str(sample.get("phase", "")),
                     )
                     if bool(sample.get("chosen", False)):
                         sample_weight *= 1.1

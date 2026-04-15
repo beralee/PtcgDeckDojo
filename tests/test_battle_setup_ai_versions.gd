@@ -24,6 +24,13 @@ class FakeAIVersionRegistry extends RefCounted:
 		return playable_versions[playable_versions.size() - 1].duplicate(true)
 
 
+class FakeDeckViewDialog extends RefCounted:
+	var shown_decks: Array[DeckData] = []
+
+	func show_deck(_scene: Object, deck: DeckData) -> void:
+		shown_decks.append(deck)
+
+
 func _make_scene_ready() -> Control:
 	var scene: Control = BattleSetupScene.instantiate()
 	scene.call("_ready")
@@ -54,6 +61,12 @@ func _prime_deck_options(scene: Control) -> void:
 		_make_deck(575720, "deck-b", "密勒顿ex"),
 		_make_deck(578647, "deck-c", "沙奈朵ex"),
 	])
+	scene.set("_ai_deck_list", [
+		_make_deck(578647, "deck-c", "Gardevoir ex"),
+		_make_deck(575716, "deck-a", "鍠风伀榫檈x"),
+		_make_deck(575720, "deck-b", "瀵嗗嫆椤縠x"),
+		_make_deck(569061, "deck-d", "闃垮皵瀹欐柉 VSTAR"),
+	])
 	var deck1_option := scene.find_child("Deck1Option", true, false) as OptionButton
 	var deck2_option := scene.find_child("Deck2Option", true, false) as OptionButton
 	deck1_option.clear()
@@ -63,7 +76,7 @@ func _prime_deck_options(scene: Control) -> void:
 	deck1_option.add_item("deck-b", 1)
 	deck2_option.add_item("deck-b", 1)
 	deck1_option.add_item("deck-c", 2)
-	deck2_option.add_item("deck-c", 2)
+	deck2_option.add_item("deck-d", 2)
 	deck1_option.select(0)
 	deck2_option.select(1)
 
@@ -161,11 +174,37 @@ func test_battle_setup_ai_mode_limits_ai_decks_to_supported_shortlist() -> Strin
 			resolved_ids.append(deck.id)
 
 	return run_checks([
-		assert_eq(deck2_option.item_count, 3, "AI mode should only expose the three supported AI decks"),
+		assert_eq(deck2_option.item_count, 4, "AI mode should only expose the supported AI decks"),
 		assert_true(575716 in resolved_ids, "AI deck list should include Charizard ex / Pidgeot ex"),
 		assert_true(575720 in resolved_ids, "AI deck list should include Miraidon"),
 		assert_true(569061 in resolved_ids, "AI deck list should include Arceus / Giratina"),
-		assert_false(578647 in resolved_ids, "AI deck list should exclude unsupported AI decks such as Gardevoir"),
+		assert_true(578647 in resolved_ids, "AI deck list should include Gardevoir"),
+	])
+
+
+func test_selected_deck_for_ai_slot_reads_dedicated_ai_deck_list() -> String:
+	var scene := _make_scene_ready()
+	var mode_option := scene.find_child("ModeOption", true, false) as OptionButton
+	mode_option.select(1)
+
+	var player_deck := _make_deck(700001, "player-deck", "Player Signature")
+	var ai_deck := _make_deck(700002, "ai-deck", "AI Signature")
+	scene.set("_deck_list", [player_deck])
+	scene.set("_ai_deck_list", [ai_deck])
+
+	var deck1_option := scene.find_child("Deck1Option", true, false) as OptionButton
+	var deck2_option := scene.find_child("Deck2Option", true, false) as OptionButton
+	deck1_option.clear()
+	deck2_option.clear()
+	deck1_option.add_item("player-deck", 0)
+	deck2_option.add_item("ai-deck", 0)
+	deck1_option.select(0)
+	deck2_option.select(0)
+
+	var selected_ai_deck := scene.call("_selected_deck_for_slot", 1) as DeckData
+	return run_checks([
+		assert_not_null(selected_ai_deck, "AI slot should still resolve a selected deck in VS_AI mode"),
+		assert_eq(selected_ai_deck.id if selected_ai_deck != null else -1, 700002, "AI slot should resolve from the dedicated AI deck list instead of the player deck list"),
 	])
 
 
@@ -198,6 +237,41 @@ func test_apply_setup_selection_writes_default_ai_selection() -> String:
 		assert_eq(str(selection.get("agent_config_path", "")), "", "Default source should not bind agent_config_path"),
 		assert_eq(str(selection.get("value_net_path", "")), "", "Default source should not bind value_net_path"),
 		assert_eq(str(selection.get("display_name", "")), "", "Default source should not bind display_name"),
+	])
+
+
+func test_apply_setup_selection_enables_fixed_order_for_strong_miraidon_ai() -> String:
+	var previous_current_mode := GameManager.current_mode
+	var previous_selected_deck_ids := GameManager.selected_deck_ids.duplicate()
+	var previous_first_player_choice := GameManager.first_player_choice
+	var previous_background := GameManager.selected_battle_background
+	var previous_ai_selection := GameManager.ai_selection.duplicate(true)
+
+	var scene := _make_scene_ready()
+	_prime_deck_options(scene)
+	var mode_option := scene.find_child("ModeOption", true, false) as OptionButton
+	var preview_option := scene.find_child("AIPreviewStrengthOption", true, false) as OptionButton
+	mode_option.select(1)
+	scene.call("_on_mode_changed", 1)
+	preview_option.select(1)
+
+	var ok: bool = scene.call("_apply_setup_selection")
+	var selection: Dictionary = GameManager.ai_selection.duplicate(true)
+
+	GameManager.current_mode = previous_current_mode
+	GameManager.selected_deck_ids = previous_selected_deck_ids
+	GameManager.first_player_choice = previous_first_player_choice
+	GameManager.selected_battle_background = previous_background
+	GameManager.ai_selection = previous_ai_selection
+
+	return run_checks([
+		assert_true(ok, "_apply_setup_selection should succeed for strong Miraidon AI"),
+		assert_eq(str(selection.get("opening_mode", "")), "fixed_order", "Strong Miraidon AI should enable fixed opening mode"),
+		assert_eq(
+			str(selection.get("fixed_deck_order_path", "")),
+			"res://data/bundled_user/ai_fixed_deck_orders/575720.json",
+			"Strong Miraidon AI should bind the bundled fixed deck order path"
+		),
 	])
 
 
@@ -323,7 +397,7 @@ func test_apply_setup_context_ignores_legacy_ai_strategy_and_keeps_explicit_ai_d
 	})
 	var selected_deck := scene.call("_selected_deck_for_slot", 1) as DeckData
 	return run_checks([
-		assert_eq(deck2_option.selected, 1, "Legacy ai_strategy state should not overwrite the explicitly selected AI deck"),
+		assert_eq(deck2_option.selected, 2, "Legacy ai_strategy state should not overwrite the explicitly selected AI deck"),
 		assert_not_null(selected_deck, "Selected AI deck should still resolve after applying legacy context"),
 		assert_eq(selected_deck.id, 575720, "Applying old ai_strategy state should preserve the requested AI deck"),
 	])
@@ -340,3 +414,68 @@ func test_battle_setup_hides_legacy_ai_strategy_controls_even_in_ai_mode() -> St
 		assert_false(ai_strategy_label.visible, "Deck-driven AI setup should not expose the legacy AI strategy label"),
 		assert_false(ai_strategy_option.visible, "Deck-driven AI setup should not expose the legacy AI strategy dropdown"),
 	])
+
+
+func test_battle_setup_ai_preview_strength_option_only_shows_in_ai_mode() -> String:
+	var scene := _make_scene_ready()
+	var mode_option := scene.find_child("ModeOption", true, false) as OptionButton
+	var preview_option := scene.find_child("AIPreviewStrengthOption", true, false) as OptionButton
+	mode_option.select(0)
+	scene.call("_refresh_ai_ui_visibility")
+	var hidden_in_two_player := preview_option.visible
+	mode_option.select(1)
+	scene.call("_refresh_ai_ui_visibility")
+
+	return run_checks([
+		assert_true(preview_option is OptionButton, "BattleSetup should include AIPreviewStrengthOption"),
+		assert_false(hidden_in_two_player, "AIPreviewStrengthOption should stay hidden outside VS_AI mode"),
+		assert_true(preview_option.visible, "AIPreviewStrengthOption should show in VS_AI mode"),
+		assert_eq(preview_option.get_item_count(), 2, "AIPreviewStrengthOption should expose weak/strong choices"),
+		assert_eq(preview_option.get_item_text(0), "弱", "Preview strength option 0 should be weak"),
+		assert_eq(preview_option.get_item_text(1), "强", "Preview strength option 1 should be strong"),
+	])
+
+
+func test_battle_setup_ai_view_button_keeps_normal_preview_for_weak_mode() -> String:
+	var scene := _make_scene_ready()
+	_prime_deck_options(scene)
+	var fake_dialog := FakeDeckViewDialog.new()
+	scene.set("_deck_view_dialog", fake_dialog)
+	var mode_option := scene.find_child("ModeOption", true, false) as OptionButton
+	var preview_option := scene.find_child("AIPreviewStrengthOption", true, false) as OptionButton
+	mode_option.select(1)
+	scene.call("_on_mode_changed", 1)
+	preview_option.select(0)
+
+	scene.call("_on_deck_view_pressed", 1)
+
+	var result := run_checks([
+		assert_eq(fake_dialog.shown_decks.size(), 1, "Weak AI preview mode should keep calling the existing deck preview dialog"),
+		assert_eq(fake_dialog.shown_decks[0].id if not fake_dialog.shown_decks.is_empty() else -1, 575720, "Weak AI preview mode should preview the selected AI deck"),
+	])
+	scene.queue_free()
+	return result
+
+
+func test_battle_setup_ai_view_button_uses_placeholder_for_strong_mode() -> String:
+	var scene := _make_scene_ready()
+	_prime_deck_options(scene)
+	var mode_option := scene.find_child("ModeOption", true, false) as OptionButton
+	var preview_option := scene.find_child("AIPreviewStrengthOption", true, false) as OptionButton
+	mode_option.select(1)
+	scene.call("_on_mode_changed", 1)
+	preview_option.select(1)
+
+	scene.call("_on_deck_view_pressed", 1)
+
+	var placeholder_opened := false
+	for child: Node in scene.get_children():
+		if child is AcceptDialog and (child as AcceptDialog).title == "强 AI 占位":
+			placeholder_opened = (child as AcceptDialog).dialog_text == "hello world"
+			break
+
+	var result := run_checks([
+		assert_true(placeholder_opened, "Strong AI preview mode should open the hello world placeholder dialog"),
+	])
+	scene.queue_free()
+	return result

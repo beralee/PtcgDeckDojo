@@ -278,7 +278,15 @@ func _score_basic_to_bench(action: Dictionary, game_state: GameState, player_ind
 	if card == null or card.card_data == null:
 		return 0.0
 	var player: PlayerState = game_state.players[player_index]
-	match _card_name(card):
+	var name := _card_name(card)
+	if _should_shutdown_extra_setup(player, game_state):
+		match name:
+			DREEPY, CHARMANDER:
+				return 20.0 if _count_name(player, name) == 0 else -10.0
+			ROTOM_V, LUMINEON_V, FEZANDIPITI_EX, RADIANT_ALAKAZAM, MANAPHY:
+				return -20.0
+		return 0.0
+	match name:
 		DREEPY:
 			return 360.0 if _count_name(player, DREEPY) == 0 else 220.0
 		CHARMANDER:
@@ -308,6 +316,14 @@ func _score_trainer(action: Dictionary, game_state: GameState, player_index: int
 	var player: PlayerState = game_state.players[player_index]
 	var opponent: PlayerState = game_state.players[1 - player_index]
 	var name := _card_name(action.get("card"))
+	if _should_shutdown_extra_setup(player, game_state):
+		match name:
+			BUDDY_BUDDY_POFFIN, NEST_BALL, ULTRA_BALL, LANCE:
+				return 20.0
+			ARVEN:
+				return 120.0 if _deck_has(player, COUNTER_CATCHER) and _player_is_behind_in_prizes(game_state, player_index) else 40.0
+			ENERGY_SEARCH:
+				return 40.0 if _needs_dragapult_energy(player) else -10.0
 	match name:
 		ARVEN:
 			return _score_arven(player, game_state, player_index)
@@ -320,19 +336,31 @@ func _score_trainer(action: Dictionary, game_state: GameState, player_index: int
 		NEST_BALL, ULTRA_BALL:
 			return 260.0 if player.bench.size() < 5 else 150.0
 		COUNTER_CATCHER:
-			return 420.0 if _player_is_behind_in_prizes(game_state, player_index) and _can_attack_soon(player) else 130.0
+			if _player_is_behind_in_prizes(game_state, player_index):
+				if _can_attack_soon(player):
+					return 420.0
+				return 20.0 if _is_opening_setup_window(player, game_state) else 130.0
+			return 10.0
 		BOSSS_ORDERS:
-			return 380.0 if _can_take_bench_prize(game_state, player_index) else 150.0
+			if _can_take_bench_prize(game_state, player_index):
+				return 380.0
+			if _is_opening_setup_window(player, game_state) and not _can_attack_soon(player):
+				return 20.0
+			return 150.0
 		IONO:
 			return 300.0 if opponent.prizes.size() <= 3 else 120.0
 		ENERGY_SEARCH:
 			return 300.0 if _needs_dragapult_energy(player) else 100.0
 		SUPER_ROD, NIGHT_STRETCHER:
-			return 260.0 if _has_core_piece_in_discard(player) else 90.0
+			return 260.0 if _has_core_piece_in_discard(player) else 20.0
 		TURO:
 			return 240.0 if player.active_pokemon != null and _is_rule_box(player.active_pokemon) and player.active_pokemon.damage_counters >= 180 and _has_better_pivot(player) else 90.0
-		TEMPLE_OF_SINNOH, LOST_VACUUM, UNFAIR_STAMP:
+		TEMPLE_OF_SINNOH:
 			return 100.0
+		LOST_VACUUM:
+			return 120.0 if game_state.stadium_card != null else 10.0
+		UNFAIR_STAMP:
+			return 260.0 if _player_is_behind_in_prizes(game_state, player_index) and opponent.prizes.size() <= 3 else 100.0
 	return 70.0
 
 
@@ -376,10 +404,16 @@ func _score_use_ability(action: Dictionary, game_state: GameState, player_index:
 		DRAKLOAK:
 			return 420.0
 		ROTOM_V:
+			if _should_shutdown_extra_setup(player, game_state):
+				return -20.0
 			return 340.0 if _count_name(player, DRAGAPULT_EX) == 0 and player.hand.size() <= 5 else 90.0
 		LUMINEON_V:
+			if _should_shutdown_extra_setup(player, game_state):
+				return 20.0 if not _has_supporter_in_hand(player) else -10.0
 			return 280.0 if not _has_supporter_in_hand(player) else 100.0
 		FEZANDIPITI_EX:
+			if _should_shutdown_extra_setup(player, game_state):
+				return -10.0 if player.hand.size() >= 4 else 60.0
 			return 220.0 if player.hand.size() <= 3 else 100.0
 	return 0.0
 
@@ -412,6 +446,12 @@ func _score_search_item(card: CardInstance, context: Dictionary) -> float:
 	var name := _card_name(card)
 	if player == null:
 		return float(get_search_priority(card))
+	if _should_shutdown_extra_setup(player, game_state):
+		match name:
+			BUDDY_BUDDY_POFFIN, NEST_BALL, ULTRA_BALL:
+				return 20.0
+			ENERGY_SEARCH:
+				return 40.0 if _needs_dragapult_energy(player) else -10.0
 	match name:
 		TM_EVOLUTION:
 			return 560.0 if _has_tm_targets(player) else 180.0
@@ -428,7 +468,7 @@ func _score_search_item(card: CardInstance, context: Dictionary) -> float:
 		COUNTER_CATCHER:
 			return 400.0 if game_state != null and _player_is_behind_in_prizes(game_state, player_index) else 120.0
 		SUPER_ROD, NIGHT_STRETCHER:
-			return 320.0 if _has_core_piece_in_discard(player) else 90.0
+			return 320.0 if _has_core_piece_in_discard(player) else 20.0
 	return 80.0
 
 
@@ -438,6 +478,8 @@ func _score_search_tool(card: CardInstance, context: Dictionary) -> float:
 	if game_state == null or player_index < 0 or player_index >= game_state.players.size():
 		return 0.0
 	var player: PlayerState = game_state.players[player_index]
+	if _should_shutdown_extra_setup(player, game_state) and _card_name(card) == FOREST_SEAL_STONE:
+		return 40.0
 	match _card_name(card):
 		TM_EVOLUTION:
 			return 560.0 if _has_tm_targets(player) else 180.0
@@ -453,6 +495,12 @@ func _score_search_pokemon(card: CardInstance, context: Dictionary) -> float:
 	var name := _card_name(card)
 	if player == null:
 		return float(get_search_priority(card))
+	if _should_shutdown_extra_setup(player, game_state):
+		match name:
+			DREEPY, CHARMANDER:
+				return 80.0 if _count_name(player, name) == 0 else 10.0
+			ROTOM_V, LUMINEON_V, FEZANDIPITI_EX, RADIANT_ALAKAZAM, MANAPHY:
+				return -20.0
 	var dragapult_pressure := 0
 	if _count_name(player, DRAKLOAK) > 0:
 		dragapult_pressure += 2
@@ -478,8 +526,12 @@ func _score_search_pokemon(card: CardInstance, context: Dictionary) -> float:
 	if name == CHARMELEON and _count_name(player, CHARMANDER) > 0:
 		return 650.0
 	if name == DREEPY and _count_name(player, DREEPY) == 0:
+		if _count_name(player, DRAKLOAK) > 0 and _count_name(player, CHARMANDER) + _count_name(player, CHARMELEON) + _count_name(player, CHARIZARD_EX) == 0:
+			return 580.0
 		return 620.0
 	if name == CHARMANDER and _count_name(player, CHARMANDER) == 0:
+		if _count_name(player, DRAKLOAK) > 0 and _count_name(player, CHARMELEON) + _count_name(player, CHARIZARD_EX) == 0:
+			return 660.0
 		return 600.0
 	return float(get_search_priority(card))
 
@@ -551,14 +603,23 @@ func _score_arven(player: PlayerState, game_state: GameState, player_index: int)
 
 
 func _fire_attach_score(slot: PokemonSlot, player: PlayerState, turn: int) -> float:
+	var pivot_to_charizard := _should_pivot_fire_to_charizard(player, turn)
 	match _slot_name(slot):
 		DRAGAPULT_EX:
+			if pivot_to_charizard:
+				return 160.0
 			return 420.0
 		DRAKLOAK, DREEPY:
+			if pivot_to_charizard:
+				return 120.0 if _attack_gap(slot) > 1 else 80.0
 			return 380.0 if _count_name(player, CHARIZARD_EX) == 0 else 340.0
 		CHARIZARD_EX:
+			if pivot_to_charizard:
+				return 500.0 if _attack_gap(slot) <= 1 else 420.0
 			return 260.0 if turn >= 4 else 180.0
 		CHARMELEON, CHARMANDER:
+			if pivot_to_charizard:
+				return 360.0
 			return 220.0 if turn >= 4 else 140.0
 	return 60.0
 
@@ -579,9 +640,16 @@ func _psychic_attach_score(slot: PokemonSlot, player: PlayerState) -> float:
 func _score_retreat(player: PlayerState) -> float:
 	if player.active_pokemon == null:
 		return 0.0
-	if _slot_name(player.active_pokemon) in [ROTOM_V, LUMINEON_V, MANAPHY]:
+	var active := player.active_pokemon
+	var active_name := _slot_name(active)
+	if active_name in [ROTOM_V, LUMINEON_V, MANAPHY]:
 		return 220.0 if not player.bench.is_empty() else 70.0
-	return 70.0
+	if not _can_slot_attack(active) and _has_better_pivot(player):
+		if active_name in [DREEPY, DRAKLOAK, CHARMANDER, CHARMELEON]:
+			return 240.0
+		if active_name in [DRAGAPULT_EX, CHARIZARD_EX]:
+			return 180.0
+	return 20.0
 
 
 func _needs_dragapult_energy(player: PlayerState) -> bool:
@@ -589,6 +657,51 @@ func _needs_dragapult_energy(player: PlayerState) -> bool:
 		if _slot_name(slot) in [DREEPY, DRAKLOAK, DRAGAPULT_EX] and _attack_gap(slot) > 0:
 			return true
 	return false
+
+
+func _dragapult_lane_online(player: PlayerState) -> bool:
+	if player == null:
+		return false
+	for slot: PokemonSlot in _all_slots(player):
+		if _slot_name(slot) == DRAGAPULT_EX and _can_slot_attack(slot):
+			return true
+	return false
+
+
+func _two_lane_pressure_online(player: PlayerState) -> bool:
+	if player == null:
+		return false
+	return _dragapult_lane_online(player) and _count_name(player, CHARIZARD_EX) > 0
+
+
+func _should_pivot_fire_to_charizard(player: PlayerState, turn: int) -> bool:
+	if player == null or not _dragapult_lane_online(player):
+		return false
+	if _count_name(player, CHARIZARD_EX) > 0:
+		return true
+	if turn < 4:
+		return false
+	return _count_name(player, CHARMANDER) + _count_name(player, CHARMELEON) > 0
+
+
+func _should_shutdown_extra_setup(player: PlayerState, game_state: GameState = null) -> bool:
+	if player == null:
+		return false
+	if not _two_lane_pressure_online(player):
+		return false
+	if game_state != null and int(game_state.turn_number) < 5 and player.hand.size() <= 5:
+		return false
+	return true
+
+
+func _is_opening_setup_window(player: PlayerState, game_state: GameState = null) -> bool:
+	if player == null:
+		return false
+	if _count_name(player, DRAGAPULT_EX) > 0 or _count_name(player, CHARIZARD_EX) > 0:
+		return false
+	if game_state != null and int(game_state.turn_number) > 4:
+		return false
+	return true
 
 
 func _has_tm_targets(player: PlayerState) -> bool:

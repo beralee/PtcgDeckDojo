@@ -99,8 +99,7 @@ func refresh_ui(scene: Object) -> void:
 func get_selected_deck_name(player_index: int) -> String:
 	if player_index < 0 or player_index >= GameManager.selected_deck_ids.size():
 		return BattleI18n.t("battle.deck.unknown")
-	var deck_id: int = GameManager.selected_deck_ids[player_index]
-	var deck_data: DeckData = CardDatabase.get_deck(deck_id)
+	var deck_data: DeckData = GameManager.resolve_selected_battle_deck(player_index)
 	if deck_data != null and deck_data.deck_name != "":
 		return deck_data.deck_name
 	return BattleI18n.t("battle.player.default", {"index": player_index + 1})
@@ -568,7 +567,13 @@ func refresh_hand(scene: Object) -> void:
 		return
 	if current_player != view_player:
 		var waiting_label := Label.new()
-		waiting_label.text = _bt(scene, "battle.hand.waiting")
+		var latest_opponent_action_text: String = str(scene.get("_latest_opponent_action_text"))
+		var latest_opponent_action_turn_number: int = int(scene.get("_latest_opponent_action_turn_number"))
+		waiting_label.text = (
+			latest_opponent_action_text
+			if latest_opponent_action_text != "" and latest_opponent_action_turn_number == gs.turn_number
+			else _bt(scene, "battle.hand.waiting")
+		)
 		hand_container.add_child(waiting_label)
 		return
 	var current_reveal: GameAction = scene.get("_draw_reveal_current_action") as GameAction

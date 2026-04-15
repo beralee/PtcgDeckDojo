@@ -99,6 +99,17 @@ func test_runner_scene_can_build_miraidon_baseline_ai_without_touching_registry_
 	])
 
 
+func test_runner_scene_can_build_charizard_baseline_ai_without_touching_registry_default() -> String:
+	var scene = AITrainingRunnerSceneScript.new()
+	var ai = scene._make_matchup_ai(0, 575716, "charizard_ex_baseline")
+	var strategy = ai._deck_strategy if ai != null else null
+	return run_checks([
+		assert_not_null(ai, "baseline override should still create an AI opponent"),
+		assert_not_null(strategy, "baseline override should inject the frozen Charizard strategy"),
+		assert_eq(str(strategy.call("get_strategy_id")), "charizard_ex_baseline", "Charizard baseline override should select the frozen baseline strategy"),
+	])
+
+
 func test_runner_scene_can_apply_explicit_artifact_overrides() -> String:
 	var scene = AITrainingRunnerSceneScript.new()
 	var base_dir := "user://test_outputs/ai_training_runner"

@@ -1,4 +1,4 @@
-﻿class_name DeckStrategyIronThorns
+class_name DeckStrategyIronThorns
 extends "res://scripts/ai/DeckStrategyBase.gd"
 
 
@@ -15,6 +15,15 @@ const CRUSHING_HAMMER := "Crushing Hammer"
 const LOST_CITY := "Lost City"
 const PROFESSORS_RESEARCH := "Professor's Research"
 const ARVEN := "Arven"
+const BOSSS_ORDERS := "Boss's Orders"
+const IONO := "Iono"
+const PENNY := "Penny"
+const ERI := "Eri"
+const POKEGEAR := "Pokégear 3.0"
+const POKEMON_CATCHER := "Pokémon Catcher"
+const LOST_VACUUM := "Lost Vacuum"
+const ENERGY_LOTO := "Energy Loto"
+const EARTHEN_VESSEL := "Earthen Vessel"
 const PRIME_CATCHER := "Prime Catcher"
 const CANCELING_COLOGNE := "Canceling Cologne"
 const COLRESS_TENACITY := "Colress's Tenacity"
@@ -30,6 +39,15 @@ const NAME_ALIASES := {
 	LOST_CITY: [LOST_CITY, "放逐市"],
 	PROFESSORS_RESEARCH: [PROFESSORS_RESEARCH, "博士的研究"],
 	ARVEN: [ARVEN, "派帕"],
+	BOSSS_ORDERS: [BOSSS_ORDERS, "老板的指令"],
+	IONO: [IONO, "奇树"],
+	PENNY: [PENNY, "牡丹"],
+	ERI: [ERI, "枇琶"],
+	POKEGEAR: [POKEGEAR, "宝可装置3.0"],
+	POKEMON_CATCHER: [POKEMON_CATCHER, "宝可梦捕捉器"],
+	LOST_VACUUM: [LOST_VACUUM, "放逐吸尘器"],
+	ENERGY_LOTO: [ENERGY_LOTO, "能量乐透"],
+	EARTHEN_VESSEL: [EARTHEN_VESSEL, "大地容器"],
 	PRIME_CATCHER: [PRIME_CATCHER, "顶尖捕捉器"],
 	CANCELING_COLOGNE: [CANCELING_COLOGNE, "清除古龙水"],
 	COLRESS_TENACITY: [COLRESS_TENACITY, "阿克罗玛的执念"],
@@ -97,17 +115,21 @@ func score_action_absolute(action: Dictionary, game_state: GameState, player_ind
 	var player: PlayerState = game_state.players[player_index]
 	match str(action.get("kind", "")):
 		"play_basic_to_bench":
-			return _score_bench_basic(action.get("card"))
+			return _score_bench_basic(action.get("card"), player)
 		"attach_energy":
 			return _score_attach_energy(action.get("card"), action.get("target_slot"), player)
 		"attach_tool":
 			return _score_attach_tool(action.get("card"), action.get("target_slot"), player)
 		"play_trainer":
 			return _score_trainer(action.get("card"), game_state, player_index)
+		"play_stadium":
+			return _score_stadium(action.get("card"), game_state, player_index)
+		"use_ability":
+			return _score_ability(action.get("source_slot"), game_state, player_index)
 		"attack", "granted_attack":
 			return _score_attack(action)
 		"retreat":
-			return 90.0
+			return _score_retreat(action.get("bench_target"), player, game_state.players[1 - player_index])
 	return 0.0
 
 
@@ -193,6 +215,8 @@ func score_interaction_target(item: Variant, step: Dictionary, context: Dictiona
 	var step_id: String = str(step.get("id", ""))
 	if item is CardInstance:
 		var card := item as CardInstance
+		if step_id == "transform_target":
+			return 360.0 if _card_is(card, IRON_THORNS_EX) else 60.0
 		if step_id in ["search_future_pokemon", "search_pokemon", "search_cards", "search_item", "search_tool"]:
 			return float(get_search_priority(card))
 		if step_id in ["discard_cards", "discard_card", "discard_energy"]:
@@ -215,10 +239,23 @@ func score_interaction_target(item: Variant, step: Dictionary, context: Dictiona
 	return 0.0
 
 
-func _score_bench_basic(card: CardInstance) -> float:
+func _score_bench_basic(card: CardInstance, player: PlayerState = null) -> float:
 	if card == null or card.card_data == null:
 		return 0.0
-	return float(_setup_priority(_card_name(card)) * 3)
+	var name: String = _card_name(card)
+	if player != null and name == IRON_THORNS_EX and _needs_backup_thorns(player):
+		return 720.0
+	if player != null and _thin_deck_shell_online(player):
+		if name == DITTO:
+			return -60.0
+		if name == IRON_THORNS_EX and _count_matching_on_field(player, IRON_THORNS_EX) >= 2:
+			return 20.0
+	if player != null and _lock_pressure_online(player):
+		if name == DITTO:
+			return -40.0
+		if name == IRON_THORNS_EX and _count_matching_on_field(player, IRON_THORNS_EX) >= 2:
+			return 40.0
+	return float(_setup_priority(name) * 3)
 
 
 func _score_attach_energy(card: CardInstance, target_slot: PokemonSlot, player: PlayerState) -> float:
@@ -247,37 +284,136 @@ func _score_attach_tool(card: CardInstance, target_slot: PokemonSlot, player: Pl
 	return 50.0
 
 
+func _score_ability(source_slot: PokemonSlot, game_state: GameState, player_index: int) -> float:
+	if source_slot == null or game_state == null or player_index < 0 or player_index >= game_state.players.size():
+		return 0.0
+	if not _slot_matches(source_slot, DITTO):
+		return 0.0
+	var player: PlayerState = game_state.players[player_index]
+	if source_slot != player.active_pokemon:
+		return 40.0
+	if not _is_first_own_turn(game_state, player_index):
+		return 120.0 if _deck_has_matching_basic(player, IRON_THORNS_EX) else 40.0
+	if _deck_has_matching_basic(player, IRON_THORNS_EX):
+		var opponent: PlayerState = game_state.players[1 - player_index]
+		return 520.0 if _opponent_rule_box_active(opponent) else 420.0
+	return 140.0
+
+
+func _score_retreat(target_slot: PokemonSlot, player: PlayerState, opponent: PlayerState) -> float:
+	if player == null or player.active_pokemon == null:
+		return 0.0
+	if _slot_matches(player.active_pokemon, IRON_THORNS_EX):
+		if _can_attack_now(player.active_pokemon):
+			return -180.0
+		if _opponent_rule_box_active(opponent) and player.active_pokemon.attached_energy.size() >= 1:
+			return -120.0
+	if target_slot == null:
+		return 0.0
+	if _slot_matches(target_slot, IRON_THORNS_EX):
+		if _can_attack_now(target_slot):
+			return 260.0 if _opponent_rule_box_active(opponent) else 220.0
+		return -40.0
+	return 90.0
+
+
 func _score_trainer(card: CardInstance, game_state: GameState, player_index: int) -> float:
 	if card == null or card.card_data == null:
 		return 0.0
 	var player: PlayerState = game_state.players[player_index]
 	var opponent: PlayerState = game_state.players[1 - player_index]
 	var name: String = _card_name(card)
+	var pressure_online: bool = _lock_pressure_online(player)
+	var thin_shell_online: bool = _thin_deck_shell_online(player)
+	var active_pre_attack_shell: bool = player.active_pokemon != null and _slot_matches(player.active_pokemon, IRON_THORNS_EX) and pressure_online and not _can_attack_now(player.active_pokemon)
 	if name == JUDGE:
+		if active_pre_attack_shell:
+			return 120.0
 		return 500.0 if _slot_matches(player.active_pokemon, IRON_THORNS_EX) and _opponent_rule_box_active(opponent) else 340.0
 	if name == CRUSHING_HAMMER:
+		if active_pre_attack_shell:
+			return 110.0 if _opponent_has_attached_energy(opponent) else 40.0
 		return 450.0 if _opponent_has_attached_energy(opponent) else 320.0
 	if name == LOST_CITY:
 		return 320.0 if _slot_matches(player.active_pokemon, IRON_THORNS_EX) else 220.0
 	if name == ARVEN:
+		if thin_shell_online:
+			return 80.0
 		if _needs_turbo_bridge(player):
 			return 400.0
 		if _first_untooled_thorns(player) != null:
 			return 360.0
-		return 240.0
+		return 120.0 if pressure_online else 240.0
 	if name == TECHNO_RADAR:
+		if thin_shell_online:
+			return 60.0
+		if pressure_online and _count_matching_on_field(player, IRON_THORNS_EX) >= 2:
+			return 80.0
 		return 300.0 if _count_matching_on_field(player, IRON_THORNS_EX) < 2 else 220.0
 	if name == TM_TURBO_ENERGIZE:
 		return 320.0 if _needs_turbo_bridge(player) else 180.0
+	if name == POKEGEAR:
+		if thin_shell_online:
+			return 30.0
+		return 60.0 if pressure_online else 170.0
+	if name == ENERGY_LOTO:
+		if thin_shell_online:
+			return 20.0
+		return 50.0 if pressure_online else 140.0
+	if name == EARTHEN_VESSEL:
+		if thin_shell_online:
+			return 20.0
+		return 40.0 if pressure_online else 120.0
+	if name == POKEMON_CATCHER:
+		return 260.0 if _has_bench_knockout_window(player, opponent) else 60.0
+	if name == BOSSS_ORDERS:
+		return 280.0 if _has_bench_knockout_window(player, opponent) else 70.0
 	if name == PRIME_CATCHER:
-		return 300.0
+		return 320.0 if _has_bench_knockout_window(player, opponent) else 80.0
 	if name == CANCELING_COLOGNE:
-		return 180.0
+		if player.active_pokemon == null or not _can_attack_now(player.active_pokemon):
+			return -60.0
+		if _slot_matches(player.active_pokemon, IRON_THORNS_EX) and _opponent_rule_box_active(opponent):
+			return -40.0
+		return 60.0 if pressure_online else 180.0
+	if name == LOST_VACUUM:
+		return 70.0 if pressure_online else 140.0
 	if name == COLRESS_TENACITY:
+		if thin_shell_online:
+			return 80.0
 		return 240.0 if game_state.stadium_card == null else 170.0
+	if name == IONO:
+		return 220.0 if pressure_online else 180.0
+	if name == PENNY:
+		if pressure_online and _slot_matches(player.active_pokemon, IRON_THORNS_EX) and player.active_pokemon != null and player.active_pokemon.attached_energy.size() >= 1:
+			return -80.0
+		return 30.0 if pressure_online else 110.0
+	if name == ERI:
+		return 60.0 if pressure_online else 140.0
 	if name == PROFESSORS_RESEARCH:
-		return 120.0
-	return 160.0
+		if thin_shell_online:
+			return -60.0
+		return 60.0 if pressure_online else 120.0
+	return 70.0 if pressure_online else 160.0
+
+
+func _score_stadium(card: CardInstance, game_state: GameState, player_index: int) -> float:
+	if card == null or card.card_data == null:
+		return 0.0
+	var player: PlayerState = game_state.players[player_index]
+	var opponent: PlayerState = game_state.players[1 - player_index]
+	var name: String = _card_name(card)
+	if name == LOST_CITY:
+		if game_state.stadium_card != null and _card_is(game_state.stadium_card, LOST_CITY):
+			return -80.0 if _lock_pressure_online(player) else -20.0
+		if _slot_matches(player.active_pokemon, IRON_THORNS_EX) and _opponent_rule_box_active(opponent):
+			return 360.0
+		if _lock_pressure_online(player):
+			return 320.0
+		if _slot_matches(player.active_pokemon, IRON_THORNS_EX):
+			return 260.0
+		return 220.0 if game_state.stadium_card == null else 180.0
+	return _score_trainer(card, game_state, player_index)
 
 
 func _score_attack(action: Dictionary) -> float:
@@ -312,12 +448,67 @@ func _first_untooled_thorns(player: PlayerState) -> PokemonSlot:
 	return null
 
 
+func _deck_has_matching_basic(player: PlayerState, canonical: String) -> bool:
+	if player == null:
+		return false
+	for card: CardInstance in player.deck:
+		if card == null or card.card_data == null:
+			continue
+		if not _is_basic_pokemon(card):
+			continue
+		if _card_is(card, canonical):
+			return true
+	return false
+
+
+
+
+func _is_first_own_turn(game_state: GameState, player_index: int) -> bool:
+	if game_state == null:
+		return false
+	if game_state.first_player_index == player_index:
+		return game_state.turn_number == 1
+	return game_state.turn_number == 2
+
+
 func _needs_turbo_bridge(player: PlayerState) -> bool:
 	if player.active_pokemon == null or not _slot_matches(player.active_pokemon, IRON_THORNS_EX):
 		return false
 	if player.active_pokemon.attached_energy.size() >= 2:
 		return false
 	return not player.bench.is_empty()
+
+
+func _needs_backup_thorns(player: PlayerState) -> bool:
+	if player == null or player.active_pokemon == null:
+		return false
+	if not _slot_matches(player.active_pokemon, IRON_THORNS_EX):
+		return false
+	if not _can_attack_now(player.active_pokemon):
+		return false
+	return _count_matching_on_field(player, IRON_THORNS_EX) < 2
+
+
+func _thin_deck_shell_online(player: PlayerState) -> bool:
+	if player == null:
+		return false
+	if player.deck.size() > 8:
+		return false
+	return _count_matching_on_field(player, IRON_THORNS_EX) >= 2
+
+
+func _lock_pressure_online(player: PlayerState) -> bool:
+	if player == null or player.active_pokemon == null:
+		return false
+	if not _slot_matches(player.active_pokemon, IRON_THORNS_EX):
+		return false
+	if not _can_attack_now(player.active_pokemon):
+		var backup_thorns_online: bool = _count_matching_on_field(player, IRON_THORNS_EX) >= 2
+		var active_charge_started: bool = player.active_pokemon.attached_energy.size() >= 1
+		if player.active_pokemon.attached_tool != null and _card_is(player.active_pokemon.attached_tool, FUTURE_BOOSTER):
+			active_charge_started = true
+		return backup_thorns_online and active_charge_started
+	return _count_matching_on_field(player, IRON_THORNS_EX) >= 2 or player.active_pokemon.attached_energy.size() >= 2
 
 
 func _opponent_rule_box_active(opponent: PlayerState) -> bool:
@@ -334,6 +525,24 @@ func _opponent_has_attached_energy(opponent: PlayerState) -> bool:
 		if slot != null and not slot.attached_energy.is_empty():
 			return true
 	return false
+
+
+func _has_bench_knockout_window(player: PlayerState, opponent: PlayerState) -> bool:
+	if player == null or opponent == null:
+		return false
+	if not _can_attack_now(player.active_pokemon):
+		return false
+	var projected_damage: int = int(predict_attacker_damage(player.active_pokemon).get("damage", 0))
+	if projected_damage <= 0:
+		return false
+	for slot: PokemonSlot in opponent.bench:
+		if slot != null and projected_damage >= slot.get_remaining_hp():
+			return true
+	return false
+
+
+func _can_attack_now(slot: PokemonSlot) -> bool:
+	return bool(predict_attacker_damage(slot).get("can_attack", false))
 
 
 func _estimate_heuristic_base(kind: String) -> float:

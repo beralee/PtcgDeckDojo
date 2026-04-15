@@ -3,6 +3,7 @@ extends RefCounted
 
 const AIInteractionPlannerScript = preload("res://scripts/ai/AIInteractionPlanner.gd")
 const AIInteractionFeatureEncoderScript = preload("res://scripts/ai/AIInteractionFeatureEncoder.gd")
+const AIHandoffScoringScript = preload("res://scripts/ai/AIHandoffScoring.gd")
 
 ## Optional injected deck strategy that guides interaction target choices.
 var deck_strategy: RefCounted = null
@@ -326,11 +327,7 @@ func _score_interaction_candidate(
 	context: Dictionary = {},
 	state_features: Array[float] = []
 ) -> float:
-	var strategy_score: float = 0.0
-	if deck_strategy != null and deck_strategy.has_method("score_interaction_target"):
-		var score_context: Dictionary = context.duplicate(true)
-		score_context["all_items"] = context.get("all_items", [])
-		strategy_score = float(deck_strategy.call("score_interaction_target", item, step, score_context))
+	var strategy_score: float = _score_strategy_target(item, step, context)
 	var learned_score: float = _score_with_interaction_scorer(item, step, context, state_features, strategy_score)
 	return strategy_score + learned_score
 
@@ -367,11 +364,9 @@ func _record_interaction_decision(
 		return
 	var candidates: Array[Dictionary] = []
 	for item_index: int in items.size():
-		var strategy_score: float = 0.0
-		if deck_strategy != null and deck_strategy.has_method("score_interaction_target"):
-			var score_context: Dictionary = context.duplicate(true)
-			score_context["all_items"] = items
-			strategy_score = float(deck_strategy.call("score_interaction_target", items[item_index], step, score_context))
+		var item_context: Dictionary = context.duplicate(true)
+		item_context["all_items"] = items
+		var strategy_score: float = _score_strategy_target(items[item_index], step, item_context)
 		var feature_context := _build_interaction_feature_context(context, strategy_score)
 		feature_context["all_items"] = items
 		var interaction_features: Dictionary = _interaction_feature_encoder.build_features(items[item_index], step, feature_context)
@@ -394,6 +389,18 @@ func _record_interaction_decision(
 		"candidates": candidates,
 		"chosen_indices": Array(chosen_indices),
 	})
+
+
+func _score_strategy_target(
+	item: Variant,
+	step: Dictionary,
+	context: Dictionary = {}
+) -> float:
+	if deck_strategy == null:
+		return 0.0
+	var score_context: Dictionary = context.duplicate(true)
+	score_context["all_items"] = context.get("all_items", [])
+	return AIHandoffScoringScript.score_strategy_target(deck_strategy, item, step, score_context)
 
 
 func _item_name(item: Variant) -> String:

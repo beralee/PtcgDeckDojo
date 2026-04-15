@@ -140,6 +140,7 @@ func run_matchup_sweep(options: Dictionary) -> Dictionary:
 func run_action_cap_probe(options: Dictionary) -> Dictionary:
 	var deck_id: int = int(options.get("deck_id", 0))
 	var anchor_deck_id: int = int(options.get("anchor_deck_id", RunnerBootstrapScript.DEFAULT_ANCHOR_DECK_ID))
+	var anchor_strategy_override: String = str(options.get("anchor_strategy_override", ""))
 	var seed_value: int = int(options.get("seed", 0))
 	var tracked_player_index: int = int(options.get("tracked_player_index", 0))
 	var max_steps: int = int(options.get("max_steps", RunnerBootstrapScript.DEFAULT_MAX_STEPS))
@@ -175,9 +176,11 @@ func run_action_cap_probe(options: Dictionary) -> Dictionary:
 	var player_1_deck: DeckData = anchor_deck if tracked_player_index == 0 else tracked_deck
 	gsm.start_game(player_0_deck, player_1_deck, 0)
 	var collector := TraceCollector.new()
+	var player_0_override := "" if tracked_player_index == 0 else anchor_strategy_override
+	var player_1_override := anchor_strategy_override if tracked_player_index == 0 else ""
 	var result: Dictionary = benchmark_runner.run_headless_duel(
-		_make_matchup_ai(0, player_0_deck.id),
-		_make_matchup_ai(1, player_1_deck.id),
+		_make_matchup_ai(0, player_0_deck.id, player_0_override),
+		_make_matchup_ai(1, player_1_deck.id, player_1_override),
 		gsm,
 		max_steps,
 		Callable(),
@@ -188,6 +191,7 @@ func run_action_cap_probe(options: Dictionary) -> Dictionary:
 		"PTCG Train Action Cap Probe",
 		"Tracked deck: %s (%d)" % [tracked_deck.deck_name, tracked_deck.id],
 		"Anchor deck: %s (%d)" % [anchor_deck.deck_name, anchor_deck.id],
+		"Anchor strategy override: %s" % anchor_strategy_override,
 		"Seed: %d" % seed_value,
 		"Tracked player index: %d" % tracked_player_index,
 		"Result: %s" % JSON.stringify(result),
@@ -395,10 +399,17 @@ func _run_matchup_for_deck(
 func _make_matchup_ai(player_index: int, deck_id: int, strategy_override_id: String = "", artifact_overrides: Dictionary = {}):
 	var ai := AIOpponentScript.new()
 	ai.configure(player_index, 1)
-	if strategy_override_id == "miraidon_baseline":
-		ai.set_deck_strategy(DeckStrategyMiraidonBaselineScript.new())
-		_apply_matchup_artifact_overrides(ai, ai._deck_strategy, artifact_overrides)
-		return ai
+	if strategy_override_id != "":
+		if strategy_override_id == "miraidon_baseline":
+			ai.set_deck_strategy(DeckStrategyMiraidonBaselineScript.new())
+			_apply_matchup_artifact_overrides(ai, ai._deck_strategy, artifact_overrides)
+			return ai
+		var override_registry := DeckStrategyRegistryScript.new()
+		var override_strategy = override_registry.create_strategy_by_id(strategy_override_id)
+		if override_strategy != null:
+			ai.set_deck_strategy(override_strategy)
+			_apply_matchup_artifact_overrides(ai, ai._deck_strategy, artifact_overrides)
+			return ai
 	var card_database = _get_card_database()
 	var deck: DeckData = null
 	if card_database != null:

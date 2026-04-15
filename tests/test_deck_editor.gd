@@ -50,6 +50,24 @@ func test_flat_index_maps_to_correct_entry() -> String:
 	])
 
 
+func test_deck_editor_requeues_battle_setup_return_context_when_leaving() -> String:
+	var editor: Control = DeckEditorScript.new()
+	editor.set("_return_context", {
+		"return_scene": "battle_setup",
+		"deck1_id": 101,
+		"deck2_id": 202,
+	})
+
+	editor.call("_go_back_to_return_scene")
+	var context: Dictionary = GameManager.call("consume_deck_editor_return_context")
+
+	return run_checks([
+		assert_eq(str(context.get("return_scene", "")), "battle_setup", "Leaving DeckEditor toward battle_setup should restore the same return scene context"),
+		assert_eq(int(context.get("deck1_id", 0)), 101, "Leaving DeckEditor toward battle_setup should preserve deck1 selection"),
+		assert_eq(int(context.get("deck2_id", 0)), 202, "Leaving DeckEditor toward battle_setup should preserve deck2 selection"),
+	])
+
+
 # -- _do_replace --
 
 func test_replace_decrements_old_card_count() -> String:

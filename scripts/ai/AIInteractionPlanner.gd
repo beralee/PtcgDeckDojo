@@ -1,6 +1,8 @@
 class_name AIInteractionPlanner
 extends RefCounted
 
+const AIHandoffScoringScript = preload("res://scripts/ai/AIHandoffScoring.gd")
+
 
 func pick_item_indices(
 	deck_strategy: RefCounted,
@@ -61,6 +63,4 @@ func _score_target(
 	step: Dictionary,
 	context: Dictionary
 ) -> float:
-	if deck_strategy != null and deck_strategy.has_method("score_interaction_target"):
-		return float(deck_strategy.call("score_interaction_target", item, step, context))
-	return 0.0
+	return AIHandoffScoringScript.score_strategy_target(deck_strategy, item, step, context)

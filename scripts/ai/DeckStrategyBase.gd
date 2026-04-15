@@ -62,6 +62,10 @@ func score_interaction_target(_item: Variant, _step: Dictionary, _context: Dicti
 	return 0.0
 
 
+func score_handoff_target(_item: Variant, _step: Dictionary, _context: Dictionary = {}) -> float:
+	return score_interaction_target(_item, _step, _context)
+
+
 # ============================================================
 #  名称解析工具（优先返回英文名，兼容中英文卡牌数据）
 # ============================================================

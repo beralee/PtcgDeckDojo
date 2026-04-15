@@ -2668,6 +2668,61 @@ func test_battle_scene_boss_orders_routes_real_effect_to_field_slots() -> String
 	])
 
 
+func test_battle_scene_penny_active_target_advances_to_replacement_choice_and_resolves() -> String:
+	var battle_scene = _make_battle_scene_stub()
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+	gsm.game_state.turn_number = 3
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	battle_scene.set("_gsm", gsm)
+	battle_scene.set("_view_player", 0)
+	gsm.action_logged.connect(battle_scene._on_action_logged)
+
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+
+	var player: PlayerState = gsm.game_state.players[0]
+	var active := PokemonSlot.new()
+	var active_card := CardInstance.create(_make_pokemon_cd("Penny Active", 120, "P"), 0)
+	active.pokemon_stack.append(active_card)
+	var energy := CardInstance.create(_make_energy_cd("Penny Energy", "P"), 0)
+	var tool := CardInstance.create(_make_trainer_cd("Penny Tool", "Tool", ""), 0)
+	active.attached_energy.append(energy)
+	active.attached_tool = tool
+	player.active_pokemon = active
+
+	var replacement := PokemonSlot.new()
+	replacement.pokemon_stack.append(CardInstance.create(_make_pokemon_cd("Penny Bench", 100, "P"), 0))
+	player.bench = [replacement]
+
+	var penny := CardInstance.create(_make_trainer_cd("Penny", "Supporter", ""), 0)
+	penny.card_data.effect_id = "9fb5f53c9952d10b4fe26508ecbc644a"
+	player.hand = [penny]
+
+	battle_scene.call("_try_play_trainer_with_interaction", 0, penny)
+	var first_pending: String = str(battle_scene.get("_pending_choice"))
+	var first_mode: String = str(battle_scene.get("_field_interaction_mode"))
+	battle_scene.call("_handle_field_slot_select_index", 0)
+	var second_pending: String = str(battle_scene.get("_pending_choice"))
+	var second_mode: String = str(battle_scene.get("_field_interaction_mode"))
+	battle_scene.call("_handle_field_slot_select_index", 0)
+
+	return run_checks([
+		assert_eq(first_pending, "effect_interaction", "Penny should enter the effect interaction flow"),
+		assert_eq(first_mode, "slot_select", "Penny should choose its target through the field slot selector"),
+		assert_eq(second_pending, "effect_interaction", "Selecting the Active target should continue to the replacement step"),
+		assert_eq(second_mode, "slot_select", "Penny replacement should also use the field slot selector"),
+		assert_eq(str(battle_scene.get("_pending_choice")), "", "After choosing the replacement, Penny should finish cleanly"),
+		assert_eq(player.active_pokemon, replacement, "Penny should promote the selected Benched Pokemon into the Active slot"),
+		assert_true(active_card in player.hand and energy in player.hand and tool in player.hand, "Penny should return the chosen Active Pokemon and all attached cards to hand"),
+		assert_true(penny in player.discard_pile, "Penny should be discarded after it resolves"),
+	])
+
+
 func test_battle_scene_electric_generator_routes_real_effect_to_assignment_ui() -> String:
 	var battle_scene = _make_battle_scene_stub()
 	var gsm := GameStateMachine.new()

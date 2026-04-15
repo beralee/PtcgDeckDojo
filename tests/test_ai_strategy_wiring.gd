@@ -22,6 +22,39 @@ class FixedAttachAuthorityStrategy extends RefCounted:
 		return 0.0
 
 
+class FixedHandoffAuthorityStrategy extends RefCounted:
+	func score_handoff_target(item: Variant, step: Dictionary, _context: Dictionary = {}) -> float:
+		if not (item is String):
+			return 0.0
+		if str(step.get("id", "")) in ["send_out", "self_switch_target", "own_bench_target"] and str(item) == "ready_attacker":
+			return 100.0
+		return 0.0
+
+	func pick_interaction_items(items: Array, step: Dictionary, _context: Dictionary = {}) -> Array:
+		if str(step.get("id", "")) != "own_bench_target":
+			return []
+		for item: Variant in items:
+			if str(item) == "ready_attacker":
+				return [item]
+		return []
+
+	func score_interaction_target(item: Variant, _step: Dictionary, _context: Dictionary = {}) -> float:
+		if item is String and str(item) == "bench_engine":
+			return 150.0
+		return 0.0
+
+
+class LegacyInteractionAuthorityStrategy extends RefCounted:
+	func score_interaction_target(item: Variant, step: Dictionary, _context: Dictionary = {}) -> float:
+		if not (item is String):
+			return 0.0
+		if str(step.get("id", "")) == "self_switch_target" and str(item) == "ready_attacker":
+			return 100.0
+		if str(item) == "bench_engine":
+			return 10.0
+		return 0.0
+
+
 func _make_manual_gsm() -> GameStateMachine:
 	var gsm := GameStateMachine.new()
 	gsm.game_state = GameState.new()
@@ -209,3 +242,48 @@ func test_greedy_combo_bias_can_prefer_setup_chain_over_isolated_attack_peak() -
 	])
 	return assert_eq(str((best.get("action", {}) as Dictionary).get("kind", "")), "play_trainer",
 		"Combo-aware greedy selection should be able to prefer a setup chain over a slightly higher isolated attack score")
+
+
+func test_step_resolver_prefers_handoff_contract_for_switch_targets() -> String:
+	var resolver = AIStepResolverScript.new()
+	resolver.deck_strategy = FixedHandoffAuthorityStrategy.new()
+	var best_index: int = resolver._best_legal_target_index(
+		["bench_engine", "ready_attacker"],
+		[],
+		{"id": "self_switch_target"},
+		{}
+	)
+	return assert_eq(best_index, 1,
+		"Step resolver should route switch-like handoff targets through score_handoff_target before generic interaction scoring")
+
+
+func test_headless_builder_uses_explicit_strategy_pick_for_own_bench_target() -> String:
+	var gsm := _make_manual_gsm()
+	var builder = AILegalActionBuilderScript.new()
+	builder._deck_strategy = FixedHandoffAuthorityStrategy.new()
+	builder._deck_strategy_detected = true
+	var selected: Array = builder._select_headless_items(
+		gsm,
+		0,
+		0,
+		{"id": "own_bench_target"},
+		["bench_engine", "ready_attacker"],
+		1,
+		{}
+	)
+	var picked: String = "" if selected.is_empty() else str(selected[0])
+	return assert_eq(picked, "ready_attacker",
+		"Headless interaction previews should honor explicit deck-local own_bench_target picks instead of defaulting to the first bench option")
+
+
+func test_step_resolver_falls_back_to_legacy_interaction_scoring_for_handoff_targets() -> String:
+	var resolver = AIStepResolverScript.new()
+	resolver.deck_strategy = LegacyInteractionAuthorityStrategy.new()
+	var best_index: int = resolver._best_legal_target_index(
+		["bench_engine", "ready_attacker"],
+		[],
+		{"id": "self_switch_target"},
+		{}
+	)
+	return assert_eq(best_index, 1,
+		"Step resolver should keep using score_interaction_target for handoff targets when a legacy strategy does not implement score_handoff_target")

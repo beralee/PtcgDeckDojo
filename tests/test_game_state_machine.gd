@@ -69,6 +69,23 @@ func _make_real_test_deck_data(deck_id: int, set_code: String = "CSV6C", card_in
 	return deck
 
 
+func _make_fixed_order_test_deck_data(deck_id: int) -> DeckData:
+	var deck := DeckData.new()
+	deck.id = deck_id
+	deck.deck_name = "固定顺序测试卡组%d" % deck_id
+	deck.cards = [
+		{"set_code": "151C", "card_index": "151", "count": 1},
+		{"set_code": "CS4DaC", "card_index": "137", "count": 1},
+		{"set_code": "CSV1C", "card_index": "050", "count": 1},
+		{"set_code": "CSNC", "card_index": "024", "count": 1},
+		{"set_code": "CSV1C", "card_index": "107", "count": 1},
+		{"set_code": "CSVH1C", "card_index": "043", "count": 2},
+		{"set_code": "CSVE1C", "card_index": "LIG", "count": 53},
+	]
+	deck.total_cards = 60
+	return deck
+
+
 func _make_basic_pokemon_card_data(name: String) -> CardData:
 	var cd := CardData.new()
 	cd.name = name
@@ -151,6 +168,35 @@ func test_start_game_random_first_uses_coin_flip() -> String:
 		assert_eq(flipper.flip_calls, 1, "随机先后攻时应触发一次投硬币"),
 		assert_eq(gsm.game_state.first_player_index, 1, "投币为反面时应由玩家2先攻"),
 		assert_eq(gsm.game_state.current_player_index, 1, "随机决定玩家2先攻时 current_player_index 应同步为 1"),
+	])
+
+
+func test_start_game_uses_fixed_deck_order_override_for_initial_hand() -> String:
+	var gsm := GameStateMachine.new()
+	var deck_1 := _make_real_test_deck_data(1, "CSV1C", "050")
+	var deck_2 := _make_fixed_order_test_deck_data(2)
+	gsm.set_deck_order_override(1, [
+		{"set_code": "151C", "card_index": "151"},
+		{"set_code": "CS4DaC", "card_index": "137"},
+		{"set_code": "CSVE1C", "card_index": "LIG"},
+		{"set_code": "CSVH1C", "card_index": "043"},
+		{"set_code": "CSV1C", "card_index": "107"},
+		{"set_code": "CSVH1C", "card_index": "043"},
+		{"set_code": "CSNC", "card_index": "024"},
+	])
+
+	gsm.start_game(deck_1, deck_2, 0)
+
+	var hand_uids: Array[String] = []
+	for card: CardInstance in gsm.game_state.players[1].hand:
+		hand_uids.append(card.card_data.get_uid())
+
+	return run_checks([
+		assert_eq(
+			hand_uids,
+			["151C_151", "CS4DaC_137", "CSVE1C_LIG", "CSVH1C_043", "CSV1C_107", "CSVH1C_043", "CSNC_024"],
+			"Fixed deck order override should define the opening hand from top to bottom"
+		),
 	])
 
 

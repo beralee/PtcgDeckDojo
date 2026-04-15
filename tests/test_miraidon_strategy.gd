@@ -130,6 +130,31 @@ func test_setup_iron_hands_active() -> String:
 	return assert_eq(active_name, "铁臂膀ex", "铁臂膀ex 应优先上前场")
 
 
+func test_setup_mew_ex_active_for_raikou_opening() -> String:
+	## 指定开局：梦幻ex 站前，雷公V/密勒顿ex 落后
+	var player := _make_player()
+	player.hand.append(CardInstance.create(_make_pokemon_cd("梦幻ex", "Basic", "P", 180, "", "ex",
+		[{"name": "再起动"}], [], 0), 0))
+	player.hand.append(CardInstance.create(_make_pokemon_cd("雷公V", "Basic", "L", 200, "", "V",
+		[{"name": "Fleet Feet"}], [{"name": "雷鸣轰击", "cost": "LC", "damage": "20"}], 1), 0))
+	player.hand.append(CardInstance.create(_make_pokemon_cd("密勒顿ex", "Basic", "L", 220, "", "ex",
+		[{"name": "串联装置"}], [{"name": "光子冲击", "cost": "LLC", "damage": "220"}]), 0))
+	player.hand.append(CardInstance.create(_make_pokemon_cd("铁臂膀ex", "Basic", "L", 230, "", "ex", [],
+		[{"name": "猛击", "cost": "LLC", "damage": "160"}], 4), 0))
+	var s := _new_strategy()
+	var choice: Dictionary = s.plan_opening_setup(player)
+	var active_idx: int = int(choice.get("active_hand_index", -1))
+	var active_name: String = str(player.hand[active_idx].card_data.name) if active_idx >= 0 else ""
+	var bench_names: Array[String] = []
+	for hand_index: int in choice.get("bench_hand_indices", []):
+		bench_names.append(str(player.hand[hand_index].card_data.name))
+	return run_checks([
+		assert_eq(active_name, "梦幻ex", "梦幻ex 应优先作为前场起手"),
+		assert_true("雷公V" in bench_names, "雷公V 应在开局一起落到后场"),
+		assert_true("密勒顿ex" in bench_names, "密勒顿ex 应保留在后场准备开特性"),
+	])
+
+
 # ============================================================
 #  动作评分测试
 # ============================================================
@@ -184,6 +209,312 @@ func test_score_tandem_unit_high() -> String:
 		gs, 0
 	)
 	return assert_true(score >= 500.0, "串联装置绝对分应 >= 500 (got %f)" % score)
+
+
+func test_nest_ball_prefers_miraidon_before_engine_online() -> String:
+	## 首个巢穴球先找密勒顿ex，而不是直接找铁臂膀ex
+	var gs := _make_game_state(2)
+	gs.players[0].active_pokemon = _make_slot(_make_pokemon_cd("梦幻ex", "Basic", "P", 180, "", "ex",
+		[{"name": "再起动"}], [], 0), 0)
+	gs.players[0].bench.append(_make_slot(_make_pokemon_cd("雷公V", "Basic", "L", 200, "", "V",
+		[{"name": "Fleet Feet"}], [{"name": "雷鸣轰击", "cost": "LC", "damage": "20"}], 1), 0))
+	var miraidon := CardInstance.create(_make_pokemon_cd("密勒顿ex", "Basic", "L", 220, "", "ex",
+		[{"name": "串联装置"}], [{"name": "光子冲击", "cost": "LLC", "damage": "220"}]), 0)
+	var iron_hands := CardInstance.create(_make_pokemon_cd("铁臂膀ex", "Basic", "L", 230, "", "ex", [],
+		[{"name": "猛击", "cost": "LLC", "damage": "160"}], 4), 0)
+	var step := {"id": "basic_pokemon", "title": "选择 1 张基础宝可梦放入备战区"}
+	var s := _new_strategy()
+	var miraidon_score: float = s.score_interaction_target(miraidon, step, _ctx(gs))
+	var iron_hands_score: float = s.score_interaction_target(iron_hands, step, _ctx(gs))
+	return assert_true(
+		miraidon_score > iron_hands_score,
+		"首个巢穴球应优先找密勒顿ex（miraidon=%f iron_hands=%f）" % [miraidon_score, iron_hands_score]
+	)
+
+
+func test_tandem_unit_prefers_iron_hands_after_miraidon_lands() -> String:
+	## 密勒顿特性展开时优先补铁臂膀ex
+	var gs := _make_game_state(2)
+	gs.players[0].active_pokemon = _make_slot(_make_pokemon_cd("梦幻ex", "Basic", "P", 180, "", "ex",
+		[{"name": "再起动"}], [], 0), 0)
+	gs.players[0].bench.append(_make_slot(_make_pokemon_cd("雷公V", "Basic", "L", 200, "", "V",
+		[{"name": "Fleet Feet"}], [{"name": "雷鸣轰击", "cost": "LC", "damage": "20"}], 1), 0))
+	gs.players[0].bench.append(_make_slot(_make_pokemon_cd("密勒顿ex", "Basic", "L", 220, "", "ex",
+		[{"name": "串联装置"}], [{"name": "光子冲击", "cost": "LLC", "damage": "220"}]), 0))
+	var iron_hands := CardInstance.create(_make_pokemon_cd("铁臂膀ex", "Basic", "L", 230, "", "ex", [],
+		[{"name": "猛击", "cost": "LLC", "damage": "160"}], 4), 0)
+	var zapdos := CardInstance.create(_make_pokemon_cd("闪电鸟", "Basic", "L", 120), 0)
+	var step := {"id": "bench_pokemon", "title": "选择最多2只放入备战区的宝可梦"}
+	var s := _new_strategy()
+	var iron_hands_score: float = s.score_interaction_target(iron_hands, step, _ctx(gs))
+	var zapdos_score: float = s.score_interaction_target(zapdos, step, _ctx(gs))
+	return assert_true(
+		iron_hands_score > zapdos_score,
+		"串联装置应优先补铁臂膀ex（iron_hands=%f zapdos=%f）" % [iron_hands_score, zapdos_score]
+	)
+
+
+func test_nest_ball_prefers_squawk_after_core_shell_is_online() -> String:
+	## 在雷公/密勒顿/铁臂膀都到位后，第二个巢穴球转而补怒鹦哥ex
+	var gs := _make_game_state(2)
+	gs.players[0].active_pokemon = _make_slot(_make_pokemon_cd("梦幻ex", "Basic", "P", 180, "", "ex",
+		[{"name": "再起动"}], [], 0), 0)
+	gs.players[0].bench.append(_make_slot(_make_pokemon_cd("雷公V", "Basic", "L", 200, "", "V",
+		[{"name": "Fleet Feet"}], [{"name": "雷鸣轰击", "cost": "LC", "damage": "20"}], 1), 0))
+	gs.players[0].bench.append(_make_slot(_make_pokemon_cd("密勒顿ex", "Basic", "L", 220, "", "ex",
+		[{"name": "串联装置"}], [{"name": "光子冲击", "cost": "LLC", "damage": "220"}]), 0))
+	gs.players[0].bench.append(_make_slot(_make_pokemon_cd("铁臂膀ex", "Basic", "L", 230, "", "ex", [],
+		[{"name": "猛击", "cost": "LLC", "damage": "160"}], 4), 0))
+	var squawk := CardInstance.create(_make_pokemon_cd("怒鹦哥ex", "Basic", "C", 160, "", "ex",
+		[{"name": "Squawk and Seize"}]), 0)
+	var zapdos := CardInstance.create(_make_pokemon_cd("闪电鸟", "Basic", "L", 120), 0)
+	var step := {"id": "basic_pokemon", "title": "选择 1 张基础宝可梦放入备战区"}
+	var s := _new_strategy()
+	var squawk_score: float = s.score_interaction_target(squawk, step, _ctx(gs))
+	var zapdos_score: float = s.score_interaction_target(zapdos, step, _ctx(gs))
+	return assert_true(
+		squawk_score > zapdos_score,
+		"第二个巢穴球应优先补怒鹦哥ex（squawk=%f zapdos=%f）" % [squawk_score, zapdos_score]
+	)
+
+
+func test_opening_prefers_nest_ball_over_generator_before_miraidon() -> String:
+	## 开局没落下密勒顿之前，应先铺板再开电枪
+	var gs := _make_game_state(2)
+	gs.players[0].active_pokemon = _make_slot(_make_pokemon_cd("梦幻ex", "Basic", "P", 180, "", "ex",
+		[{"name": "再起动"}], [], 0), 0)
+	gs.players[0].bench.append(_make_slot(_make_pokemon_cd("雷公V", "Basic", "L", 200, "", "V",
+		[{"name": "Fleet Feet"}], [{"name": "雷鸣轰击", "cost": "LC", "damage": "20"}], 1), 0))
+	for i: int in 5:
+		gs.players[0].deck.append(CardInstance.create(_make_energy_cd("基本雷能量", "L"), 0))
+	var s := _new_strategy()
+	var nest_score: float = s.score_action_absolute(
+		{"kind": "play_trainer", "card": CardInstance.create(_make_trainer_cd("巢穴球"), 0)},
+		gs, 0
+	)
+	var generator_score: float = s.score_action_absolute(
+		{"kind": "play_trainer", "card": CardInstance.create(_make_trainer_cd("电气发生器"), 0)},
+		gs, 0
+	)
+	return assert_true(
+		nest_score > generator_score,
+		"开局没密勒顿时，巢穴球应先于电枪（nest=%f generator=%f）" % [nest_score, generator_score]
+	)
+
+
+func test_opening_dte_on_raichu_stays_negative_before_engine_online() -> String:
+	## 引擎还没落地时，不应把双重涡轮先塞给前场雷丘
+	var gs := _make_game_state(1)
+	gs.players[0].active_pokemon = _make_slot(_make_pokemon_cd("雷丘V", "Basic", "L", 200, "", "V", [],
+		[{"name": "雷电突袭", "cost": "LL", "damage": "60"}], 1), 0)
+	gs.players[0].bench.append(_make_slot(_make_pokemon_cd("铁臂膀ex", "Basic", "L", 230, "", "ex", [],
+		[{"name": "猛击", "cost": "LLC", "damage": "160"}], 4), 0))
+	gs.players[0].bench.append(_make_slot(_make_pokemon_cd("闪电鸟", "Basic", "L", 120, "", "", [],
+		[{"name": "雷鸣翼击", "cost": "LLC", "damage": "110"}], 1), 0))
+	var s := _new_strategy()
+	var dte_score: float = s.score_action_absolute(
+		{
+			"kind": "attach_energy",
+			"card": CardInstance.create(_make_energy_cd("双重涡轮能量", "C"), 0),
+			"target_slot": gs.players[0].active_pokemon
+		},
+		gs, 0
+	)
+	return assert_true(
+		dte_score < 0.0,
+		"引擎未落地时，前场雷丘的 DTE 不应是正分（dte=%f）" % dte_score
+	)
+
+
+func test_late_nest_ball_stays_low_when_no_searchable_attacker_remains() -> String:
+	var gs := _make_game_state(8)
+	var player: PlayerState = gs.players[0]
+	player.active_pokemon = _make_slot(_make_pokemon_cd("铁臂膀ex", "Basic", "L", 230, "", "ex", [],
+		[{"name": "猛击", "cost": "LLC", "damage": "160"}], 4), 0)
+	player.active_pokemon.attached_energy.append(CardInstance.create(_make_energy_cd("基本雷能量", "L"), 0))
+	player.active_pokemon.attached_energy.append(CardInstance.create(_make_energy_cd("基本雷能量", "L"), 0))
+	player.active_pokemon.attached_energy.append(CardInstance.create(_make_energy_cd("双重涡轮能量", "C"), 0))
+	player.bench.append(_make_slot(_make_pokemon_cd("密勒顿ex", "Basic", "L", 220, "", "ex"), 0))
+	player.deck.clear()
+	player.deck.append(CardInstance.create(_make_pokemon_cd("梦幻ex", "Basic", "P", 180, "", "ex",
+		[{"name": "Restart"}], [], 0), 0))
+	var s := _new_strategy()
+	var nest_ball_score: float = s.score_action_absolute(
+		{"kind": "play_trainer", "card": CardInstance.create(_make_trainer_cd("巢穴球"), 0)},
+		gs, 0
+	)
+	return assert_true(
+		nest_ball_score < 100.0,
+		"Late Nest Ball should stay low when only support targets remain in deck (nest_ball=%f)" % nest_ball_score
+	)
+
+
+func test_late_forest_seal_stone_on_mew_stays_low_with_ready_attacker() -> String:
+	var gs := _make_game_state(8)
+	var player: PlayerState = gs.players[0]
+	player.active_pokemon = _make_slot(_make_pokemon_cd("铁臂膀ex", "Basic", "L", 230, "", "ex", [],
+		[{"name": "猛击", "cost": "LLC", "damage": "160"}], 4), 0)
+	player.active_pokemon.attached_energy.append(CardInstance.create(_make_energy_cd("基本雷能量", "L"), 0))
+	player.active_pokemon.attached_energy.append(CardInstance.create(_make_energy_cd("基本雷能量", "L"), 0))
+	player.active_pokemon.attached_energy.append(CardInstance.create(_make_energy_cd("双重涡轮能量", "C"), 0))
+	player.bench.append(_make_slot(_make_pokemon_cd("密勒顿ex", "Basic", "L", 220, "", "ex"), 0))
+	var mew := _make_slot(_make_pokemon_cd("梦幻ex", "Basic", "P", 180, "", "ex",
+		[{"name": "Restart"}], [], 0), 0)
+	player.bench.append(mew)
+	var s := _new_strategy()
+	var stone_score: float = s.score_action_absolute(
+		{
+			"kind": "attach_tool",
+			"card": CardInstance.create(_make_tool_cd("森林封印石"), 0),
+			"target_slot": mew
+		},
+		gs, 0
+	)
+	return assert_true(
+		stone_score < 120.0,
+		"Late Forest Seal Stone on Mew ex should stay low once a ready attacker exists (stone=%f)" % stone_score
+	)
+
+
+func test_retreat_mew_into_ready_raikou_before_squawk() -> String:
+	## 雷公已经就绪时，梦幻应先撤到雷公，不该先开怒鹦哥
+	var gs := _make_game_state(2)
+	var mew := _make_slot(_make_pokemon_cd("梦幻ex", "Basic", "P", 180, "", "ex",
+		[{"name": "再起动"}], [], 0), 0)
+	var raikou := _make_slot(_make_pokemon_cd("雷公V", "Basic", "L", 200, "", "V",
+		[{"name": "Fleet Feet"}], [{"name": "雷鸣轰击", "cost": "LC", "damage": "20"}], 1), 0)
+	raikou.attached_energy.append(CardInstance.create(_make_energy_cd("基本雷能量", "L"), 0))
+	raikou.attached_energy.append(CardInstance.create(_make_energy_cd("基本雷能量", "L"), 0))
+	var squawk := _make_slot(_make_pokemon_cd("怒鹦哥ex", "Basic", "C", 160, "", "ex",
+		[{"name": "Squawk and Seize"}]), 0)
+	gs.players[0].active_pokemon = mew
+	gs.players[0].bench.append(raikou)
+	gs.players[0].bench.append(squawk)
+	var s := _new_strategy()
+	var retreat_score: float = s.score_action_absolute(
+		{"kind": "retreat", "bench_target": raikou},
+		gs, 0
+	)
+	var squawk_score: float = s.score_action_absolute(
+		{"kind": "use_ability", "source_slot": squawk, "ability_index": 0},
+		gs, 0
+	)
+	return assert_true(
+		retreat_score > squawk_score,
+		"梦幻应先退到可攻击的雷公（retreat=%f squawk=%f）" % [retreat_score, squawk_score]
+	)
+
+
+func test_fleet_feet_scores_above_squawk_when_raikou_is_active() -> String:
+	## 雷公上前后，Fleet Feet 应先于怒鹦哥
+	var gs := _make_game_state(2)
+	var raikou := _make_slot(_make_pokemon_cd("雷公V", "Basic", "L", 200, "", "V",
+		[{"name": "Fleet Feet"}], [{"name": "雷鸣轰击", "cost": "LC", "damage": "20"}], 1), 0)
+	var squawk := _make_slot(_make_pokemon_cd("怒鹦哥ex", "Basic", "C", 160, "", "ex",
+		[{"name": "Squawk and Seize"}]), 0)
+	var iron_hands := _make_slot(_make_pokemon_cd("铁臂膀ex", "Basic", "L", 230, "", "ex", [],
+		[{"name": "猛击", "cost": "LLC", "damage": "160"}], 4), 0)
+	gs.players[0].active_pokemon = raikou
+	gs.players[0].bench.append(squawk)
+	gs.players[0].bench.append(iron_hands)
+	var s := _new_strategy()
+	var fleet_feet_score: float = s.score_action_absolute(
+		{"kind": "use_ability", "source_slot": raikou, "ability_index": 0},
+		gs, 0
+	)
+	var squawk_score: float = s.score_action_absolute(
+		{"kind": "use_ability", "source_slot": squawk, "ability_index": 0},
+		gs, 0
+	)
+	return assert_true(
+		fleet_feet_score > squawk_score,
+		"雷公上前后应先用 Fleet Feet（fleet=%f squawk=%f）" % [fleet_feet_score, squawk_score]
+	)
+
+
+func test_handoff_target_prefers_ready_raikou_for_send_out_over_unready_iron_hands() -> String:
+	## send_out 应优先把已经能打的雷公送上前场，而不是把差 1 能的铁臂膀当成“贴能目标”
+	var gs := _make_game_state(4)
+	var player: PlayerState = gs.players[0]
+	player.active_pokemon = _make_slot(_make_pokemon_cd("Knocked Out Lead", "Basic", "C", 60), 0)
+	player.bench.clear()
+	var raikou := _make_slot(_make_pokemon_cd("雷公V", "Basic", "L", 200, "", "V",
+		[{"name": "Fleet Feet"}], [{"name": "雷鸣轰击", "cost": "LC", "damage": "20"}], 1), 0)
+	raikou.attached_energy.append(CardInstance.create(_make_energy_cd("基本雷能量", "L"), 0))
+	raikou.attached_energy.append(CardInstance.create(_make_energy_cd("基本雷能量", "L"), 0))
+	var iron_hands := _make_slot(_make_pokemon_cd("铁臂膀ex", "Basic", "L", 230, "", "ex", [],
+		[{"name": "猛击", "cost": "LLC", "damage": "160"}], 4), 0)
+	iron_hands.attached_energy.append(CardInstance.create(_make_energy_cd("基本雷能量", "L"), 0))
+	iron_hands.attached_energy.append(CardInstance.create(_make_energy_cd("基本雷能量", "L"), 0))
+	player.bench.append(raikou)
+	player.bench.append(iron_hands)
+	var s := _new_strategy()
+	var raikou_score: float = s.score_handoff_target(raikou, {"id": "send_out"}, _ctx(gs))
+	var iron_hands_score: float = s.score_handoff_target(iron_hands, {"id": "send_out"}, _ctx(gs))
+	return assert_true(
+		raikou_score > iron_hands_score,
+		"send_out 应优先 ready 雷公而不是差 1 能的铁臂膀（raikou=%f iron_hands=%f）" % [raikou_score, iron_hands_score]
+	)
+
+
+func test_handoff_target_prefers_ready_raikou_for_self_switch_over_unready_iron_hands() -> String:
+	## self_switch_target 应把换前的所有权给 ready attacker，而不是延续“谁更适合贴能”
+	var gs := _make_game_state(4)
+	var player: PlayerState = gs.players[0]
+	player.active_pokemon = _make_slot(_make_pokemon_cd("梦幻ex", "Basic", "P", 180, "", "ex",
+		[{"name": "再起动"}], [], 0), 0)
+	player.bench.clear()
+	var raikou := _make_slot(_make_pokemon_cd("雷公V", "Basic", "L", 200, "", "V",
+		[{"name": "Fleet Feet"}], [{"name": "雷鸣轰击", "cost": "LC", "damage": "20"}], 1), 0)
+	raikou.attached_energy.append(CardInstance.create(_make_energy_cd("基本雷能量", "L"), 0))
+	raikou.attached_energy.append(CardInstance.create(_make_energy_cd("基本雷能量", "L"), 0))
+	var iron_hands := _make_slot(_make_pokemon_cd("铁臂膀ex", "Basic", "L", 230, "", "ex", [],
+		[{"name": "猛击", "cost": "LLC", "damage": "160"}], 4), 0)
+	iron_hands.attached_energy.append(CardInstance.create(_make_energy_cd("基本雷能量", "L"), 0))
+	iron_hands.attached_energy.append(CardInstance.create(_make_energy_cd("基本雷能量", "L"), 0))
+	player.bench.append(raikou)
+	player.bench.append(iron_hands)
+	var s := _new_strategy()
+	var raikou_score: float = s.score_handoff_target(raikou, {"id": "self_switch_target"}, _ctx(gs))
+	var iron_hands_score: float = s.score_handoff_target(iron_hands, {"id": "self_switch_target"}, _ctx(gs))
+	return assert_true(
+		raikou_score > iron_hands_score,
+		"self_switch_target 应优先 ready 雷公而不是差 1 能的铁臂膀（raikou=%f iron_hands=%f）" % [raikou_score, iron_hands_score]
+	)
+
+
+func test_retreat_unready_raichu_into_ready_raikou_before_building_zapdos() -> String:
+	## 当前场是打不了的攻击手时，应先退到 ready 雷公，而不是继续手贴后排闪电鸟
+	var gs := _make_game_state(5)
+	var raichu := _make_slot(_make_pokemon_cd("雷丘V", "Basic", "L", 200, "", "V", [],
+		[{"name": "雷电突袭", "cost": "LL", "damage": "60"}], 1), 0)
+	raichu.attached_energy.append(CardInstance.create(_make_energy_cd("基本雷能量", "L"), 0))
+	var raikou := _make_slot(_make_pokemon_cd("雷公V", "Basic", "L", 200, "", "V",
+		[{"name": "Fleet Feet"}], [{"name": "雷鸣轰击", "cost": "LC", "damage": "20"}], 1), 0)
+	raikou.attached_energy.append(CardInstance.create(_make_energy_cd("基本雷能量", "L"), 0))
+	raikou.attached_energy.append(CardInstance.create(_make_energy_cd("基本雷能量", "L"), 0))
+	var zapdos := _make_slot(_make_pokemon_cd("闪电鸟", "Basic", "L", 120, "", "", [],
+		[{"name": "雷鸣翼击", "cost": "LLC", "damage": "110"}], 1), 0)
+	gs.players[0].active_pokemon = raichu
+	gs.players[0].bench.append(raikou)
+	gs.players[0].bench.append(zapdos)
+	var s := _new_strategy()
+	var retreat_score: float = s.score_action_absolute(
+		{"kind": "retreat", "bench_target": raikou},
+		gs, 0
+	)
+	var attach_score: float = s.score_action_absolute(
+		{
+			"kind": "attach_energy",
+			"card": CardInstance.create(_make_energy_cd("基本雷能量", "L"), 0),
+			"target_slot": zapdos
+		},
+		gs, 0
+	)
+	return assert_true(
+		retreat_score > attach_score,
+		"打不了的雷丘应先退到 ready 雷公，而不是继续养闪电鸟（retreat=%f attach=%f）" % [retreat_score, attach_score]
+	)
 
 
 func test_evaluate_board_engine_active() -> String:

@@ -9,6 +9,7 @@ const DeckStrategyRegistryScript := preload("res://scripts/ai/DeckStrategyRegist
 const DeckStrategyGardevoirScript := preload("res://scripts/ai/DeckStrategyGardevoir.gd")
 const DeckStrategyMiraidonScript := preload("res://scripts/ai/DeckStrategyMiraidon.gd")
 const AIVersionRegistryScript := preload("res://scripts/ai/AIVersionRegistry.gd")
+const AIFixedDeckOrderRegistryScript := preload("res://scripts/ai/AIFixedDeckOrderRegistry.gd")
 const AgentVersionStoreScript := preload("res://scripts/ai/AgentVersionStore.gd")
 const BattleRecorderScript := preload("res://scripts/engine/BattleRecorder.gd")
 const BattleReplaySnapshotLoaderScript := preload("res://scripts/engine/BattleReplaySnapshotLoader.gd")
@@ -42,6 +43,7 @@ const OPPONENT_CARD_BACK_RESOURCE := "res://assets/ui/card_back_opponent.svg"
 const USED_ABILITY_TILT_DEGREES := 15.0
 const CoinFlipAnimatorScript := preload("res://scenes/battle/CoinFlipAnimator.gd")
 const AI_MAX_ACTIONS_PER_TURN := 20
+const AI_ACTION_PAUSE_SECONDS := 2.0
 
 # ===================== State =====================
 # These scene-owned fields are intentionally accessed reflectively by extracted
@@ -105,6 +107,10 @@ var _ai_step_scheduled: bool = false
 var _ai_followup_requested: bool = false
 var _ai_turn_marker: String = ""
 var _ai_actions_this_turn: int = 0
+var _ai_action_pause_seconds: float = AI_ACTION_PAUSE_SECONDS
+var _ai_action_pause_timer: Variant = null
+var _latest_opponent_action_text: String = ""
+var _latest_opponent_action_turn_number: int = -1
 var _battle_mode: String = "live"
 var _replay_match_dir: String = ""
 var _replay_turn_numbers: Array[int] = []
@@ -113,6 +119,7 @@ var _replay_entry_source: String = ""
 var _replay_loaded_raw_snapshot: Dictionary = {}
 var _replay_loaded_view_snapshot: Dictionary = {}
 var _ai_version_registry: RefCounted = AIVersionRegistryScript.new()
+var _ai_fixed_deck_order_registry: RefCounted = AIFixedDeckOrderRegistryScript.new()
 var _agent_version_store: RefCounted = AgentVersionStoreScript.new()
 var _deck_strategy_registry: RefCounted = DeckStrategyRegistryScript.new()
 
@@ -502,8 +509,8 @@ func _ensure_game_state_machine() -> void:
 
 
 func _start_battle() -> void:
-	var deck1_data: DeckData = CardDatabase.get_deck(GameManager.selected_deck_ids[0])
-	var deck2_data: DeckData = CardDatabase.get_deck(GameManager.selected_deck_ids[1])
+	var deck1_data: DeckData = GameManager.resolve_selected_battle_deck(0)
+	var deck2_data: DeckData = GameManager.resolve_selected_battle_deck(1)
 	if deck1_data == null or deck2_data == null:
 		_log("未找到已选择的卡组数据。")
 		return
@@ -517,6 +524,7 @@ func _start_battle() -> void:
 	)
 
 	_gsm = _build_game_state_machine()
+	_apply_ai_fixed_deck_order_override(deck2_data)
 
 	_setup_done = [false, false]
 	# Reset visible player before starting a new match.
@@ -528,6 +536,23 @@ func _start_battle() -> void:
 	_capture_battle_recording_context_if_ready()
 	# Setup flow continues through state change callbacks and mulligan prompts.
 	# The visible player may be switched later by setup and handover logic.
+
+
+func _apply_ai_fixed_deck_order_override(ai_deck: DeckData) -> void:
+	if _gsm == null or GameManager.current_mode != GameManager.GameMode.VS_AI:
+		return
+	var selection: Dictionary = GameManager.ai_selection
+	if str(selection.get("opening_mode", "default")) != "fixed_order":
+		return
+	if _ai_fixed_deck_order_registry == null:
+		return
+	var fixed_order_path := str(selection.get("fixed_deck_order_path", ""))
+	var fixed_order: Array[Dictionary] = _ai_fixed_deck_order_registry.call("load_fixed_order_from_path", fixed_order_path)
+	if fixed_order.is_empty():
+		_runtime_log("fixed_deck_order_missing", "deck=%d path=%s" % [ai_deck.id if ai_deck != null else -1, fixed_order_path])
+		return
+	_gsm.call("set_deck_order_override", 1, fixed_order)
+	_runtime_log("fixed_deck_order_applied", "deck=%d cards=%d" % [ai_deck.id if ai_deck != null else -1, fixed_order.size()])
 
 func _setup_battle_layout() -> void:
 	_install_battle_backdrop()
@@ -1210,6 +1235,9 @@ func _on_state_changed(_new_phase: GameState.GamePhase) -> void:
 func _on_action_logged(action: GameAction) -> void:
 	_capture_battle_recording_context_if_ready()
 	if action.description != "":
+		if action.player_index != _view_player:
+			_latest_opponent_action_text = action.description
+			_latest_opponent_action_turn_number = action.turn_number
 		_log(action.description)
 	if (
 		action != null
@@ -1376,6 +1404,7 @@ func _after_setup_active(pi: int) -> void:
 	_view_player = _preferred_live_view_player(pi)
 	_refresh_ui()
 	_show_setup_bench_dialog(pi)
+	_maybe_run_ai()
 
 
 func _show_setup_bench_dialog(pi: int) -> void:
@@ -1399,21 +1428,21 @@ func _after_setup_bench(pi: int) -> void:
 			var next_setup_owner: int = _get_ai_prompt_player_index()
 			if (_pending_choice != "" and next_setup_owner == _ai_opponent.player_index) \
 				or _gsm.game_state.current_player_index == _ai_opponent.player_index:
-				if not _ai_step_scheduled:
-					_ai_step_scheduled = true
-					call_deferred("_run_ai_step")
+				_ai_followup_requested = true
 	_maybe_run_ai()
 
 
 # ===================== Field Interactions =====================
 
-func _on_end_turn() -> void:
+func _on_end_turn(action_player_index: int = -1) -> void:
 	if not _can_accept_live_action() or _gsm == null or _is_field_interaction_active():
 		return
 	_selected_hand_card = null
 	_refresh_hand()
 	_gsm.end_turn(_gsm.game_state.current_player_index)
 	_check_two_player_handover()
+	if _should_pause_after_ai_action(action_player_index):
+		_start_ai_action_pause()
 
 
 func _on_stadium_action_pressed() -> void:
@@ -1564,13 +1593,13 @@ func _on_slot_input(event: InputEvent, slot_id: String) -> void:
 		elif cd.card_type == "Basic Energy" or cd.card_type == "Special Energy":
 			if _gsm.attach_energy(cp, card, target_slot):
 				_selected_hand_card = null
-				_refresh_ui_after_successful_action()
+				_refresh_ui_after_successful_action(false, cp)
 			else:
 				_log("无法附着能量")
 		elif cd.card_type == "Tool":
 			if _gsm.attach_tool(cp, card, target_slot):
 				_selected_hand_card = null
-				_refresh_ui_after_successful_action()
+				_refresh_ui_after_successful_action(false, cp)
 			else:
 				_log("无法将该道具附着到这里")
 		return
@@ -1599,7 +1628,7 @@ func _try_play_to_bench(player_index: int, card: CardInstance, _slot_id: String)
 			if bench_slot != null:
 				_start_effect_interaction("ability", player_index, bench_steps, bench_slot.get_top_card(), bench_slot, 0)
 		_selected_hand_card = null
-		_refresh_ui_after_successful_action()
+		_refresh_ui_after_successful_action(false, player_index)
 	else:
 		_log("无法将这只宝可梦放到备战区")
 
@@ -2246,7 +2275,7 @@ func _handle_dialog_choice(selected_indices: PackedInt32Array) -> void:
 					energy_discard.append(e)
 			if idx < bench_rb.size():
 				if _gsm.retreat(cp, energy_discard, bench_rb[idx]):
-					_refresh_ui_after_successful_action()
+					_refresh_ui_after_successful_action(false, cp)
 		"confirm_exit":
 			if idx == 0:
 				GameManager.goto_battle_setup()
@@ -2492,13 +2521,13 @@ func _try_use_attack_with_interaction(
 		steps.append_array(effect.get_attack_interaction_steps(card, attack, _gsm.game_state))
 	if not preselected_targets.is_empty():
 		if _gsm.use_attack(player_index, attack_index, preselected_targets):
-			_refresh_ui_after_successful_action(true)
+			_refresh_ui_after_successful_action(true, player_index)
 		else:
 			_log(_gsm.get_attack_unusable_reason(player_index, attack_index))
 		return
 	if steps.is_empty():
 		if _gsm.use_attack(player_index, attack_index):
-			_refresh_ui_after_successful_action(true)
+			_refresh_ui_after_successful_action(true, player_index)
 		else:
 			_log(_gsm.get_attack_unusable_reason(player_index, attack_index))
 		return
@@ -2520,7 +2549,7 @@ func _try_use_granted_attack_with_interaction(player_index: int, slot: PokemonSl
 	)
 	if steps.is_empty():
 		if _gsm.use_granted_attack(player_index, slot, granted_attack):
-			_refresh_ui_after_successful_action(true)
+			_refresh_ui_after_successful_action(true, player_index)
 		else:
 			_log(_get_granted_attack_unusable_reason(player_index, slot, granted_attack))
 		return
@@ -2723,10 +2752,13 @@ func _on_handover_confirmed() -> void:
 	_battle_overlay_controller.call("on_handover_confirmed", self)
 
 
-func _refresh_ui_after_successful_action(check_handover: bool = false) -> void:
+func _refresh_ui_after_successful_action(check_handover: bool = false, action_player_index: int = -1) -> void:
 	_refresh_ui()
 	if check_handover:
 		_check_two_player_handover()
+	if _should_pause_after_ai_action(action_player_index):
+		_start_ai_action_pause()
+		return
 	_maybe_run_ai()
 
 
@@ -2741,6 +2773,8 @@ func _setup_ai_for_tests() -> void:
 	_ai_running = false
 	_ai_step_scheduled = false
 	_ai_followup_requested = false
+	_ai_action_pause_timer = null
+	_ai_action_pause_seconds = AI_ACTION_PAUSE_SECONDS
 	_coin_animation_resume_effect_step = false
 	_ai_opponent = null
 	_ai_turn_marker = ""
@@ -3120,7 +3154,7 @@ func _resolve_selected_ai_deck_strategy() -> RefCounted:
 		return null
 	if GameManager.selected_deck_ids.size() < 2:
 		return null
-	var ai_deck: DeckData = CardDatabase.get_deck(int(GameManager.selected_deck_ids[1]))
+	var ai_deck: DeckData = GameManager.resolve_selected_battle_deck(1)
 	if ai_deck == null:
 		return null
 	return _deck_strategy_registry.call("resolve_strategy_for_deck", ai_deck)
@@ -3131,7 +3165,7 @@ func _selected_ai_strategy_id() -> String:
 		return ""
 	if GameManager.selected_deck_ids.size() < 2:
 		return ""
-	var ai_deck: DeckData = CardDatabase.get_deck(int(GameManager.selected_deck_ids[1]))
+	var ai_deck: DeckData = GameManager.resolve_selected_battle_deck(1)
 	if ai_deck == null:
 		return ""
 	return str(_deck_strategy_registry.call("resolve_strategy_id_for_deck", ai_deck))
@@ -3231,6 +3265,7 @@ func _is_ui_blocking_ai() -> bool:
 	var dialog_blocks_ai := _dialog_overlay != null and _dialog_overlay.visible and not (_is_ai_setup_prompt() or _is_ai_effect_prompt())
 	return (
 		_draw_reveal_active
+		or _is_ai_action_pause_active()
 		or dialog_blocks_ai
 		or (_handover_panel != null and _handover_panel.visible)
 		or _has_pending_coin_animation()
@@ -3283,6 +3318,43 @@ func _try_auto_continue_ai_draw_reveal() -> bool:
 		return false
 	_battle_draw_reveal_controller.call("run_auto_continue", self)
 	return true
+
+
+func _is_ai_action_pause_active() -> bool:
+	return _ai_action_pause_timer != null
+
+
+func _should_pause_after_ai_action(action_player_index: int) -> bool:
+	if action_player_index < 0:
+		return false
+	if GameManager.current_mode != GameManager.GameMode.VS_AI:
+		return false
+	if _battle_mode != "live":
+		return false
+	_ensure_ai_opponent()
+	return _ai_opponent != null and action_player_index == _ai_opponent.player_index
+
+
+func _start_ai_action_pause() -> void:
+	_ai_action_pause_timer = null
+	if _ai_action_pause_seconds <= 0.0:
+		_on_ai_action_pause_finished()
+		return
+	if not is_inside_tree():
+		_ai_action_pause_timer = true
+		return
+	var timer: SceneTreeTimer = get_tree().create_timer(_ai_action_pause_seconds)
+	_ai_action_pause_timer = timer
+	timer.timeout.connect(func() -> void:
+		if _ai_action_pause_timer != timer:
+			return
+		_on_ai_action_pause_finished()
+	)
+
+
+func _on_ai_action_pause_finished() -> void:
+	_ai_action_pause_timer = null
+	_maybe_run_ai()
 
 
 func _maybe_run_ai() -> void:
@@ -3466,7 +3538,7 @@ func _is_review_mode() -> bool:
 
 
 func _can_accept_live_action() -> bool:
-	return not _is_review_mode() and not _draw_reveal_active and _pending_choice != "take_prize"
+	return not _is_review_mode() and not _draw_reveal_active and not _is_ai_action_pause_active() and _pending_choice != "take_prize"
 
 
 func _refresh_replay_controls() -> void:

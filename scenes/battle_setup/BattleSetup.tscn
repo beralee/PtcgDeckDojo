@@ -140,6 +140,12 @@ layout_mode = 2
 custom_minimum_size = Vector2(76, 38)
 text = "查看"
 
+[node name="AIPreviewStrengthOption" type="OptionButton" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns/LeftColumn/LeftMargin/LeftVBox/Deck2Row"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(76, 38)
+
 [node name="Deck2EditButton" type="Button" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns/LeftColumn/LeftMargin/LeftVBox/Deck2Row"]
 unique_name_in_owner = true
 layout_mode = 2
@@ -262,13 +268,13 @@ size_flags_horizontal = 3
 min_value = 0.0
 max_value = 100.0
 step = 1.0
-value = 70.0
+value = 20.0
 
 [node name="BgmVolumeValue" type="Label" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns/RightColumn/RightMargin/RightVBox/BgmVolumeRow"]
 unique_name_in_owner = true
 layout_mode = 2
 custom_minimum_size = Vector2(52, 0)
-text = "70%"
+text = "20%"
 horizontal_alignment = 2
 
 [node name="BgmHint" type="Label" parent="SafeArea/SetupFrame/FrameMargin/RootVBox/ContentColumns/RightColumn/RightMargin/RightVBox"]

@@ -1,1500 +1,1285 @@
-[gd_scene load_steps=2 format=3 uid="uid://b1battlescn001"]
+[gd_scene format=3 uid="uid://cb5ryql0umvnk"]
 
-[ext_resource type="Script" path="res://scenes/battle/BattleScene.gd" id="1_script"]
+[ext_resource type="Script" uid="uid://brr1vaewpt133" path="res://scenes/battle/BattleScene.gd" id="1_script"]
 
-[node name="BattleScene" type="Control"]
+[node name="BattleScene" type="Control" unique_id=358080581]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 script = ExtResource("1_script")
 
-[node name="TopBar" type="PanelContainer" parent="."]
+[node name="TopBar" type="PanelContainer" parent="." unique_id=1514072287]
 layout_mode = 1
-anchors_preset = 0
+anchors_preset = 10
 anchor_right = 1.0
-offset_bottom = 26
 offset_left = 6.0
 offset_top = 4.0
 offset_right = -6.0
+offset_bottom = 26.0
 
-[node name="TopBarRow" type="HBoxContainer" parent="TopBar"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 8.0
-offset_top = 4.0
-offset_right = -8.0
-offset_bottom = -4.0
+[node name="TopBarRow" type="HBoxContainer" parent="TopBar" unique_id=831280454]
+layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="TopBarLeft" type="CenterContainer" parent="TopBar/TopBarRow"]
+[node name="TopBarLeft" type="CenterContainer" parent="TopBar/TopBarRow" unique_id=1615225463]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="LblPhase" type="Label" parent="TopBar/TopBarRow/TopBarLeft"]
+[node name="LblPhase" type="Label" parent="TopBar/TopBarRow/TopBarLeft" unique_id=809019997]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 text = "当前回合：卡组"
-theme_override_font_sizes/font_size = 12
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="TopBarCenter" type="CenterContainer" parent="TopBar/TopBarRow"]
+[node name="TopBarCenter" type="CenterContainer" parent="TopBar/TopBarRow" unique_id=123299486]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="LblTurn" type="Label" parent="TopBar/TopBarRow/TopBarCenter"]
+[node name="LblTurn" type="Label" parent="TopBar/TopBarRow/TopBarCenter" unique_id=1325184151]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 12
 text = "第1回合 | 玩家1行动"
-theme_override_font_sizes/font_size = 12
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="TopBarRight" type="CenterContainer" parent="TopBar/TopBarRow"]
+[node name="TopBarRight" type="CenterContainer" parent="TopBar/TopBarRow" unique_id=2111565385]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="TopBarActions" type="HBoxContainer" parent="TopBar/TopBarRow/TopBarRight"]
+[node name="TopBarActions" type="HBoxContainer" parent="TopBar/TopBarRow/TopBarRight" unique_id=1726882485]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="BtnOpponentHand" type="Button" parent="TopBar/TopBarRow/TopBarRight/TopBarActions"]
+[node name="BtnOpponentHand" type="Button" parent="TopBar/TopBarRow/TopBarRight/TopBarActions" unique_id=1468599758]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 4
+theme_override_font_sizes/font_size = 11
 text = "对手手牌"
-theme_override_font_sizes/font_size = 11
 
-[node name="BtnAttackVfxPreview" type="Button" parent="TopBar/TopBarRow/TopBarRight/TopBarActions"]
+[node name="BtnAttackVfxPreview" type="Button" parent="TopBar/TopBarRow/TopBarRight/TopBarActions" unique_id=364826909]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 4
+theme_override_font_sizes/font_size = 11
 text = "放烟花"
-theme_override_font_sizes/font_size = 11
 
-[node name="BtnAiAdvice" type="Button" parent="TopBar/TopBarRow/TopBarRight/TopBarActions"]
+[node name="BtnAiAdvice" type="Button" parent="TopBar/TopBarRow/TopBarRight/TopBarActions" unique_id=279486492]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 4
+theme_override_font_sizes/font_size = 11
 text = "AI建议"
-theme_override_font_sizes/font_size = 11
 
-[node name="BtnZeusHelp" type="Button" parent="TopBar/TopBarRow/TopBarRight/TopBarActions"]
+[node name="BtnZeusHelp" type="Button" parent="TopBar/TopBarRow/TopBarRight/TopBarActions" unique_id=570973186]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 4
+theme_override_font_sizes/font_size = 11
 text = "宙斯帮我"
-theme_override_font_sizes/font_size = 11
 
-[node name="BtnReplayPrevTurn" type="Button" parent="TopBar/TopBarRow/TopBarRight/TopBarActions"]
+[node name="BtnReplayPrevTurn" type="Button" parent="TopBar/TopBarRow/TopBarRight/TopBarActions" unique_id=427289465]
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
 size_flags_horizontal = 4
+theme_override_font_sizes/font_size = 11
 text = "上一回合"
-theme_override_font_sizes/font_size = 11
 
-[node name="BtnReplayNextTurn" type="Button" parent="TopBar/TopBarRow/TopBarRight/TopBarActions"]
+[node name="BtnReplayNextTurn" type="Button" parent="TopBar/TopBarRow/TopBarRight/TopBarActions" unique_id=214996014]
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
 size_flags_horizontal = 4
+theme_override_font_sizes/font_size = 11
 text = "下一回合"
-theme_override_font_sizes/font_size = 11
 
-[node name="BtnReplayContinue" type="Button" parent="TopBar/TopBarRow/TopBarRight/TopBarActions"]
+[node name="BtnReplayContinue" type="Button" parent="TopBar/TopBarRow/TopBarRight/TopBarActions" unique_id=1723489036]
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
 size_flags_horizontal = 4
+theme_override_font_sizes/font_size = 11
 text = "从此处继续"
-theme_override_font_sizes/font_size = 11
 
-[node name="BtnReplayBackToList" type="Button" parent="TopBar/TopBarRow/TopBarRight/TopBarActions"]
+[node name="BtnReplayBackToList" type="Button" parent="TopBar/TopBarRow/TopBarRight/TopBarActions" unique_id=1900376748]
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
 size_flags_horizontal = 4
+theme_override_font_sizes/font_size = 11
 text = "返回复盘列表"
-theme_override_font_sizes/font_size = 11
 
-[node name="BtnBack" type="Button" parent="TopBar/TopBarRow/TopBarRight/TopBarActions"]
+[node name="BtnBack" type="Button" parent="TopBar/TopBarRow/TopBarRight/TopBarActions" unique_id=1413636544]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 4
+theme_override_font_sizes/font_size = 11
 text = "退出游戏"
-theme_override_font_sizes/font_size = 11
 
-[node name="MainArea" type="HBoxContainer" parent="."]
+[node name="MainArea" type="HBoxContainer" parent="." unique_id=828088253]
 layout_mode = 1
-anchor_top = 0.0
-anchor_bottom = 1.0
+anchors_preset = 15
 anchor_right = 1.0
-offset_top = 28
-offset_bottom = 0
+anchor_bottom = 1.0
+offset_top = 28.0
 theme_override_constants/separation = 0
 
-[node name="LeftPanel" type="VBoxContainer" parent="MainArea"]
-layout_mode = 2
+[node name="LeftPanel" type="VBoxContainer" parent="MainArea" unique_id=1172211940]
 custom_minimum_size = Vector2(72, 0)
+layout_mode = 2
 theme_override_constants/separation = 4
 
-[node name="OppPrizesBox" type="VBoxContainer" parent="MainArea/LeftPanel"]
+[node name="OppPrizesBox" type="VBoxContainer" parent="MainArea/LeftPanel" unique_id=1150292211]
 layout_mode = 2
 size_flags_vertical = 3
 theme_override_constants/separation = 2
 
-[node name="OppPrizesLbl" type="Label" parent="MainArea/LeftPanel/OppPrizesBox"]
+[node name="OppPrizesLbl" type="Label" parent="MainArea/LeftPanel/OppPrizesBox" unique_id=423676508]
 layout_mode = 2
+theme_override_font_sizes/font_size = 10
 text = "对方奖赏"
-theme_override_font_sizes/font_size = 10
 horizontal_alignment = 1
 
-[node name="OppPrizesCount" type="Label" parent="MainArea/LeftPanel/OppPrizesBox"]
+[node name="OppPrizesCount" type="Label" parent="MainArea/LeftPanel/OppPrizesBox" unique_id=75722197]
 unique_name_in_owner = true
 layout_mode = 2
-text = "×6"
 theme_override_font_sizes/font_size = 13
+text = "×6"
 horizontal_alignment = 1
 
-[node name="PrizeSep" type="HSeparator" parent="MainArea/LeftPanel"]
+[node name="PrizeSep" type="HSeparator" parent="MainArea/LeftPanel" unique_id=1422691027]
 layout_mode = 2
 
-[node name="MyPrizesBox" type="VBoxContainer" parent="MainArea/LeftPanel"]
+[node name="MyPrizesBox" type="VBoxContainer" parent="MainArea/LeftPanel" unique_id=1379630546]
 layout_mode = 2
 size_flags_vertical = 3
 theme_override_constants/separation = 2
 
-[node name="MyPrizesLbl" type="Label" parent="MainArea/LeftPanel/MyPrizesBox"]
+[node name="MyPrizesLbl" type="Label" parent="MainArea/LeftPanel/MyPrizesBox" unique_id=1128742651]
 layout_mode = 2
+theme_override_font_sizes/font_size = 10
 text = "己方奖赏"
-theme_override_font_sizes/font_size = 10
 horizontal_alignment = 1
 
-[node name="MyPrizesCount" type="Label" parent="MainArea/LeftPanel/MyPrizesBox"]
+[node name="MyPrizesCount" type="Label" parent="MainArea/LeftPanel/MyPrizesBox" unique_id=1873828663]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 13
 text = "×6"
-theme_override_font_sizes/font_size = 13
 horizontal_alignment = 1
 
-[node name="CenterField" type="VBoxContainer" parent="MainArea"]
+[node name="CenterField" type="VBoxContainer" parent="MainArea" unique_id=900954066]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 0
 
-[node name="OppHandBar" type="PanelContainer" parent="MainArea/CenterField"]
-layout_mode = 2
+[node name="OppHandBar" type="PanelContainer" parent="MainArea/CenterField" unique_id=1522334405]
 custom_minimum_size = Vector2(0, 32)
+layout_mode = 2
 size_flags_horizontal = 4
 
-[node name="OppHandMargin" type="MarginContainer" parent="MainArea/CenterField/OppHandBar"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 10.0
-offset_top = 3.0
-offset_right = -10.0
-offset_bottom = -3.0
-
-[node name="OppHandRow" type="HBoxContainer" parent="MainArea/CenterField/OppHandBar/OppHandMargin"]
+[node name="OppHandMargin" type="MarginContainer" parent="MainArea/CenterField/OppHandBar" unique_id=336988809]
 layout_mode = 2
-alignment = 1
-theme_override_constants/separation = 4
 
-[node name="OppHandLbl" type="Label" parent="MainArea/CenterField/OppHandBar/OppHandMargin/OppHandRow"]
+[node name="OppHandRow" type="HBoxContainer" parent="MainArea/CenterField/OppHandBar/OppHandMargin" unique_id=843528017]
+layout_mode = 2
+theme_override_constants/separation = 4
+alignment = 1
+
+[node name="OppHandLbl" type="Label" parent="MainArea/CenterField/OppHandBar/OppHandMargin/OppHandRow" unique_id=120560079]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 4
+theme_override_font_sizes/font_size = 11
 text = "对方手牌: 0张"
-theme_override_font_sizes/font_size = 11
 horizontal_alignment = 1
 
-[node name="OppHandCount" type="Label" parent="MainArea/CenterField/OppHandBar/OppHandMargin/OppHandRow"]
+[node name="OppHandCount" type="Label" parent="MainArea/CenterField/OppHandBar/OppHandMargin/OppHandRow" unique_id=58695552]
 unique_name_in_owner = true
+visible = false
 layout_mode = 2
+theme_override_font_sizes/font_size = 11
 text = "0张"
-theme_override_font_sizes/font_size = 11
-visible = false
 
-[node name="FieldArea" type="VBoxContainer" parent="MainArea/CenterField"]
+[node name="FieldArea" type="VBoxContainer" parent="MainArea/CenterField" unique_id=804701425]
 layout_mode = 2
 size_flags_vertical = 3
 theme_override_constants/separation = 0
 
-[node name="OppField" type="PanelContainer" parent="MainArea/CenterField/FieldArea"]
+[node name="OppField" type="PanelContainer" parent="MainArea/CenterField/FieldArea" unique_id=915593323]
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="OppFieldShell" type="HBoxContainer" parent="MainArea/CenterField/FieldArea/OppField"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
+[node name="OppFieldShell" type="HBoxContainer" parent="MainArea/CenterField/FieldArea/OppField" unique_id=367034893]
+layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="OppHudLeft" type="PanelContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell"]
+[node name="OppHudLeft" type="PanelContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell" unique_id=139756034]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_stretch_ratio = 2.0
 
-[node name="OppHudLeftMargin" type="MarginContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppHudLeft"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 8.0
-offset_top = 8.0
-offset_right = -8.0
-offset_bottom = -8.0
+[node name="OppHudLeftMargin" type="MarginContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppHudLeft" unique_id=1442924724]
+layout_mode = 2
 
-[node name="OppHudLeftVBox" type="VBoxContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppHudLeft/OppHudLeftMargin"]
+[node name="OppHudLeftVBox" type="VBoxContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppHudLeft/OppHudLeftMargin" unique_id=1376870928]
 layout_mode = 2
 size_flags_vertical = 3
-alignment = 1
 theme_override_constants/separation = 6
+alignment = 1
 
-[node name="OppHudLeftTitle" type="Label" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppHudLeft/OppHudLeftMargin/OppHudLeftVBox"]
+[node name="OppHudLeftTitle" type="Label" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppHudLeft/OppHudLeftMargin/OppHudLeftVBox" unique_id=830662322]
 layout_mode = 2
+theme_override_font_sizes/font_size = 9
 text = "OPP HUD"
-theme_override_font_sizes/font_size = 9
 horizontal_alignment = 1
 
-[node name="OppHudLeftValue" type="Label" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppHudLeft/OppHudLeftMargin/OppHudLeftVBox"]
+[node name="OppHudLeftValue" type="Label" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppHudLeft/OppHudLeftMargin/OppHudLeftVBox" unique_id=1330462578]
 unique_name_in_owner = true
 layout_mode = 2
-text = "扩展信息"
 theme_override_font_sizes/font_size = 12
+text = "扩展信息"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="OppPrizeHudHost" type="VBoxContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppHudLeft/OppHudLeftMargin/OppHudLeftVBox"]
+[node name="OppPrizeHudHost" type="VBoxContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppHudLeft/OppHudLeftMargin/OppHudLeftVBox" unique_id=248517923]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 theme_override_constants/separation = 4
 
-[node name="OppFieldInner" type="VBoxContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell"]
+[node name="OppFieldInner" type="VBoxContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell" unique_id=241366944]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_stretch_ratio = 6.0
 theme_override_constants/separation = 4
 
-[node name="OppBench" type="HBoxContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppFieldInner"]
+[node name="OppBench" type="HBoxContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppFieldInner" unique_id=624245961]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
-alignment = 1
 theme_override_constants/separation = 6
-
-[node name="OppBench0" type="PanelContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppFieldInner/OppBench"]
-layout_mode = 2
-custom_minimum_size = Vector2(80, 0)
-mouse_filter = 0
-
-[node name="OppBenchLbl0" type="RichTextLabel" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppFieldInner/OppBench/OppBench0"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-mouse_filter = 2
-bbcode_enabled = true
-text = "[空]"
-theme_override_font_sizes/font_size = 9
-fit_content = true
-
-[node name="OppBench1" type="PanelContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppFieldInner/OppBench"]
-layout_mode = 2
-custom_minimum_size = Vector2(80, 0)
-mouse_filter = 0
-
-[node name="OppBenchLbl1" type="RichTextLabel" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppFieldInner/OppBench/OppBench1"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-mouse_filter = 2
-bbcode_enabled = true
-text = "[空]"
-theme_override_font_sizes/font_size = 9
-fit_content = true
-
-[node name="OppBench2" type="PanelContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppFieldInner/OppBench"]
-layout_mode = 2
-custom_minimum_size = Vector2(80, 0)
-mouse_filter = 0
-
-[node name="OppBenchLbl2" type="RichTextLabel" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppFieldInner/OppBench/OppBench2"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-mouse_filter = 2
-bbcode_enabled = true
-text = "[空]"
-theme_override_font_sizes/font_size = 9
-fit_content = true
-
-[node name="OppBench3" type="PanelContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppFieldInner/OppBench"]
-layout_mode = 2
-custom_minimum_size = Vector2(80, 0)
-mouse_filter = 0
-
-[node name="OppBenchLbl3" type="RichTextLabel" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppFieldInner/OppBench/OppBench3"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-mouse_filter = 2
-bbcode_enabled = true
-text = "[空]"
-theme_override_font_sizes/font_size = 9
-fit_content = true
-
-[node name="OppBench4" type="PanelContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppFieldInner/OppBench"]
-layout_mode = 2
-custom_minimum_size = Vector2(80, 0)
-mouse_filter = 0
-
-[node name="OppBenchLbl4" type="RichTextLabel" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppFieldInner/OppBench/OppBench4"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-mouse_filter = 2
-bbcode_enabled = true
-text = "[空]"
-theme_override_font_sizes/font_size = 9
-fit_content = true
-
-[node name="OppActiveRow" type="HBoxContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppFieldInner"]
-layout_mode = 2
 alignment = 1
-theme_override_constants/separation = 4
 
-[node name="OppActive" type="PanelContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppFieldInner/OppActiveRow"]
-unique_name_in_owner = true
+[node name="OppBench0" type="PanelContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppFieldInner/OppBench" unique_id=875896125]
+custom_minimum_size = Vector2(80, 0)
 layout_mode = 2
-custom_minimum_size = Vector2(120, 90)
-mouse_filter = 0
 
-[node name="OppActiveLbl" type="RichTextLabel" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppFieldInner/OppActiveRow/OppActive"]
-unique_name_in_owner = true
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
+[node name="OppBenchLbl0" type="RichTextLabel" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppFieldInner/OppBench/OppBench0" unique_id=831579750]
+layout_mode = 2
 mouse_filter = 2
 bbcode_enabled = true
 text = "[空]"
-theme_override_font_sizes/font_size = 10
+fit_content = true
 
-[node name="OppHudRight" type="PanelContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell"]
+[node name="OppBench1" type="PanelContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppFieldInner/OppBench" unique_id=391481247]
+custom_minimum_size = Vector2(80, 0)
+layout_mode = 2
+
+[node name="OppBenchLbl1" type="RichTextLabel" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppFieldInner/OppBench/OppBench1" unique_id=1100055652]
+layout_mode = 2
+mouse_filter = 2
+bbcode_enabled = true
+text = "[空]"
+fit_content = true
+
+[node name="OppBench2" type="PanelContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppFieldInner/OppBench" unique_id=326165844]
+custom_minimum_size = Vector2(80, 0)
+layout_mode = 2
+
+[node name="OppBenchLbl2" type="RichTextLabel" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppFieldInner/OppBench/OppBench2" unique_id=793529320]
+layout_mode = 2
+mouse_filter = 2
+bbcode_enabled = true
+text = "[空]"
+fit_content = true
+
+[node name="OppBench3" type="PanelContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppFieldInner/OppBench" unique_id=1337430907]
+custom_minimum_size = Vector2(80, 0)
+layout_mode = 2
+
+[node name="OppBenchLbl3" type="RichTextLabel" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppFieldInner/OppBench/OppBench3" unique_id=1892420181]
+layout_mode = 2
+mouse_filter = 2
+bbcode_enabled = true
+text = "[空]"
+fit_content = true
+
+[node name="OppBench4" type="PanelContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppFieldInner/OppBench" unique_id=272551209]
+custom_minimum_size = Vector2(80, 0)
+layout_mode = 2
+
+[node name="OppBenchLbl4" type="RichTextLabel" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppFieldInner/OppBench/OppBench4" unique_id=1814668653]
+layout_mode = 2
+mouse_filter = 2
+bbcode_enabled = true
+text = "[空]"
+fit_content = true
+
+[node name="OppActiveRow" type="HBoxContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppFieldInner" unique_id=1938776268]
+layout_mode = 2
+theme_override_constants/separation = 4
+alignment = 1
+
+[node name="OppActive" type="PanelContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppFieldInner/OppActiveRow" unique_id=992847471]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(120, 90)
+layout_mode = 2
+
+[node name="OppActiveLbl" type="RichTextLabel" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppFieldInner/OppActiveRow/OppActive" unique_id=545028881]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+bbcode_enabled = true
+text = "[空]"
+
+[node name="OppHudRight" type="PanelContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell" unique_id=313722247]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_stretch_ratio = 2.0
 
-[node name="OppHudRightMargin" type="MarginContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppHudRight"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 8.0
-offset_top = 8.0
-offset_right = -8.0
-offset_bottom = -8.0
+[node name="OppHudRightMargin" type="MarginContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppHudRight" unique_id=1828973151]
+layout_mode = 2
 
-[node name="OppHudRightVBox" type="VBoxContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppHudRight/OppHudRightMargin"]
+[node name="OppHudRightVBox" type="VBoxContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppHudRight/OppHudRightMargin" unique_id=1911273868]
 layout_mode = 2
 size_flags_vertical = 3
-alignment = 1
 theme_override_constants/separation = 6
+alignment = 1
 
-[node name="OppHudRightTitle" type="Label" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppHudRight/OppHudRightMargin/OppHudRightVBox"]
+[node name="OppHudRightTitle" type="Label" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppHudRight/OppHudRightMargin/OppHudRightVBox" unique_id=249326839]
 layout_mode = 2
-text = "TRACKING"
 theme_override_font_sizes/font_size = 9
+text = "TRACKING"
 horizontal_alignment = 1
 
-[node name="OppHudRightValue" type="Label" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppHudRight/OppHudRightMargin/OppHudRightVBox"]
+[node name="OppHudRightValue" type="Label" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppHudRight/OppHudRightMargin/OppHudRightVBox" unique_id=197760290]
 layout_mode = 2
-text = "战区数据"
 theme_override_font_sizes/font_size = 12
+text = "战区数据"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="OppHudDataRow" type="HBoxContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppHudRight/OppHudRightMargin/OppHudRightVBox"]
+[node name="OppHudDataRow" type="HBoxContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppHudRight/OppHudRightMargin/OppHudRightVBox" unique_id=979787187]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 6
 
-[node name="OppDeckHudPanel" type="PanelContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppHudRight/OppHudRightMargin/OppHudRightVBox/OppHudDataRow"]
+[node name="OppDeckHudPanel" type="PanelContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppHudRight/OppHudRightMargin/OppHudRightVBox/OppHudDataRow" unique_id=1157046195]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="OppDeckHudMargin" type="MarginContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppHudRight/OppHudRightMargin/OppHudRightVBox/OppHudDataRow/OppDeckHudPanel"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 6.0
-offset_top = 5.0
-offset_right = -6.0
-offset_bottom = -5.0
+[node name="OppDeckHudMargin" type="MarginContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppHudRight/OppHudRightMargin/OppHudRightVBox/OppHudDataRow/OppDeckHudPanel" unique_id=2125122648]
+layout_mode = 2
 
-[node name="OppDeckHudBox" type="VBoxContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppHudRight/OppHudRightMargin/OppHudRightVBox/OppHudDataRow/OppDeckHudPanel/OppDeckHudMargin"]
+[node name="OppDeckHudBox" type="VBoxContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppHudRight/OppHudRightMargin/OppHudRightVBox/OppHudDataRow/OppDeckHudPanel/OppDeckHudMargin" unique_id=524942329]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 3
 
-[node name="OppDeckHudHeader" type="HBoxContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppHudRight/OppHudRightMargin/OppHudRightVBox/OppHudDataRow/OppDeckHudPanel/OppDeckHudMargin/OppDeckHudBox"]
+[node name="OppDeckHudHeader" type="HBoxContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppHudRight/OppHudRightMargin/OppHudRightVBox/OppHudDataRow/OppDeckHudPanel/OppDeckHudMargin/OppDeckHudBox" unique_id=1771982150]
 layout_mode = 2
-alignment = 1
 theme_override_constants/separation = 2
+alignment = 1
 
-[node name="OppDeckHudCaption" type="Label" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppHudRight/OppHudRightMargin/OppHudRightVBox/OppHudDataRow/OppDeckHudPanel/OppDeckHudMargin/OppDeckHudBox/OppDeckHudHeader"]
+[node name="OppDeckHudCaption" type="Label" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppHudRight/OppHudRightMargin/OppHudRightVBox/OppHudDataRow/OppDeckHudPanel/OppDeckHudMargin/OppDeckHudBox/OppDeckHudHeader" unique_id=781374530]
 layout_mode = 2
+theme_override_font_sizes/font_size = 8
 text = "牌库"
-theme_override_font_sizes/font_size = 8
 horizontal_alignment = 1
 
-[node name="OppDeckHudValue" type="Label" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppHudRight/OppHudRightMargin/OppHudRightVBox/OppHudDataRow/OppDeckHudPanel/OppDeckHudMargin/OppDeckHudBox/OppDeckHudHeader"]
+[node name="OppDeckHudValue" type="Label" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppHudRight/OppHudRightMargin/OppHudRightVBox/OppHudDataRow/OppDeckHudPanel/OppDeckHudMargin/OppDeckHudBox/OppDeckHudHeader" unique_id=1378958087]
 unique_name_in_owner = true
 layout_mode = 2
-text = "47"
 theme_override_font_sizes/font_size = 14
+text = "47"
 horizontal_alignment = 1
 
-[node name="OppDiscardHudPanel" type="PanelContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppHudRight/OppHudRightMargin/OppHudRightVBox/OppHudDataRow"]
+[node name="OppDiscardHudPanel" type="PanelContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppHudRight/OppHudRightMargin/OppHudRightVBox/OppHudDataRow" unique_id=544860088]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="OppDiscardHudMargin" type="MarginContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppHudRight/OppHudRightMargin/OppHudRightVBox/OppHudDataRow/OppDiscardHudPanel"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 6.0
-offset_top = 5.0
-offset_right = -6.0
-offset_bottom = -5.0
+[node name="OppDiscardHudMargin" type="MarginContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppHudRight/OppHudRightMargin/OppHudRightVBox/OppHudDataRow/OppDiscardHudPanel" unique_id=1925006876]
+layout_mode = 2
 
-[node name="OppDiscardHudBox" type="VBoxContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppHudRight/OppHudRightMargin/OppHudRightVBox/OppHudDataRow/OppDiscardHudPanel/OppDiscardHudMargin"]
+[node name="OppDiscardHudBox" type="VBoxContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppHudRight/OppHudRightMargin/OppHudRightVBox/OppHudDataRow/OppDiscardHudPanel/OppDiscardHudMargin" unique_id=1820842881]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 3
 
-[node name="OppDiscardHudHeader" type="HBoxContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppHudRight/OppHudRightMargin/OppHudRightVBox/OppHudDataRow/OppDiscardHudPanel/OppDiscardHudMargin/OppDiscardHudBox"]
+[node name="OppDiscardHudHeader" type="HBoxContainer" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppHudRight/OppHudRightMargin/OppHudRightVBox/OppHudDataRow/OppDiscardHudPanel/OppDiscardHudMargin/OppDiscardHudBox" unique_id=119451749]
 layout_mode = 2
-alignment = 1
 theme_override_constants/separation = 2
+alignment = 1
 
-[node name="OppDiscardHudCaption" type="Label" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppHudRight/OppHudRightMargin/OppHudRightVBox/OppHudDataRow/OppDiscardHudPanel/OppDiscardHudMargin/OppDiscardHudBox/OppDiscardHudHeader"]
+[node name="OppDiscardHudCaption" type="Label" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppHudRight/OppHudRightMargin/OppHudRightVBox/OppHudDataRow/OppDiscardHudPanel/OppDiscardHudMargin/OppDiscardHudBox/OppDiscardHudHeader" unique_id=870952101]
 layout_mode = 2
-text = "弃牌区"
 theme_override_font_sizes/font_size = 8
+text = "弃牌区"
 horizontal_alignment = 1
 
-[node name="OppDiscardHudValue" type="Label" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppHudRight/OppHudRightMargin/OppHudRightVBox/OppHudDataRow/OppDiscardHudPanel/OppDiscardHudMargin/OppDiscardHudBox/OppDiscardHudHeader"]
+[node name="OppDiscardHudValue" type="Label" parent="MainArea/CenterField/FieldArea/OppField/OppFieldShell/OppHudRight/OppHudRightMargin/OppHudRightVBox/OppHudDataRow/OppDiscardHudPanel/OppDiscardHudMargin/OppDiscardHudBox/OppDiscardHudHeader" unique_id=1085810070]
 unique_name_in_owner = true
 layout_mode = 2
 mouse_filter = 0
-text = "0"
 theme_override_font_sizes/font_size = 14
+text = "0"
 horizontal_alignment = 1
 
-[node name="StadiumBar" type="PanelContainer" parent="MainArea/CenterField/FieldArea"]
-layout_mode = 2
+[node name="StadiumBar" type="PanelContainer" parent="MainArea/CenterField/FieldArea" unique_id=1511128793]
 custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
 
-[node name="StadiumSections" type="HBoxContainer" parent="MainArea/CenterField/FieldArea/StadiumBar"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 8.0
-offset_top = 6.0
-offset_right = -8.0
-offset_bottom = -6.0
+[node name="StadiumSections" type="HBoxContainer" parent="MainArea/CenterField/FieldArea/StadiumBar" unique_id=1025787364]
+layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="LostZoneSection" type="PanelContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections"]
+[node name="LostZoneSection" type="PanelContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections" unique_id=1510352968]
 unique_name_in_owner = true
+self_modulate = Color(1, 1, 1, 0)
 layout_mode = 2
 size_flags_horizontal = 3
-self_modulate = Color(1, 1, 1, 0)
 
-[node name="LostZoneMargin" type="MarginContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/LostZoneSection"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 8.0
-offset_top = 5.0
-offset_right = -8.0
-offset_bottom = -5.0
+[node name="LostZoneMargin" type="MarginContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/LostZoneSection" unique_id=1268415607]
+layout_mode = 2
 theme_override_constants/margin_left = 0
 theme_override_constants/margin_top = 0
 theme_override_constants/margin_right = 0
 theme_override_constants/margin_bottom = 0
 
-[node name="LostZoneVBox" type="VBoxContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/LostZoneSection/LostZoneMargin"]
+[node name="LostZoneVBox" type="VBoxContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/LostZoneSection/LostZoneMargin" unique_id=1057576263]
 layout_mode = 2
 theme_override_constants/separation = 2
 
-[node name="LostZoneTitle" type="Label" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/LostZoneSection/LostZoneMargin/LostZoneVBox"]
-layout_mode = 2
-text = "放逐区"
-theme_override_font_sizes/font_size = 10
+[node name="LostZoneTitle" type="Label" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/LostZoneSection/LostZoneMargin/LostZoneVBox" unique_id=1463525021]
 visible = false
+layout_mode = 2
+theme_override_font_sizes/font_size = 10
+text = "放逐区"
 
-[node name="LostZoneLbl" type="Label" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/LostZoneSection/LostZoneMargin/LostZoneVBox"]
+[node name="LostZoneLbl" type="Label" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/LostZoneSection/LostZoneMargin/LostZoneVBox" unique_id=946574681]
 unique_name_in_owner = true
+visible = false
 layout_mode = 2
 size_flags_vertical = 3
-text = "待接线"
 theme_override_font_sizes/font_size = 11
+text = "待接线"
 vertical_alignment = 1
-visible = false
 
-[node name="StadiumCenterSection" type="PanelContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections"]
+[node name="StadiumCenterSection" type="PanelContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections" unique_id=119501794]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="StadiumCenterMargin" type="MarginContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/StadiumCenterSection"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 8.0
-offset_top = 5.0
-offset_right = -8.0
-offset_bottom = -5.0
+[node name="StadiumCenterMargin" type="MarginContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/StadiumCenterSection" unique_id=1434651378]
+layout_mode = 2
 theme_override_constants/margin_left = 0
 theme_override_constants/margin_top = 0
 theme_override_constants/margin_right = 0
 theme_override_constants/margin_bottom = 0
 
-[node name="StadiumCenterVBox" type="VBoxContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/StadiumCenterSection/StadiumCenterMargin"]
+[node name="StadiumCenterVBox" type="VBoxContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/StadiumCenterSection/StadiumCenterMargin" unique_id=1097810880]
 layout_mode = 2
 theme_override_constants/separation = 0
 
-[node name="StadiumActionRow" type="HBoxContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/StadiumCenterSection/StadiumCenterMargin/StadiumCenterVBox"]
+[node name="StadiumActionRow" type="HBoxContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/StadiumCenterSection/StadiumCenterMargin/StadiumCenterVBox" unique_id=1993673447]
 layout_mode = 2
 size_flags_vertical = 3
-alignment = 1
 theme_override_constants/separation = 8
+alignment = 1
 
-[node name="StadiumLbl" type="Label" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/StadiumCenterSection/StadiumCenterMargin/StadiumCenterVBox/StadiumActionRow"]
+[node name="StadiumLbl" type="Label" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/StadiumCenterSection/StadiumCenterMargin/StadiumCenterVBox/StadiumActionRow" unique_id=1157524631]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-size_flags_vertical = 4
-text = "竞技场：无"
 theme_override_font_sizes/font_size = 11
+text = "竞技场：无"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="BtnStadiumAction" type="Button" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/StadiumCenterSection/StadiumCenterMargin/StadiumCenterVBox/StadiumActionRow"]
+[node name="BtnStadiumAction" type="Button" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/StadiumCenterSection/StadiumCenterMargin/StadiumCenterVBox/StadiumActionRow" unique_id=87016628]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-text = "使用竞技场效果"
 theme_override_font_sizes/font_size = 10
+text = "使用竞技场效果"
 
-[node name="VstarSection" type="PanelContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections"]
+[node name="VstarSection" type="PanelContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections" unique_id=38379049]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="VstarMargin" type="MarginContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 8.0
-offset_top = 5.0
-offset_right = -8.0
-offset_bottom = -5.0
+[node name="VstarMargin" type="MarginContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection" unique_id=1703980680]
+layout_mode = 2
 theme_override_constants/margin_left = 0
 theme_override_constants/margin_top = 0
 theme_override_constants/margin_right = 0
 theme_override_constants/margin_bottom = 0
 
-[node name="VstarVBox" type="VBoxContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin"]
+[node name="VstarVBox" type="VBoxContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin" unique_id=1997000081]
 layout_mode = 2
 theme_override_constants/separation = 4
 
-[node name="VstarTitle" type="Label" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox"]
+[node name="VstarTitle" type="Label" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox" unique_id=2137499498]
+visible = false
 layout_mode = 2
+theme_override_font_sizes/font_size = 11
 text = "信息区"
-theme_override_font_sizes/font_size = 11
 horizontal_alignment = 1
-visible = false
 
-[node name="InfoSubtitle" type="Label" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox"]
+[node name="InfoSubtitle" type="Label" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox" unique_id=1633172805]
+visible = false
 layout_mode = 2
+theme_override_font_sizes/font_size = 8
 text = "SYSTEM TELEMETRY"
-theme_override_font_sizes/font_size = 8
 horizontal_alignment = 1
-visible = false
 
-[node name="InfoColumns" type="HBoxContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox"]
+[node name="InfoColumns" type="HBoxContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox" unique_id=421448560]
 layout_mode = 2
 size_flags_vertical = 3
 theme_override_constants/separation = 6
 
-[node name="EnemyInfoColumn" type="VBoxContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox/InfoColumns"]
+[node name="EnemyInfoColumn" type="VBoxContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox/InfoColumns" unique_id=1403638993]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 6
 
-[node name="InfoEnemyVstar" type="PanelContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox/InfoColumns/EnemyInfoColumn"]
+[node name="InfoEnemyVstar" type="PanelContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox/InfoColumns/EnemyInfoColumn" unique_id=758094717]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="EnemyVstarMargin" type="MarginContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox/InfoColumns/EnemyInfoColumn/InfoEnemyVstar"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 7.0
-offset_top = 5.0
-offset_right = -7.0
-offset_bottom = -5.0
+[node name="EnemyVstarMargin" type="MarginContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox/InfoColumns/EnemyInfoColumn/InfoEnemyVstar" unique_id=1685468979]
+layout_mode = 2
 
-[node name="EnemyVstarVBox" type="VBoxContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox/InfoColumns/EnemyInfoColumn/InfoEnemyVstar/EnemyVstarMargin"]
+[node name="EnemyVstarVBox" type="VBoxContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox/InfoColumns/EnemyInfoColumn/InfoEnemyVstar/EnemyVstarMargin" unique_id=1865483990]
 layout_mode = 2
 theme_override_constants/separation = 1
 
-[node name="EnemyVstarCaption" type="Label" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox/InfoColumns/EnemyInfoColumn/InfoEnemyVstar/EnemyVstarMargin/EnemyVstarVBox"]
+[node name="EnemyVstarCaption" type="Label" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox/InfoColumns/EnemyInfoColumn/InfoEnemyVstar/EnemyVstarMargin/EnemyVstarVBox" unique_id=837532830]
 layout_mode = 2
+theme_override_font_sizes/font_size = 8
 text = "敌方 VSTAR"
-theme_override_font_sizes/font_size = 8
 horizontal_alignment = 1
 
-[node name="EnemyVstarValue" type="Label" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox/InfoColumns/EnemyInfoColumn/InfoEnemyVstar/EnemyVstarMargin/EnemyVstarVBox"]
+[node name="EnemyVstarValue" type="Label" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox/InfoColumns/EnemyInfoColumn/InfoEnemyVstar/EnemyVstarMargin/EnemyVstarVBox" unique_id=1514641421]
 unique_name_in_owner = true
 layout_mode = 2
-text = "待命"
 theme_override_font_sizes/font_size = 11
+text = "待命"
 horizontal_alignment = 1
 
-[node name="InfoEnemyLost" type="PanelContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox/InfoColumns/EnemyInfoColumn"]
+[node name="InfoEnemyLost" type="PanelContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox/InfoColumns/EnemyInfoColumn" unique_id=552760506]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="EnemyLostMargin" type="MarginContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox/InfoColumns/EnemyInfoColumn/InfoEnemyLost"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 7.0
-offset_top = 5.0
-offset_right = -7.0
-offset_bottom = -5.0
+[node name="EnemyLostMargin" type="MarginContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox/InfoColumns/EnemyInfoColumn/InfoEnemyLost" unique_id=952597445]
+layout_mode = 2
 
-[node name="EnemyLostVBox" type="VBoxContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox/InfoColumns/EnemyInfoColumn/InfoEnemyLost/EnemyLostMargin"]
+[node name="EnemyLostVBox" type="VBoxContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox/InfoColumns/EnemyInfoColumn/InfoEnemyLost/EnemyLostMargin" unique_id=146044918]
 layout_mode = 2
 theme_override_constants/separation = 1
 
-[node name="EnemyLostCaption" type="Label" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox/InfoColumns/EnemyInfoColumn/InfoEnemyLost/EnemyLostMargin/EnemyLostVBox"]
+[node name="EnemyLostCaption" type="Label" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox/InfoColumns/EnemyInfoColumn/InfoEnemyLost/EnemyLostMargin/EnemyLostVBox" unique_id=225796283]
 layout_mode = 2
-text = "敌方放逐"
 theme_override_font_sizes/font_size = 8
+text = "敌方放逐"
 horizontal_alignment = 1
 
-[node name="EnemyLostValue" type="Label" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox/InfoColumns/EnemyInfoColumn/InfoEnemyLost/EnemyLostMargin/EnemyLostVBox"]
+[node name="EnemyLostValue" type="Label" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox/InfoColumns/EnemyInfoColumn/InfoEnemyLost/EnemyLostMargin/EnemyLostVBox" unique_id=536348957]
 unique_name_in_owner = true
 layout_mode = 2
-text = "00"
 theme_override_font_sizes/font_size = 11
+text = "00"
 horizontal_alignment = 1
 
-[node name="MyInfoColumn" type="VBoxContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox/InfoColumns"]
+[node name="MyInfoColumn" type="VBoxContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox/InfoColumns" unique_id=973794410]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 6
 
-[node name="InfoMyVstar" type="PanelContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox/InfoColumns/MyInfoColumn"]
+[node name="InfoMyVstar" type="PanelContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox/InfoColumns/MyInfoColumn" unique_id=1598737009]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="MyVstarMargin" type="MarginContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox/InfoColumns/MyInfoColumn/InfoMyVstar"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 7.0
-offset_top = 5.0
-offset_right = -7.0
-offset_bottom = -5.0
+[node name="MyVstarMargin" type="MarginContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox/InfoColumns/MyInfoColumn/InfoMyVstar" unique_id=1461928200]
+layout_mode = 2
 
-[node name="MyVstarVBox" type="VBoxContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox/InfoColumns/MyInfoColumn/InfoMyVstar/MyVstarMargin"]
+[node name="MyVstarVBox" type="VBoxContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox/InfoColumns/MyInfoColumn/InfoMyVstar/MyVstarMargin" unique_id=1093640577]
 layout_mode = 2
 theme_override_constants/separation = 1
 
-[node name="MyVstarCaption" type="Label" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox/InfoColumns/MyInfoColumn/InfoMyVstar/MyVstarMargin/MyVstarVBox"]
+[node name="MyVstarCaption" type="Label" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox/InfoColumns/MyInfoColumn/InfoMyVstar/MyVstarMargin/MyVstarVBox" unique_id=726853371]
 layout_mode = 2
+theme_override_font_sizes/font_size = 8
 text = "我方 VSTAR"
-theme_override_font_sizes/font_size = 8
 horizontal_alignment = 1
 
-[node name="MyVstarValue" type="Label" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox/InfoColumns/MyInfoColumn/InfoMyVstar/MyVstarMargin/MyVstarVBox"]
+[node name="MyVstarValue" type="Label" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox/InfoColumns/MyInfoColumn/InfoMyVstar/MyVstarMargin/MyVstarVBox" unique_id=1840481668]
 unique_name_in_owner = true
 layout_mode = 2
-text = "待命"
 theme_override_font_sizes/font_size = 11
+text = "待命"
 horizontal_alignment = 1
 
-[node name="InfoMyLost" type="PanelContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox/InfoColumns/MyInfoColumn"]
+[node name="InfoMyLost" type="PanelContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox/InfoColumns/MyInfoColumn" unique_id=1241984978]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="MyLostMargin" type="MarginContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox/InfoColumns/MyInfoColumn/InfoMyLost"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 7.0
-offset_top = 5.0
-offset_right = -7.0
-offset_bottom = -5.0
+[node name="MyLostMargin" type="MarginContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox/InfoColumns/MyInfoColumn/InfoMyLost" unique_id=947307797]
+layout_mode = 2
 
-[node name="MyLostVBox" type="VBoxContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox/InfoColumns/MyInfoColumn/InfoMyLost/MyLostMargin"]
+[node name="MyLostVBox" type="VBoxContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox/InfoColumns/MyInfoColumn/InfoMyLost/MyLostMargin" unique_id=1799769689]
 layout_mode = 2
 theme_override_constants/separation = 1
 
-[node name="MyLostCaption" type="Label" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox/InfoColumns/MyInfoColumn/InfoMyLost/MyLostMargin/MyLostVBox"]
+[node name="MyLostCaption" type="Label" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox/InfoColumns/MyInfoColumn/InfoMyLost/MyLostMargin/MyLostVBox" unique_id=875036319]
 layout_mode = 2
-text = "我方放逐"
 theme_override_font_sizes/font_size = 8
+text = "我方放逐"
 horizontal_alignment = 1
 
-[node name="MyLostValue" type="Label" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox/InfoColumns/MyInfoColumn/InfoMyLost/MyLostMargin/MyLostVBox"]
+[node name="MyLostValue" type="Label" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox/InfoColumns/MyInfoColumn/InfoMyLost/MyLostMargin/MyLostVBox" unique_id=1317601023]
 unique_name_in_owner = true
 layout_mode = 2
-text = "00"
 theme_override_font_sizes/font_size = 11
+text = "00"
 horizontal_alignment = 1
 
-[node name="TurnActionColumn" type="VBoxContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox/InfoColumns"]
+[node name="TurnActionColumn" type="VBoxContainer" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox/InfoColumns" unique_id=1423757381]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="HudEndTurnBtn" type="Button" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox/InfoColumns/TurnActionColumn"]
+[node name="HudEndTurnBtn" type="Button" parent="MainArea/CenterField/FieldArea/StadiumBar/StadiumSections/VstarSection/VstarMargin/VstarVBox/InfoColumns/TurnActionColumn" unique_id=1828994360]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
-text = "结束我的回合"
 theme_override_font_sizes/font_size = 12
+text = "结束我的回合"
 
-[node name="MyField" type="PanelContainer" parent="MainArea/CenterField/FieldArea"]
+[node name="MyField" type="PanelContainer" parent="MainArea/CenterField/FieldArea" unique_id=1770373444]
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="MyFieldShell" type="HBoxContainer" parent="MainArea/CenterField/FieldArea/MyField"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
+[node name="MyFieldShell" type="HBoxContainer" parent="MainArea/CenterField/FieldArea/MyField" unique_id=885756631]
+layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="MyHudLeft" type="PanelContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell"]
+[node name="MyHudLeft" type="PanelContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell" unique_id=1124561593]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_stretch_ratio = 2.0
 
-[node name="MyHudLeftMargin" type="MarginContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyHudLeft"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 8.0
-offset_top = 8.0
-offset_right = -8.0
-offset_bottom = -8.0
+[node name="MyHudLeftMargin" type="MarginContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyHudLeft" unique_id=1623448556]
+layout_mode = 2
 
-[node name="MyHudLeftVBox" type="VBoxContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyHudLeft/MyHudLeftMargin"]
+[node name="MyHudLeftVBox" type="VBoxContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyHudLeft/MyHudLeftMargin" unique_id=1795458619]
 layout_mode = 2
 size_flags_vertical = 3
-alignment = 1
 theme_override_constants/separation = 6
+alignment = 1
 
-[node name="MyHudLeftTitle" type="Label" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyHudLeft/MyHudLeftMargin/MyHudLeftVBox"]
+[node name="MyHudLeftTitle" type="Label" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyHudLeft/MyHudLeftMargin/MyHudLeftVBox" unique_id=1928546613]
 layout_mode = 2
-text = "ALLY HUD"
 theme_override_font_sizes/font_size = 9
+text = "ALLY HUD"
 horizontal_alignment = 1
 
-[node name="MyHudLeftValue" type="Label" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyHudLeft/MyHudLeftMargin/MyHudLeftVBox"]
+[node name="MyHudLeftValue" type="Label" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyHudLeft/MyHudLeftMargin/MyHudLeftVBox" unique_id=255615592]
 unique_name_in_owner = true
 layout_mode = 2
-text = "扩展信息"
 theme_override_font_sizes/font_size = 12
+text = "扩展信息"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="MyPrizeHudHost" type="VBoxContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyHudLeft/MyHudLeftMargin/MyHudLeftVBox"]
+[node name="MyPrizeHudHost" type="VBoxContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyHudLeft/MyHudLeftMargin/MyHudLeftVBox" unique_id=2116784867]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 theme_override_constants/separation = 4
 
-[node name="MyFieldInner" type="VBoxContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell"]
+[node name="MyFieldInner" type="VBoxContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell" unique_id=813455532]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_stretch_ratio = 6.0
 theme_override_constants/separation = 4
 
-[node name="MyActiveRow" type="HBoxContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyFieldInner"]
+[node name="MyActiveRow" type="HBoxContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyFieldInner" unique_id=1477608068]
 layout_mode = 2
-alignment = 1
 theme_override_constants/separation = 4
+alignment = 1
 
-[node name="MyActive" type="PanelContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyFieldInner/MyActiveRow"]
+[node name="MyActive" type="PanelContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyFieldInner/MyActiveRow" unique_id=1600456839]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(120, 90)
+layout_mode = 2
+
+[node name="MyActiveLbl" type="RichTextLabel" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyFieldInner/MyActiveRow/MyActive" unique_id=508313428]
 unique_name_in_owner = true
 layout_mode = 2
-custom_minimum_size = Vector2(120, 90)
-mouse_filter = 0
-
-[node name="MyActiveLbl" type="RichTextLabel" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyFieldInner/MyActiveRow/MyActive"]
-unique_name_in_owner = true
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
 mouse_filter = 2
 bbcode_enabled = true
 text = "[空]"
-theme_override_font_sizes/font_size = 10
 
-[node name="MyBench" type="HBoxContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyFieldInner"]
+[node name="MyBench" type="HBoxContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyFieldInner" unique_id=884841515]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
-alignment = 1
 theme_override_constants/separation = 6
+alignment = 1
 
-[node name="MyBench0" type="PanelContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyFieldInner/MyBench"]
-layout_mode = 2
+[node name="MyBench0" type="PanelContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyFieldInner/MyBench" unique_id=1629827379]
 custom_minimum_size = Vector2(80, 0)
-mouse_filter = 0
+layout_mode = 2
 
-[node name="MyBenchLbl0" type="RichTextLabel" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyFieldInner/MyBench/MyBench0"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
+[node name="MyBenchLbl0" type="RichTextLabel" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyFieldInner/MyBench/MyBench0" unique_id=520704028]
+layout_mode = 2
 mouse_filter = 2
 bbcode_enabled = true
 text = "[空]"
-theme_override_font_sizes/font_size = 9
 fit_content = true
 
-[node name="MyBench1" type="PanelContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyFieldInner/MyBench"]
-layout_mode = 2
+[node name="MyBench1" type="PanelContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyFieldInner/MyBench" unique_id=179613769]
 custom_minimum_size = Vector2(80, 0)
-mouse_filter = 0
+layout_mode = 2
 
-[node name="MyBenchLbl1" type="RichTextLabel" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyFieldInner/MyBench/MyBench1"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
+[node name="MyBenchLbl1" type="RichTextLabel" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyFieldInner/MyBench/MyBench1" unique_id=65122131]
+layout_mode = 2
 mouse_filter = 2
 bbcode_enabled = true
 text = "[空]"
-theme_override_font_sizes/font_size = 9
 fit_content = true
 
-[node name="MyBench2" type="PanelContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyFieldInner/MyBench"]
-layout_mode = 2
+[node name="MyBench2" type="PanelContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyFieldInner/MyBench" unique_id=743098869]
 custom_minimum_size = Vector2(80, 0)
-mouse_filter = 0
+layout_mode = 2
 
-[node name="MyBenchLbl2" type="RichTextLabel" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyFieldInner/MyBench/MyBench2"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
+[node name="MyBenchLbl2" type="RichTextLabel" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyFieldInner/MyBench/MyBench2" unique_id=1392013469]
+layout_mode = 2
 mouse_filter = 2
 bbcode_enabled = true
 text = "[空]"
-theme_override_font_sizes/font_size = 9
 fit_content = true
 
-[node name="MyBench3" type="PanelContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyFieldInner/MyBench"]
-layout_mode = 2
+[node name="MyBench3" type="PanelContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyFieldInner/MyBench" unique_id=947376945]
 custom_minimum_size = Vector2(80, 0)
-mouse_filter = 0
+layout_mode = 2
 
-[node name="MyBenchLbl3" type="RichTextLabel" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyFieldInner/MyBench/MyBench3"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
+[node name="MyBenchLbl3" type="RichTextLabel" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyFieldInner/MyBench/MyBench3" unique_id=155885735]
+layout_mode = 2
 mouse_filter = 2
 bbcode_enabled = true
 text = "[空]"
-theme_override_font_sizes/font_size = 9
 fit_content = true
 
-[node name="MyBench4" type="PanelContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyFieldInner/MyBench"]
-layout_mode = 2
+[node name="MyBench4" type="PanelContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyFieldInner/MyBench" unique_id=1346373875]
 custom_minimum_size = Vector2(80, 0)
-mouse_filter = 0
+layout_mode = 2
 
-[node name="MyBenchLbl4" type="RichTextLabel" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyFieldInner/MyBench/MyBench4"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
+[node name="MyBenchLbl4" type="RichTextLabel" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyFieldInner/MyBench/MyBench4" unique_id=1069088090]
+layout_mode = 2
 mouse_filter = 2
 bbcode_enabled = true
 text = "[空]"
-theme_override_font_sizes/font_size = 9
 fit_content = true
 
-[node name="MyHudRight" type="PanelContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell"]
+[node name="MyHudRight" type="PanelContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell" unique_id=523015178]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_stretch_ratio = 2.0
 
-[node name="MyHudRightMargin" type="MarginContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyHudRight"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 8.0
-offset_top = 8.0
-offset_right = -8.0
-offset_bottom = -8.0
+[node name="MyHudRightMargin" type="MarginContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyHudRight" unique_id=766737370]
+layout_mode = 2
 
-[node name="MyHudRightVBox" type="VBoxContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyHudRight/MyHudRightMargin"]
+[node name="MyHudRightVBox" type="VBoxContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyHudRight/MyHudRightMargin" unique_id=1719946818]
 layout_mode = 2
 size_flags_vertical = 3
-alignment = 1
 theme_override_constants/separation = 6
+alignment = 1
 
-[node name="MyHudRightTitle" type="Label" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyHudRight/MyHudRightMargin/MyHudRightVBox"]
+[node name="MyHudRightTitle" type="Label" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyHudRight/MyHudRightMargin/MyHudRightVBox" unique_id=12293708]
 layout_mode = 2
-text = "SIGNAL"
 theme_override_font_sizes/font_size = 9
+text = "SIGNAL"
 horizontal_alignment = 1
 
-[node name="MyHudRightValue" type="Label" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyHudRight/MyHudRightMargin/MyHudRightVBox"]
+[node name="MyHudRightValue" type="Label" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyHudRight/MyHudRightMargin/MyHudRightVBox" unique_id=1991197931]
 layout_mode = 2
-text = "战区数据"
 theme_override_font_sizes/font_size = 12
+text = "战区数据"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="MyHudDataRow" type="HBoxContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyHudRight/MyHudRightMargin/MyHudRightVBox"]
+[node name="MyHudDataRow" type="HBoxContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyHudRight/MyHudRightMargin/MyHudRightVBox" unique_id=1968166679]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 6
 
-[node name="MyDeckHudPanel" type="PanelContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyHudRight/MyHudRightMargin/MyHudRightVBox/MyHudDataRow"]
+[node name="MyDeckHudPanel" type="PanelContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyHudRight/MyHudRightMargin/MyHudRightVBox/MyHudDataRow" unique_id=2088279575]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="MyDeckHudMargin" type="MarginContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyHudRight/MyHudRightMargin/MyHudRightVBox/MyHudDataRow/MyDeckHudPanel"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 6.0
-offset_top = 5.0
-offset_right = -6.0
-offset_bottom = -5.0
+[node name="MyDeckHudMargin" type="MarginContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyHudRight/MyHudRightMargin/MyHudRightVBox/MyHudDataRow/MyDeckHudPanel" unique_id=2081882266]
+layout_mode = 2
 
-[node name="MyDeckHudBox" type="VBoxContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyHudRight/MyHudRightMargin/MyHudRightVBox/MyHudDataRow/MyDeckHudPanel/MyDeckHudMargin"]
+[node name="MyDeckHudBox" type="VBoxContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyHudRight/MyHudRightMargin/MyHudRightVBox/MyHudDataRow/MyDeckHudPanel/MyDeckHudMargin" unique_id=1845623933]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 3
 
-[node name="MyDeckHudHeader" type="HBoxContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyHudRight/MyHudRightMargin/MyHudRightVBox/MyHudDataRow/MyDeckHudPanel/MyDeckHudMargin/MyDeckHudBox"]
+[node name="MyDeckHudHeader" type="HBoxContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyHudRight/MyHudRightMargin/MyHudRightVBox/MyHudDataRow/MyDeckHudPanel/MyDeckHudMargin/MyDeckHudBox" unique_id=720937492]
 layout_mode = 2
-alignment = 1
 theme_override_constants/separation = 2
+alignment = 1
 
-[node name="MyDeckHudCaption" type="Label" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyHudRight/MyHudRightMargin/MyHudRightVBox/MyHudDataRow/MyDeckHudPanel/MyDeckHudMargin/MyDeckHudBox/MyDeckHudHeader"]
+[node name="MyDeckHudCaption" type="Label" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyHudRight/MyHudRightMargin/MyHudRightVBox/MyHudDataRow/MyDeckHudPanel/MyDeckHudMargin/MyDeckHudBox/MyDeckHudHeader" unique_id=214048227]
 layout_mode = 2
+theme_override_font_sizes/font_size = 8
 text = "牌库"
-theme_override_font_sizes/font_size = 8
 horizontal_alignment = 1
 
-[node name="MyDeckHudValue" type="Label" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyHudRight/MyHudRightMargin/MyHudRightVBox/MyHudDataRow/MyDeckHudPanel/MyDeckHudMargin/MyDeckHudBox/MyDeckHudHeader"]
+[node name="MyDeckHudValue" type="Label" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyHudRight/MyHudRightMargin/MyHudRightVBox/MyHudDataRow/MyDeckHudPanel/MyDeckHudMargin/MyDeckHudBox/MyDeckHudHeader" unique_id=1293388429]
 unique_name_in_owner = true
 layout_mode = 2
-text = "47"
 theme_override_font_sizes/font_size = 14
+text = "47"
 horizontal_alignment = 1
 
-[node name="MyDiscardHudPanel" type="PanelContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyHudRight/MyHudRightMargin/MyHudRightVBox/MyHudDataRow"]
+[node name="MyDiscardHudPanel" type="PanelContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyHudRight/MyHudRightMargin/MyHudRightVBox/MyHudDataRow" unique_id=2042421048]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="MyDiscardHudMargin" type="MarginContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyHudRight/MyHudRightMargin/MyHudRightVBox/MyHudDataRow/MyDiscardHudPanel"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 6.0
-offset_top = 5.0
-offset_right = -6.0
-offset_bottom = -5.0
+[node name="MyDiscardHudMargin" type="MarginContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyHudRight/MyHudRightMargin/MyHudRightVBox/MyHudDataRow/MyDiscardHudPanel" unique_id=1264406462]
+layout_mode = 2
 
-[node name="MyDiscardHudBox" type="VBoxContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyHudRight/MyHudRightMargin/MyHudRightVBox/MyHudDataRow/MyDiscardHudPanel/MyDiscardHudMargin"]
+[node name="MyDiscardHudBox" type="VBoxContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyHudRight/MyHudRightMargin/MyHudRightVBox/MyHudDataRow/MyDiscardHudPanel/MyDiscardHudMargin" unique_id=327747557]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 3
 
-[node name="MyDiscardHudHeader" type="HBoxContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyHudRight/MyHudRightMargin/MyHudRightVBox/MyHudDataRow/MyDiscardHudPanel/MyDiscardHudMargin/MyDiscardHudBox"]
+[node name="MyDiscardHudHeader" type="HBoxContainer" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyHudRight/MyHudRightMargin/MyHudRightVBox/MyHudDataRow/MyDiscardHudPanel/MyDiscardHudMargin/MyDiscardHudBox" unique_id=271517076]
 layout_mode = 2
+theme_override_constants/separation = 2
 alignment = 1
-theme_override_constants/separation = 2
 
-[node name="MyDiscardHudCaption" type="Label" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyHudRight/MyHudRightMargin/MyHudRightVBox/MyHudDataRow/MyDiscardHudPanel/MyDiscardHudMargin/MyDiscardHudBox/MyDiscardHudHeader"]
+[node name="MyDiscardHudCaption" type="Label" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyHudRight/MyHudRightMargin/MyHudRightVBox/MyHudDataRow/MyDiscardHudPanel/MyDiscardHudMargin/MyDiscardHudBox/MyDiscardHudHeader" unique_id=2071102977]
 layout_mode = 2
-text = "弃牌区"
 theme_override_font_sizes/font_size = 8
+text = "弃牌区"
 horizontal_alignment = 1
 
-[node name="MyDiscardHudValue" type="Label" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyHudRight/MyHudRightMargin/MyHudRightVBox/MyHudDataRow/MyDiscardHudPanel/MyDiscardHudMargin/MyDiscardHudBox/MyDiscardHudHeader"]
+[node name="MyDiscardHudValue" type="Label" parent="MainArea/CenterField/FieldArea/MyField/MyFieldShell/MyHudRight/MyHudRightMargin/MyHudRightVBox/MyHudDataRow/MyDiscardHudPanel/MyDiscardHudMargin/MyDiscardHudBox/MyDiscardHudHeader" unique_id=1409059790]
 unique_name_in_owner = true
 layout_mode = 2
 mouse_filter = 0
-text = "0"
 theme_override_font_sizes/font_size = 14
+text = "0"
 horizontal_alignment = 1
 
-[node name="HandArea" type="PanelContainer" parent="MainArea/CenterField"]
-layout_mode = 2
+[node name="HandArea" type="PanelContainer" parent="MainArea/CenterField" unique_id=1997684858]
 custom_minimum_size = Vector2(0, 110)
+layout_mode = 2
 
-[node name="HandVBox" type="VBoxContainer" parent="MainArea/CenterField/HandArea"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
+[node name="HandVBox" type="VBoxContainer" parent="MainArea/CenterField/HandArea" unique_id=1507288792]
+layout_mode = 2
 theme_override_constants/separation = 2
 
-[node name="HandTitle" type="Label" parent="MainArea/CenterField/HandArea/HandVBox"]
+[node name="HandTitle" type="Label" parent="MainArea/CenterField/HandArea/HandVBox" unique_id=1206313273]
 layout_mode = 2
+theme_override_font_sizes/font_size = 10
 text = "手牌"
-theme_override_font_sizes/font_size = 10
 
-[node name="HandScroll" type="ScrollContainer" parent="MainArea/CenterField/HandArea/HandVBox"]
+[node name="HandScroll" type="ScrollContainer" parent="MainArea/CenterField/HandArea/HandVBox" unique_id=733886447]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="HandContainer" type="HBoxContainer" parent="MainArea/CenterField/HandArea/HandVBox/HandScroll"]
+[node name="HandContainer" type="HBoxContainer" parent="MainArea/CenterField/HandArea/HandVBox/HandScroll" unique_id=1162898151]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 4
 
-[node name="RightPanel" type="VBoxContainer" parent="MainArea"]
-layout_mode = 2
+[node name="RightPanel" type="VBoxContainer" parent="MainArea" unique_id=1918614647]
 custom_minimum_size = Vector2(80, 0)
+layout_mode = 2
 theme_override_constants/separation = 4
 
-[node name="OppDeckBox" type="VBoxContainer" parent="MainArea/RightPanel"]
+[node name="OppDeckBox" type="VBoxContainer" parent="MainArea/RightPanel" unique_id=118572651]
 layout_mode = 2
 size_flags_vertical = 3
 theme_override_constants/separation = 2
 
-[node name="LblOppDeck" type="Label" parent="MainArea/RightPanel/OppDeckBox"]
+[node name="LblOppDeck" type="Label" parent="MainArea/RightPanel/OppDeckBox" unique_id=385101288]
 layout_mode = 2
+theme_override_font_sizes/font_size = 10
 text = "对方牌库"
-theme_override_font_sizes/font_size = 10
 horizontal_alignment = 1
 
-[node name="OppDeck" type="Label" parent="MainArea/RightPanel/OppDeckBox"]
+[node name="OppDeck" type="Label" parent="MainArea/RightPanel/OppDeckBox" unique_id=1773881058]
 unique_name_in_owner = true
 layout_mode = 2
-text = "47"
 theme_override_font_sizes/font_size = 13
+text = "47"
 horizontal_alignment = 1
 
-[node name="LblOppDiscard" type="Label" parent="MainArea/RightPanel/OppDeckBox"]
+[node name="LblOppDiscard" type="Label" parent="MainArea/RightPanel/OppDeckBox" unique_id=1528036000]
 layout_mode = 2
-text = "弃牌区"
 theme_override_font_sizes/font_size = 10
+text = "弃牌区"
 horizontal_alignment = 1
 
-[node name="OppDiscard" type="Label" parent="MainArea/RightPanel/OppDeckBox"]
+[node name="OppDiscard" type="Label" parent="MainArea/RightPanel/OppDeckBox" unique_id=1932944218]
 unique_name_in_owner = true
 layout_mode = 2
 mouse_filter = 0
-text = "0"
 theme_override_font_sizes/font_size = 13
+text = "0"
 horizontal_alignment = 1
 
-[node name="BtnEndTurn" type="Button" parent="MainArea/RightPanel"]
+[node name="BtnEndTurn" type="Button" parent="MainArea/RightPanel" unique_id=1192300260]
 unique_name_in_owner = true
-layout_mode = 2
-custom_minimum_size = Vector2(0, 36)
-text = "结束回合"
-theme_override_font_sizes/font_size = 13
 visible = false
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "结束回合"
 
-[node name="MyDeckBox" type="VBoxContainer" parent="MainArea/RightPanel"]
+[node name="MyDeckBox" type="VBoxContainer" parent="MainArea/RightPanel" unique_id=821662016]
 layout_mode = 2
 size_flags_vertical = 3
 theme_override_constants/separation = 2
 
-[node name="LblMyDeck" type="Label" parent="MainArea/RightPanel/MyDeckBox"]
+[node name="LblMyDeck" type="Label" parent="MainArea/RightPanel/MyDeckBox" unique_id=551649944]
 layout_mode = 2
-text = "己方牌库"
 theme_override_font_sizes/font_size = 10
+text = "己方牌库"
 horizontal_alignment = 1
 
-[node name="MyDeck" type="Label" parent="MainArea/RightPanel/MyDeckBox"]
+[node name="MyDeck" type="Label" parent="MainArea/RightPanel/MyDeckBox" unique_id=1260488034]
 unique_name_in_owner = true
 layout_mode = 2
-text = "47"
 theme_override_font_sizes/font_size = 13
+text = "47"
 horizontal_alignment = 1
 
-[node name="LblMyDiscard" type="Label" parent="MainArea/RightPanel/MyDeckBox"]
+[node name="LblMyDiscard" type="Label" parent="MainArea/RightPanel/MyDeckBox" unique_id=2017125650]
 layout_mode = 2
-text = "弃牌区"
 theme_override_font_sizes/font_size = 10
+text = "弃牌区"
 horizontal_alignment = 1
 
-[node name="MyDiscard" type="Label" parent="MainArea/RightPanel/MyDeckBox"]
+[node name="MyDiscard" type="Label" parent="MainArea/RightPanel/MyDeckBox" unique_id=1243265982]
 unique_name_in_owner = true
 layout_mode = 2
 mouse_filter = 0
-text = "0"
 theme_override_font_sizes/font_size = 13
+text = "0"
 horizontal_alignment = 1
 
-[node name="LogPanel" type="PanelContainer" parent="MainArea"]
-layout_mode = 2
+[node name="LogPanel" type="PanelContainer" parent="MainArea" unique_id=708388462]
 custom_minimum_size = Vector2(236, 0)
+layout_mode = 2
 
-[node name="LogPanelVBox" type="VBoxContainer" parent="MainArea/LogPanel"]
+[node name="LogPanelVBox" type="VBoxContainer" parent="MainArea/LogPanel" unique_id=405220557]
 layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="LogTitle" type="Label" parent="MainArea/LogPanel/LogPanelVBox"]
+[node name="LogTitle" type="Label" parent="MainArea/LogPanel/LogPanelVBox" unique_id=1245732683]
 layout_mode = 2
-text = "操作日志"
 theme_override_font_sizes/font_size = 12
+text = "操作日志"
 
-[node name="LogList" type="RichTextLabel" parent="MainArea/LogPanel/LogPanelVBox"]
+[node name="LogList" type="RichTextLabel" parent="MainArea/LogPanel/LogPanelVBox" unique_id=550181821]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
+theme_override_font_sizes/normal_font_size = 11
 bbcode_enabled = true
 scroll_following = true
-theme_override_font_sizes/normal_font_size = 11
 
-[node name="DialogOverlay" type="Panel" parent="."]
+[node name="DialogOverlay" type="Panel" parent="." unique_id=1611301625]
 unique_name_in_owner = true
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
 visible = false
 self_modulate = Color(0, 0, 0, 0.5)
-
-[node name="DialogCenter" type="CenterContainer" parent="DialogOverlay"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 
-[node name="DialogBox" type="PanelContainer" parent="DialogOverlay/DialogCenter"]
-layout_mode = 2
+[node name="DialogCenter" type="CenterContainer" parent="DialogOverlay" unique_id=634048598]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="DialogBox" type="PanelContainer" parent="DialogOverlay/DialogCenter" unique_id=1341967969]
 custom_minimum_size = Vector2(360, 0)
+layout_mode = 2
 
-[node name="DialogVBox" type="VBoxContainer" parent="DialogOverlay/DialogCenter/DialogBox"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 8.0
-offset_top = 6.0
-offset_right = -8.0
-offset_bottom = -6.0
+[node name="DialogVBox" type="VBoxContainer" parent="DialogOverlay/DialogCenter/DialogBox" unique_id=1467198481]
+layout_mode = 2
 theme_override_constants/separation = 4
 
-[node name="DialogTitle" type="Label" parent="DialogOverlay/DialogCenter/DialogBox/DialogVBox"]
+[node name="DialogTitle" type="Label" parent="DialogOverlay/DialogCenter/DialogBox/DialogVBox" unique_id=2061064690]
 unique_name_in_owner = true
 layout_mode = 2
-horizontal_alignment = 1
-text = "请选择"
 theme_override_font_sizes/font_size = 14
+text = "请选择"
+horizontal_alignment = 1
 
-[node name="DialogList" type="ItemList" parent="DialogOverlay/DialogCenter/DialogBox/DialogVBox"]
+[node name="DialogList" type="ItemList" parent="DialogOverlay/DialogCenter/DialogBox/DialogVBox" unique_id=829509247]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="DialogButtons" type="HBoxContainer" parent="DialogOverlay/DialogCenter/DialogBox/DialogVBox"]
+[node name="DialogButtons" type="HBoxContainer" parent="DialogOverlay/DialogCenter/DialogBox/DialogVBox" unique_id=691711890]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="DialogCancel" type="Button" parent="DialogOverlay/DialogCenter/DialogBox/DialogVBox/DialogButtons"]
+[node name="DialogCancel" type="Button" parent="DialogOverlay/DialogCenter/DialogBox/DialogVBox/DialogButtons" unique_id=1713449399]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 text = "取消"
 
-[node name="DialogConfirm" type="Button" parent="DialogOverlay/DialogCenter/DialogBox/DialogVBox/DialogButtons"]
+[node name="DialogConfirm" type="Button" parent="DialogOverlay/DialogCenter/DialogBox/DialogVBox/DialogButtons" unique_id=1482324195]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 disabled = true
 text = "确认"
 
-[node name="HandoverPanel" type="Panel" parent="."]
+[node name="HandoverPanel" type="Panel" parent="." unique_id=1090087510]
 unique_name_in_owner = true
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
 visible = false
 self_modulate = Color(0, 0, 0, 0.7)
-
-[node name="HandoverCenter" type="CenterContainer" parent="HandoverPanel"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 
-[node name="HandoverBox" type="PanelContainer" parent="HandoverPanel/HandoverCenter"]
-layout_mode = 2
+[node name="HandoverCenter" type="CenterContainer" parent="HandoverPanel" unique_id=1492940372]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="HandoverBox" type="PanelContainer" parent="HandoverPanel/HandoverCenter" unique_id=1995824851]
 custom_minimum_size = Vector2(300, 120)
+layout_mode = 2
 
-[node name="HandoverVBox" type="VBoxContainer" parent="HandoverPanel/HandoverCenter/HandoverBox"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 16.0
-offset_top = 16.0
-offset_right = -16.0
-offset_bottom = -16.0
+[node name="HandoverVBox" type="VBoxContainer" parent="HandoverPanel/HandoverCenter/HandoverBox" unique_id=175954212]
+layout_mode = 2
 theme_override_constants/separation = 12
 
-[node name="HandoverLbl" type="Label" parent="HandoverPanel/HandoverCenter/HandoverBox/HandoverVBox"]
+[node name="HandoverLbl" type="Label" parent="HandoverPanel/HandoverCenter/HandoverBox/HandoverVBox" unique_id=920682089]
 unique_name_in_owner = true
 layout_mode = 2
-horizontal_alignment = 1
-text = "请将设备交给对方玩家"
 theme_override_font_sizes/font_size = 14
+text = "请将设备交给对方玩家"
+horizontal_alignment = 1
 
-[node name="HandoverBtn" type="Button" parent="HandoverPanel/HandoverCenter/HandoverBox/HandoverVBox"]
+[node name="HandoverBtn" type="Button" parent="HandoverPanel/HandoverCenter/HandoverBox/HandoverVBox" unique_id=1572823730]
 unique_name_in_owner = true
 layout_mode = 2
 text = "已准备好，继续"
 
-[node name="CoinFlipOverlay" type="Panel" parent="."]
+[node name="CoinFlipOverlay" type="Panel" parent="." unique_id=216260758]
 unique_name_in_owner = true
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
 visible = false
 self_modulate = Color(0, 0, 0, 0.4)
-
-[node name="CoinCenter" type="CenterContainer" parent="CoinFlipOverlay"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 
-[node name="CoinBox" type="PanelContainer" parent="CoinFlipOverlay/CoinCenter"]
-layout_mode = 2
+[node name="CoinCenter" type="CenterContainer" parent="CoinFlipOverlay" unique_id=480634349]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="CoinBox" type="PanelContainer" parent="CoinFlipOverlay/CoinCenter" unique_id=1815177229]
 custom_minimum_size = Vector2(260, 100)
+layout_mode = 2
 
-[node name="CoinVBox" type="VBoxContainer" parent="CoinFlipOverlay/CoinCenter/CoinBox"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 12.0
-offset_top = 12.0
-offset_right = -12.0
-offset_bottom = -12.0
+[node name="CoinVBox" type="VBoxContainer" parent="CoinFlipOverlay/CoinCenter/CoinBox" unique_id=26895826]
+layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="CoinResultLbl" type="Label" parent="CoinFlipOverlay/CoinCenter/CoinBox/CoinVBox"]
+[node name="CoinResultLbl" type="Label" parent="CoinFlipOverlay/CoinCenter/CoinBox/CoinVBox" unique_id=488314629]
 unique_name_in_owner = true
 layout_mode = 2
-horizontal_alignment = 1
-text = "投币结果：正面"
 theme_override_font_sizes/font_size = 16
+text = "投币结果：正面"
+horizontal_alignment = 1
 
-[node name="CoinOkBtn" type="Button" parent="CoinFlipOverlay/CoinCenter/CoinBox/CoinVBox"]
+[node name="CoinOkBtn" type="Button" parent="CoinFlipOverlay/CoinCenter/CoinBox/CoinVBox" unique_id=1219051852]
 unique_name_in_owner = true
 layout_mode = 2
 text = "确定"
 
-[node name="DetailOverlay" type="Panel" parent="."]
+[node name="DetailOverlay" type="Panel" parent="." unique_id=27960061]
 unique_name_in_owner = true
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
 visible = false
 self_modulate = Color(0, 0, 0, 0.5)
-
-[node name="DetailCenter" type="CenterContainer" parent="DetailOverlay"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 
-[node name="DetailBox" type="PanelContainer" parent="DetailOverlay/DetailCenter"]
-layout_mode = 2
+[node name="DetailCenter" type="CenterContainer" parent="DetailOverlay" unique_id=600247712]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="DetailBox" type="PanelContainer" parent="DetailOverlay/DetailCenter" unique_id=63416158]
 custom_minimum_size = Vector2(380, 340)
+layout_mode = 2
 
-[node name="DetailVBox" type="VBoxContainer" parent="DetailOverlay/DetailCenter/DetailBox"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 10.0
-offset_top = 10.0
-offset_right = -10.0
-offset_bottom = -10.0
+[node name="DetailVBox" type="VBoxContainer" parent="DetailOverlay/DetailCenter/DetailBox" unique_id=249790216]
+layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="DetailTitle" type="Label" parent="DetailOverlay/DetailCenter/DetailBox/DetailVBox"]
+[node name="DetailTitle" type="Label" parent="DetailOverlay/DetailCenter/DetailBox/DetailVBox" unique_id=1152434499]
 unique_name_in_owner = true
 layout_mode = 2
-horizontal_alignment = 1
 theme_override_font_sizes/font_size = 15
+horizontal_alignment = 1
 
-[node name="DetailContent" type="RichTextLabel" parent="DetailOverlay/DetailCenter/DetailBox/DetailVBox"]
+[node name="DetailContent" type="RichTextLabel" parent="DetailOverlay/DetailCenter/DetailBox/DetailVBox" unique_id=1715606713]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
 bbcode_enabled = true
-theme_override_font_sizes/font_size = 11
 
-[node name="DetailCloseBtn" type="Button" parent="DetailOverlay/DetailCenter/DetailBox/DetailVBox"]
+[node name="DetailCloseBtn" type="Button" parent="DetailOverlay/DetailCenter/DetailBox/DetailVBox" unique_id=1707583303]
 unique_name_in_owner = true
 layout_mode = 2
 text = "关闭"
 
-[node name="DiscardOverlay" type="Panel" parent="."]
+[node name="DiscardOverlay" type="Panel" parent="." unique_id=157997686]
 unique_name_in_owner = true
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
 visible = false
 self_modulate = Color(0, 0, 0, 0.5)
-
-[node name="DiscardCenter" type="CenterContainer" parent="DiscardOverlay"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 
-[node name="DiscardBox" type="PanelContainer" parent="DiscardOverlay/DiscardCenter"]
-layout_mode = 2
+[node name="DiscardCenter" type="CenterContainer" parent="DiscardOverlay" unique_id=578492702]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="DiscardBox" type="PanelContainer" parent="DiscardOverlay/DiscardCenter" unique_id=137525749]
 custom_minimum_size = Vector2(360, 320)
+layout_mode = 2
 
-[node name="DiscardVBox" type="VBoxContainer" parent="DiscardOverlay/DiscardCenter/DiscardBox"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 8.0
-offset_top = 8.0
-offset_right = -8.0
-offset_bottom = -8.0
+[node name="DiscardVBox" type="VBoxContainer" parent="DiscardOverlay/DiscardCenter/DiscardBox" unique_id=2048576122]
+layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="DiscardTitle" type="Label" parent="DiscardOverlay/DiscardCenter/DiscardBox/DiscardVBox"]
+[node name="DiscardTitle" type="Label" parent="DiscardOverlay/DiscardCenter/DiscardBox/DiscardVBox" unique_id=893555553]
 unique_name_in_owner = true
 layout_mode = 2
-horizontal_alignment = 1
 theme_override_font_sizes/font_size = 13
+horizontal_alignment = 1
 
-[node name="DiscardList" type="ItemList" parent="DiscardOverlay/DiscardCenter/DiscardBox/DiscardVBox"]
+[node name="DiscardList" type="ItemList" parent="DiscardOverlay/DiscardCenter/DiscardBox/DiscardVBox" unique_id=1936394829]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
 theme_override_font_sizes/font_size = 11
 
-[node name="DiscardCloseBtn" type="Button" parent="DiscardOverlay/DiscardCenter/DiscardBox/DiscardVBox"]
+[node name="DiscardCloseBtn" type="Button" parent="DiscardOverlay/DiscardCenter/DiscardBox/DiscardVBox" unique_id=562778835]
 unique_name_in_owner = true
 layout_mode = 2
 text = "关闭"
 
-[node name="ReviewOverlay" type="Panel" parent="."]
+[node name="ReviewOverlay" type="Panel" parent="." unique_id=372464863]
 unique_name_in_owner = true
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
 visible = false
 self_modulate = Color(0, 0, 0, 0.5)
-
-[node name="ReviewCenter" type="CenterContainer" parent="ReviewOverlay"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 
-[node name="ReviewBox" type="PanelContainer" parent="ReviewOverlay/ReviewCenter"]
-layout_mode = 2
+[node name="ReviewCenter" type="CenterContainer" parent="ReviewOverlay" unique_id=1029586521]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="ReviewBox" type="PanelContainer" parent="ReviewOverlay/ReviewCenter" unique_id=1014595538]
 custom_minimum_size = Vector2(520, 420)
+layout_mode = 2
 
-[node name="ReviewVBox" type="VBoxContainer" parent="ReviewOverlay/ReviewCenter/ReviewBox"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 10.0
-offset_top = 10.0
-offset_right = -10.0
-offset_bottom = -10.0
+[node name="ReviewVBox" type="VBoxContainer" parent="ReviewOverlay/ReviewCenter/ReviewBox" unique_id=320556176]
+layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="ReviewTitle" type="Label" parent="ReviewOverlay/ReviewCenter/ReviewBox/ReviewVBox"]
+[node name="ReviewTitle" type="Label" parent="ReviewOverlay/ReviewCenter/ReviewBox/ReviewVBox" unique_id=224988259]
 unique_name_in_owner = true
 layout_mode = 2
-horizontal_alignment = 1
-text = "AI复盘"
 theme_override_font_sizes/font_size = 15
+text = "AI复盘"
+horizontal_alignment = 1
 
-[node name="ReviewContent" type="RichTextLabel" parent="ReviewOverlay/ReviewCenter/ReviewBox/ReviewVBox"]
+[node name="ReviewContent" type="RichTextLabel" parent="ReviewOverlay/ReviewCenter/ReviewBox/ReviewVBox" unique_id=1943820871]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
 bbcode_enabled = true
-theme_override_font_sizes/font_size = 11
 
-[node name="ReviewButtons" type="HBoxContainer" parent="ReviewOverlay/ReviewCenter/ReviewBox/ReviewVBox"]
+[node name="ReviewButtons" type="HBoxContainer" parent="ReviewOverlay/ReviewCenter/ReviewBox/ReviewVBox" unique_id=259121667]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="ReviewRegenerateBtn" type="Button" parent="ReviewOverlay/ReviewCenter/ReviewBox/ReviewVBox/ReviewButtons"]
+[node name="ReviewRegenerateBtn" type="Button" parent="ReviewOverlay/ReviewCenter/ReviewBox/ReviewVBox/ReviewButtons" unique_id=997174654]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 text = "重新生成"
 
-[node name="ReviewCloseBtn" type="Button" parent="ReviewOverlay/ReviewCenter/ReviewBox/ReviewVBox/ReviewButtons"]
+[node name="ReviewCloseBtn" type="Button" parent="ReviewOverlay/ReviewCenter/ReviewBox/ReviewVBox/ReviewButtons" unique_id=1000104310]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3

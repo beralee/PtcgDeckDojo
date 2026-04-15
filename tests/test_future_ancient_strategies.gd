@@ -268,6 +268,436 @@ func test_iron_thorns_prefers_turbo_energize_line_while_lock_is_still_charging()
 	])
 
 
+func test_iron_thorns_prefers_ditto_transform_into_lock_over_attaching_to_ditto() -> String:
+	var strategy := _new_strategy(IRON_THORNS_SCRIPT_PATH)
+	if strategy == null:
+		return "DeckStrategyIronThorns.gd should exist before Ditto opening-transform timing can be tested"
+	var gs := _make_game_state(1)
+	var player := gs.players[0]
+	var ditto := _make_slot(_make_pokemon_cd("Ditto", "Basic", "C", 70), 0)
+	player.active_pokemon = ditto
+	player.deck.append(CardInstance.create(
+		_make_pokemon_cd("Iron Thorns ex", "Basic", "L", 230, "ex", [{"name": "Volt Cyclone", "cost": "LC", "damage": "140"}], ["Future"]),
+		0
+	))
+	var ability_score: float = strategy.score_action_absolute(
+		{"kind": "use_ability", "source_slot": ditto, "ability_index": 0},
+		gs,
+		0
+	)
+	var attach_score: float = strategy.score_action_absolute(
+		{"kind": "attach_energy", "card": CardInstance.create(_make_energy_cd("Lightning Energy", "L"), 0), "target_slot": ditto},
+		gs,
+		0
+	)
+	var iron_thorns_target := CardInstance.create(
+		_make_pokemon_cd("Iron Thorns ex", "Basic", "L", 230, "ex", [{"name": "Volt Cyclone", "cost": "LC", "damage": "140"}], ["Future"]),
+		0
+	)
+	var generic_target := CardInstance.create(_make_pokemon_cd("Raikou V", "Basic", "L", 200, "V"), 0)
+	var transform_step := {"id": "transform_target"}
+	var iron_thorns_target_score: float = strategy.score_interaction_target(iron_thorns_target, transform_step, {})
+	var generic_target_score: float = strategy.score_interaction_target(generic_target, transform_step, {})
+	return run_checks([
+		assert_true(ability_score > attach_score, "Iron Thorns should transform Ditto into the lock attacker before spending the turn attaching to Ditto"),
+		assert_true(ability_score >= 300.0, "Ditto opening transform should be a clearly positive Iron Thorns line"),
+		assert_true(iron_thorns_target_score > generic_target_score, "Ditto transform should prefer Iron Thorns over off-plan basic targets"),
+	])
+
+
+func test_iron_thorns_cools_off_extra_ditto_and_churn_once_lock_is_online() -> String:
+	var strategy := _new_strategy(IRON_THORNS_SCRIPT_PATH)
+	if strategy == null:
+		return "DeckStrategyIronThorns.gd should exist before Iron Thorns pressure-phase churn can be tested"
+	var gs := _make_game_state(4)
+	var player := gs.players[0]
+	var active_thorns := _make_slot(
+		_make_pokemon_cd("Iron Thorns ex", "Basic", "L", 230, "ex", [{"name": "Volt Cyclone", "cost": "LC", "damage": "140"}], ["Future"]),
+		0
+	)
+	active_thorns.attached_energy.append(CardInstance.create(_make_energy_cd("Lightning Energy", "L"), 0))
+	active_thorns.attached_energy.append(CardInstance.create(_make_energy_cd("Double Turbo Energy", "CC", "Special Energy"), 0))
+	player.active_pokemon = active_thorns
+	player.bench.append(_make_slot(
+		_make_pokemon_cd("Iron Thorns ex", "Basic", "L", 230, "ex", [{"name": "Volt Cyclone", "cost": "LC", "damage": "140"}], ["Future"]),
+		0
+	))
+	gs.players[1].active_pokemon = _make_slot(_make_pokemon_cd("Miraidon ex", "Basic", "L", 220, "ex", [], []), 1)
+	var ditto_score: float = strategy.score_action_absolute(
+		{"kind": "play_basic_to_bench", "card": CardInstance.create(_make_pokemon_cd("Ditto", "Basic", "C", 70), 0)},
+		gs,
+		0
+	)
+	var gear_score: float = strategy.score_action_absolute(
+		{"kind": "play_trainer", "card": CardInstance.create(_make_trainer_cd("Pokégear 3.0"), 0)},
+		gs,
+		0
+	)
+	var cologne_score: float = strategy.score_action_absolute(
+		{"kind": "play_trainer", "card": CardInstance.create(_make_trainer_cd("Canceling Cologne"), 0)},
+		gs,
+		0
+	)
+	var research_score: float = strategy.score_action_absolute(
+		{"kind": "play_trainer", "card": CardInstance.create(_make_trainer_cd("Professor's Research", "Supporter"), 0)},
+		gs,
+		0
+	)
+	var judge_score: float = strategy.score_action_absolute(
+		{"kind": "play_trainer", "card": CardInstance.create(_make_trainer_cd("Judge", "Supporter"), 0)},
+		gs,
+		0
+	)
+	return run_checks([
+		assert_true(ditto_score <= 40.0, "Iron Thorns should cool off extra Ditto benching once the lock shell is already online"),
+		assert_true(gear_score <= 80.0, "Iron Thorns should sharply cool off Pokégear once the lock attacker is already live"),
+		assert_true(cologne_score <= 80.0, "Iron Thorns should not spend turns on Cologne churn when the active lock is already established"),
+		assert_true(research_score <= 80.0, "Iron Thorns should cool off broad discard-draw once the lock shell is already online"),
+		assert_true(judge_score > research_score, "Iron Thorns should still prefer live disruption over generic churn while pressuring"),
+	])
+
+
+func test_iron_thorns_cologne_is_dead_when_active_lock_already_blanks_rule_box() -> String:
+	var strategy := _new_strategy(IRON_THORNS_SCRIPT_PATH)
+	if strategy == null:
+		return "DeckStrategyIronThorns.gd should exist before Cologne timing can be tested"
+	var gs := _make_game_state(3)
+	var active_thorns := _make_slot(
+		_make_pokemon_cd("Iron Thorns ex", "Basic", "L", 230, "ex", [{"name": "Volt Cyclone", "cost": "LC", "damage": "140"}], ["Future"]),
+		0
+	)
+	active_thorns.attached_energy.append(CardInstance.create(_make_energy_cd("Lightning Energy", "L"), 0))
+	gs.players[0].active_pokemon = active_thorns
+	gs.players[1].active_pokemon = _make_slot(_make_pokemon_cd("Miraidon ex", "Basic", "L", 220, "ex", [], []), 1)
+	var cologne_score: float = strategy.score_action_absolute(
+		{"kind": "play_trainer", "card": CardInstance.create(_make_trainer_cd("Canceling Cologne"), 0)},
+		gs,
+		0
+	)
+	var end_turn_score: float = strategy.score_action_absolute({"kind": "end_turn"}, gs, 0)
+	return run_checks([
+		assert_true(cologne_score < end_turn_score, "Iron Thorns should treat Cologne as dead when its active lock already blanks the opponent rule-box Pokemon"),
+	])
+
+
+func test_iron_thorns_cologne_is_dead_before_attack_window_opens() -> String:
+	var strategy := _new_strategy(IRON_THORNS_SCRIPT_PATH)
+	if strategy == null:
+		return "DeckStrategyIronThorns.gd should exist before pre-attack Cologne timing can be tested"
+	var gs := _make_game_state(3)
+	var active_thorns := _make_slot(
+		_make_pokemon_cd("Iron Thorns ex", "Basic", "L", 230, "ex", [{"name": "Volt Cyclone", "cost": "LC", "damage": "140"}], ["Future"]),
+		0
+	)
+	active_thorns.attached_energy.append(CardInstance.create(_make_energy_cd("Lightning Energy", "L"), 0))
+	gs.players[0].active_pokemon = active_thorns
+	gs.players[1].active_pokemon = _make_slot(
+		_make_pokemon_cd("Iron Hands ex", "Basic", "L", 230, "ex", [], ["Future"]),
+		1
+	)
+	var cologne_score: float = strategy.score_action_absolute(
+		{"kind": "play_trainer", "card": CardInstance.create(_make_trainer_cd("Canceling Cologne"), 0)},
+		gs,
+		0
+	)
+	var end_turn_score: float = strategy.score_action_absolute({"kind": "end_turn"}, gs, 0)
+	return run_checks([
+		assert_true(cologne_score < end_turn_score, "Iron Thorns should not burn Cologne before it can attack and actually cash in the effect"),
+	])
+
+
+func test_iron_thorns_penny_is_dead_once_lock_shell_is_online() -> String:
+	var strategy := _new_strategy(IRON_THORNS_SCRIPT_PATH)
+	if strategy == null:
+		return "DeckStrategyIronThorns.gd should exist before Penny timing can be tested"
+	var gs := _make_game_state(4)
+	var active_thorns := _make_slot(
+		_make_pokemon_cd("Iron Thorns ex", "Basic", "L", 230, "ex", [{"name": "Volt Cyclone", "cost": "LC", "damage": "140"}], ["Future"]),
+		0
+	)
+	active_thorns.attached_energy.append(CardInstance.create(_make_energy_cd("Lightning Energy", "L"), 0))
+	active_thorns.attached_energy.append(CardInstance.create(_make_energy_cd("Double Turbo Energy", "CC", "Special Energy"), 0))
+	gs.players[0].active_pokemon = active_thorns
+	gs.players[0].bench.append(_make_slot(
+		_make_pokemon_cd("Iron Thorns ex", "Basic", "L", 230, "ex", [{"name": "Volt Cyclone", "cost": "LC", "damage": "140"}], ["Future"]),
+		0
+	))
+	gs.players[1].active_pokemon = _make_slot(_make_pokemon_cd("Miraidon ex", "Basic", "L", 220, "ex", [], []), 1)
+	var penny_score: float = strategy.score_action_absolute(
+		{"kind": "play_trainer", "card": CardInstance.create(_make_trainer_cd("Penny", "Supporter"), 0)},
+		gs,
+		0
+	)
+	var end_turn_score: float = strategy.score_action_absolute({"kind": "end_turn"}, gs, 0)
+	return run_checks([
+		assert_true(penny_score < end_turn_score, "Iron Thorns should not pick up its own charged lock attacker once the pressure shell is already online"),
+	])
+
+
+func test_iron_thorns_denial_cools_off_before_attack_even_with_shell() -> String:
+	var strategy := _new_strategy(IRON_THORNS_SCRIPT_PATH)
+	if strategy == null:
+		return "DeckStrategyIronThorns.gd should exist before pre-attack denial timing can be tested"
+	var gs := _make_game_state(4)
+	var player := gs.players[0]
+	var active_thorns := _make_slot(
+		_make_pokemon_cd("Iron Thorns ex", "Basic", "L", 230, "ex", [{"name": "Volt Cyclone", "cost": "LCC", "damage": "140"}], ["Future"]),
+		0
+	)
+	active_thorns.attached_energy.append(CardInstance.create(_make_energy_cd("Lightning Energy", "L"), 0))
+	player.active_pokemon = active_thorns
+	player.bench.append(_make_slot(
+		_make_pokemon_cd("Iron Thorns ex", "Basic", "L", 230, "ex", [{"name": "Volt Cyclone", "cost": "LCC", "damage": "140"}], ["Future"]),
+		0
+	))
+	var opponent_active := _make_slot(_make_pokemon_cd("Miraidon ex", "Basic", "L", 220, "ex", [], []), 1)
+	opponent_active.attached_energy.append(CardInstance.create(_make_energy_cd("Lightning Energy", "L"), 0))
+	gs.players[1].active_pokemon = opponent_active
+	var judge_score: float = strategy.score_action_absolute(
+		{"kind": "play_trainer", "card": CardInstance.create(_make_trainer_cd("Judge", "Supporter"), 0)},
+		gs,
+		0
+	)
+	var hammer_score: float = strategy.score_action_absolute(
+		{"kind": "play_trainer", "card": CardInstance.create(_make_trainer_cd("Crushing Hammer"), 0)},
+		gs,
+		0
+	)
+	return run_checks([
+		assert_true(judge_score <= 140.0, "Iron Thorns should cool off Judge once the shell is formed but the active lock still cannot attack"),
+		assert_true(hammer_score <= 140.0, "Iron Thorns should cool off Hammer churn until the active lock can actually convert the denial"),
+	])
+
+
+func test_iron_thorns_cools_off_churn_once_lock_shell_is_online_even_before_attack() -> String:
+	var strategy := _new_strategy(IRON_THORNS_SCRIPT_PATH)
+	if strategy == null:
+		return "DeckStrategyIronThorns.gd should exist before early lock-shell churn can be tested"
+	var gs := _make_game_state(4)
+	var player := gs.players[0]
+	var active_thorns := _make_slot(
+		_make_pokemon_cd("Iron Thorns ex", "Basic", "L", 230, "ex", [{"name": "Volt Cyclone", "cost": "LCC", "damage": "140"}], ["Future"]),
+		0
+	)
+	active_thorns.attached_energy.append(CardInstance.create(_make_energy_cd("Lightning Energy", "L"), 0))
+	player.active_pokemon = active_thorns
+	player.bench.append(_make_slot(
+		_make_pokemon_cd("Iron Thorns ex", "Basic", "L", 230, "ex", [{"name": "Volt Cyclone", "cost": "LCC", "damage": "140"}], ["Future"]),
+		0
+	))
+	gs.players[1].active_pokemon = _make_slot(_make_pokemon_cd("Miraidon ex", "Basic", "L", 220, "ex", [], []), 1)
+	var ditto_score: float = strategy.score_action_absolute(
+		{"kind": "play_basic_to_bench", "card": CardInstance.create(_make_pokemon_cd("Ditto", "Basic", "C", 70), 0)},
+		gs,
+		0
+	)
+	var radar_score: float = strategy.score_action_absolute(
+		{"kind": "play_trainer", "card": CardInstance.create(_make_trainer_cd("Techno Radar"), 0)},
+		gs,
+		0
+	)
+	var gear_score: float = strategy.score_action_absolute(
+		{"kind": "play_trainer", "card": CardInstance.create(_make_trainer_cd("Pok茅gear 3.0"), 0)},
+		gs,
+		0
+	)
+	var research_score: float = strategy.score_action_absolute(
+		{"kind": "play_trainer", "card": CardInstance.create(_make_trainer_cd("Professor's Research", "Supporter"), 0)},
+		gs,
+		0
+	)
+	var judge_score: float = strategy.score_action_absolute(
+		{"kind": "play_trainer", "card": CardInstance.create(_make_trainer_cd("Judge", "Supporter"), 0)},
+		gs,
+		0
+	)
+	return run_checks([
+		assert_true(ditto_score <= 40.0, "Iron Thorns should stop adding extra Ditto once an active lock shell and backup attacker are already assembled"),
+		assert_true(radar_score <= 100.0, "Iron Thorns should cool off Techno Radar once the lock shell is already formed, even before the attack cost is fully paid"),
+		assert_true(gear_score <= 80.0, "Iron Thorns should not keep spinning Pok茅gear after the active lock shell is already in place"),
+		assert_true(research_score <= 80.0, "Iron Thorns should cool off broad draw churn once the active lock shell is already established"),
+		assert_true(judge_score > radar_score, "Iron Thorns should still prefer live disruption over more setup churn after the shell is formed"),
+	])
+
+
+func test_iron_thorns_benches_backup_lock_before_non_lethal_attack() -> String:
+	var strategy := _new_strategy(IRON_THORNS_SCRIPT_PATH)
+	if strategy == null:
+		return "DeckStrategyIronThorns.gd should exist before backup-lock transition discipline can be tested"
+	var gs := _make_game_state(4)
+	var player := gs.players[0]
+	var active_thorns := _make_slot(
+		_make_pokemon_cd("Iron Thorns ex", "Basic", "L", 230, "ex", [{"name": "Volt Cyclone", "cost": "LC", "damage": "140"}], ["Future"]),
+		0
+	)
+	active_thorns.attached_energy.append(CardInstance.create(_make_energy_cd("Lightning Energy", "L"), 0))
+	active_thorns.attached_energy.append(CardInstance.create(_make_energy_cd("Double Turbo Energy", "CC", "Special Energy"), 0))
+	player.active_pokemon = active_thorns
+	gs.players[1].active_pokemon = _make_slot(_make_pokemon_cd("Miraidon ex", "Basic", "L", 220, "ex", [], []), 1)
+	var bench_score: float = strategy.score_action_absolute(
+		{"kind": "play_basic_to_bench", "card": CardInstance.create(_make_pokemon_cd("Iron Thorns ex", "Basic", "L", 230, "ex", [], ["Future"]), 0)},
+		gs,
+		0
+	)
+	var attack_score: float = strategy.score_action_absolute(
+		{"kind": "attack", "projected_damage": 140, "projected_knockout": false},
+		gs,
+		0
+	)
+	return run_checks([
+		assert_true(bench_score > attack_score, "Iron Thorns should bench a backup lock attacker before taking a non-lethal swing with no replacement on board"),
+		assert_true(bench_score >= 520.0, "Benching the first backup Iron Thorns should be a clearly urgent transition action"),
+	])
+
+
+func test_iron_thorns_thin_deck_cools_off_setup_churn_even_if_active_isnt_lock() -> String:
+	var strategy := _new_strategy(IRON_THORNS_SCRIPT_PATH)
+	if strategy == null:
+		return "DeckStrategyIronThorns.gd should exist before thin-deck churn discipline can be tested"
+	var gs := _make_game_state(4)
+	var player := gs.players[0]
+	player.active_pokemon = _make_slot(_make_pokemon_cd("Ditto", "Basic", "C", 70), 0)
+	player.bench.append(_make_slot(
+		_make_pokemon_cd("Iron Thorns ex", "Basic", "L", 230, "ex", [{"name": "Volt Cyclone", "cost": "LC", "damage": "140"}], ["Future"]),
+		0
+	))
+	player.bench.append(_make_slot(
+		_make_pokemon_cd("Iron Thorns ex", "Basic", "L", 230, "ex", [{"name": "Volt Cyclone", "cost": "LC", "damage": "140"}], ["Future"]),
+		0
+	))
+	player.deck.clear()
+	for i: int in 4:
+		player.deck.append(CardInstance.create(_make_energy_cd("Lightning Energy", "L"), 0))
+	gs.players[1].active_pokemon = _make_slot(_make_pokemon_cd("Miraidon ex", "Basic", "L", 220, "ex", [], []), 1)
+	var ditto_score: float = strategy.score_action_absolute(
+		{"kind": "play_basic_to_bench", "card": CardInstance.create(_make_pokemon_cd("Ditto", "Basic", "C", 70), 0)},
+		gs,
+		0
+	)
+	var gear_score: float = strategy.score_action_absolute(
+		{"kind": "play_trainer", "card": CardInstance.create(_make_trainer_cd("Pokégear 3.0"), 0)},
+		gs,
+		0
+	)
+	var radar_score: float = strategy.score_action_absolute(
+		{"kind": "play_trainer", "card": CardInstance.create(_make_trainer_cd("Techno Radar"), 0)},
+		gs,
+		0
+	)
+	var colress_score: float = strategy.score_action_absolute(
+		{"kind": "play_trainer", "card": CardInstance.create(_make_trainer_cd("Colress's Tenacity", "Supporter"), 0)},
+		gs,
+		0
+	)
+	var arven_score: float = strategy.score_action_absolute(
+		{"kind": "play_trainer", "card": CardInstance.create(_make_trainer_cd("Arven", "Supporter"), 0)},
+		gs,
+		0
+	)
+	return run_checks([
+		assert_true(ditto_score <= 40.0, "Iron Thorns should stop adding extra Ditto in thin-deck endgames once two lock attackers are already on board"),
+		assert_true(gear_score <= 80.0, "Iron Thorns should cool off Pokégear in thin-deck endgames once the shell is already formed"),
+		assert_true(radar_score <= 100.0, "Iron Thorns should cool off Techno Radar in thin-deck endgames once two lock attackers are already online"),
+		assert_true(colress_score <= 100.0, "Iron Thorns should stop spending thin-deck turns on Tenacity-style setup churn after the shell is formed"),
+		assert_true(arven_score <= 120.0, "Iron Thorns should not keep searching setup tools in thin-deck endgames once the lock shell is already assembled"),
+	])
+
+
+func test_iron_thorns_retreat_prefers_ready_lock_target_over_unready_backup() -> String:
+	var strategy := _new_strategy(IRON_THORNS_SCRIPT_PATH)
+	if strategy == null:
+		return "DeckStrategyIronThorns.gd should exist before retreat-target discipline can be tested"
+	var gs := _make_game_state(4)
+	var player := gs.players[0]
+	var active_ditto := _make_slot(_make_pokemon_cd("Ditto", "Basic", "C", 70), 0)
+	player.active_pokemon = active_ditto
+	var ready_thorns := _make_slot(
+		_make_pokemon_cd("Iron Thorns ex", "Basic", "L", 230, "ex", [{"name": "Volt Cyclone", "cost": "LC", "damage": "140"}], ["Future"]),
+		0
+	)
+	ready_thorns.attached_energy.append(CardInstance.create(_make_energy_cd("Lightning Energy", "L"), 0))
+	ready_thorns.attached_energy.append(CardInstance.create(_make_energy_cd("Double Turbo Energy", "CC", "Special Energy"), 0))
+	var unready_thorns := _make_slot(
+		_make_pokemon_cd("Iron Thorns ex", "Basic", "L", 230, "ex", [{"name": "Volt Cyclone", "cost": "LC", "damage": "140"}], ["Future"]),
+		0
+	)
+	player.bench.append(ready_thorns)
+	player.bench.append(unready_thorns)
+	gs.players[1].active_pokemon = _make_slot(_make_pokemon_cd("Miraidon ex", "Basic", "L", 220, "ex", [], []), 1)
+	var ready_retreat_score: float = strategy.score_action_absolute(
+		{"kind": "retreat", "bench_target": ready_thorns},
+		gs,
+		0
+	)
+	var unready_retreat_score: float = strategy.score_action_absolute(
+		{"kind": "retreat", "bench_target": unready_thorns},
+		gs,
+		0
+	)
+	return run_checks([
+		assert_true(ready_retreat_score > unready_retreat_score, "Iron Thorns should distinguish retreat targets and prefer the ready lock attacker over an unready backup"),
+		assert_true(unready_retreat_score <= 0.0, "Iron Thorns should penalize retreating into an unready lock target when no immediate pressure is gained"),
+	])
+
+
+func test_iron_thorns_prioritizes_lost_city_as_a_real_stadium_action() -> String:
+	var strategy := _new_strategy(IRON_THORNS_SCRIPT_PATH)
+	if strategy == null:
+		return "DeckStrategyIronThorns.gd should exist before Lost City stadium timing can be tested"
+	var gs := _make_game_state(4)
+	var active_thorns := _make_slot(
+		_make_pokemon_cd("Iron Thorns ex", "Basic", "L", 230, "ex", [{"name": "Volt Cyclone", "cost": "LC", "damage": "140"}], ["Future"]),
+		0
+	)
+	active_thorns.attached_energy.append(CardInstance.create(_make_energy_cd("Lightning Energy", "L"), 0))
+	active_thorns.attached_energy.append(CardInstance.create(_make_energy_cd("Double Turbo Energy", "CC", "Special Energy"), 0))
+	gs.players[0].active_pokemon = active_thorns
+	gs.players[1].active_pokemon = _make_slot(_make_pokemon_cd("Miraidon ex", "Basic", "L", 220, "ex", [], []), 1)
+	var lost_city_score: float = strategy.score_action_absolute(
+		{"kind": "play_stadium", "card": CardInstance.create(_make_trainer_cd("Lost City", "Stadium"), 0)},
+		gs,
+		0
+	)
+	var gear_score: float = strategy.score_action_absolute(
+		{"kind": "play_trainer", "card": CardInstance.create(_make_trainer_cd("Pokégear 3.0"), 0)},
+		gs,
+		0
+	)
+	return run_checks([
+		assert_true(lost_city_score >= 220.0, "Iron Thorns should treat Lost City as a clearly positive stadium action while the lock attacker is active"),
+		assert_true(lost_city_score > gear_score, "Iron Thorns should value Lost City above marginal churn when setting the lock field"),
+	])
+
+
+func test_iron_thorns_keeps_ready_lock_active_instead_of_free_retreats() -> String:
+	var strategy := _new_strategy(IRON_THORNS_SCRIPT_PATH)
+	if strategy == null:
+		return "DeckStrategyIronThorns.gd should exist before ready-lock retreat discipline can be tested"
+	var gs := _make_game_state(4)
+	var active_thorns := _make_slot(
+		_make_pokemon_cd("Iron Thorns ex", "Basic", "L", 230, "ex", [{"name": "Volt Cyclone", "cost": "LC", "damage": "140"}], ["Future"]),
+		0
+	)
+	active_thorns.attached_energy.append(CardInstance.create(_make_energy_cd("Lightning Energy", "L"), 0))
+	active_thorns.attached_energy.append(CardInstance.create(_make_energy_cd("Double Turbo Energy", "CC", "Special Energy"), 0))
+	gs.players[0].active_pokemon = active_thorns
+	gs.players[0].bench.append(_make_slot(
+		_make_pokemon_cd("Iron Thorns ex", "Basic", "L", 230, "ex", [{"name": "Volt Cyclone", "cost": "LC", "damage": "140"}], ["Future"]),
+		0
+	))
+	gs.players[1].active_pokemon = _make_slot(_make_pokemon_cd("Miraidon ex", "Basic", "L", 220, "ex", [], []), 1)
+	var retreat_score: float = strategy.score_action_absolute({"kind": "retreat"}, gs, 0)
+	var attack_score: float = strategy.score_action_absolute(
+		{"kind": "attack", "projected_damage": 140, "projected_knockout": false},
+		gs,
+		0
+	)
+	return run_checks([
+		assert_true(retreat_score <= 0.0, "Iron Thorns should penalize free retreats away from a ready active lock attacker"),
+		assert_true(attack_score > retreat_score, "Iron Thorns should prefer keeping pressure with the ready lock attack over retreating"),
+	])
+
+
 func test_raging_bolt_prioritizes_sada_and_burst_energy_lines() -> String:
 	var strategy := _new_strategy(RAGING_BOLT_SCRIPT_PATH)
 	if strategy == null:

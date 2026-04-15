@@ -8,7 +8,7 @@ const AIOpponentScript = preload("res://scripts/ai/AIOpponent.gd")
 class EndTurnStubBattleScene extends Control:
 	var end_turn_calls: int = 0
 
-	func _on_end_turn() -> void:
+	func _on_end_turn(_action_player_index: int = -1) -> void:
 		end_turn_calls += 1
 
 

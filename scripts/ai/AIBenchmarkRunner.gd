@@ -339,7 +339,7 @@ func run_headless_duel(
 					break
 			else:
 				var pending_choice: String = bridge.get_pending_prompt_type()
-				if pending_choice == "effect_interaction" or pending_choice == "heavy_baton_target":
+				if pending_choice == "effect_interaction" or pending_choice == "heavy_baton_target" or pending_choice == "send_out":
 					if not bridge.has_method("supports_effect_interaction_execution") \
 							or not bool(bridge.call("supports_effect_interaction_execution")):
 						if pending_choice != "effect_interaction":
@@ -357,7 +357,7 @@ func run_headless_duel(
 						break
 					progressed = prompt_ai.run_single_step(bridge, gsm)
 					if not progressed:
-						if pending_choice == "heavy_baton_target":
+						if pending_choice == "heavy_baton_target" or pending_choice == "send_out":
 							result = _make_failed_match_result("unsupported_prompt", steps + 1, gsm)
 							break
 						result = _make_failed_match_result("unsupported_interaction_step", steps + 1, gsm)
