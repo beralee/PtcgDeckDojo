@@ -1,4 +1,4 @@
-﻿## BattleScene
+## BattleScene
 extends Control
 
 # ===================== Constants =====================
@@ -15,6 +15,7 @@ const BattleRecorderScript := preload("res://scripts/engine/BattleRecorder.gd")
 const BattleReplaySnapshotLoaderScript := preload("res://scripts/engine/BattleReplaySnapshotLoader.gd")
 const BattleReplayStateRestorerScript := preload("res://scripts/engine/BattleReplayStateRestorer.gd")
 const BattleAdviceServiceScript := preload("res://scripts/engine/BattleAdviceService.gd")
+const BattleLearningPoolStoreScript := preload("res://scripts/engine/BattleLearningPoolStore.gd")
 const BattleReviewArtifactStoreScript := preload("res://scripts/engine/BattleReviewArtifactStore.gd")
 const BattleReviewServiceScript := preload("res://scripts/engine/BattleReviewService.gd")
 const BattleSceneRefsScript := preload("res://scenes/battle/BattleSceneRefs.gd")
@@ -152,6 +153,7 @@ var _battle_recording_context_captured: bool = false
 var _battle_recording_output_root: String = ""
 var _battle_review_service: RefCounted = null
 var _battle_review_store: RefCounted = BattleReviewArtifactStoreScript.new()
+var _battle_learning_store: RefCounted = BattleLearningPoolStoreScript.new()
 var _battle_review_match_dir: String = ""
 var _battle_review_last_review: Dictionary = {}
 var _battle_review_busy: bool = false
@@ -491,6 +493,24 @@ func _ready() -> void:
 func _exit_tree() -> void:
 	_stop_all_deck_shuffle_effects()
 	BattleMusicManager.stop_battle_music()
+	_release_game_state_machine()
+
+
+func _release_game_state_machine() -> void:
+	if _gsm == null:
+		return
+	if _gsm.state_changed.is_connected(_on_state_changed):
+		_gsm.state_changed.disconnect(_on_state_changed)
+	if _gsm.action_logged.is_connected(_on_action_logged):
+		_gsm.action_logged.disconnect(_on_action_logged)
+	if _gsm.player_choice_required.is_connected(_on_player_choice_required):
+		_gsm.player_choice_required.disconnect(_on_player_choice_required)
+	if _gsm.game_over.is_connected(_on_game_over):
+		_gsm.game_over.disconnect(_on_game_over)
+	if _gsm.coin_flipper != null and _gsm.coin_flipper.coin_flipped.is_connected(_on_coin_flipped):
+		_gsm.coin_flipper.coin_flipped.disconnect(_on_coin_flipped)
+	_gsm.prepare_for_disposal()
+	_gsm = null
 
 
 func _build_game_state_machine() -> GameStateMachine:
@@ -1235,10 +1255,11 @@ func _on_state_changed(_new_phase: GameState.GamePhase) -> void:
 func _on_action_logged(action: GameAction) -> void:
 	_capture_battle_recording_context_if_ready()
 	if action.description != "":
+		var display_description := _format_action_description_for_display(action.description)
 		if action.player_index != _view_player:
-			_latest_opponent_action_text = action.description
+			_latest_opponent_action_text = display_description
 			_latest_opponent_action_turn_number = action.turn_number
-		_log(action.description)
+		_log(display_description)
 	if (
 		action != null
 		and action.action_type == GameAction.ActionType.DRAW_CARD
@@ -1269,14 +1290,23 @@ func _on_action_logged(action: GameAction) -> void:
 		"player_index": action.player_index,
 		"turn_number": action.turn_number,
 		"phase": _recording_phase_name(),
-		"description": action.description,
+		"description": _format_action_description_for_display(action.description),
 		"data": action.data.duplicate(true),
 	})
 	_record_battle_state_snapshot("after_action_resolved", {
 		"action_type": action.action_type,
-		"description": action.description,
+		"description": _format_action_description_for_display(action.description),
 		"resolved_player_index": action.player_index,
 	})
+
+
+func _format_action_description_for_display(description: String) -> String:
+	var rendered := description
+	for player_index: int in 2:
+		var display_name := GameManager.resolve_battle_player_display_name(player_index)
+		rendered = rendered.replace("玩家%d" % (player_index + 1), display_name)
+		rendered = rendered.replace("玩家 %d" % (player_index + 1), display_name)
+	return rendered
 
 
 func _on_player_choice_required(choice_type: String, data: Dictionary) -> void:
@@ -1359,6 +1389,15 @@ func _on_game_over(winner_index: int, reason: String) -> void:
 	})
 	if _battle_recorder != null and _battle_recorder.has_method("get_match_dir"):
 		_battle_review_match_dir = str(_battle_recorder.call("get_match_dir"))
+	if GameManager.has_active_tournament():
+		GameManager.finalize_current_tournament_battle(winner_index, reason)
+		_finalize_battle_recording({
+			"winner_index": winner_index,
+			"reason": reason,
+			"turn_number": _gsm.game_state.turn_number if _gsm != null and _gsm.game_state != null else 0,
+		})
+		GameManager.goto_tournament_standings()
+		return
 	_show_match_end_dialog(winner_index, reason)
 	_finalize_battle_recording({
 		"winner_index": winner_index,
@@ -2278,7 +2317,11 @@ func _handle_dialog_choice(selected_indices: PackedInt32Array) -> void:
 					_refresh_ui_after_successful_action(false, cp)
 		"confirm_exit":
 			if idx == 0:
-				GameManager.goto_battle_setup()
+				if GameManager.has_active_tournament():
+					GameManager.forfeit_current_tournament_battle("技术负（退出对局）")
+					GameManager.goto_tournament_standings()
+				else:
+					GameManager.goto_battle_setup()
 		"zeus_help":
 			var zeus_player_index: int = int(_dialog_data.get("player", _view_player))
 			var zeus_dialog_cards: Array = _dialog_data.get("deck_cards", [])
@@ -2290,17 +2333,28 @@ func _handle_dialog_choice(selected_indices: PackedInt32Array) -> void:
 			_apply_zeus_help(zeus_player_index, selected_cards)
 		"game_over":
 			var review_action_kind: String = str(_dialog_data.get("review_action", ""))
-			if review_action_kind != "":
-				if idx == 1:
-					match review_action_kind:
-						"generate", "retry":
-							_begin_battle_review_generation()
-						"view":
-							_open_cached_battle_review()
-				elif idx == 2:
+			var review_action_index: int = int(_dialog_data.get("review_action_index", -1))
+			var learning_action_kind: String = str(_dialog_data.get("learning_action", ""))
+			var learning_action_index: int = int(_dialog_data.get("learning_action_index", -1))
+			var return_action_index: int = int(_dialog_data.get("return_action_index", -1))
+			if idx == review_action_index and review_action_kind != "":
+				match review_action_kind:
+					"generate", "retry":
+						_begin_battle_review_generation()
+					"view":
+						_open_cached_battle_review()
+			elif idx == learning_action_index and learning_action_kind != "":
+				match learning_action_kind:
+					"mark":
+						_mark_current_match_for_learning()
+					"marked":
+						_log("该对局已在学习池中")
+			elif idx == return_action_index:
+				if GameManager.has_active_tournament():
+					GameManager.clear_tournament()
+					GameManager.goto_main_menu()
+				else:
 					GameManager.goto_battle_setup()
-			elif idx == 1:
-				GameManager.goto_battle_setup()
 		"effect_interaction":
 			_handle_effect_interaction_choice(selected_indices)
 		_:
@@ -2362,14 +2416,14 @@ func _prompt_send_out_dialog(pi: int) -> void:
 	if GameManager.current_mode == GameManager.GameMode.TWO_PLAYER and pi != _view_player:
 		_show_handover_prompt(pi, func() -> void:
 			_set_handover_panel_visible(false, "send_out_follow_up")
-			_view_player = pi
+			_view_player = _preferred_live_view_player(pi)
 			_refresh_ui()
 			_show_send_out_dialog(pi)
 		)
 		return
 
 	_set_handover_panel_visible(false, "send_out_direct")
-	_view_player = pi
+	_view_player = _preferred_live_view_player(pi)
 	_refresh_ui()
 	_show_send_out_dialog(pi)
 
@@ -2385,15 +2439,36 @@ func _prompt_heavy_baton_dialog(
 	source_name: String
 ) -> void:
 	_pending_choice = "heavy_baton_target"
+	var dialog_data := {
+		"player": pi,
+		"bench": bench_targets.duplicate(),
+		"min_select": 1,
+		"max_select": 1,
+		"allow_cancel": false,
+	}
+	_ensure_ai_opponent()
+	var is_ai_prompt: bool = GameManager.current_mode == GameManager.GameMode.VS_AI and _ai_opponent != null and pi == _ai_opponent.player_index
+	if is_ai_prompt:
+		_dialog_data = dialog_data
+		_dialog_items_data = bench_targets.duplicate()
+		_hide_field_interaction()
+		if _dialog_overlay != null:
+			_dialog_overlay.visible = false
+		if _dialog_cancel != null:
+			_dialog_cancel.visible = false
+		_set_handover_panel_visible(false, "heavy_baton_ai_owned")
+		_refresh_ui()
+		_maybe_run_ai()
+		return
 	if GameManager.current_mode == GameManager.GameMode.TWO_PLAYER and pi != _view_player:
 		_show_handover_prompt(pi, func() -> void:
 			_set_handover_panel_visible(false, "heavy_baton_follow_up")
-			_view_player = pi
+			_view_player = _preferred_live_view_player(pi)
 			_refresh_ui()
 			_show_heavy_baton_dialog(pi, bench_targets, energy_count, source_name)
 		)
 		return
-	_view_player = pi
+	_view_player = _preferred_live_view_player(pi)
 	_refresh_ui()
 	_show_heavy_baton_dialog(pi, bench_targets, energy_count, source_name)
 
@@ -2519,6 +2594,10 @@ func _try_use_attack_with_interaction(
 	var effects: Array[BaseEffect] = _gsm.effect_processor.get_attack_effects_for_slot(slot, attack_index)
 	for effect: BaseEffect in effects:
 		steps.append_array(effect.get_attack_interaction_steps(card, attack, _gsm.game_state))
+	var defender: PokemonSlot = null
+	if _gsm != null and _gsm.game_state != null and player_index >= 0 and player_index < _gsm.game_state.players.size():
+		defender = _gsm.game_state.players[1 - player_index].active_pokemon
+	steps.append_array(_gsm.get_post_damage_defender_interaction_steps(slot, defender))
 	if not preselected_targets.is_empty():
 		if _gsm.use_attack(player_index, attack_index, preselected_targets):
 			_refresh_ui_after_successful_action(true, player_index)
@@ -2821,8 +2900,42 @@ func _current_match_end_review_action() -> Dictionary:
 	return _battle_dialog_controller.call("current_match_end_review_action", self)
 
 
+func _current_match_end_learning_action() -> Dictionary:
+	return _battle_dialog_controller.call("current_match_end_learning_action", self)
+
+
 func _should_offer_battle_review() -> bool:
 	return GameManager.current_mode == GameManager.GameMode.TWO_PLAYER
+
+
+func _should_offer_match_learning() -> bool:
+	return GameManager.current_mode == GameManager.GameMode.TWO_PLAYER and _battle_review_match_dir.strip_edges() != ""
+
+
+func _is_current_match_marked_for_learning() -> bool:
+	if _battle_review_match_dir.strip_edges() == "" or _battle_learning_store == null:
+		return false
+	if not _battle_learning_store.has_method("is_marked_for_learning"):
+		return false
+	return bool(_battle_learning_store.call("is_marked_for_learning", _battle_review_match_dir))
+
+
+func _mark_current_match_for_learning() -> void:
+	if _battle_review_match_dir.strip_edges() == "" or _battle_learning_store == null:
+		_log("当前对局暂无可标记的录像")
+		return
+	if not _battle_learning_store.has_method("mark_match_for_learning"):
+		_log("学习池功能不可用")
+		return
+	var ok := bool(_battle_learning_store.call("mark_match_for_learning", _battle_review_match_dir, {
+		"winner_index": _battle_review_winner_index,
+		"reason": _battle_review_reason,
+	}))
+	if ok:
+		_log("已加入AI学习池")
+		_show_match_end_dialog(_battle_review_winner_index, _battle_review_reason)
+	else:
+		_log("加入AI学习池失败")
 
 
 func _load_cached_battle_review() -> Dictionary:
@@ -3023,9 +3136,14 @@ func _build_default_ai_opponent() -> AIOpponent:
 		"time_budget_ms": 2000,
 	}
 	var strategy_label := "Default AI"
+	var selection_display_name := str(GameManager.ai_selection.get("display_name", "")).strip_edges()
 	var deck_strategy = _resolve_selected_ai_deck_strategy()
 	if deck_strategy != null:
 		ai.set_deck_strategy(deck_strategy)
+		var upgraded_strategy = _maybe_upgrade_to_llm_strategy(deck_strategy)
+		if upgraded_strategy != null and upgraded_strategy != deck_strategy:
+			ai.set_deck_strategy(upgraded_strategy)
+			deck_strategy = upgraded_strategy
 		strategy_label = str(deck_strategy.call("get_strategy_id")) if deck_strategy.has_method("get_strategy_id") else "Default AI"
 	elif GameManager.selected_deck_ids.size() < 2:
 		match GameManager.ai_deck_strategy:
@@ -3070,15 +3188,36 @@ func _build_default_ai_opponent() -> AIOpponent:
 				strategy_label = "密勒顿 %s 规则驱动" % DeckStrategyMiraidonScript.VERSION
 			"generic":
 				pass
+	if _is_strong_fixed_opening_mode():
+		# Strong fixed openings are authored and tested against the deck-local
+		# rule strategy. Keep live VS_AI on the same runtime path so the opening
+		# line is reproducible instead of being perturbed by generic MCTS search.
+		ai.use_mcts = false
+		ai.decision_runtime_mode = AIOpponentScript.DECISION_RUNTIME_RULES_ONLY
+		strategy_label += " 强开局"
 	ai.set_meta("ai_source", "default")
 	ai.set_meta("ai_version_id", "")
-	ai.set_meta("ai_display_name", strategy_label)
+	ai.set_meta("ai_display_name", selection_display_name if selection_display_name != "" else strategy_label)
 
 	return ai
 
 
+func _is_strong_fixed_opening_mode() -> bool:
+	if GameManager.current_mode != GameManager.GameMode.VS_AI:
+		return false
+	var selection: Dictionary = GameManager.ai_selection
+	return str(selection.get("opening_mode", "default")) == "fixed_order" \
+		and str(selection.get("fixed_deck_order_path", "")) != ""
+
+
 func _build_selected_ai_opponent() -> AIOpponent:
 	var selection: Dictionary = GameManager.ai_selection
+	if _is_strong_fixed_opening_mode():
+		# Strong fixed openings are authored and regression-tested against the
+		# deterministic deck-local rules runtime. Do not let latest/specific
+		# trained variants re-enable MCTS or learned scorers here, otherwise the
+		# live opening line drifts away from the validated fixed-order tests.
+		return _build_default_ai_opponent()
 	var source := str(selection.get("source", "default"))
 	if source == "default":
 		return _build_default_ai_opponent()
@@ -3158,6 +3297,25 @@ func _resolve_selected_ai_deck_strategy() -> RefCounted:
 	if ai_deck == null:
 		return null
 	return _deck_strategy_registry.call("resolve_strategy_for_deck", ai_deck)
+
+
+func _maybe_upgrade_to_llm_strategy(strategy: RefCounted) -> RefCounted:
+	if strategy == null or not strategy.has_method("get_strategy_id"):
+		return strategy
+	var strategy_id: String = str(strategy.call("get_strategy_id"))
+	if strategy_id != "raging_bolt_ogerpon":
+		return strategy
+	var api_config: Dictionary = GameManager.get_battle_review_api_config()
+	if str(api_config.get("endpoint", "")).strip_edges() == "":
+		return strategy
+	if str(api_config.get("api_key", "")).strip_edges() == "":
+		return strategy
+	var llm_strategy: RefCounted = _deck_strategy_registry.call("create_strategy_by_id", "raging_bolt_ogerpon_llm") if _deck_strategy_registry != null else null
+	if llm_strategy == null:
+		return strategy
+	if llm_strategy.has_method("set_llm_host_node"):
+		llm_strategy.call("set_llm_host_node", self)
+	return llm_strategy
 
 
 func _selected_ai_strategy_id() -> String:
@@ -3255,6 +3413,15 @@ func _is_ai_send_out_prompt() -> bool:
 	)
 
 
+func _is_ai_heavy_baton_prompt() -> bool:
+	if _ai_opponent == null:
+		return false
+	return (
+		_pending_choice == "heavy_baton_target"
+		and int(_dialog_data.get("player", -1)) == _ai_opponent.player_index
+	)
+
+
 func _is_ai_effect_prompt() -> bool:
 	if _ai_opponent == null:
 		return false
@@ -3262,7 +3429,7 @@ func _is_ai_effect_prompt() -> bool:
 
 
 func _is_ui_blocking_ai() -> bool:
-	var dialog_blocks_ai := _dialog_overlay != null and _dialog_overlay.visible and not (_is_ai_setup_prompt() or _is_ai_effect_prompt())
+	var dialog_blocks_ai := _dialog_overlay != null and _dialog_overlay.visible and not (_is_ai_setup_prompt() or _is_ai_effect_prompt() or _is_ai_heavy_baton_prompt())
 	return (
 		_draw_reveal_active
 		or _is_ai_action_pause_active()
@@ -3271,7 +3438,7 @@ func _is_ui_blocking_ai() -> bool:
 		or _has_pending_coin_animation()
 		or (_pending_choice == "take_prize" and not _is_ai_prize_prompt())
 		or _pending_prize_animating
-		or (_field_interaction_overlay != null and _field_interaction_overlay.visible and not _is_ai_effect_prompt())
+		or (_field_interaction_overlay != null and _field_interaction_overlay.visible and not (_is_ai_effect_prompt() or _is_ai_heavy_baton_prompt()))
 	)
 
 
@@ -3295,6 +3462,10 @@ func _is_ai_turn_ready() -> bool:
 		if _is_ui_blocking_ai():
 			return false
 		return _is_ai_send_out_prompt()
+	if _pending_choice == "heavy_baton_target":
+		if _is_ui_blocking_ai():
+			return false
+		return _is_ai_heavy_baton_prompt()
 	if _pending_choice == "effect_interaction":
 		if _is_ui_blocking_ai():
 			return false
@@ -3836,7 +4007,7 @@ func _play_next_coin_animation() -> void:
 		if _coin_animation_resume_effect_step:
 			_coin_animation_resume_effect_step = false
 			_show_next_effect_interaction_step()
-			_maybe_run_ai()
+		_maybe_run_ai()
 		return
 	if _coin_animator == null or not _coin_animator.has_method("play"):
 		_coin_flip_queue.clear()
@@ -3844,7 +4015,7 @@ func _play_next_coin_animation() -> void:
 		if _coin_animation_resume_effect_step:
 			_coin_animation_resume_effect_step = false
 			_show_next_effect_interaction_step()
-			_maybe_run_ai()
+		_maybe_run_ai()
 		return
 	_coin_animating = true
 	var result: bool = _coin_flip_queue.pop_front()

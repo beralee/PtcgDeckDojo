@@ -40,7 +40,7 @@ func build_turn_plan(game_state: GameState, player_index: int, context: Dictiona
 func _fire_llm_request(game_state: GameState, player_index: int) -> void:
 	if _llm_host_node == null or not is_instance_valid(_llm_host_node):
 		return
-	var game_manager: Variant = AutoloadResolverScript.resolve("GameManager")
+	var game_manager: Variant = AutoloadResolverScript.get_game_manager()
 	if game_manager == null:
 		return
 	var api_config: Dictionary = game_manager.call("get_battle_review_api_config")

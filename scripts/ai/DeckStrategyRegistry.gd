@@ -18,10 +18,11 @@ const DeckStrategyLostBoxScript = preload("res://scripts/ai/DeckStrategyLostBox.
 const DeckStrategyFutureBoxScript = preload("res://scripts/ai/DeckStrategyFutureBox.gd")
 const DeckStrategyIronThornsScript = preload("res://scripts/ai/DeckStrategyIronThorns.gd")
 const DeckStrategyRagingBoltOgerponScript = preload("res://scripts/ai/DeckStrategyRagingBoltOgerpon.gd")
+const DeckStrategyRagingBoltLLMScript = preload("res://scripts/ai/DeckStrategyRagingBoltLLM.gd")
 const DeckStrategyBlisseyTankScript = preload("res://scripts/ai/DeckStrategyBlisseyTank.gd")
 const DeckStrategyGougingFireAncientScript = preload("res://scripts/ai/DeckStrategyGougingFireAncient.gd")
 const _GARDEVOIR_SCRIPT_PATH := "res://scripts/ai/DeckStrategyGardevoir.gd"
-const _GARDEVOIR_SIGNATURES: Array[String] = ["娌欏鏈礶x", "濂囬瞾鑾夊畨", "鎷夐瞾鎷変笣", "Gardevoir ex", "Kirlia", "Ralts"]
+const _GARDEVOIR_SIGNATURES: Array[String] = ["沙奈朵ex", "奇鲁莉安", "拉鲁拉丝", "Gardevoir ex", "Kirlia", "Ralts"]
 
 const _STRATEGY_SCRIPTS := {
 	"charizard_ex": DeckStrategyCharizardExScript,
@@ -39,6 +40,7 @@ const _STRATEGY_SCRIPTS := {
 	"future_box": DeckStrategyFutureBoxScript,
 	"iron_thorns": DeckStrategyIronThornsScript,
 	"raging_bolt_ogerpon": DeckStrategyRagingBoltOgerponScript,
+	"raging_bolt_ogerpon_llm": DeckStrategyRagingBoltLLMScript,
 	"blissey_tank": DeckStrategyBlisseyTankScript,
 	"gouging_fire_ancient": DeckStrategyGougingFireAncientScript,
 	"miraidon": DeckStrategyMiraidonScript,

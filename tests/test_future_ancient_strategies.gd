@@ -2264,3 +2264,16 @@ func test_raging_bolt_llm_invalidates_cache_on_new_turn() -> String:
 		assert_eq(str(plan.get("intent", "")), "fuel_discard",
 			"回合号变化时应fallback到规则版（旧缓存失效）"),
 	])
+
+
+func test_registry_creates_raging_bolt_llm_strategy() -> String:
+	var registry_script := load("res://scripts/ai/DeckStrategyRegistry.gd")
+	if registry_script == null:
+		return "DeckStrategyRegistry.gd should exist"
+	var registry: RefCounted = registry_script.new()
+	var strategy: RefCounted = registry.call("create_strategy_by_id", "raging_bolt_ogerpon_llm")
+	return run_checks([
+		assert_true(strategy != null, "registry应能创建raging_bolt_ogerpon_llm策略"),
+		assert_eq(str(strategy.call("get_strategy_id")), "raging_bolt_ogerpon_llm",
+			"创建的策略id应正确") if strategy != null else "",
+	])
