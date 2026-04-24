@@ -3139,11 +3139,10 @@ func _build_default_ai_opponent() -> AIOpponent:
 	var selection_display_name := str(GameManager.ai_selection.get("display_name", "")).strip_edges()
 	var deck_strategy = _resolve_selected_ai_deck_strategy()
 	if deck_strategy != null:
+		var variant_strategy := _resolve_strategy_variant_override(deck_strategy)
+		if variant_strategy != null and variant_strategy != deck_strategy:
+			deck_strategy = variant_strategy
 		ai.set_deck_strategy(deck_strategy)
-		var upgraded_strategy = _maybe_upgrade_to_llm_strategy(deck_strategy)
-		if upgraded_strategy != null and upgraded_strategy != deck_strategy:
-			ai.set_deck_strategy(upgraded_strategy)
-			deck_strategy = upgraded_strategy
 		strategy_label = str(deck_strategy.call("get_strategy_id")) if deck_strategy.has_method("get_strategy_id") else "Default AI"
 	elif GameManager.selected_deck_ids.size() < 2:
 		match GameManager.ai_deck_strategy:
@@ -3299,23 +3298,21 @@ func _resolve_selected_ai_deck_strategy() -> RefCounted:
 	return _deck_strategy_registry.call("resolve_strategy_for_deck", ai_deck)
 
 
-func _maybe_upgrade_to_llm_strategy(strategy: RefCounted) -> RefCounted:
-	if strategy == null or not strategy.has_method("get_strategy_id"):
+func _resolve_strategy_variant_override(strategy: RefCounted) -> RefCounted:
+	var variant_id := str(GameManager.ai_deck_strategy).strip_edges()
+	if variant_id == "" or strategy == null or not strategy.has_method("get_strategy_id"):
 		return strategy
-	var strategy_id: String = str(strategy.call("get_strategy_id"))
-	if strategy_id != "raging_bolt_ogerpon":
+	var base_id: String = str(strategy.call("get_strategy_id"))
+	if variant_id == base_id:
 		return strategy
-	var api_config: Dictionary = GameManager.get_battle_review_api_config()
-	if str(api_config.get("endpoint", "")).strip_edges() == "":
+	if _deck_strategy_registry == null:
 		return strategy
-	if str(api_config.get("api_key", "")).strip_edges() == "":
+	var variant: RefCounted = _deck_strategy_registry.call("create_strategy_by_id", variant_id)
+	if variant == null:
 		return strategy
-	var llm_strategy: RefCounted = _deck_strategy_registry.call("create_strategy_by_id", "raging_bolt_ogerpon_llm") if _deck_strategy_registry != null else null
-	if llm_strategy == null:
-		return strategy
-	if llm_strategy.has_method("set_llm_host_node"):
-		llm_strategy.call("set_llm_host_node", self)
-	return llm_strategy
+	if variant.has_method("set_llm_host_node"):
+		variant.call("set_llm_host_node", self)
+	return variant
 
 
 func _selected_ai_strategy_id() -> String:

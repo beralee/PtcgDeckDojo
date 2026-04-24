@@ -18,9 +18,12 @@ const DEFAULT_DECK1_ID := 575716  ## 喷火龙 大比鸟
 const DEFAULT_DECK2_ID := 578647  ## 沙奈朵
 const MIRAIDON_DECK_ID := 575720
 const ARCEUS_GIRATINA_DECK_ID := 569061
+const LUGIA_ARCHEOPS_DECK_ID := 575657
+const DRAGAPULT_CHARIZARD_DECK_ID := 579502
 const BACKGROUND_CARD_SIZE := Vector2(188, 112)
 const AIVersionRegistryScript = preload("res://scripts/ai/AIVersionRegistry.gd")
 const AIFixedDeckOrderRegistryScript = preload("res://scripts/ai/AIFixedDeckOrderRegistry.gd")
+const DeckStrategyRegistryScript = preload("res://scripts/ai/DeckStrategyRegistry.gd")
 
 ## 卡组列表，与 OptionButton index 对应
 var _deck_list: Array = []
@@ -35,6 +38,8 @@ var _ai_version_registry: RefCounted = AIVersionRegistryScript.new()
 var _ai_fixed_deck_order_registry: RefCounted = AIFixedDeckOrderRegistryScript.new()
 var _playable_ai_versions: Array[Dictionary] = []
 var _deck_view_dialog: RefCounted = DeckViewDialogScript.new()
+var _deck_strategy_registry: RefCounted = DeckStrategyRegistryScript.new()
+var _pending_ai_strategy_variant_id: String = ""
 
 
 func _ready() -> void:
@@ -58,6 +63,7 @@ func _ready() -> void:
 
 	%BtnStart.pressed.connect(_on_start)
 	%BtnBack.pressed.connect(_on_back)
+	%Deck2Option.item_selected.connect(_on_deck2_changed)
 	%Deck1ViewButton.pressed.connect(_on_deck_view_pressed.bind(0))
 	%Deck1EditButton.pressed.connect(_on_deck_edit_pressed.bind(0))
 	%Deck2ViewButton.pressed.connect(_on_deck_view_pressed.bind(1))
@@ -76,14 +82,18 @@ func _on_mode_changed(_index: int) -> void:
 	_refresh_ai_ui_visibility()
 
 
+func _on_deck2_changed(_index: int) -> void:
+	_refresh_ai_strategy_variant_options()
+	_refresh_deck_action_buttons()
+
+
 func _refresh_ai_ui_visibility() -> void:
 	var is_ai: bool = %ModeOption.selected == 1
-	%AIStrategyLabel.visible = false
-	%AIStrategyOption.visible = false
 	%Deck2Label.text = "AI 卡组" if is_ai else "玩家2 卡组"
 	%AIPreviewStrengthOption.visible = is_ai
 	%AIPreviewStrengthOption.disabled = not is_ai
 	%Deck2EditButton.visible = not is_ai
+	_refresh_ai_strategy_variant_options()
 	_refresh_deck_action_buttons()
 
 
@@ -92,6 +102,55 @@ func _setup_ai_preview_strength_options() -> void:
 	%AIPreviewStrengthOption.add_item("弱", AI_PREVIEW_STRENGTH_WEAK)
 	%AIPreviewStrengthOption.add_item("强", AI_PREVIEW_STRENGTH_STRONG)
 	%AIPreviewStrengthOption.select(AI_PREVIEW_STRENGTH_WEAK)
+
+
+func _refresh_ai_strategy_variant_options() -> void:
+	var variants := _detect_ai_strategy_variants()
+	var show_variant := _is_ai_mode() and variants.size() > 1
+	%AIStrategyLabel.visible = show_variant
+	%AIStrategyOption.visible = show_variant
+	if not show_variant:
+		return
+	var prev_selected_id := ""
+	if %AIStrategyOption.selected >= 0 and %AIStrategyOption.selected < %AIStrategyOption.item_count:
+		prev_selected_id = str(%AIStrategyOption.get_item_metadata(%AIStrategyOption.selected))
+	%AIStrategyOption.clear()
+	for variant: Dictionary in variants:
+		var idx: int = %AIStrategyOption.item_count
+		%AIStrategyOption.add_item(str(variant.get("label", "")))
+		%AIStrategyOption.set_item_metadata(idx, str(variant.get("id", "")))
+	var restore_id := prev_selected_id if prev_selected_id != "" else _pending_ai_strategy_variant_id
+	_pending_ai_strategy_variant_id = ""
+	for i: int in %AIStrategyOption.item_count:
+		if str(%AIStrategyOption.get_item_metadata(i)) == restore_id:
+			%AIStrategyOption.select(i)
+			return
+	%AIStrategyOption.select(0)
+
+
+func _detect_ai_strategy_variants() -> Array[Dictionary]:
+	var deck := _selected_deck_for_slot(1)
+	if deck == null or _deck_strategy_registry == null:
+		return []
+	var base_id := ""
+	if _deck_strategy_registry.has_method("resolve_strategy_id_for_deck"):
+		base_id = str(_deck_strategy_registry.call("resolve_strategy_id_for_deck", deck))
+	if base_id != "raging_bolt_ogerpon":
+		return []
+	var api_config: Dictionary = GameManager.get_battle_review_api_config()
+	var has_api := str(api_config.get("endpoint", "")).strip_edges() != "" and str(api_config.get("api_key", "")).strip_edges() != ""
+	if not has_api:
+		return []
+	return [
+		{"id": "raging_bolt_ogerpon", "label": "猛雷鼓 规则版"},
+		{"id": "raging_bolt_ogerpon_llm", "label": "猛雷鼓 LLM版"},
+	]
+
+
+func _selected_ai_strategy_variant_id() -> String:
+	if not %AIStrategyOption.visible or %AIStrategyOption.selected < 0:
+		return ""
+	return str(%AIStrategyOption.get_item_metadata(%AIStrategyOption.selected))
 
 
 func _setup_first_player_options() -> void:
@@ -211,6 +270,10 @@ func _selected_ai_strategy_id() -> String:
 			return "gardevoir"
 		ARCEUS_GIRATINA_DECK_ID:
 			return "arceus_giratina"
+		LUGIA_ARCHEOPS_DECK_ID:
+			return "lugia_archeops"
+		DRAGAPULT_CHARIZARD_DECK_ID:
+			return "dragapult_charizard"
 		DEFAULT_DECK1_ID:
 			return "charizard_ex"
 		_:
@@ -530,6 +593,7 @@ func _apply_setup_selection() -> bool:
 	if ai_source != "default" and ai_version.is_empty():
 		ai_source = "default"
 	GameManager.ai_selection = _build_ai_selection(ai_source, ai_version)
+	GameManager.ai_deck_strategy = _selected_ai_strategy_variant_id()
 	var ai_opening_selection := _resolve_ai_opening_selection(_selected_deck_for_slot(1))
 	for key_variant: Variant in ai_opening_selection.keys():
 		var key := str(key_variant)
@@ -568,6 +632,7 @@ func _save_settings() -> void:
 		"battle_bgm_volume_percent": _selected_battle_music_volume_percent,
 		"mode": %ModeOption.selected,
 		"ai_preview_strength_index": %AIPreviewStrengthOption.selected,
+		"ai_strategy_variant_id": _selected_ai_strategy_variant_id(),
 	}
 	var file := FileAccess.open(SETTINGS_PATH, FileAccess.WRITE)
 	if file != null:
@@ -607,6 +672,7 @@ func _load_settings() -> void:
 	var ai_preview_strength_index: int = int(data.get("ai_preview_strength_index", AI_PREVIEW_STRENGTH_WEAK))
 	if ai_preview_strength_index >= 0 and ai_preview_strength_index < %AIPreviewStrengthOption.item_count:
 		%AIPreviewStrengthOption.select(ai_preview_strength_index)
+	_pending_ai_strategy_variant_id = str(data.get("ai_strategy_variant_id", ""))
 
 	var fp_choice: int = int(data.get("first_player_choice", FIRST_PLAYER_RANDOM))
 	%FirstPlayerOption.select(_first_player_option_index_from_choice(fp_choice))
@@ -638,6 +704,7 @@ func _capture_setup_selection_context() -> Dictionary:
 		"ai_source_index": %AISourceOption.selected,
 		"ai_version_index": %AIVersionOption.selected,
 		"ai_preview_strength_index": %AIPreviewStrengthOption.selected,
+		"ai_strategy_variant_id": _selected_ai_strategy_variant_id(),
 	}
 
 
@@ -668,6 +735,7 @@ func _apply_setup_context(context: Dictionary) -> void:
 	var ai_preview_strength_index := int(context.get("ai_preview_strength_index", %AIPreviewStrengthOption.selected))
 	if ai_preview_strength_index >= 0 and ai_preview_strength_index < %AIPreviewStrengthOption.item_count:
 		%AIPreviewStrengthOption.select(ai_preview_strength_index)
+	_pending_ai_strategy_variant_id = str(context.get("ai_strategy_variant_id", ""))
 
 	_refresh_ai_ui_visibility()
 
