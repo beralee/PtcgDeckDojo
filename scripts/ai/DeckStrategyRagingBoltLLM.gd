@@ -4,6 +4,10 @@ const ZenMuxClientScript = preload("res://scripts/network/ZenMuxClient.gd")
 const LLMTurnPlanPromptBuilderScript = preload("res://scripts/ai/LLMTurnPlanPromptBuilder.gd")
 const AutoloadResolverScript = preload("res://scripts/engine/AutoloadResolver.gd")
 
+signal llm_thinking_started(turn_number: int)
+signal llm_thinking_finished(turn_number: int, plan: Dictionary, reasoning: String)
+signal llm_thinking_failed(turn_number: int, reason: String)
+
 var _llm_host_node: Node = null
 var _cached_llm_plan: Dictionary = {}
 var _cached_turn_number: int = -1
@@ -13,6 +17,7 @@ var _prompt_builder: RefCounted = LLMTurnPlanPromptBuilderScript.new()
 var _llm_request_count: int = 0
 var _llm_success_count: int = 0
 var _llm_fail_count: int = 0
+var _last_llm_reasoning: String = ""
 
 
 func get_strategy_id() -> String:
@@ -21,6 +26,27 @@ func get_strategy_id() -> String:
 
 func set_llm_host_node(node: Node) -> void:
 	_llm_host_node = node
+
+
+func is_llm_pending() -> bool:
+	return _llm_pending
+
+
+func has_llm_plan_for_turn(turn: int) -> bool:
+	return _cached_turn_number == turn and not _cached_llm_plan.is_empty()
+
+
+func ensure_llm_request_fired(game_state: GameState, player_index: int) -> void:
+	if game_state == null or player_index < 0 or player_index >= game_state.players.size():
+		return
+	var turn: int = int(game_state.turn_number)
+	if _cached_turn_number == turn:
+		return
+	_cached_llm_plan.clear()
+	_cached_turn_number = turn
+	_last_llm_reasoning = ""
+	if not _llm_pending:
+		_fire_llm_request(game_state, player_index)
 
 
 func build_turn_plan(game_state: GameState, player_index: int, context: Dictionary = {}) -> Dictionary:
@@ -32,6 +58,7 @@ func build_turn_plan(game_state: GameState, player_index: int, context: Dictiona
 	if turn != _cached_turn_number:
 		_cached_llm_plan.clear()
 		_cached_turn_number = turn
+		_last_llm_reasoning = ""
 		if not _llm_pending:
 			_fire_llm_request(game_state, player_index)
 	return super.build_turn_plan(game_state, player_index, context)
@@ -52,8 +79,9 @@ func _fire_llm_request(game_state: GameState, player_index: int) -> void:
 	_llm_request_count += 1
 	var payload: Dictionary = _prompt_builder.build_request_payload(game_state, player_index)
 	payload["model"] = str(api_config.get("model", ""))
-	_client.set_timeout_seconds(float(api_config.get("timeout_seconds", 15.0)))
+	_client.set_timeout_seconds(float(api_config.get("timeout_seconds", 30.0)))
 	var turn_at_request: int = int(game_state.turn_number)
+	llm_thinking_started.emit(turn_at_request)
 	var err: int = _client.request_json(
 		_llm_host_node,
 		endpoint,
@@ -64,30 +92,31 @@ func _fire_llm_request(game_state: GameState, player_index: int) -> void:
 	if err != OK:
 		_llm_pending = false
 		_llm_fail_count += 1
-		print("[LLM策略] 请求发送失败: error=%d" % err)
+		var reason := "请求发送失败: error=%d" % err
+		llm_thinking_failed.emit(turn_at_request, reason)
 
 
 func _on_llm_response(response: Dictionary, turn_at_request: int) -> void:
 	_llm_pending = false
 	if String(response.get("status", "")) == "error":
 		_llm_fail_count += 1
-		print("[LLM策略] 请求失败: %s" % str(response.get("message", "unknown")))
+		var reason := str(response.get("message", "unknown"))
+		llm_thinking_failed.emit(turn_at_request, reason)
 		return
 	var plan: Dictionary = _prompt_builder.parse_llm_response_to_turn_plan(response)
 	if plan.is_empty():
 		_llm_fail_count += 1
-		print("[LLM策略] LLM返回了无效intent: %s" % str(response.get("intent", "")))
+		var reason := "无效返回: %s" % str(response.get("intent", response.get("error_type", "")))
+		llm_thinking_failed.emit(turn_at_request, reason)
 		return
 	_llm_success_count += 1
+	var reasoning: String = str(response.get("reasoning", ""))
+	_last_llm_reasoning = reasoning
 	if turn_at_request == _cached_turn_number:
 		_cached_llm_plan = plan
-		print("[LLM策略] 回合%d: intent=%s target=%s" % [
-			turn_at_request,
-			str(plan.get("intent", "")),
-			str(plan.get("targets", {}).get("primary_attacker_name", "")),
-		])
+		llm_thinking_finished.emit(turn_at_request, plan, reasoning)
 	else:
-		print("[LLM策略] 回合%d的响应已过期（当前回合%d）" % [turn_at_request, _cached_turn_number])
+		llm_thinking_failed.emit(turn_at_request, "回合%d的响应已过期（当前回合%d）" % [turn_at_request, _cached_turn_number])
 
 
 func get_llm_stats() -> Dictionary:

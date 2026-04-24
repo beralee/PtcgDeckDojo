@@ -110,6 +110,8 @@ var _ai_turn_marker: String = ""
 var _ai_actions_this_turn: int = 0
 var _ai_action_pause_seconds: float = AI_ACTION_PAUSE_SECONDS
 var _ai_action_pause_timer: Variant = null
+var _ai_llm_waiting: bool = false
+var _ai_llm_turn_requested: int = -1
 var _latest_opponent_action_text: String = ""
 var _latest_opponent_action_turn_number: int = -1
 var _battle_mode: String = "live"
@@ -3312,6 +3314,7 @@ func _resolve_strategy_variant_override(strategy: RefCounted) -> RefCounted:
 		return strategy
 	if variant.has_method("set_llm_host_node"):
 		variant.call("set_llm_host_node", self)
+	_connect_llm_strategy_signals(variant)
 	return variant
 
 
@@ -3525,6 +3528,61 @@ func _on_ai_action_pause_finished() -> void:
 	_maybe_run_ai()
 
 
+func _connect_llm_strategy_signals(strategy: RefCounted) -> void:
+	if strategy == null:
+		return
+	if strategy.has_signal("llm_thinking_started"):
+		strategy.connect("llm_thinking_started", _on_llm_thinking_started)
+	if strategy.has_signal("llm_thinking_finished"):
+		strategy.connect("llm_thinking_finished", _on_llm_thinking_finished)
+	if strategy.has_signal("llm_thinking_failed"):
+		strategy.connect("llm_thinking_failed", _on_llm_thinking_failed)
+
+
+func _on_llm_thinking_started(turn_number: int) -> void:
+	_ai_llm_waiting = true
+	_ai_llm_turn_requested = turn_number
+	_log("[LLM] 回合%d: AI正在思考策略..." % turn_number)
+
+
+func _on_llm_thinking_finished(turn_number: int, plan: Dictionary, reasoning: String) -> void:
+	_ai_llm_waiting = false
+	var intent: String = str(plan.get("intent", ""))
+	var target: String = str(plan.get("targets", {}).get("primary_attacker_name", ""))
+	var msg := "[LLM] 回合%d策略: %s" % [turn_number, intent]
+	if target != "":
+		msg += " (目标: %s)" % target
+	if reasoning != "":
+		msg += "\n[LLM] 理由: %s" % reasoning
+	_log(msg)
+	_maybe_run_ai()
+
+
+func _on_llm_thinking_failed(turn_number: int, reason: String) -> void:
+	_ai_llm_waiting = false
+	_log("[LLM] 回合%d: 思考失败，使用规则策略 (%s)" % [turn_number, reason])
+	_maybe_run_ai()
+
+
+func _should_wait_for_llm() -> bool:
+	if _ai_opponent == null:
+		return false
+	var strategy: Variant = _ai_opponent.get("_deck_strategy")
+	if strategy == null or not strategy.has_method("is_llm_pending"):
+		return false
+	if _gsm == null or _gsm.game_state == null:
+		return false
+	var turn: int = int(_gsm.game_state.turn_number)
+	if strategy.has_method("has_llm_plan_for_turn") and strategy.call("has_llm_plan_for_turn", turn):
+		return false
+	if strategy.has_method("ensure_llm_request_fired"):
+		strategy.call("ensure_llm_request_fired", _gsm.game_state, _ai_opponent.player_index)
+	if strategy.call("is_llm_pending"):
+		_ai_llm_waiting = true
+		return true
+	return false
+
+
 func _maybe_run_ai() -> void:
 	if _try_auto_continue_ai_draw_reveal():
 		return
@@ -3546,6 +3604,8 @@ func _run_ai_step() -> void:
 		return
 	_ai_step_scheduled = false
 	if not _is_ai_turn_ready():
+		return
+	if _should_wait_for_llm():
 		return
 	_reset_ai_action_counter_if_needed()
 	if _ai_actions_this_turn >= AI_MAX_ACTIONS_PER_TURN:
