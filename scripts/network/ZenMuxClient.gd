@@ -10,6 +10,7 @@ class PythonFallbackRequest:
 
 	var client: RefCounted = null
 	var process_id: int = -1
+	var executable_path: String = ""
 	var input_path: String = ""
 	var output_path: String = ""
 	var callback: Callable = Callable()
@@ -19,6 +20,7 @@ class PythonFallbackRequest:
 	func configure(
 		p_client: RefCounted,
 		p_process_id: int,
+		p_executable_path: String,
 		p_input_path: String,
 		p_output_path: String,
 		p_callback: Callable,
@@ -26,6 +28,7 @@ class PythonFallbackRequest:
 	) -> void:
 		client = p_client
 		process_id = p_process_id
+		executable_path = p_executable_path
 		input_path = p_input_path
 		output_path = p_output_path
 		callback = p_callback
@@ -45,7 +48,10 @@ class PythonFallbackRequest:
 			OS.kill(process_id)
 			_finish_with_error("python_fallback_timeout", "ZenMux Python fallback timed out")
 			return
-		_finish_with_error("python_fallback_failed", "ZenMux Python fallback process exited without output")
+		_finish_with_error(
+			"python_fallback_failed",
+			"ZenMux Python fallback process exited without output. Python executable: %s" % executable_path
+		)
 
 	func _finish_from_output() -> void:
 		var output_file := FileAccess.open(output_path, FileAccess.READ)
@@ -462,11 +468,11 @@ func _on_request_completed(
 	var response_text := body.get_string_from_utf8()
 	var normalized := _parse_chat_response(response_code, response_text)
 	if result != HTTPRequest.RESULT_SUCCESS:
-		if _try_start_python_fallback_from_failed_request(request, callback):
+		normalized = _parse_error_response(response_code, result, response_text)
+		if _try_start_python_fallback_from_failed_request(request, callback, normalized):
 			if is_instance_valid(request):
 				request.queue_free()
 			return
-		normalized = _parse_error_response(response_code, result, response_text)
 	elif normalized.has("status") and String(normalized.get("status", "")) == "error":
 		normalized["request_result"] = result
 	else:
@@ -483,7 +489,7 @@ func _on_request_completed(
 		callback.call(normalized)
 
 
-func _try_start_python_fallback_from_failed_request(request: HTTPRequest, callback: Callable) -> bool:
+func _try_start_python_fallback_from_failed_request(request: HTTPRequest, callback: Callable, original_error: Dictionary) -> bool:
 	if not _allow_python_fallback or request == null or not is_instance_valid(request):
 		return false
 	var parent := request.get_parent()
@@ -496,18 +502,33 @@ func _try_start_python_fallback_from_failed_request(request: HTTPRequest, callba
 		str(request.get_meta("zenmux_request_url", "")),
 		str(request.get_meta("zenmux_api_key", "")),
 		request_payload,
-		_on_async_python_fallback_completed.bind(callback)
+		_on_async_python_fallback_completed.bind(callback, original_error.duplicate(true))
 	)
 	return async_error == OK
 
 
-func _on_async_python_fallback_completed(response: Dictionary, callback: Callable) -> void:
+func _on_async_python_fallback_completed(response: Dictionary, callback: Callable, original_error: Dictionary = {}) -> void:
 	var normalized := response.duplicate(true)
 	if normalized.has("status") and String(normalized.get("status", "")) == "error":
 		normalized["proxy"] = _proxy_description()
 		normalized["unsafe_tls"] = _allow_unsafe_tls
+		if _is_python_fallback_runtime_error(normalized) and not original_error.is_empty():
+			var fallback_error := normalized.duplicate(true)
+			normalized = original_error.duplicate(true)
+			normalized["python_fallback_error"] = fallback_error
 	if callback.is_valid():
 		callback.call_deferred(normalized)
+
+
+func _is_python_fallback_runtime_error(response: Dictionary) -> bool:
+	var error_type := str(response.get("error_type", ""))
+	return error_type in [
+		"python_fallback_failed",
+		"python_fallback_timeout",
+		"python_fallback_read_failed",
+		"python_fallback_invalid_output",
+		"python_fallback_missing_client",
+	]
 
 
 func _parse_chat_response(response_code: int, response_text: String) -> Dictionary:
@@ -700,13 +721,18 @@ func _request_json_payload_via_python_fallback_async(
 	var input_path := str(request_paths.get("input_path", ""))
 	var output_path := str(request_paths.get("output_path", ""))
 	var script_path := str(request_paths.get("script_path", ""))
-	var process_id := OS.create_process(_python_executable(), [script_path, input_path, output_path], false)
+	var python_executable := _python_executable()
+	if python_executable == "":
+		DirAccess.remove_absolute(input_path)
+		DirAccess.remove_absolute(output_path)
+		return ERR_UNAVAILABLE
+	var process_id := OS.create_process(python_executable, [script_path, input_path, output_path], false)
 	if process_id <= 0:
 		DirAccess.remove_absolute(input_path)
 		DirAccess.remove_absolute(output_path)
 		return ERR_CANT_CREATE
 	var poller := PythonFallbackRequest.new()
-	poller.configure(self, process_id, input_path, output_path, callback, _timeout_seconds)
+	poller.configure(self, process_id, python_executable, input_path, output_path, callback, _timeout_seconds)
 	parent.add_child(poller)
 	return OK
 
@@ -796,10 +822,51 @@ func _should_prefer_python_transport() -> bool:
 
 
 func _python_executable() -> String:
+	var candidates := _python_executable_candidates()
+	for candidate: String in candidates:
+		if _can_run_python(candidate):
+			return candidate
+	return ""
+
+
+func _python_executable_candidates() -> Array[String]:
 	var configured := OS.get_environment("PYTHON").strip_edges()
-	if configured != "":
-		return configured
-	return "python"
+	return _python_executable_candidates_for_os(OS.get_name(), configured)
+
+
+func _python_executable_candidates_for_os(os_name: String, configured: String) -> Array[String]:
+	var candidates: Array[String] = []
+	_append_unique_candidate(candidates, configured.strip_edges())
+	match os_name:
+		"macOS":
+			_append_unique_candidate(candidates, "/usr/bin/python3")
+			_append_unique_candidate(candidates, "/opt/homebrew/bin/python3")
+			_append_unique_candidate(candidates, "/usr/local/bin/python3")
+			_append_unique_candidate(candidates, "python3")
+			_append_unique_candidate(candidates, "python")
+		"Windows":
+			_append_unique_candidate(candidates, "python")
+			_append_unique_candidate(candidates, "py")
+		_:
+			_append_unique_candidate(candidates, "/usr/bin/python3")
+			_append_unique_candidate(candidates, "python3")
+			_append_unique_candidate(candidates, "python")
+	return candidates
+
+
+func _append_unique_candidate(candidates: Array[String], candidate: String) -> void:
+	var normalized := candidate.strip_edges()
+	if normalized == "" or candidates.has(normalized):
+		return
+	candidates.append(normalized)
+
+
+func _can_run_python(executable: String) -> bool:
+	var output: Array = []
+	var exit_code := OS.execute(executable, PackedStringArray(["--version"]), output, true, false)
+	if exit_code != 0:
+		return false
+	return "\n".join(output).to_lower().contains("python")
 
 
 func _proxy_description() -> String:

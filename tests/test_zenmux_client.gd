@@ -439,3 +439,34 @@ func test_build_request_payload_defaults_kimi_k26_temperature_to_required_value(
 		assert_eq(float((explicit_payload as Dictionary).get("temperature", 0.0)), 0.6, "kimi-k2.6 should force ZenMux-required temperature 0.6 even if an upstream prompt builder set another value"),
 		assert_eq(float((explicit_non_kimi_payload as Dictionary).get("temperature", 0.0)), 0.9, "Explicit temperature should still be preserved for non-Kimi models"),
 	])
+
+
+func test_python_fallback_candidates_prefer_python3_on_macos() -> String:
+	var client_result: Variant = _new_client()
+	if client_result is Dictionary and not bool((client_result as Dictionary).get("ok", false)):
+		return str((client_result as Dictionary).get("error", "ZenMuxClient setup failed"))
+
+	var client: Object = (client_result as Dictionary).get("value") as Object
+	if not client.has_method("_python_executable_candidates_for_os"):
+		return "ZenMuxClient is missing _python_executable_candidates_for_os"
+
+	var candidates: Array = client.call("_python_executable_candidates_for_os", "macOS", "")
+	return run_checks([
+		assert_true(candidates.size() >= 3, "macOS fallback should have multiple Python 3 candidates"),
+		assert_eq(str(candidates[0]), "/usr/bin/python3", "macOS app bundles should prefer absolute python3 before PATH lookup"),
+		assert_true(candidates.has("python3"), "macOS fallback should still try PATH python3"),
+		assert_true(candidates.has("python"), "macOS fallback should keep python as last-resort compatibility"),
+	])
+
+
+func test_python_fallback_candidates_preserve_configured_python_first() -> String:
+	var client_result: Variant = _new_client()
+	if client_result is Dictionary and not bool((client_result as Dictionary).get("ok", false)):
+		return str((client_result as Dictionary).get("error", "ZenMuxClient setup failed"))
+
+	var client: Object = (client_result as Dictionary).get("value") as Object
+	var candidates: Array = client.call("_python_executable_candidates_for_os", "macOS", "/custom/python")
+	return run_checks([
+		assert_eq(str(candidates[0]), "/custom/python", "Explicit PYTHON environment override should stay first"),
+		assert_eq(candidates.count("/custom/python"), 1, "Python candidates should not contain duplicates"),
+	])
