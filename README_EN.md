@@ -1,183 +1,157 @@
-# PtcgDeckDojo
-
-[中文](README.md) | [English](README_EN.md)
-
-A local PTCG practice and rules-simulation project built with Godot 4.6 and GDScript.
-
-This repository is not meant to be an official replacement or a commercial product. The goal is to turn PTCG practice, rules validation, card-effect implementation, and regression testing into an open-source project that can keep evolving.
+# PTCG Deck Agent
 
 <p align="center">
-  <img src="assets/demo_menu.png" alt="PtcgDeckDojo main menu" width="49%" />
-  <img src="assets/demo3.png" alt="PtcgDeckDojo battle overview" width="49%" />
+  <a href="https://ptcg.skillserver.cn/">
+    <img src="assets/ui/title.png" alt="PTCG Deck Agent" width="100%" />
+  </a>
 </p>
 
-## In One Sentence
+<p align="center">
+  <strong>An AI-powered Pokemon TCG practice client for deck testing, live coaching, tournament practice, and rules-driven iteration.</strong>
+</p>
 
-`PtcgDeckDojo` is a local PTCG practice sandbox for Chinese players, with deck import, local card/cache management, playable battle scenes, and an effect system that is being expanded card by card.
+<p align="center">
+  <a href="https://ptcg.skillserver.cn/">Website</a>
+  ·
+  <a href="README.md">中文</a>
+  ·
+  <a href="docs/README.md">Docs</a>
+  ·
+  <a href="CONTRIBUTING.md">Contributing</a>
+</p>
 
-## Current Status
+## What It Is
 
-The project is already runnable and has a solid base, but it is still far from a finished product.
+`PTCG Deck Agent` is a Godot 4.6 based local practice client for Pokemon TCG. The project has evolved from a rules-simulation sandbox into an AI-assisted training tool: import decks, play against rule-based or LLM-powered opponents, ask for live advice during games, review key turns, and continuously improve deck strategies through tests and match traces.
 
-Please read the current version with the following expectations:
-
-- It already has a main menu, deck management, battle setup, and a battle scene.
-- It already has a rules engine, an effect system, bulk audits, and automated tests.
-- Many cards are implemented, but many effects still contain bugs, incomplete interactions, or missing edge-case handling.
-- A lot of cards currently "work partially" rather than matching tournament behavior in full detail.
-- The repository is evolving through a repeated loop of: find issue -> add test -> fix effect -> verify again.
-
-If you want a polished production-ready client, this repository is not there yet.
-
-If you want a runnable, readable, and extendable PTCG training codebase, it is a good fit.
+The goal is not to replace official products. The goal is to build a practical, transparent, and extensible training environment for players and developers who want to understand decks more deeply.
 
 ## Highlights
 
-- Deck import: supports importing from `tcg.mik.moe` deck links or deck IDs
-- Local cache: card JSON, card images, and deck data are stored in `user://`
-- Battle UI: the main gameplay loop is already playable
-- AI assistance: includes deck analysis, in-battle advice, and post-match review
-- Rules engine: includes turn flow, damage, status, prize cards, retreat, and other core systems
-- Effect system: maps card behavior through reusable effect scripts
-- Test coverage: includes semantic regression tests, batch card audits, encoding audits, and UI regressions
+- **AI deck coach**: discuss a deck directly inside the deck editor, including opening stability, key-card odds, matchup plans, and card replacement decisions.
+- **Live battle advice**: ask the AI what to do in the current position, including attacks, retreats, energy attachments, search targets, prize routes, and risk points.
+- **Hidden-information guardrails**: battle advice is built from the current player's visible information and does not assume the opponent's hidden hand, deck order, or prize identities.
+- **LLM opponent experiments**: includes experimental LLM-driven opponents such as Raging Bolt, connected to real turn planning instead of only post-game chat.
+- **Rule-based AI decks**: bundled independent AI decks for common practice targets such as Miraidon, Charizard Pidgeot, Gardevoir, Arceus Giratina, Dragapult, and more.
+- **Swiss tournament mode**: supports 16 / 32 / 64 / 128 player events with generated opponents, pairings, standings, and final rankings.
+- **Bundled local assets**: decks, card data, card images, music, AI decks, and default configuration can be shipped with the game for a smoother first launch.
+- **Regression-first development**: card effects, battle flow, AI behavior, scenario snapshots, and UI logic are covered by automated test entry points.
 
-## AI Features
+## AI Capabilities
 
-- Deck analysis: the deck editor can suggest concrete swaps instead of only giving vague archetype advice
-- In-battle coaching: the live advice flow uses the visible board, action history, both decklists, and deck strategy notes to suggest a compact best line for the current turn
-- Post-match review: after a match, the AI can identify key turns and generate a Chinese review focused on mistakes, pivots, and swing turns
-- Hidden-info guardrails: advice is designed around public information and does not assume the opponent's hidden hand, prize identities, or deck order
-- Fast regression loop: functional tests and AI/training tests now use separate runners, so day-to-day gameplay verification stays fast
+### Deck Understanding
+
+The assistant receives a compact full decklist plus key card text, so it can answer questions such as:
+
+- What is this deck's main win condition?
+- Which Basic Pokemon should I prioritize in the opening?
+- Can this card be replaced by another card?
+- How should I play this matchup?
+- Which resources are missing or redundant?
+
+### In-Battle Coaching
+
+During a game, the AI prompt can include turn and phase, active player, board state, HP, attached energy, hand, discard pile, remaining prize count, and deck context. The prompt explicitly explains the Pokemon TCG prize rule: prize count means remaining prizes, and the first player to reach 0 wins.
+
+### Review and Iteration
+
+The project keeps infrastructure for match logs, decision traces, scenario snapshots, benchmarks, and strategy regression tests. Failed games can be inspected turn by turn to locate where the rule engine or AI strategy deviated from the intended deck plan.
+
+## Preview
 
 <p align="center">
-  <img src="assets/demo_ai_card.png" alt="PtcgDeckDojo AI deck analysis" width="49%" />
-  <img src="assets/demo1.png" alt="PtcgDeckDojo in-battle interface" width="49%" />
+  <img src="assets/demo_menu.png" alt="Main menu" width="49%" />
+  <img src="assets/demo_ai_card.png" alt="AI deck discussion" width="49%" />
 </p>
 
-## Project Structure
+<p align="center">
+  <img src="assets/demo1.png" alt="Battle scene" width="49%" />
+  <img src="assets/demo3.png" alt="Battle overview" width="49%" />
+</p>
+
+## Modes
+
+- **Practice Battle**: choose a player deck and an AI deck for normal practice.
+- **Local Two-Player Battle**: useful for manual rules validation and deck testing.
+- **Deck Manager / Deck Editor**: import, edit, inspect, and discuss decks with AI.
+- **Tournament Mode**: Swiss-style events with generated players, AI decks, standings, and final rankings.
+- **AI Settings**: configure ZenMux API access, choose a supported model, test connectivity, and set the assistant's personality.
+
+## Technical Layout
 
 ```text
-assets/      UI resources, icons, screenshots
-docs/        Design notes, effect framework docs, development docs
+assets/      UI art, backgrounds, audio, preview images
+data/        Bundled decks, cards, images, AI fixed openings, default user assets
+docs/        Architecture docs, development plans, strategy-iteration notes
 scenes/      Godot scenes and UI scripts
-scripts/     Data models, rules engine, effects, network, and utility scripts
-tests/       Automated tests, regressions, and batch audit entry points
-tools/       Local development tools bundled in the repo
+scripts/     Rule engine, AI strategy, effect system, networking, tournament logic
+tests/       Functional, card-effect, AI-strategy, and scenario regression tests
 ```
 
-The rough layering looks like this:
+Core layers:
 
-1. `scenes/` handles UI and player interaction.
-2. `scripts/data/` contains cards, decks, players, slots, and related models.
-3. `scripts/engine/` drives rules validation, state transitions, damage, and effect scheduling.
-4. `scripts/effects/` contains reusable or card-specific effect logic.
-5. `scripts/network/` handles deck import and card-image sync.
-6. `tests/` protects existing behavior while cards and interactions are expanded.
+1. `scripts/engine/` handles rules, state transitions, effect scheduling, and snapshots.
+2. `scripts/effects/` implements card, attack, ability, trainer, tool, and stadium effects.
+3. `scripts/ai/` contains rule-based strategies, LLM decision bridges, and trace tooling.
+4. `scripts/network/` handles ZenMux / OpenAI-compatible model requests.
+5. `scripts/tournament/` implements Swiss tournament flow.
 
-## Development Direction
-
-The main development loop is not just "add more features". It is primarily:
-
-1. Build a stable gameplay and rules foundation.
-2. Keep extending card support on top of a unified effect framework.
-3. Use batch audits and regression tests to catch missing cards, wrong effects, and interaction gaps.
-4. Fix cards one by one or effect family by effect family until they become verifiable.
-
-That is why this repository contains both:
-
-- stable lower-level systems and tests
-- card implementations that are still being filled in and corrected
-
-This is not a contradiction. It is the current reality of the project.
-
-## Running The Project
+## Running Locally
 
 ### Requirements
 
 - Godot `4.6.x`
-- Windows environment verified
-- Initial deck import or card-image sync requires access to `tcg.mik.moe`
+- Windows is the most tested platform
+- macOS packaging support is being improved
+- ZenMux API key is required for AI chat / LLM features
 
-### Run Locally
+### Start
 
-1. Open `project.godot` in Godot.
+1. Open `project.godot` with Godot.
 2. Run `res://scenes/main_menu/MainMenu.tscn`.
-3. Import a deck from Deck Management.
-4. Go back to battle setup and start a match.
+3. Configure and test a model in `AI Settings`.
+4. Start from deck management, practice battle, or tournament mode.
 
-### Run Tests
-
-The repository includes separate headless Godot test entries:
+### Tests
 
 ```powershell
 # Functional regression
 & 'D:\ai\godot\Godot_v4.6.1-stable_win64_console.exe' --headless --path 'D:\ai\code\ptcgtrain' -s 'res://tests/FunctionalTestRunner.gd'
 
-# AI / training
+# AI / strategy tests
 & 'D:\ai\godot\Godot_v4.6.1-stable_win64_console.exe' --headless --path 'D:\ai\code\ptcgtrain' -s 'res://tests/AITrainingTestRunner.gd'
 ```
 
-Targeted suite example:
+## Status
 
-```powershell
-& 'D:\ai\godot\Godot_v4.6.1-stable_win64_console.exe' --headless --path 'D:\ai\code\ptcgtrain' -s 'res://tests/FunctionalTestRunner.gd' -- --suite=RuleValidator,GameStateMachine
-```
+This is an actively evolving open-source project. It already supports deck import, editing, playable battles, AI discussion, tournament mode, and many automated tests, but it should not be treated as a complete official judge.
 
-The compatibility entry `res://tests/TestRunner.tscn` is still available and also supports `--group=functional` / `--group=ai_training`.
+The current positioning is:
 
-## Documentation
+- For players: a practical AI-assisted practice client.
+- For developers: an experimental platform combining PTCG rules, AI strategy, LLM decisions, and regression testing.
+- For contributors: a project that can keep improving through card fixes, tests, UI polish, and strategy work.
 
-- [docs/README.md](docs/README.md): documentation index
-- [docs/development_setup.md](docs/development_setup.md): environment setup, run flow, and test entry
-- [docs/project_status.md](docs/project_status.md): current capability boundaries and known limitations
-- [design_document.md](design_document.md): overall design notes
-- [DEVELOPMENT_SPEC.md](DEVELOPMENT_SPEC.md): development and coding rules
+## Disclaimer
 
-## About The Implementation
-
-This repository takes rules consistency, code quality, and testing seriously, but its origin should be understood clearly:
-
-- This is a `100% AI coding` project.
-- The author is mainly a PTCG enthusiast.
-- The author's best result is a City League championship.
-- The author is not a professional game programmer.
-
-So this repository is better understood as a high-effort learning and experimentation project, not as a conventional commercial game product.
-
-That also means:
-
-- issues and pull requests are welcome
-- rules bugs, interaction bugs, and architecture problems are useful feedback
-- but this repository should not be judged as if it were a fully staffed commercial client
-
-## Copyright And Usage
-
-This project involves Pokemon TCG names, images, and rules expression, so the boundaries should be explicit:
-
-- This repository does not bundle user-local cached card data or card images.
-- Runtime card data and images are fetched from `tcg.mik.moe`.
-- Pokemon, PTCG, and related card content belong to their respective rights holders.
-- This project is for learning, research, and community exchange only.
-- It is not for commercialization.
-- It does not imply any official authorization.
-
-If you fork or continue development, it is recommended to preserve these boundaries.
+This is an unofficial, non-commercial learning and research project. Pokemon, Pokemon TCG, card names, images, rules text, and related intellectual property belong to their respective owners. This project is not endorsed by or affiliated with the official rights holders.
 
 ## Contributing
 
-Issues and pull requests are welcome.
+Issues and pull requests are welcome, especially for:
 
-Before contributing, read:
+- Rule bugs and incorrect card effects
+- Bad AI decisions in real games
+- Deck strategy improvements and test cases
+- UI / UX improvements
+- Windows / macOS packaging feedback
+
+Please read:
 
 - [CONTRIBUTING.md](CONTRIBUTING.md)
 - [DEVELOPMENT_SPEC.md](DEVELOPMENT_SPEC.md)
-
-This repository is relatively strict about UTF-8 encoding, Chinese copy consistency, rules correctness, and regression verification.
-
-## Security
-
-See [SECURITY.md](SECURITY.md).
+- [docs/README.md](docs/README.md)
 
 ## License
 
-This project is licensed under the [Apache License 2.0](LICENSE).
+[Apache License 2.0](LICENSE)

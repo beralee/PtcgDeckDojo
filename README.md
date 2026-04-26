@@ -1,180 +1,159 @@
-# PtcgDeckDojo
-
-[中文](README.md) | [English](README_EN.md)
-
-一个基于 Godot 4.6 与 GDScript 的 PTCG 本地练牌项目。
-
-这个仓库的目标不是做官方替代品，也不是做商业化产品，而是尽可能把 PTCG 的练牌、规则验证、卡牌效果实现和测试流程做成一个可持续演进的开源项目。
+# PTCG Deck Agent
 
 <p align="center">
-  <img src="assets/demo_menu.png" alt="PtcgDeckDojo main menu" width="49%" />
-  <img src="assets/demo3.png" alt="PtcgDeckDojo battle overview" width="49%" />
+  <a href="https://ptcg.skillserver.cn/">
+    <img src="assets/ui/title.png" alt="PTCG Deck Agent - 宝可梦卡牌智能练牌器" width="100%" />
+  </a>
 </p>
-
-## 项目一句话
-
-`PtcgDeckDojo` 是一个面向中文玩家的 PTCG 本地练牌与规则实验项目，支持导入卡组、本地缓存卡牌与卡图、进入战斗场景，并通过效果系统逐步补齐具体卡牌行为。
-
-## 当前状态
-
-这个项目已经能跑，也已经有比较完整的项目骨架，但它还远远不是“完成品”。
-
-当前版本请务必按下面的预期理解：
-
-- 已经有主菜单、卡组管理、对战设置、战斗主场景
-- 已经有规则引擎、效果系统、批量审核和自动化测试
-- 已经实现了很多卡牌脚本，但仍然有不少卡牌效果存在 bug、缺交互、边界条件不完整的问题
-- 很多卡牌目前是“可以部分工作”，不是“完全符合正式对战细则”
-- 这个仓库会继续以“发现问题 -> 补测试 -> 修效果 -> 再验证”的方式逐步修正
-
-如果你是来找一个严肃可用的成品客户端，这个仓库现在并不适合。
-
-如果你是来找一个可运行、可读、可继续补完的 PTCG 练牌代码库，那它是合适的。
-
-## 项目特点
-
-- 卡组导入：支持从 `tcg.mik.moe` 的卡组链接或 deck ID 导入
-- 本地缓存：卡牌 JSON、卡图、卡组数据保存在 `user://`
-- 战斗界面：已经具备完整主流程 UI
-- AI 辅助：支持构筑分析、局中建议和对战结束后的关键回合复盘
-- 规则引擎：包含回合、伤害、状态、奖赏卡、撤退等核心流程
-- 效果系统：通过 `effect_id` 将卡牌行为映射到可复用脚本
-- 测试体系：包含语义回归、批量卡牌审核、编码审计、UI 回归等
-
-## AI 辅助能力
-
-- 构筑分析：在卡组编辑界面给出具体换卡建议，而不是泛泛而谈的思路描述
-- 局中建议：基于当前可见场面、行动历史、双方卡组列表和卡组策略，为当前回合生成简洁的最优行动线
-- 对战复盘：对局结束后自动筛选关键回合，生成中文复盘和失误定位摘要
-- 信息边界：AI 建议默认遵守公开信息范围，不直接假设对手手牌、奖赏卡或牌库顺序
-- 测试隔离：功能回归与 AI / 训练测试已经拆分为独立入口，日常修 bug 时可以保持几秒级功能验证
 
 <p align="center">
-  <img src="assets/demo_ai_card.png" alt="PtcgDeckDojo AI deck analysis" width="49%" />
-  <img src="assets/demo1.png" alt="PtcgDeckDojo in-battle interface" width="49%" />
+  <strong>宝可梦卡牌智能练牌器：把卡组编辑、规则对战、AI 策略分析、比赛练习和复盘迭代放到一个本地客户端里。</strong>
 </p>
 
-## 项目结构
+<p align="center">
+  <a href="https://ptcg.skillserver.cn/">游戏官网</a>
+  ·
+  <a href="README_EN.md">English</a>
+  ·
+  <a href="docs/README.md">开发文档</a>
+  ·
+  <a href="CONTRIBUTING.md">参与贡献</a>
+</p>
+
+## 这是什么
+
+`PTCG Deck Agent` 是一个基于 Godot 4.6 的 PTCG 本地练牌与 AI 策略实验项目。它不只是一个能打牌的模拟器，而是围绕“如何把一套卡组练强”设计的智能练牌工具：你可以导入卡组、和规则 AI 或 LLM AI 对战、在牌局中询问 AI 当前局面、复盘关键回合，并通过自动化测试持续修正规则和策略。
+
+项目现在的重点已经从早期的“规则引擎验证”升级为“AI 辅助练牌产品”：让玩家更快理解卡组、找到错误决策、打出更稳定的展开路线。
+
+## 核心亮点
+
+- **AI 卡组教练**：在卡组编辑页直接和 AI 讨论当前卡组，询问起手稳定性、关键牌上手率、对局思路、换牌方向和具体单卡取舍。
+- **牌局中实时建议**：对战过程中可以让 AI 基于当前可见场面给出下一步建议，包括是否进攻、撤退、贴能、找牌、拿奖路线和风险点。
+- **公开信息边界**：对战建议默认只使用当前玩家视角能看到的信息，不把对手手牌、牌库顺序、奖赏卡内容直接泄露给 AI。
+- **LLM 对手实验**：内置 LLM 版猛雷鼓等实验性对手，支持把大模型接入实际回合决策，而不是只做赛后聊天。
+- **规则 AI 卡组**：内置多套独立 AI 卡组，覆盖密勒顿、喷火龙大比鸟、沙奈朵、阿尔宙斯骑拉帝纳、多龙等主流练习对象。
+- **瑞士轮比赛模式**：支持 16 / 32 / 64 / 128 人比赛，自动生成选手、随机 AI 卡组、积分榜、配对和最终排名。
+- **本地化资源打包**：卡组、卡牌数据、卡图、音乐、AI 卡组和配置文件支持随游戏内置，降低首次安装后的缺资源问题。
+- **自动化规则验证**：大量卡牌效果、战斗流程、AI 策略和 UI 行为都有测试入口，适合持续补卡、修规则和做策略迭代。
+
+## AI 能做什么
+
+### 1. 卡组理解
+
+打开一套牌后，AI 会拿到压缩后的完整卡表和关键卡牌文本，可以回答：
+
+- 这套牌的核心赢法是什么？
+- 起手应该优先找哪些基础宝可梦？
+- 某张卡能不能换成另一张卡？
+- 对密勒顿、沙奈朵、喷火龙这类卡组应该怎么打？
+- 这套牌缺什么资源，哪些牌是冗余的？
+
+### 2. 对战建议
+
+在战斗中，AI 会结合当前回合、阶段、行动方、场上宝可梦、HP、能量、手牌、弃牌、奖赏卡剩余数量和双方卡组信息，给出更接近实战的建议。提示词中特别说明了 PTCG 的奖赏卡规则：奖赏卡是“剩余数量”，先拿完到 0 的玩家获胜。
+
+### 3. 复盘与学习
+
+项目保留了对局日志、决策 trace、场面快照和自动化 benchmark 的基础设施，可以把失败局拆开看，定位 AI 或规则模型在哪个细节上偏离了预期打法。
+
+## 画面预览
+
+<p align="center">
+  <img src="assets/demo_menu.png" alt="Main menu" width="49%" />
+  <img src="assets/demo_ai_card.png" alt="AI deck discussion" width="49%" />
+</p>
+
+<p align="center">
+  <img src="assets/demo1.png" alt="Battle scene" width="49%" />
+  <img src="assets/demo3.png" alt="Battle overview" width="49%" />
+</p>
+
+## 当前模式
+
+- **开始对战**：选择玩家卡组和 AI 卡组，进行普通练习。
+- **双人对战**：本地双人模式，用于人工验证规则和测试卡组展开。
+- **卡组管理 / 卡组编辑**：导入、编辑、查看卡组，并与 AI 讨论构筑。
+- **比赛模式**：瑞士轮赛事流程，自动配对、记录积分和展示最终排名。
+- **AI 设置**：配置 ZenMux API、选择模型、测试连接，并设置 AI 性格风格。
+
+## 技术结构
 
 ```text
-assets/      UI 资源、图标、演示截图
-docs/        设计文档、效果框架、开发说明、阶段记录
-scenes/      Godot 场景与界面脚本
-scripts/     数据模型、规则引擎、效果系统、网络和工具脚本
-tests/       自动化测试、回归测试和批量审核入口
+assets/      UI 图片、背景、音效、演示截图
+data/        内置卡组、卡牌、卡图、AI 固定起手与用户初始资源
+docs/        架构文档、开发计划、策略迭代记录
+scenes/      Godot 场景和界面脚本
+scripts/     规则引擎、AI 策略、效果系统、网络请求、比赛系统
+tests/       功能回归、卡牌效果、AI 策略和场景测试
 ```
 
-更细一点的逻辑分层大致是这样：
+核心实现分层：
 
-1. `scenes/` 负责界面和玩家交互。
-2. `scripts/data/` 负责卡牌、卡组、玩家和槽位等数据模型。
-3. `scripts/engine/` 负责规则校验、状态推进、伤害结算和效果调度。
-4. `scripts/effects/` 负责把具体卡牌能力拆成可复用或专用脚本。
-5. `scripts/network/` 负责卡组导入和卡图同步。
-6. `tests/` 负责确保补卡和重构不会把已有行为搞坏。
+1. `scripts/engine/` 负责规则推进、状态机、效果调度和场面快照。
+2. `scripts/effects/` 负责具体卡牌、道具、支援者、竞技场和攻击效果。
+3. `scripts/ai/` 负责规则 AI、卡组策略、LLM 决策桥接和策略 trace。
+4. `scripts/network/` 负责 ZenMux / OpenAI 兼容接口调用。
+5. `scripts/tournament/` 负责瑞士轮比赛组织。
 
-## 当前开发逻辑
+## 本地运行
 
-这个项目现在的主要开发循环不是“堆新功能”，而是下面这条线：
-
-1. 先把游戏主流程和规则底座搭起来。
-2. 用统一的效果框架承接越来越多的卡牌实现。
-3. 用批量审核和语义回归测试找出缺卡、错卡和交互漏洞。
-4. 逐张卡、逐类效果把 bug 修到可验证状态。
-
-所以仓库里你会看到两类内容同时存在：
-
-- 一类是已经比较稳定的底层结构和测试
-- 一类是仍在逐步补完的具体卡牌实现
-
-这不是矛盾，而是这个项目当前阶段的真实状态。
-
-## 运行方式
-
-### 环境要求
+### 环境
 
 - Godot `4.6.x`
-- Windows 环境已验证
-- 首次导入卡组或同步卡图时需要能访问 `tcg.mik.moe`
+- Windows 环境已重点验证
+- macOS 打包正在逐步补齐兼容性
+- 如需 AI 对话，需要可用的 ZenMux API Key
 
-### 本地运行
+### 启动
 
-1. 用 Godot 打开仓库根目录中的 `project.godot`
+1. 用 Godot 打开仓库根目录下的 `project.godot`
 2. 运行主场景 `res://scenes/main_menu/MainMenu.tscn`
-3. 进入“卡组管理”导入卡组
-4. 回到“开始对战”选择卡组并启动
+3. 在 `AI 设置` 中选择模型并测试连接
+4. 进入卡组管理、普通对战或比赛模式开始练习
 
-### 运行测试
-
-项目内置了分离的 Godot headless 测试入口：
+### 常用测试
 
 ```powershell
 # 功能回归
 & 'D:\ai\godot\Godot_v4.6.1-stable_win64_console.exe' --headless --path 'D:\ai\code\ptcgtrain' -s 'res://tests/FunctionalTestRunner.gd'
 
-# AI / 训练
+# AI / 策略相关测试
 & 'D:\ai\godot\Godot_v4.6.1-stable_win64_console.exe' --headless --path 'D:\ai\code\ptcgtrain' -s 'res://tests/AITrainingTestRunner.gd'
 ```
 
-定向 suite 运行示例：
+## 项目状态
 
-```powershell
-& 'D:\ai\godot\Godot_v4.6.1-stable_win64_console.exe' --headless --path 'D:\ai\code\ptcgtrain' -s 'res://tests/FunctionalTestRunner.gd' -- --suite=RuleValidator,GameStateMachine
-```
+这是一个高速迭代中的开源项目。当前已经可以进行卡组导入、编辑、对战、AI 对话、比赛模式和大量自动化测试，但仍不应该被理解为官方级完整裁判程序。
 
-兼容入口 `res://tests/TestRunner.tscn` 仍可使用，也支持 `--group=functional` / `--group=ai_training`。
+更准确的定位是：
 
-## 文档入口
+- 对玩家：一个可以实际练牌、问 AI、复盘和试构筑的智能练习客户端。
+- 对开发者：一个把 PTCG 规则、AI 策略、LLM 决策和自动化测试放在一起的实验平台。
+- 对贡献者：一个可以通过补卡、修规则、加测试、优化 AI 策略持续变强的项目。
 
-- [docs/README.md](docs/README.md)：文档导航
-- [docs/development_setup.md](docs/development_setup.md)：开发环境、运行方式、测试入口
-- [docs/project_status.md](docs/project_status.md)：当前能力边界、已知限制、协作建议
-- [design_document.md](design_document.md)：整体设计文档
-- [DEVELOPMENT_SPEC.md](DEVELOPMENT_SPEC.md)：研发规范与编码要求
+## 免责声明
 
-## 关于实现质量
+本项目是非官方、非商业的学习与研究项目。Pokemon、宝可梦、PTCG 及相关卡牌名称、图片、规则文本和知识产权归各自权利人所有。本项目不提供任何官方授权背书，也不用于替代官方产品或商业化发行。
 
-这个仓库会尽量严肃对待规则一致性、编码质量和测试覆盖，但请不要误解它的出身。
-
-- 这是一个 `100% AI coding` 项目
-- 作者本人主要是 PTCG 爱好者，最好成绩是城市赛冠军
-- 作者并不是职业游戏程序员
-- 所以这个项目更适合被看作“高投入的学习型和实验型练牌工程”，而不是传统商业团队产物
-
-换句话说：
-
-- 欢迎认真提 issue 和 PR
-- 欢迎指出规则 bug、交互问题和架构问题
-- 但也请不要拿商业游戏成品的标准去苛责这个项目的阶段性粗糙之处
-
-## 版权与用途说明
-
-这个项目涉及宝可梦卡牌相关名称、图像和规则表达，因此必须明确边界：
-
-- 本仓库不附带用户本地缓存的卡牌数据与卡图
-- 运行时使用的卡牌数据与卡图来源于 `tcg.mik.moe`
-- Pokemon、PTCG 及相关卡牌内容的知识产权归各自权利人所有
-- 本项目仅作为学习、研究与交流用途
-- 不用于商业化
-- 不提供任何官方授权背书
-
-如果你 fork 本仓库或继续二次开发，也建议保留这条边界。
+如果你 fork 或二次开发本项目，也建议保留这一边界。
 
 ## 贡献
 
-欢迎通过 Issue 和 Pull Request 参与。
+欢迎提交 Issue 和 Pull Request，尤其欢迎：
 
-提交前建议先阅读：
+- 规则 bug 和卡牌效果错误
+- AI 对战中的明显错误决策
+- 卡组策略和测试用例
+- UI / 交互体验改进
+- macOS / Windows 打包兼容性反馈
+
+提交前建议阅读：
 
 - [CONTRIBUTING.md](CONTRIBUTING.md)
 - [DEVELOPMENT_SPEC.md](DEVELOPMENT_SPEC.md)
+- [docs/README.md](docs/README.md)
 
-这个仓库对 UTF-8 编码、中文文案、规则正确性和回归验证要求比较严格。
+## License
 
-## 安全
-
-安全问题请先看 [SECURITY.md](SECURITY.md)。
-
-## 许可证
-
-本项目采用 [Apache License 2.0](LICENSE)。
+[Apache License 2.0](LICENSE)
