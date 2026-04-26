@@ -37,6 +37,8 @@ tests/tmp_*.gd.uid
 tests/temp_*.gd
 tests/temp_*.gd.uid
 data/bundled_user/cards/images/UTEST/
+assets/ui/Codex.html
+assets/ui/Codex_files/
 
 # Local Python cache
 scripts/training/__pycache__/
