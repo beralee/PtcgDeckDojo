@@ -1,0 +1,200 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scenes/deck_editor/DeckDiscussionDialog.gd" id="1"]
+
+[node name="DeckDiscussionDialog" type="AcceptDialog"]
+borderless = true
+exclusive = false
+transient = false
+initial_position = 1
+size = Vector2i(980, 760)
+min_size = Vector2i(820, 620)
+title = ""
+script = ExtResource("1")
+
+[node name="Root" type="Control" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 18.0
+offset_top = 16.0
+offset_right = -18.0
+offset_bottom = -16.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="TitleLabel" type="Label" parent="Root"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_top = 8.0
+offset_bottom = 42.0
+grow_horizontal = 2
+theme_override_font_sizes/font_size = 24
+text = "与 AI 探讨"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="CloseButton" type="Button" parent="Root"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -44.0
+offset_top = 8.0
+offset_right = -8.0
+offset_bottom = 44.0
+grow_horizontal = 0
+text = "X"
+
+[node name="HeaderPanel" type="PanelContainer" parent="Root"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_top = 54.0
+offset_bottom = 166.0
+grow_horizontal = 2
+
+[node name="HeaderHBox" type="HBoxContainer" parent="Root/HeaderPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 0
+
+[node name="DeckArtPanel" type="PanelContainer" parent="Root/HeaderPanel/HeaderHBox"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(112, 112)
+layout_mode = 2
+
+[node name="DeckArtLabel" type="Label" parent="Root/HeaderPanel/HeaderHBox/DeckArtPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 46
+text = "AI"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="HeaderVBox" type="VBoxContainer" parent="Root/HeaderPanel/HeaderHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="DeckNameLabel" type="Label" parent="Root/HeaderPanel/HeaderHBox/HeaderVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "卡组"
+
+[node name="SummaryLabel" type="Label" parent="Root/HeaderPanel/HeaderHBox/HeaderVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 3
+text = ""
+
+[node name="StatusLabel" type="Label" parent="Root/HeaderPanel/HeaderHBox/HeaderVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 3
+theme_override_colors/font_color = Color(1, 0.72, 0.42, 1)
+text = ""
+
+[node name="TranscriptScroll" type="ScrollContainer" parent="Root"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = 180.0
+offset_bottom = -164.0
+grow_horizontal = 2
+grow_vertical = 2
+horizontal_scroll_mode = 0
+
+[node name="TranscriptList" type="VBoxContainer" parent="Root/TranscriptScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="SuggestionsPanel" type="VBoxContainer" parent="Root"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -198.0
+offset_bottom = -154.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_constants/separation = 4
+
+[node name="SuggestionButtons" type="HBoxContainer" parent="Root/SuggestionsPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="InputPanel" type="PanelContainer" parent="Root"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 158)
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -146.0
+grow_horizontal = 2
+grow_vertical = 0
+
+[node name="InputVBox" type="VBoxContainer" parent="Root/InputPanel"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="InputLabel" type="Label" parent="Root/InputPanel/InputVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "输入问题（Enter 发送，Shift+Enter 换行）"
+
+[node name="ComposerRow" type="HBoxContainer" parent="Root/InputPanel/InputVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 12
+
+[node name="AttachButton" type="Button" parent="Root/InputPanel/InputVBox/ComposerRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+size_flags_vertical = 4
+text = "+"
+
+[node name="QuestionInput" type="TextEdit" parent="Root/InputPanel/InputVBox/ComposerRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 78)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+wrap_mode = 1
+placeholder_text = "例如：这套牌起手至少有 1 张基础宝可梦的概率是多少？如果还想同时拿到宝芬，精确概率是多少？"
+
+[node name="Actions" type="HBoxContainer" parent="Root/InputPanel/InputVBox/ComposerRow"]
+layout_mode = 2
+size_flags_vertical = 8
+alignment = 2
+theme_override_constants/separation = 8
+
+[node name="ResetButton" type="Button" parent="Root/InputPanel/InputVBox/ComposerRow/Actions"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(110, 48)
+text = "清空对话"
+
+[node name="SendButton" type="Button" parent="Root/InputPanel/InputVBox/ComposerRow/Actions"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(98, 48)
+text = "发送"

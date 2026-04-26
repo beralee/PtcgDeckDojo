@@ -9,6 +9,9 @@ const IMPACT_PREFIX := "AttackVfxImpact"
 const SHOCKWAVE_PREFIX := "AttackVfxShockwave"
 const RESIDUE_PREFIX := "AttackVfxResidue"
 const FLASH_NAME := "AttackVfxFlash"
+const COUNTER_SOURCE_LABEL_NAME := "CounterTransferSourceLabel"
+const COUNTER_TARGET_LABEL_NAME := "CounterTransferTargetLabel"
+const COUNTER_CASTER_AURA_NAME := "CounterTransferCasterAura"
 const BattleAttackVfxRegistryScript := preload("res://scripts/ui/battle/BattleAttackVfxRegistry.gd")
 const PRECOMPUTED_REGION_CACHE_PATH := "res://assets/textures/vfx/visible_region_cache.json"
 
@@ -131,6 +134,34 @@ func play_preview_vfx(scene: Object, profile: RefCounted) -> void:
 	}]
 	var source_position: Vector2 = _resolve_attack_source_position(scene, int(scene.get("_view_player")), profile, target_specs)
 	_play_sequence(scene, overlay, profile, source_position, target_specs)
+
+
+func play_counter_transfer_vfx(scene: Object, data: Dictionary) -> void:
+	if scene == null or data.is_empty():
+		return
+	var overlay: Control = ensure_overlay(scene)
+	if overlay == null:
+		return
+	overlay.visible = true
+	var source_data: Variant = data.get("source", {})
+	var target_data: Variant = data.get("target", {})
+	if not (source_data is Dictionary) or not (target_data is Dictionary):
+		return
+	var source_spec: Dictionary = _target_spec_from_dict(scene, source_data as Dictionary)
+	var target_spec: Dictionary = _target_spec_from_dict(scene, target_data as Dictionary)
+	if source_spec.is_empty() or target_spec.is_empty():
+		return
+	target_spec["impact_style"] = "counter_transfer"
+	var registry: RefCounted = scene.get("_battle_attack_vfx_registry") as RefCounted
+	if registry == null:
+		registry = BattleAttackVfxRegistryScript.new()
+		scene.set("_battle_attack_vfx_registry", registry)
+	var profile: RefCounted = registry.call("get_counter_transfer_profile")
+	var source_position: Vector2 = source_spec.get("position", Vector2.ZERO)
+	_play_sequence(scene, overlay, profile, source_position, [target_spec])
+	var sequence: Control = overlay.get_child(overlay.get_child_count() - 1) as Control if overlay.get_child_count() > 0 else null
+	if sequence != null:
+		_add_counter_transfer_accents(scene, sequence, overlay, source_spec, target_spec, data)
 
 
 func _play_sequence(
@@ -788,6 +819,99 @@ func _create_flash_node(profile: RefCounted) -> ColorRect:
 	flash.visible = true
 	flash.modulate.a = 0.0
 	return flash
+
+
+func _add_counter_transfer_accents(
+	scene: Object,
+	sequence: Control,
+	overlay: Control,
+	source_spec: Dictionary,
+	target_spec: Dictionary,
+	data: Dictionary
+) -> void:
+	var counter_count: int = int(data.get("counter_count", 0))
+	if counter_count <= 0:
+		counter_count = maxi(1, int(data.get("damage_amount", 10)) / 10)
+	var damage_text := str(counter_count * 10)
+	var source_local: Vector2 = _overlay_local_position(overlay, source_spec.get("position", Vector2.ZERO))
+	var target_local: Vector2 = _overlay_local_position(overlay, target_spec.get("position", Vector2.ZERO))
+	var source_label := _make_counter_transfer_label(COUNTER_SOURCE_LABEL_NAME, "-%s" % damage_text, Color(0.55, 0.98, 1.0, 1.0), source_local + Vector2(-54.0, -66.0))
+	var target_label := _make_counter_transfer_label(COUNTER_TARGET_LABEL_NAME, "+%s" % damage_text, Color(1.0, 0.32, 0.78, 1.0), target_local + Vector2(22.0, -70.0))
+	sequence.add_child(source_label)
+	sequence.add_child(target_label)
+
+	var caster_data: Variant = data.get("caster", {})
+	if caster_data is Dictionary:
+		var caster_spec: Dictionary = _target_spec_from_dict(scene, caster_data as Dictionary)
+		if not caster_spec.is_empty():
+			var caster_local: Vector2 = _overlay_local_position(overlay, caster_spec.get("position", Vector2.ZERO))
+			var aura := _make_counter_transfer_aura(caster_local)
+			sequence.add_child(aura)
+
+	if scene is Node and (scene as Node).is_inside_tree():
+		_play_counter_transfer_accent_animation(scene as Node, sequence)
+
+
+func _make_counter_transfer_label(name: String, text: String, color: Color, position: Vector2) -> Label:
+	var label := Label.new()
+	label.name = name
+	label.text = text
+	label.position = position
+	label.custom_minimum_size = Vector2(96.0, 34.0)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.modulate.a = 0.0
+	label.add_theme_font_size_override("font_size", 25)
+	label.add_theme_color_override("font_color", color)
+	label.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.85))
+	label.add_theme_constant_override("shadow_offset_x", 2)
+	label.add_theme_constant_override("shadow_offset_y", 2)
+	return label
+
+
+func _make_counter_transfer_aura(position: Vector2) -> Control:
+	var aura := Control.new()
+	aura.name = COUNTER_CASTER_AURA_NAME
+	aura.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	aura.position = position
+	aura.scale = Vector2(0.34, 0.34)
+	aura.modulate.a = 0.0
+	for index: int in 8:
+		var ray := ColorRect.new()
+		ray.name = "AuraRay%d" % index
+		ray.color = Color(0.6, 0.18, 1.0, 0.72)
+		ray.size = Vector2(104.0, 8.0)
+		ray.pivot_offset = Vector2(0.0, 4.0)
+		ray.position = Vector2.ZERO
+		ray.rotation = TAU * float(index) / 8.0
+		ray.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		aura.add_child(ray)
+	return aura
+
+
+func _play_counter_transfer_accent_animation(scene: Node, sequence: Control) -> void:
+	var source_label: Label = sequence.get_node_or_null(COUNTER_SOURCE_LABEL_NAME) as Label
+	if source_label != null:
+		var source_tween := scene.create_tween()
+		source_tween.tween_interval(0.12)
+		source_tween.tween_property(source_label, "modulate:a", 1.0, 0.08).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+		source_tween.parallel().tween_property(source_label, "position:y", source_label.position.y - 18.0, 0.34).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		source_tween.tween_property(source_label, "modulate:a", 0.0, 0.22).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	var target_label: Label = sequence.get_node_or_null(COUNTER_TARGET_LABEL_NAME) as Label
+	if target_label != null:
+		var target_tween := scene.create_tween()
+		target_tween.tween_interval(0.4)
+		target_tween.tween_property(target_label, "modulate:a", 1.0, 0.08).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+		target_tween.parallel().tween_property(target_label, "scale", Vector2(1.18, 1.18), 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		target_tween.parallel().tween_property(target_label, "position:y", target_label.position.y - 14.0, 0.3).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		target_tween.tween_property(target_label, "modulate:a", 0.0, 0.24).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	var aura: Control = sequence.get_node_or_null(COUNTER_CASTER_AURA_NAME) as Control
+	if aura != null:
+		var aura_tween := scene.create_tween()
+		aura_tween.tween_property(aura, "modulate:a", 0.85, 0.08).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+		aura_tween.parallel().tween_property(aura, "scale", Vector2(1.2, 1.2), 0.26).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		aura_tween.tween_property(aura, "modulate:a", 0.0, 0.22).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 
 
 func _play_sequence_animation(

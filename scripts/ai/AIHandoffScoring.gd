@@ -9,6 +9,7 @@ static func is_handoff_step(step: Dictionary) -> bool:
 		"switch_target",
 		"self_switch_target",
 		"own_bench_target",
+		"opponent_bench_target",
 		"opponent_switch_target",
 		"pivot_target",
 		"heavy_baton_target",

@@ -1,4 +1,4 @@
-﻿class_name TestAttackVfxController
+class_name TestAttackVfxController
 extends TestBase
 
 
@@ -155,6 +155,39 @@ func test_dragapult_preview_vfx_prefers_authored_layers_over_generic_geometry() 
 		assert_null(impact_node.get_node_or_null("ImpactCore") if impact_node != null else null, "Dragapult preview should not render the old generic impact burst"),
 		assert_not_null(residue_node.get_node_or_null("EmbersSmokeTexture") if residue_node != null else null, "Dragapult preview should render an authored residue layer"),
 		assert_null(shockwave_node, "Dragapult preview should suppress the generic shockwave bar"),
+	])
+
+
+func test_counter_transfer_ability_vfx_uses_siphon_profile_and_damage_labels() -> String:
+	var battle_scene := _make_scene_stub()
+	var controller: RefCounted = battle_scene.get("_battle_attack_vfx_controller")
+	controller.call("play_counter_transfer_vfx", battle_scene, {
+		"ability_vfx": "counter_transfer",
+		"counter_count": 3,
+		"damage_amount": 30,
+		"source": {"player_index": 0, "slot_kind": "active", "slot_index": 0},
+		"target": {"player_index": 1, "slot_kind": "bench", "slot_index": 0},
+		"caster": {"player_index": 0, "slot_kind": "active", "slot_index": 0},
+	})
+
+	var overlay: Control = battle_scene.get("_attack_vfx_overlay") as Control
+	var sequence: Control = overlay.get_child(0) as Control if overlay != null and overlay.get_child_count() > 0 else null
+	var cast_node: Control = sequence.get_node_or_null("AttackVfxCast") as Control if sequence != null else null
+	var travel_node: Control = sequence.get_node_or_null("AttackVfxTravel0") as Control if sequence != null else null
+	var impact_node: Control = sequence.get_node_or_null("AttackVfxImpact0") as Control if sequence != null else null
+	var source_label: Label = sequence.get_node_or_null("CounterTransferSourceLabel") as Label if sequence != null else null
+	var target_label: Label = sequence.get_node_or_null("CounterTransferTargetLabel") as Label if sequence != null else null
+	var caster_aura: Control = sequence.get_node_or_null("CounterTransferCasterAura") as Control if sequence != null else null
+
+	return run_checks([
+		assert_not_null(sequence, "Counter-transfer ability should create a VFX sequence root"),
+		assert_eq(str(sequence.get_meta("profile_id", "")), "ability_counter_transfer", "Counter-transfer ability should use its dedicated siphon profile"),
+		assert_not_null(cast_node, "Counter-transfer ability should create a source-side cast node"),
+		assert_not_null(travel_node, "Counter-transfer ability should animate counters traveling to the target"),
+		assert_not_null(impact_node, "Counter-transfer ability should create a target impact node"),
+		assert_eq(source_label.text if source_label != null else "", "-30", "Source label should show removed damage counters"),
+		assert_eq(target_label.text if target_label != null else "", "+30", "Target label should show added damage counters"),
+		assert_not_null(caster_aura, "Counter-transfer ability should flash the ability user"),
 	])
 
 

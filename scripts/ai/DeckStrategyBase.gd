@@ -1,6 +1,9 @@
 class_name DeckStrategyBase
 extends RefCounted
 
+var _turn_plan_context: Dictionary = {}
+var _turn_contract_context: Dictionary = {}
+
 
 func get_strategy_id() -> String:
 	return ""
@@ -64,6 +67,108 @@ func score_interaction_target(_item: Variant, _step: Dictionary, _context: Dicti
 
 func score_handoff_target(_item: Variant, _step: Dictionary, _context: Dictionary = {}) -> float:
 	return score_interaction_target(_item, _step, _context)
+
+
+func build_turn_plan(_game_state: GameState, _player_index: int, _context: Dictionary = {}) -> Dictionary:
+	return {}
+
+
+func build_turn_contract(_game_state: GameState, _player_index: int, _context: Dictionary = {}) -> Dictionary:
+	return _normalize_turn_contract(build_turn_plan(_game_state, _player_index, _context))
+
+
+func score_action_absolute_with_plan(
+	action: Dictionary,
+	game_state: GameState,
+	player_index: int,
+	turn_plan: Dictionary = {}
+) -> float:
+	var turn_contract := _normalize_turn_contract(turn_plan)
+	_set_turn_plan_context(turn_contract)
+	_set_turn_contract_context(turn_contract)
+	var score: float = score_action_absolute(action, game_state, player_index)
+	_clear_turn_plan_context()
+	_clear_turn_contract_context()
+	return score
+
+
+func get_turn_plan_context() -> Dictionary:
+	return _turn_plan_context.duplicate(true)
+
+
+func get_turn_contract_context() -> Dictionary:
+	return _turn_contract_context.duplicate(true)
+
+
+func _set_turn_plan_context(turn_plan: Dictionary) -> void:
+	_turn_plan_context = turn_plan.duplicate(true)
+
+
+func _clear_turn_plan_context() -> void:
+	_turn_plan_context.clear()
+
+
+func _set_turn_contract_context(turn_contract: Dictionary) -> void:
+	_turn_contract_context = turn_contract.duplicate(true)
+
+
+func _clear_turn_contract_context() -> void:
+	_turn_contract_context.clear()
+
+
+func _normalize_turn_contract(turn_plan: Dictionary) -> Dictionary:
+	var normalized: Dictionary = turn_plan.duplicate(true)
+	if not normalized.has("id"):
+		normalized["id"] = str(normalized.get("intent", normalized.get("phase", "")))
+	if not normalized.has("intent"):
+		normalized["intent"] = str(normalized.get("id", ""))
+	if not normalized.has("phase"):
+		normalized["phase"] = ""
+	var flags: Variant = normalized.get("flags", {})
+	if not (flags is Dictionary):
+		normalized["flags"] = {}
+	var targets: Dictionary = normalized.get("targets", {}) if normalized.get("targets", {}) is Dictionary else {}
+	normalized["targets"] = targets
+	var constraints: Dictionary = normalized.get("constraints", {}) if normalized.get("constraints", {}) is Dictionary else {}
+	normalized["constraints"] = constraints
+	var owner: Dictionary = normalized.get("owner", {}) if normalized.get("owner", {}) is Dictionary else {}
+	if not owner.has("turn_owner_name"):
+		owner["turn_owner_name"] = str(normalized.get("turn_owner_name", targets.get("primary_attacker_name", "")))
+	if not owner.has("bridge_target_name"):
+		owner["bridge_target_name"] = str(normalized.get("bridge_target_name", targets.get("bridge_target_name", "")))
+	if not owner.has("pivot_target_name"):
+		var pivot_name: String = str(owner.get("turn_owner_name", ""))
+		owner["pivot_target_name"] = str(normalized.get("pivot_target_name", pivot_name))
+	normalized["owner"] = owner
+	var priorities: Dictionary = normalized.get("priorities", {}) if normalized.get("priorities", {}) is Dictionary else {}
+	if not priorities.has("attach"):
+		var attach_priority: Array[String] = []
+		if str(owner.get("bridge_target_name", "")) != "":
+			attach_priority.append(str(owner.get("bridge_target_name", "")))
+		if str(owner.get("turn_owner_name", "")) != "" and str(owner.get("turn_owner_name", "")) != str(owner.get("bridge_target_name", "")):
+			attach_priority.append(str(owner.get("turn_owner_name", "")))
+		priorities["attach"] = attach_priority
+	if not priorities.has("handoff"):
+		var handoff_priority: Array[String] = []
+		if str(owner.get("pivot_target_name", "")) != "":
+			handoff_priority.append(str(owner.get("pivot_target_name", "")))
+		priorities["handoff"] = handoff_priority
+	if not priorities.has("search"):
+		var search_priority: Array[String] = []
+		if str(owner.get("bridge_target_name", "")) != "":
+			search_priority.append(str(owner.get("bridge_target_name", "")))
+		priorities["search"] = search_priority
+	normalized["priorities"] = priorities
+	if not normalized.has("forbidden_action_kinds"):
+		var forbidden: Array[String] = []
+		if bool(constraints.get("forbid_engine_churn", false)):
+			forbidden.append_array(["play_trainer:IONO", "play_trainer:JUDGE", "use_ability:BIBAREL", "use_ability:SKWOVET"])
+		if bool(constraints.get("forbid_extra_bench_padding", false)):
+			forbidden.append("play_basic_to_bench")
+		normalized["forbidden_action_kinds"] = forbidden
+	if not normalized.has("context") or not (normalized.get("context", {}) is Dictionary):
+		normalized["context"] = {}
+	return normalized
 
 
 # ============================================================

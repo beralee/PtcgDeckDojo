@@ -1,18 +1,18 @@
-﻿class_name BattleI18n
+class_name BattleI18n
 extends RefCounted
 
 const STRINGS := {
 	"battle.top.ai_advice": "AI建议",
 	"battle.top.zeus_help": "宙斯帮我",
 	"battle.top.phase_line": "当前牌组：{deck} | 对手手牌：{count}",
-	"battle.top.turn_line": "第 {turn} 回合 | 玩家 {player} 行动",
+	"battle.top.turn_line": "第 {turn} 回合 | {player} 行动",
 	"battle.top.opponent_hand_count": "对手手牌：{count}",
 	"battle.top.card_count": "{count} 张",
 	"battle.log.title": "操作日志",
 	"battle.deck.unknown": "未知牌组",
 	"battle.player.default": "玩家{index}",
-	"battle.prize.prompt": "请选择 1 张奖赏卡（剩余 {count} 张）",
-	"battle.prize.pending_title": "选择{count}张奖赏卡",
+	"battle.prize.prompt": "请点击左侧高亮的奖赏卡（剩余 {count} 张）",
+	"battle.prize.pending_title": "点左侧奖赏卡：选{count}张",
 	"battle.prize.opponent": "对方奖赏",
 	"battle.prize.self": "己方奖赏",
 	"battle.handover.prompt": "请将设备交给玩家 {player}",

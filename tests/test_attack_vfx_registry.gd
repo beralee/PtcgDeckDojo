@@ -1,4 +1,4 @@
-﻿class_name TestAttackVfxRegistry
+class_name TestAttackVfxRegistry
 extends TestBase
 
 const BattleAttackVfxRegistryScript = preload("res://scripts/ui/battle/BattleAttackVfxRegistry.gd")

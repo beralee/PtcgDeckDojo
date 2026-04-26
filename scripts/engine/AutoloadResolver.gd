@@ -9,7 +9,10 @@ static func get_autoload(name: String) -> Node:
 	var tree := main_loop as SceneTree
 	if tree == null or tree.root == null:
 		return null
-	return tree.root.get_node_or_null(NodePath("/root/%s" % name))
+	for child: Node in tree.root.get_children():
+		if child != null and child.name == name:
+			return child
+	return tree.root.get_node_or_null(NodePath(name))
 
 
 static func get_card_database() -> Node:

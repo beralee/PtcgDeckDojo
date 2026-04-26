@@ -1,4 +1,4 @@
-﻿class_name DeckStrategyLostBox
+class_name DeckStrategyLostBox
 extends "res://scripts/ai/DeckStrategyBase.gd"
 
 

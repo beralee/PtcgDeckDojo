@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "消失之翼",
+			"text": "如果这只宝可梦在备战区的话，则在自己的回合可以使用1次。将这只宝可梦，以及放于其身上的所有卡牌，放回自己的牌库并重洗牌库。"
+		}
+	],
+	"ancient_trait": "",
+	"artist": "Saki Hayashiro",
+	"attacks": [
+		{
+			"cost": "CCC",
+			"damage": "80+",
+			"is_vstar_power": false,
+			"name": "乘风飞翔",
+			"text": "如果场上有自己的竞技场的话，则追加造成80点伤害。"
+		}
+	],
+	"card_index": "112",
+	"card_index_en": "137",
+	"card_type": "Pokemon",
+	"description": "特性: 消失之翼\n如果这只宝可梦在备战区的话，则在自己的回合可以使用1次。将这只宝可梦，以及放于其身上的所有卡牌，放回自己的牌库并重洗牌库。\n\n 乘风飞翔 80+\n如果场上有自己的竞技场的话，则追加造成80点伤害。\n\n",
+	"effect_id": "a9bc714c7706f85490f9566db2460c4b",
+	"energy_provides": "",
+	"energy_type": "C",
+	"evolves_from": "",
+	"hp": 210,
+	"image_local_path": "user://cards/images/CS6bC/112.png",
+	"image_url": "https://tcg.mik.moe/static/img/CS6bC/112.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "V",
+	"name": "大比鸟V",
+	"name_en": "Pidgeot V",
+	"rarity": "RR",
+	"regulation_expanded": true,
+	"regulation_mark": "F",
+	"regulation_standard": true,
+	"release_date": "2024-09-20T00:00:00+08:00",
+	"resistance_energy": "F",
+	"resistance_value": "-30",
+	"retreat_cost": 1,
+	"set_code": "CS6bC",
+	"set_code_en": "LOR",
+	"stage": "Basic",
+	"weakness_energy": "L",
+	"weakness_value": "×2",
+	"yoren_code": "Y1101"
+}

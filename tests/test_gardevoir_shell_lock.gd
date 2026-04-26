@@ -106,6 +106,8 @@ func test_setup_uses_tm_carrier_active_when_two_ralts_are_available_for_backline
 	player.hand.append(CardInstance.create(_make_pokemon_cd(DeckStrategyGardevoirScript.FLUTTER_MANE, "Basic", "P", 90), 0))
 	player.hand.append(CardInstance.create(_make_pokemon_cd(DeckStrategyGardevoirScript.RALTS), 0))
 	player.hand.append(CardInstance.create(_make_pokemon_cd(DeckStrategyGardevoirScript.RALTS), 0))
+	player.hand.append(CardInstance.create(_make_trainer_cd(DeckStrategyGardevoirScript.ARVEN, "Supporter"), 0))
+	player.hand.append(CardInstance.create(_make_energy_cd("Basic Psychic Energy", "P"), 0))
 	var strategy := _new_strategy()
 	var choice: Dictionary = strategy.plan_opening_setup(player)
 	var active_idx: int = int(choice.get("active_hand_index", -1))
@@ -118,6 +120,8 @@ func test_setup_uses_tm_carrier_active_when_two_ralts_are_available_for_backline
 			bench_names.append(str(player.hand[idx].card_data.name))
 	var ok := active_name == DeckStrategyGardevoirScript.FLUTTER_MANE and bench_names.size() >= 2 and bench_names[0] == DeckStrategyGardevoirScript.RALTS and bench_names[1] == DeckStrategyGardevoirScript.RALTS
 	return assert_true(ok, "When two Ralts are already available, the active should prefer a TM carrier while both Ralts stay on the bench for evolution (active=%s bench=%s)" % [active_name, str(bench_names)])
+
+
 
 
 func test_dark_attach_to_munkidori_stays_negative_before_shell_is_online() -> String:

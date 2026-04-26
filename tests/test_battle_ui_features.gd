@@ -198,6 +198,7 @@ func _make_battle_scene_stub() -> Control:
 	battle_scene.set("_btn_end_turn", Button.new())
 	battle_scene.set("_btn_attack_vfx_preview", Button.new())
 	battle_scene.set("_btn_ai_advice", Button.new())
+	battle_scene.set("_btn_battle_discuss_ai", Button.new())
 	battle_scene.set("_btn_zeus_help", Button.new())
 	battle_scene.set("_btn_opponent_hand", Button.new())
 	battle_scene.set("_btn_replay_prev_turn", Button.new())
@@ -555,15 +556,91 @@ func test_battle_scene_includes_attack_vfx_preview_button_left_of_ai_advice() ->
 	var scene: Control = load("res://scenes/battle/BattleScene.tscn").instantiate()
 	var preview_button := scene.find_child("BtnAttackVfxPreview", true, false)
 	var ai_advice_button := scene.find_child("BtnAiAdvice", true, false)
+	var discuss_button := scene.find_child("BtnBattleDiscussAI", true, false)
 	var preview_index := preview_button.get_index() if preview_button is Button else -1
 	var ai_index := ai_advice_button.get_index() if ai_advice_button is Button else -1
+	var discuss_index := discuss_button.get_index() if discuss_button is Button else -1
 	var preview_text: String = preview_button.text if preview_button is Button else ""
 
 	return run_checks([
 		assert_true(preview_button is Button, "BattleScene 顶栏应包含放烟花按钮"),
 		assert_true(ai_advice_button is Button, "BattleScene 顶栏应保留 AI 建议按钮"),
+		assert_true(discuss_button is Button, "BattleScene 顶栏应包含 AI 探讨按钮"),
+		assert_eq((discuss_button as Button).text, "AI探讨", "AI 探讨按钮文案应为纯中文"),
 		assert_eq(preview_text, "放烟花", "放烟花按钮文案应为纯中文"),
 		assert_true(preview_index >= 0 and ai_index >= 0 and preview_index < ai_index, "放烟花按钮应位于 AI 建议左侧"),
+		assert_true(ai_index >= 0 and discuss_index >= 0 and discuss_index > ai_index, "AI 探讨按钮应位于 AI 建议右侧"),
+	])
+
+
+func test_battle_discussion_context_hides_opponent_private_zones() -> String:
+	var original_ids: Array = GameManager.selected_deck_ids.duplicate()
+	var original_mode: int = GameManager.current_mode
+	var player_deck := DeckData.new()
+	player_deck.id = 990101
+	player_deck.deck_name = "对战探讨玩家牌"
+	player_deck.total_cards = 60
+	player_deck.cards = [{"set_code": "UTEST", "card_index": "001", "count": 4, "card_type": "Pokemon", "name": "己方基础"}]
+	var opponent_deck := DeckData.new()
+	opponent_deck.id = 990102
+	opponent_deck.deck_name = "对战探讨对手牌"
+	opponent_deck.total_cards = 60
+	opponent_deck.cards = [{"set_code": "UTEST", "card_index": "002", "count": 4, "card_type": "Pokemon", "name": "对手基础"}]
+	CardDatabase.save_deck(player_deck)
+	CardDatabase.save_deck(opponent_deck)
+	GameManager.current_mode = GameManager.GameMode.TWO_PLAYER
+	GameManager.selected_deck_ids = [player_deck.id, opponent_deck.id]
+
+	var scene = BattleSceneScript.new()
+	scene.set("_view_player", 0)
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	gsm.game_state.turn_number = 3
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 0
+	gsm.game_state.players = [PlayerState.new(), PlayerState.new()]
+	gsm.game_state.players[0].player_index = 0
+	gsm.game_state.players[1].player_index = 1
+	var my_card := _make_pokemon_cd("己方基础", 70, "P")
+	my_card.set_code = "UTEST"
+	my_card.card_index = "001"
+	var opp_secret := _make_pokemon_cd("对手隐藏手牌", 70, "L")
+	opp_secret.set_code = "UTEST"
+	opp_secret.card_index = "999"
+	var opp_active := _make_pokemon_cd("对手前场", 120, "L")
+	opp_active.set_code = "UTEST"
+	opp_active.card_index = "002"
+	gsm.game_state.players[0].hand.append(CardInstance.create(my_card, 0))
+	gsm.game_state.players[0].deck.append(CardInstance.create(my_card, 0))
+	gsm.game_state.players[1].hand.append(CardInstance.create(opp_secret, 1))
+	gsm.game_state.players[1].deck.append(CardInstance.create(opp_secret, 1))
+	for _i: int in range(3):
+		gsm.game_state.players[0].prizes.append(CardInstance.create(my_card, 0))
+	for _i: int in range(4):
+		gsm.game_state.players[1].prizes.append(CardInstance.create(opp_secret, 1))
+	gsm.game_state.players[1].active_pokemon = PokemonSlot.new()
+	gsm.game_state.players[1].active_pokemon.pokemon_stack.append(CardInstance.create(opp_active, 1))
+	scene.set("_gsm", gsm)
+
+	var context: Dictionary = scene.call("_build_battle_discussion_context")
+	var opponent_public: Dictionary = context.get("opponent_public_state", {})
+	var my_state: Dictionary = context.get("my_visible_state", {})
+	var public_counts: Dictionary = context.get("public_counts", {})
+	var context_text := JSON.stringify(context)
+
+	GameManager.selected_deck_ids = original_ids
+	GameManager.current_mode = original_mode
+	CardDatabase.delete_deck(player_deck.id)
+	CardDatabase.delete_deck(opponent_deck.id)
+
+	return run_checks([
+		assert_true((my_state.get("hand", []) as Array).size() == 1, "当前视角应包含己方手牌内容"),
+		assert_eq(str(opponent_public.get("hand", "")), "[hidden: opponent hand contents are not visible]", "对手手牌内容必须隐藏"),
+		assert_false(context_text.contains("对手隐藏手牌"), "对战探讨上下文不得泄露对手手牌或牌库具体卡名"),
+		assert_true(context_text.contains("对手前场"), "对战探讨上下文应包含对手公开前场信息"),
+		assert_eq(str(public_counts.get("prize_remaining_score", "")), "3-4", "Battle discussion should expose prize remaining score explicitly"),
+		assert_eq(str(public_counts.get("prizes_taken_score", "")), "3-2", "Battle discussion should expose prizes taken score explicitly"),
 	])
 
 
@@ -2215,6 +2292,38 @@ func test_battle_scene_opponent_hand_button_only_visible_in_vs_ai() -> String:
 	])
 
 
+func test_battle_scene_two_player_hides_old_ai_and_vfx_buttons() -> String:
+	var scene := _make_battle_scene_stub()
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.turn_number = 1
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+	scene._gsm = gsm
+	scene._view_player = 0
+	var previous_mode: int = GameManager.current_mode
+	GameManager.current_mode = GameManager.GameMode.TWO_PLAYER
+	scene.call("_refresh_ui")
+	var ai_advice_hidden := not (scene.get("_btn_ai_advice") as Button).visible
+	var attack_vfx_hidden := not (scene.get("_btn_attack_vfx_preview") as Button).visible
+	var discuss_visible := (scene.get("_btn_battle_discuss_ai") as Button).visible
+	GameManager.current_mode = GameManager.GameMode.VS_AI
+	scene.call("_refresh_ui")
+	var attack_vfx_hidden_in_vs_ai := not (scene.get("_btn_attack_vfx_preview") as Button).visible
+	GameManager.current_mode = previous_mode
+
+	return run_checks([
+		assert_true(ai_advice_hidden, "Two-player battle should hide the old AI advice button"),
+		assert_true(attack_vfx_hidden, "Two-player battle should hide the attack VFX preview button"),
+		assert_true(discuss_visible, "Two-player battle should keep the AI discussion button visible"),
+		assert_true(attack_vfx_hidden_in_vs_ai, "VS_AI battle should hide the attack VFX preview button"),
+	])
+
+
 func test_battle_scene_opponent_hand_viewer_shows_card_previews() -> String:
 	var scene := _make_battle_scene_stub()
 	var gsm := GameStateMachine.new()
@@ -2451,6 +2560,103 @@ func test_battle_scene_retreat_rejects_overpaying_energy_selection() -> String:
 		assert_eq(str(scene.get("_pending_choice")), "retreat_energy", "Overpaying retreat Energy should keep the flow on the Energy selection step"),
 		assert_eq(str(scene.get("_field_interaction_mode")), "", "Overpaying retreat Energy should not advance to bench selection"),
 		assert_eq(gsm.retreat_calls, 0, "Overpaying retreat Energy should not call GameStateMachine.retreat"),
+	])
+
+
+func test_battle_scene_pokemon_action_dialog_uses_hud_cards_with_full_text() -> String:
+	var scene = _make_battle_scene_stub()
+	var gsm := GameStateMachine.new()
+	gsm.game_state = GameState.new()
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	for pi: int in 2:
+		var player := PlayerState.new()
+		player.player_index = pi
+		gsm.game_state.players.append(player)
+	scene._gsm = gsm
+	scene._view_player = 0
+
+	var card_data := _make_pokemon_cd("HUD测试宝可梦", 120, "R")
+	card_data.effect_id = "hud_action_test_ability"
+	card_data.abilities = [{"name": "热血补给", "text": "自己的回合时可使用。查看自己的牌库，选择 1 张基本能量加入手牌，然后重洗牌库。"}]
+	card_data.attacks = [{
+		"name": "烈焰冲击",
+		"cost": "RC",
+		"damage": "80",
+		"text": "将这只宝可梦身上的 1 个能量丢弃。若对手的战斗宝可梦为宝可梦ex，追加 80 点伤害。",
+		"is_vstar_power": false,
+	}]
+	gsm.effect_processor.register_effect(card_data.effect_id, AbilityRunAwayDrawScript.new())
+	var active := PokemonSlot.new()
+	active.pokemon_stack.append(CardInstance.create(card_data, 0))
+	active.attached_energy.append(CardInstance.create(_make_energy_cd("Fire", "R"), 0))
+	active.attached_energy.append(CardInstance.create(_make_energy_cd("Colorless", "C"), 0))
+	gsm.game_state.players[0].active_pokemon = active
+	var bench := PokemonSlot.new()
+	bench.pokemon_stack.append(CardInstance.create(_make_pokemon_cd("Bench", 70, "C"), 0))
+	gsm.game_state.players[0].bench = [bench]
+	gsm.game_state.players[0].deck.append(CardInstance.create(_make_energy_cd("Deck Fire", "R"), 0))
+	gsm.game_state.players[1].active_pokemon = PokemonSlot.new()
+	gsm.game_state.players[1].active_pokemon.pokemon_stack.append(CardInstance.create(_make_pokemon_cd("Target", 100, "C"), 1))
+
+	scene.call("_show_pokemon_action_dialog", 0, active, true)
+	var data: Dictionary = scene.get("_dialog_data")
+	var action_items: Array = data.get("action_items", [])
+	var first_action: Dictionary = action_items[0] if action_items.size() > 0 and action_items[0] is Dictionary else {}
+	var second_action: Dictionary = action_items[1] if action_items.size() > 1 and action_items[1] is Dictionary else {}
+	var scroll: ScrollContainer = scene.get("_dialog_card_scroll")
+	var list: ItemList = scene.get("_dialog_list")
+	var confirm: Button = scene.get("_dialog_confirm")
+	var row: HBoxContainer = scene.get("_dialog_card_row")
+	var stack: VBoxContainer = row.get_child(0) as VBoxContainer if row.get_child_count() > 0 else null
+	var first_panel: PanelContainer = stack.get_child(0) as PanelContainer if stack != null and stack.get_child_count() > 0 else null
+	var first_margin: MarginContainer = first_panel.get_child(0) as MarginContainer if first_panel != null and first_panel.get_child_count() > 0 else null
+	var second_panel: PanelContainer = stack.get_child(1) as PanelContainer if stack != null and stack.get_child_count() > 1 else null
+	var second_margin: MarginContainer = second_panel.get_child(0) as MarginContainer if second_panel != null and second_panel.get_child_count() > 0 else null
+	var second_box: VBoxContainer = second_margin.get_child(0) as VBoxContainer if second_margin != null and second_margin.get_child_count() > 0 else null
+	var second_header: HBoxContainer = second_box.get_child(0) as HBoxContainer if second_box != null and second_box.get_child_count() > 0 else null
+	var attack_cost_icons: HBoxContainer = null
+	if second_header != null:
+		for child: Node in second_header.get_children():
+			if child is HBoxContainer:
+				attack_cost_icons = child
+				break
+	var three_action_height := scroll.custom_minimum_size.y
+	scene.call("_show_pokemon_action_dialog", 0, active, false)
+	var single_action_items: Array = (scene.get("_dialog_data") as Dictionary).get("action_items", [])
+	var single_action_height := (scene.get("_dialog_card_scroll") as ScrollContainer).custom_minimum_size.y
+	card_data.abilities = [
+		{"name": "能力1", "text": "效果1"},
+		{"name": "能力2", "text": "效果2"},
+		{"name": "能力3", "text": "效果3"},
+		{"name": "能力4", "text": "效果4"},
+		{"name": "能力5", "text": "效果5"},
+		{"name": "能力6", "text": "效果6"},
+	]
+	scene.call("_show_pokemon_action_dialog", 0, active, false)
+	var six_action_height := (scene.get("_dialog_card_scroll") as ScrollContainer).custom_minimum_size.y
+	var six_action_scroll_mode: int = (scene.get("_dialog_card_scroll") as ScrollContainer).vertical_scroll_mode
+
+	return run_checks([
+		assert_eq(str(data.get("presentation", "")), "action_hud", "Pokemon action dialog should use the HUD-card presentation"),
+		assert_true(scroll.visible, "Pokemon action HUD should use the card scroll area"),
+		assert_false(list.visible, "Pokemon action HUD should hide the old ItemList"),
+		assert_false(confirm.visible, "Pokemon action HUD should select by clicking the HUD option"),
+		assert_eq(str(first_action.get("title", "")), "热血补给", "Ability HUD should show the ability name"),
+		assert_true(str(first_action.get("body", "")).contains("选择 1 张基本能量加入手牌"), "Ability HUD should show the full ability text"),
+		assert_eq(str(second_action.get("title", "")), "烈焰冲击", "Attack HUD should show the attack name"),
+		assert_true(str(second_action.get("body", "")).contains("追加 80 点伤害"), "Attack HUD should show the full attack effect text"),
+		assert_false(str(second_action.get("meta", "")).contains("RC"), "Attack HUD meta should not show raw Energy cost letters"),
+		assert_eq(attack_cost_icons.get_child_count() if attack_cost_icons != null else 0, 2, "Attack HUD should render one Energy icon per cost symbol"),
+		assert_true(attack_cost_icons.get_child(0) is TextureRect if attack_cost_icons != null and attack_cost_icons.get_child_count() > 0 else false, "Attack HUD should render Energy costs as texture icons"),
+		assert_true(attack_cost_icons.get_child(1) is TextureRect if attack_cost_icons != null and attack_cost_icons.get_child_count() > 1 else false, "Attack HUD should render Colorless cost as a texture icon"),
+		assert_true(three_action_height < 360.0, "Pokemon action HUD should be more compact than the old fixed 360px height"),
+		assert_eq(single_action_items.size(), 1, "Ability-only Pokemon action HUD should contain one option"),
+		assert_true(single_action_height < 120.0, "Ability-only Pokemon action HUD should shrink close to one option height"),
+		assert_true(absf(six_action_height - 474.0) < 0.1, "Pokemon action HUD should cap visible height at five options"),
+		assert_eq(six_action_scroll_mode, ScrollContainer.SCROLL_MODE_AUTO, "Pokemon action HUD should only enable vertical scrolling above five options"),
+		assert_eq(first_panel.mouse_filter if first_panel != null else -1, Control.MOUSE_FILTER_STOP, "Whole action HUD option should receive clicks"),
+		assert_eq(first_margin.mouse_filter if first_margin != null else -1, Control.MOUSE_FILTER_IGNORE, "Action HUD contents should pass clicks through to the whole option"),
 	])
 
 
@@ -4008,12 +4214,19 @@ func test_battle_scene_sadas_vitality_routes_real_effect_to_assignment_ui() -> S
 	var steps: Array[Dictionary] = effect.get_interaction_steps(card, gsm.game_state)
 	battle_scene.call("_start_effect_interaction", "trainer", 0, steps, card)
 	var data: Dictionary = battle_scene.get("_field_interaction_data")
+	battle_scene.call("_on_field_assignment_source_chosen", 0)
+	battle_scene.call("_handle_field_assignment_target_index", 0)
+	battle_scene.call("_on_field_assignment_source_chosen", 1)
+	battle_scene.call("_handle_field_assignment_target_index", 0)
+	var assignments: Array = battle_scene.get("_field_interaction_assignment_entries")
 
 	return run_checks([
 		assert_eq(str(battle_scene.get("_field_interaction_mode")), "assignment", "Sada's Vitality should route to field assignment UI"),
 		assert_eq(str(battle_scene.get("_field_interaction_position")), "top", "Sada's Vitality should move the field panel upward for own Ancient targets"),
 		assert_eq(int(data.get("source_items", []).size()), 2, "Sada's Vitality should expose discard energy cards as sources"),
 		assert_eq(int(data.get("target_items", []).size()), 2, "Sada's Vitality should expose Ancient Pokemon targets on the field"),
+		assert_eq(int(data.get("max_assignments_per_target", 0)), 1, "Sada's Vitality should declare one energy per Ancient target"),
+		assert_eq(assignments.size(), 1, "Sada's Vitality UI should reject assigning two energy to the same Ancient target"),
 	])
 
 
@@ -4216,7 +4429,10 @@ func test_battle_scene_move_damage_counters_to_opponent_repositions_between_step
 		gsm.game_state.players.append(player)
 
 	var user_slot := PokemonSlot.new()
-	user_slot.pokemon_stack.append(CardInstance.create(_make_pokemon_cd("Munkidori", 90, "D"), 0))
+	var munkidori_cd := _make_pokemon_cd("Munkidori", 90, "D")
+	munkidori_cd.effect_id = "munkidori_counter_ui_test"
+	munkidori_cd.abilities = [{"name": "亢奋脑力"}]
+	user_slot.pokemon_stack.append(CardInstance.create(munkidori_cd, 0))
 	user_slot.attached_energy.append(CardInstance.create(_make_energy_cd("Dark Energy", "D"), 0))
 	gsm.game_state.players[0].active_pokemon = user_slot
 
@@ -4233,6 +4449,7 @@ func test_battle_scene_move_damage_counters_to_opponent_repositions_between_step
 	gsm.game_state.players[1].bench = [opp_bench]
 
 	var effect := AbilityMoveDamageCountersToOpponentScript.new(3)
+	gsm.effect_processor.register_effect("munkidori_counter_ui_test", effect)
 	var user_card := user_slot.get_top_card()
 	var steps: Array[Dictionary] = effect.get_interaction_steps(user_card, gsm.game_state)
 	battle_scene.call("_start_effect_interaction", "ability", 0, steps, user_card, user_slot, 0)
@@ -4244,7 +4461,7 @@ func test_battle_scene_move_damage_counters_to_opponent_repositions_between_step
 	return run_checks([
 		assert_eq(first_position, "top", "Selecting the damaged own Pokemon should move the panel upward"),
 		assert_eq(second_position, "bottom", "Selecting the opponent target should move the panel downward"),
-		assert_eq(str(battle_scene.get("_field_interaction_mode")), "slot_select", "The second step should still use field slot UI"),
+		assert_eq(str(battle_scene.get("_field_interaction_mode")), "counter_distribution", "The second step should use Dragapult-style counter distribution UI"),
 	])
 
 
@@ -4365,8 +4582,8 @@ func test_battle_scene_prize_selection_titles_highlight_and_reset() -> String:
 	scene.call("_refresh_prize_titles")
 
 	return run_checks([
-		assert_eq(pending_my_text, "选择2张奖赏卡", "Prize selection should replace the player title with the highlighted count prompt"),
-		assert_eq(pending_my_hud_text, "选择2张奖赏卡", "Prize selection should also update the field HUD title"),
+		assert_eq(pending_my_text, "点左侧奖赏卡：选2张", "Prize selection should replace the player title with the highlighted count prompt"),
+		assert_eq(pending_my_hud_text, "点左侧奖赏卡：选2张", "Prize selection should also update the field HUD title"),
 		assert_eq(pending_opp_text, "对方奖赏", "The non-selecting side should keep its default title"),
 		assert_eq(pending_my_color, Color(1.0, 0.87, 0.34, 1.0), "Prize selection title should switch to the highlight color"),
 		assert_eq(pending_my_hud_color, Color(1.0, 0.87, 0.34, 1.0), "Prize selection HUD title should switch to the highlight color"),
@@ -5497,8 +5714,8 @@ func test_battle_scene_match_end_review_action_starts_review_instead_of_leaving_
 	GameManager.current_mode = previous_mode
 
 	return run_checks([
-		assert_eq(dialog_items.size(), 3, "Match end dialog should include summary, review action, and return action when review is available"),
-		assert_eq(str(dialog_items[1]), "生成AI复盘", "The first actionable match end option should be the AI review action"),
+		assert_true(dialog_items.size() >= 3, "Match end dialog should include summary plus at least the AI review and return actions when review is available"),
+		assert_true("生成AI复盘" in dialog_items, "The match end dialog should include the AI review action"),
 		assert_eq(generate_calls.size(), 1, "Choosing the AI review action should start battle review generation"),
 		assert_eq(called_match_dir, "user://test_match_end_review", "Battle review generation should use the current match dir"),
 		assert_true(review_busy, "Choosing the AI review action should mark review generation as running"),

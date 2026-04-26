@@ -4,10 +4,12 @@ class_name EffectRareCandy
 extends BaseEffect
 
 const STAGE_ONE_BASIC_NAME_OVERRIDES := {
-	"比比鸟": "波波",
-	"呱头蛙": "呱呱泡蛙",
-	"Pidgeotto": "Pidgey",
-	"Frogadier": "Froakie",
+	"比比鸟": ["波波", "Pidgey"],
+	"呱头蛙": ["呱呱泡蛙", "Froakie"],
+	"冻脊龙": ["凉脊龙", "Frigibax"],
+	"Pidgeotto": ["Pidgey", "波波"],
+	"Frogadier": ["Froakie", "呱呱泡蛙"],
+	"Arctibax": ["Frigibax", "凉脊龙"],
 }
 
 
@@ -74,7 +76,14 @@ func _can_rare_candy_evolve(stage2_card: CardInstance, target_slot: PokemonSlot,
 
 
 func _matches_stage_one_basic_override(stage_one_name: String, basic_name: String) -> bool:
-	return STAGE_ONE_BASIC_NAME_OVERRIDES.get(stage_one_name, "") == basic_name
+	var aliases: Variant = STAGE_ONE_BASIC_NAME_OVERRIDES.get(stage_one_name, [])
+	if aliases is String:
+		return str(aliases) == basic_name
+	if aliases is Array:
+		for alias: Variant in aliases:
+			if str(alias) == basic_name:
+				return true
+	return false
 
 
 func _matches_stage_one_reference(card: CardInstance, stage_one_name: String, basic_name: String) -> bool:

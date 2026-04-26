@@ -484,6 +484,8 @@ func refresh_field_interaction_status(scene: Object) -> void:
 
 	if mode == "counter_distribution":
 		var total_counters: int = int(interaction_data.get("total_counters", 0))
+		var min_counters: int = int(interaction_data.get("min_select", total_counters))
+		var allow_partial := bool(interaction_data.get("allow_partial", false))
 		var assigned_count: int = _get_counter_distribution_assigned_total(scene)
 		var remaining: int = total_counters - assigned_count
 		var selected_amount: int = int(scene.get("_field_interaction_assignment_selected_source_index"))
@@ -505,8 +507,8 @@ func refresh_field_interaction_status(scene: Object) -> void:
 		if cancel_button != null:
 			cancel_button.visible = bool(interaction_data.get("allow_cancel", true))
 		if confirm_button != null:
-			confirm_button.visible = remaining > 0
-			confirm_button.disabled = true
+			confirm_button.visible = allow_partial and assigned_count >= min_counters and remaining > 0
+			confirm_button.disabled = assigned_count < min_counters
 		return
 
 	refresh_field_assignment_source_views(scene)
@@ -546,8 +548,11 @@ func refresh_field_assignment_source_views(scene: Object) -> void:
 			continue
 		var card_view := child as BattleCardView
 		var idx: int = int(card_view.get_meta("field_assignment_source_index", -1))
-		card_view.set_selected(idx == selected_source_index)
-		card_view.set_disabled(find_field_assignment_index_for_source(scene, idx) >= 0)
+		var source_selected := idx == selected_source_index
+		var source_assigned := find_field_assignment_index_for_source(scene, idx) >= 0
+		card_view.set_selected(source_selected)
+		card_view.set_selectable_hint(not source_selected and not source_assigned)
+		card_view.set_disabled(source_assigned)
 
 
 func on_field_interaction_clear_pressed(scene: Object) -> void:
@@ -616,6 +621,10 @@ func handle_field_assignment_target_index(scene: Object, target_index: int) -> v
 		scene.call("_log", "当前选择的目标无效，请重新选择。")
 		return
 	var assignment_entries: Array = scene.get("_field_interaction_assignment_entries")
+	var max_per_target: int = int(interaction_data.get("max_assignments_per_target", 0))
+	if max_per_target > 0 and _count_assignments_for_target_index(assignment_entries, target_index) >= max_per_target:
+		scene.call("_log", "褰撳墠鐩爣宸茶揪鍒板彲鍒嗛厤涓婇檺")
+		return
 	assignment_entries.append({
 		"source_index": selected_source_index,
 		"source": source_items[selected_source_index],
@@ -759,6 +768,12 @@ func handle_counter_distribution_target(scene: Object, target_index: int) -> voi
 	if not (target is PokemonSlot):
 		return
 	var assignment_entries: Array = scene.get("_field_interaction_assignment_entries")
+	var max_assignments: int = int(interaction_data.get("max_assignments", 0))
+	if max_assignments > 0 and assignment_entries.size() >= max_assignments:
+		return
+	var max_per_target: int = int(interaction_data.get("max_assignments_per_target", 0))
+	if max_per_target > 0 and _count_assignments_for_target_index(assignment_entries, target_index) >= max_per_target:
+		return
 	assignment_entries.append({
 		"target_index": target_index,
 		"target": target,
@@ -771,7 +786,7 @@ func handle_counter_distribution_target(scene: Object, target_index: int) -> voi
 	_build_counter_distribution_buttons(scene)
 	refresh_field_interaction_status(scene)
 	scene.call("_refresh_ui")
-	if assigned_count >= total_counters:
+	if assigned_count >= total_counters or (bool(interaction_data.get("allow_partial", false)) and max_assignments == 1):
 		finalize_counter_distribution(scene)
 
 
@@ -780,7 +795,9 @@ func finalize_counter_distribution(scene: Object) -> void:
 	var assignment_entries: Array = scene.get("_field_interaction_assignment_entries")
 	var total_counters: int = int(interaction_data.get("total_counters", 0))
 	var assigned_count: int = _get_counter_distribution_assigned_total(scene)
-	if assigned_count < total_counters:
+	var min_counters: int = int(interaction_data.get("min_select", total_counters))
+	var allow_partial := bool(interaction_data.get("allow_partial", false))
+	if (not allow_partial and assigned_count < total_counters) or (allow_partial and assigned_count < min_counters):
 		scene.call("_log", "还需分配 %d 个伤害指示物。" % (total_counters - assigned_count))
 		return
 	if str(scene.get("_pending_choice")) != "effect_interaction":
@@ -827,6 +844,16 @@ func _current_player_index(scene: Object) -> int:
 	if gsm != null and gsm.game_state != null:
 		return gsm.game_state.current_player_index
 	return -1
+
+
+func _count_assignments_for_target_index(assignment_entries: Array, target_index: int) -> int:
+	var count := 0
+	for entry_variant: Variant in assignment_entries:
+		if not (entry_variant is Dictionary):
+			continue
+		if int((entry_variant as Dictionary).get("target_index", -1)) == target_index:
+			count += 1
+	return count
 
 
 func _turn_number(scene: Object) -> int:

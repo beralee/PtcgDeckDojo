@@ -2,6 +2,7 @@
 extends Control
 
 const DeckViewDialogScript := preload("res://scripts/ui/decks/DeckViewDialog.gd")
+const DeckDiscussionDialogScene := preload("res://scenes/deck_editor/DeckDiscussionDialog.tscn")
 
 const FIRST_PLAYER_RANDOM := -1
 const FIRST_PLAYER_PLAYER_ONE := 0
@@ -24,6 +25,10 @@ const BACKGROUND_CARD_SIZE := Vector2(188, 112)
 const AIVersionRegistryScript = preload("res://scripts/ai/AIVersionRegistry.gd")
 const AIFixedDeckOrderRegistryScript = preload("res://scripts/ai/AIFixedDeckOrderRegistry.gd")
 const DeckStrategyRegistryScript = preload("res://scripts/ai/DeckStrategyRegistry.gd")
+const HUD_ACCENT := Color(0.28, 0.92, 1.0, 1.0)
+const HUD_ACCENT_WARM := Color(1.0, 0.55, 0.24, 1.0)
+const HUD_TEXT := Color(0.92, 0.98, 1.0, 1.0)
+const HUD_TEXT_MUTED := Color(0.64, 0.76, 0.86, 1.0)
 
 ## 卡组列表，与 OptionButton index 对应
 var _deck_list: Array = []
@@ -40,9 +45,12 @@ var _playable_ai_versions: Array[Dictionary] = []
 var _deck_view_dialog: RefCounted = DeckViewDialogScript.new()
 var _deck_strategy_registry: RefCounted = DeckStrategyRegistryScript.new()
 var _pending_ai_strategy_variant_id: String = ""
+var _strategy_discussion_dialog: AcceptDialog = null
+var _strategy_discussion_signature := ""
 
 
 func _ready() -> void:
+	_apply_hud_theme()
 	%ModeOption.clear()
 	%ModeOption.add_item("自己练牌", 0)
 	%ModeOption.add_item("AI 对战", 1)
@@ -63,7 +71,9 @@ func _ready() -> void:
 
 	%BtnStart.pressed.connect(_on_start)
 	%BtnBack.pressed.connect(_on_back)
+	%Deck1Option.item_selected.connect(_on_deck1_changed)
 	%Deck2Option.item_selected.connect(_on_deck2_changed)
+	%BtnDiscussStrategyAI.pressed.connect(_on_discuss_strategy_ai_pressed)
 	%Deck1ViewButton.pressed.connect(_on_deck_view_pressed.bind(0))
 	%Deck1EditButton.pressed.connect(_on_deck_edit_pressed.bind(0))
 	%Deck2ViewButton.pressed.connect(_on_deck_view_pressed.bind(1))
@@ -77,12 +87,202 @@ func _ready() -> void:
 	_refresh_ai_ui_visibility()
 
 
+func _apply_hud_theme() -> void:
+	var shade := get_node_or_null("BackgroundShade") as ColorRect
+	if shade != null:
+		shade.color = Color(0.01, 0.025, 0.045, 0.18)
+
+	var setup_frame := find_child("SetupFrame", true, false) as PanelContainer
+	if setup_frame != null:
+		setup_frame.add_theme_stylebox_override("panel", _hud_panel_style(
+			Color(0.025, 0.055, 0.085, 0.72),
+			Color(0.30, 0.86, 1.0, 0.86),
+			24,
+			18,
+			Color(0.0, 0.45, 0.70, 0.30)
+		))
+
+	var left_column := find_child("LeftColumn", true, false) as PanelContainer
+	if left_column != null:
+		left_column.add_theme_stylebox_override("panel", _hud_panel_style(
+			Color(0.035, 0.075, 0.11, 0.86),
+			Color(0.26, 0.84, 1.0, 0.58),
+			18,
+			8,
+			Color(0.0, 0.40, 0.65, 0.18)
+		))
+
+	var right_column := find_child("RightColumn", true, false) as PanelContainer
+	if right_column != null:
+		right_column.add_theme_stylebox_override("panel", _hud_panel_style(
+			Color(0.045, 0.055, 0.085, 0.88),
+			Color(1.0, 0.52, 0.22, 0.55),
+			18,
+			8,
+			Color(0.75, 0.25, 0.06, 0.15)
+		))
+
+	var title := find_child("Title", true, false) as Label
+	if title != null:
+		title.add_theme_font_size_override("font_size", 34)
+		title.add_theme_color_override("font_color", HUD_TEXT)
+		title.add_theme_color_override("font_shadow_color", Color(0.0, 0.82, 1.0, 0.72))
+		title.add_theme_constant_override("shadow_offset_x", 0)
+		title.add_theme_constant_override("shadow_offset_y", 2)
+
+	_apply_hud_theme_recursive(self)
+
+
+func _apply_hud_theme_recursive(node: Node) -> void:
+	if node is OptionButton:
+		_style_hud_option(node as OptionButton)
+	elif node is Button:
+		_style_hud_button(node as Button)
+	elif node is HSlider:
+		_style_hud_slider(node as HSlider)
+	elif node is Label:
+		_style_hud_label(node as Label)
+
+	for child: Node in node.get_children():
+		_apply_hud_theme_recursive(child)
+
+
+func _style_hud_label(label: Label) -> void:
+	if label.name == "Title":
+		return
+	if label.name.ends_with("SectionTitle"):
+		label.add_theme_font_size_override("font_size", 19)
+		label.add_theme_color_override("font_color", Color(1.0, 0.78, 0.50, 1.0))
+		label.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.7))
+		label.add_theme_constant_override("shadow_offset_y", 1)
+		return
+	label.add_theme_font_size_override("font_size", 14)
+	label.add_theme_color_override("font_color", HUD_TEXT_MUTED)
+
+
+func _style_hud_button(button: Button) -> void:
+	var is_primary := button.name == "BtnStart"
+	var accent := HUD_ACCENT_WARM if is_primary else HUD_ACCENT
+	button.add_theme_font_size_override("font_size", 15)
+	button.add_theme_color_override("font_color", Color(0.96, 0.99, 1.0, 1.0))
+	button.add_theme_color_override("font_hover_color", Color.WHITE)
+	button.add_theme_color_override("font_pressed_color", Color(0.08, 0.12, 0.16, 1.0))
+	button.add_theme_color_override("font_disabled_color", Color(0.44, 0.50, 0.56, 1.0))
+	button.add_theme_stylebox_override("normal", _hud_button_style(accent, false, false))
+	button.add_theme_stylebox_override("hover", _hud_button_style(accent, true, false))
+	button.add_theme_stylebox_override("pressed", _hud_button_style(accent, true, true))
+	button.add_theme_stylebox_override("disabled", _hud_button_style(Color(0.26, 0.31, 0.36, 1.0), false, false))
+	button.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+
+
+func _style_hud_option(option: OptionButton) -> void:
+	option.add_theme_font_size_override("font_size", 15)
+	option.add_theme_color_override("font_color", HUD_TEXT)
+	option.add_theme_color_override("font_hover_color", Color.WHITE)
+	option.add_theme_color_override("font_disabled_color", Color(0.44, 0.50, 0.56, 1.0))
+	option.add_theme_stylebox_override("normal", _hud_input_style(false))
+	option.add_theme_stylebox_override("hover", _hud_input_style(true))
+	option.add_theme_stylebox_override("pressed", _hud_input_style(true))
+	option.add_theme_stylebox_override("disabled", _hud_input_disabled_style())
+	option.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+
+
+func _style_hud_slider(slider: HSlider) -> void:
+	var rail := StyleBoxFlat.new()
+	rail.bg_color = Color(0.02, 0.05, 0.08, 0.82)
+	rail.border_color = Color(0.22, 0.82, 1.0, 0.45)
+	rail.set_border_width_all(1)
+	rail.set_corner_radius_all(6)
+	slider.add_theme_stylebox_override("slider", rail)
+
+	var grabber_area := StyleBoxFlat.new()
+	grabber_area.bg_color = Color(0.20, 0.78, 1.0, 0.72)
+	grabber_area.set_corner_radius_all(6)
+	slider.add_theme_stylebox_override("grabber_area", grabber_area)
+	slider.add_theme_icon_override("grabber", _make_slider_grabber_icon(HUD_ACCENT))
+	slider.add_theme_icon_override("grabber_highlight", _make_slider_grabber_icon(Color(0.72, 1.0, 1.0, 1.0)))
+
+
+func _hud_panel_style(fill: Color, border: Color, radius: int, shadow_size: int, shadow_color: Color) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = fill
+	style.border_color = border
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(radius)
+	style.shadow_size = shadow_size
+	style.shadow_color = shadow_color
+	style.content_margin_left = 2
+	style.content_margin_top = 2
+	style.content_margin_right = 2
+	style.content_margin_bottom = 2
+	return style
+
+
+func _hud_button_style(accent: Color, hover: bool, pressed: bool) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(accent.r, accent.g, accent.b, 0.92) if pressed else Color(0.035, 0.075, 0.105, 0.92)
+	if hover and not pressed:
+		style.bg_color = Color(0.055, 0.13, 0.17, 0.96)
+	style.border_color = accent
+	style.set_border_width_all(2 if hover else 1)
+	style.set_corner_radius_all(12)
+	style.shadow_color = Color(accent.r, accent.g, accent.b, 0.28 if hover else 0.12)
+	style.shadow_size = 8 if hover else 3
+	style.content_margin_left = 12
+	style.content_margin_right = 12
+	style.content_margin_top = 8
+	style.content_margin_bottom = 8
+	return style
+
+
+func _hud_input_style(hover: bool) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.015, 0.035, 0.055, 0.86)
+	if hover:
+		style.bg_color = Color(0.025, 0.075, 0.105, 0.92)
+	style.border_color = Color(0.23, 0.78, 1.0, 0.70 if hover else 0.42)
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(10)
+	style.content_margin_left = 12
+	style.content_margin_right = 28
+	style.content_margin_top = 8
+	style.content_margin_bottom = 8
+	return style
+
+
+func _hud_input_disabled_style() -> StyleBoxFlat:
+	var style := _hud_input_style(false)
+	style.bg_color = Color(0.02, 0.025, 0.03, 0.66)
+	style.border_color = Color(0.18, 0.22, 0.26, 0.50)
+	return style
+
+
+func _make_slider_grabber_icon(color: Color) -> Texture2D:
+	var image := Image.create(18, 18, false, Image.FORMAT_RGBA8)
+	image.fill(Color(0, 0, 0, 0))
+	var center := Vector2(9, 9)
+	for y: int in 18:
+		for x: int in 18:
+			var distance := center.distance_to(Vector2(x, y))
+			if distance <= 8.0:
+				var alpha := 1.0 if distance <= 6.8 else 1.0 - (distance - 6.8) / 1.2
+				image.set_pixel(x, y, Color(color.r, color.g, color.b, alpha))
+	return ImageTexture.create_from_image(image)
+
+
 func _on_mode_changed(_index: int) -> void:
+	_mark_strategy_discussion_deck_changed()
 	_refresh_deck_options()
 	_refresh_ai_ui_visibility()
 
 
+func _on_deck1_changed(_index: int) -> void:
+	_mark_strategy_discussion_deck_changed()
+	_refresh_deck_action_buttons()
+
+
 func _on_deck2_changed(_index: int) -> void:
+	_mark_strategy_discussion_deck_changed()
 	_refresh_ai_strategy_variant_options()
 	_refresh_deck_action_buttons()
 
@@ -509,12 +709,15 @@ func _refresh_deck_options() -> void:
 	for deck: DeckData in _deck_list:
 		var label := "%s (%d张)" % [deck.deck_name, deck.total_cards]
 		%Deck1Option.add_item(label)
+		%Deck1Option.set_item_metadata(%Deck1Option.item_count - 1, deck.id)
 	if _is_ai_mode():
 		for ai_deck: DeckData in _ai_deck_list:
 			%Deck2Option.add_item("%s (%d张)" % [ai_deck.deck_name, ai_deck.total_cards])
+			%Deck2Option.set_item_metadata(%Deck2Option.item_count - 1, ai_deck.id)
 	else:
 		for deck: DeckData in _deck_list:
 			%Deck2Option.add_item("%s (%d张)" % [deck.deck_name, deck.total_cards])
+			%Deck2Option.set_item_metadata(%Deck2Option.item_count - 1, deck.id)
 
 	_select_option_for_deck_id(%Deck1Option, selected_deck1.id if selected_deck1 != null else DEFAULT_DECK1_ID)
 	var default_deck2_id := MIRAIDON_DECK_ID if _is_ai_mode() else DEFAULT_DECK2_ID
@@ -528,7 +731,12 @@ func _selected_deck_for_slot(slot_index: int) -> DeckData:
 	if selected_index < 0 or selected_index >= option.item_count:
 		return null
 	var selected_text := option.get_item_text(selected_index)
+	var selected_metadata: Variant = option.get_item_metadata(selected_index)
 	var source_list: Array = _deck_list if slot_index == 0 or not _is_ai_mode() else _ai_deck_list
+	if selected_metadata is int:
+		for deck: DeckData in source_list:
+			if deck.id == int(selected_metadata):
+				return deck
 	for deck: DeckData in source_list:
 		if selected_text == deck.deck_name or selected_text.begins_with(deck.deck_name):
 			return deck
@@ -546,6 +754,10 @@ func _select_option_for_deck_id(option: OptionButton, deck_id: int) -> void:
 	if option == %Deck2Option and _is_ai_mode():
 		source_list = _ai_deck_list
 	for i: int in option.item_count:
+		var metadata: Variant = option.get_item_metadata(i)
+		if metadata is int and int(metadata) == deck_id:
+			option.select(i)
+			return
 		var label := option.get_item_text(i)
 		for deck: DeckData in source_list:
 			if deck.id == deck_id and (label == deck.deck_name or label.begins_with(deck.deck_name)):
@@ -582,6 +794,7 @@ func _apply_setup_selection() -> bool:
 	GameManager.first_player_choice = _first_player_choice_from_option_index(%FirstPlayerOption.selected)
 	GameManager.selected_battle_background = _selected_background_path if _selected_background_path != "" else DEFAULT_BACKGROUND
 	_sync_battle_music_preferences_from_ui()
+	GameManager.mark_current_battle_as_non_tournament()
 
 	var ai_source := _ai_source_from_option_index(%AISourceOption.selected)
 	var ai_version: Dictionary = {}
@@ -752,6 +965,54 @@ func _refresh_deck_action_buttons() -> void:
 	%Deck1EditButton.disabled = _selected_deck_for_slot(0) == null
 	%Deck2ViewButton.disabled = _selected_deck_for_slot(1) == null
 	%Deck2EditButton.disabled = _is_ai_mode() or _selected_deck_for_slot(1) == null
+	%BtnDiscussStrategyAI.disabled = _selected_deck_for_slot(0) == null or _selected_deck_for_slot(1) == null
+
+
+func _mark_strategy_discussion_deck_changed() -> void:
+	var signature := _current_strategy_discussion_signature()
+	if signature == _strategy_discussion_signature:
+		return
+	_strategy_discussion_signature = ""
+	if _strategy_discussion_dialog != null and is_instance_valid(_strategy_discussion_dialog):
+		_strategy_discussion_dialog.hide()
+
+
+func _current_strategy_discussion_signature() -> String:
+	var deck1 := _selected_deck_for_slot(0)
+	var deck2 := _selected_deck_for_slot(1)
+	if deck1 == null or deck2 == null:
+		return ""
+	var mode := "ai" if _is_ai_mode() else "pvp"
+	return "%s:%d:%d" % [mode, deck1.id, deck2.id]
+
+
+func _strategy_discussion_session_id(deck1: DeckData, deck2: DeckData) -> int:
+	var mode_offset := 700000000 if _is_ai_mode() else 710000000
+	return mode_offset + (abs(deck1.id) % 10000) * 10000 + (abs(deck2.id) % 10000)
+
+
+func _on_discuss_strategy_ai_pressed() -> void:
+	var deck1 := _selected_deck_for_slot(0)
+	var deck2 := _selected_deck_for_slot(1)
+	if deck1 == null or deck2 == null:
+		return
+	if _strategy_discussion_dialog == null or not is_instance_valid(_strategy_discussion_dialog):
+		_strategy_discussion_dialog = DeckDiscussionDialogScene.instantiate() as AcceptDialog
+		add_child(_strategy_discussion_dialog)
+	var signature := _current_strategy_discussion_signature()
+	var reset_session := signature != _strategy_discussion_signature
+	_strategy_discussion_signature = signature
+	var opponent_label := "AI 卡组" if _is_ai_mode() else "玩家2 卡组"
+	_strategy_discussion_dialog.call(
+		"setup_for_match",
+		deck1,
+		deck2,
+		opponent_label,
+		_strategy_discussion_session_id(deck1, deck2),
+		reset_session
+	)
+	_strategy_discussion_dialog.popup_centered(Vector2i(980, 760))
+	_strategy_discussion_dialog.size = Vector2i(980, 760)
 
 
 func _on_deck_view_pressed(slot_index: int) -> void:

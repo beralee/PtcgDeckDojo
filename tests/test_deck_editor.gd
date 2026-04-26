@@ -2,6 +2,12 @@ class_name TestDeckEditor
 extends TestBase
 
 const DeckEditorScript := preload("res://scenes/deck_editor/DeckEditor.gd")
+const DeckEditorScene := preload("res://scenes/deck_editor/DeckEditor.tscn")
+
+
+func _set_navigation_suppressed(suppressed: bool) -> void:
+	if GameManager.has_method("set_scene_navigation_suppressed_for_tests"):
+		GameManager.call("set_scene_navigation_suppressed_for_tests", suppressed)
 
 
 func _make_deck() -> DeckData:
@@ -29,6 +35,23 @@ func _make_card(set_code: String, card_index: String, card_name: String, card_ty
 	return card
 
 
+func test_deck_editor_shows_strategy_button_and_hides_legacy_ai_button() -> String:
+	var editor: Control = DeckEditorScene.instantiate()
+	var strategy_button := editor.get_node_or_null("%BtnStrategy") as Button
+	var ai_button := editor.get_node_or_null("%BtnAI") as Button
+	var discuss_button := editor.get_node_or_null("%BtnDiscussAI") as Button
+	editor.queue_free()
+
+	return run_checks([
+		assert_not_null(strategy_button, "旧打法思路按钮节点可保留以兼容旧代码"),
+		assert_not_null(ai_button, "旧 AI 分析按钮节点可保留以兼容旧代码"),
+		assert_not_null(discuss_button, "与 AI 探讨按钮应保留"),
+		assert_true(strategy_button.visible, "打法思路按钮应在卡组编辑页面可见"),
+		assert_false(ai_button.visible, "AI 分析按钮应从界面隐藏"),
+		assert_true(discuss_button.visible, "与 AI 探讨按钮应保持可见"),
+	])
+
+
 # -- _flat_index_to_entry_index --
 
 func test_flat_index_maps_to_correct_entry() -> String:
@@ -51,6 +74,7 @@ func test_flat_index_maps_to_correct_entry() -> String:
 
 
 func test_deck_editor_requeues_battle_setup_return_context_when_leaving() -> String:
+	_set_navigation_suppressed(true)
 	var editor: Control = DeckEditorScript.new()
 	editor.set("_return_context", {
 		"return_scene": "battle_setup",
@@ -61,6 +85,7 @@ func test_deck_editor_requeues_battle_setup_return_context_when_leaving() -> Str
 	editor.call("_go_back_to_return_scene")
 	var context: Dictionary = GameManager.call("consume_deck_editor_return_context")
 
+	_set_navigation_suppressed(false)
 	return run_checks([
 		assert_eq(str(context.get("return_scene", "")), "battle_setup", "Leaving DeckEditor toward battle_setup should restore the same return scene context"),
 		assert_eq(int(context.get("deck1_id", 0)), 101, "Leaving DeckEditor toward battle_setup should preserve deck1 selection"),

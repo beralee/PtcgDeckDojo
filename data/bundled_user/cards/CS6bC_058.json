@@ -1,0 +1,51 @@
+{
+	"abilities": [],
+	"ancient_trait": "",
+	"artist": "Teeziro",
+	"attacks": [
+		{
+			"cost": "P",
+			"damage": "",
+			"is_vstar_power": false,
+			"name": "龙之发射器",
+			"text": "将自己备战区中，最多与对手场上宝可梦数量相同数量的「多龙梅西亚」放于弃牌区，选择与放于弃牌区数量相同数量的对手宝可梦。然后，给所有被选择的宝可梦，在不计算弱点、抗性的前提下，各造成100点伤害。"
+		},
+		{
+			"cost": "PC",
+			"damage": "120",
+			"is_vstar_power": false,
+			"name": "幽魂射击",
+			"text": ""
+		}
+	],
+	"card_index": "058",
+	"card_index_en": "89",
+	"card_type": "Pokemon",
+	"description": "【超】 龙之发射器 \n将自己备战区中，最多与对手场上宝可梦数量相同数量的「多龙梅西亚」放于弃牌区，选择与放于弃牌区数量相同数量的对手宝可梦。然后，给所有被选择的宝可梦，在不计算弱点、抗性的前提下，各造成100点伤害。\n\n【超】 幽魂射击 120\n\n\n",
+	"effect_id": "ddf863adb9287aa59fd079a80a94f05a",
+	"energy_provides": "",
+	"energy_type": "P",
+	"evolves_from": "多龙奇",
+	"hp": 150,
+	"image_local_path": "user://cards/images/CS6bC/058.png",
+	"image_url": "https://tcg.mik.moe/static/img/CS6bC/058.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "",
+	"name": "多龙巴鲁托",
+	"name_en": "Dragapult",
+	"rarity": "R",
+	"regulation_expanded": true,
+	"regulation_mark": "F",
+	"regulation_standard": true,
+	"release_date": "2024-09-20T00:00:00+08:00",
+	"resistance_energy": "F",
+	"resistance_value": "-30",
+	"retreat_cost": 1,
+	"set_code": "CS6bC",
+	"set_code_en": "SIT",
+	"stage": "Stage 2",
+	"weakness_energy": "D",
+	"weakness_value": "×2",
+	"yoren_code": "P887"
+}

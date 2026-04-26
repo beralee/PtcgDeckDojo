@@ -17,18 +17,18 @@ func get_interaction_steps(card: CardInstance, state: GameState) -> Array[Dictio
 	var target_labels: Array[String] = []
 	for slot: PokemonSlot in target_items:
 		target_labels.append(slot.get_pokemon_name())
-	return [
-		build_card_assignment_step(
-			"sada_assignments",
-			"Attach up to 2 Basic Energy to your Ancient Pokemon",
-			source_items,
-			source_labels,
-			target_items,
-			target_labels,
-			1,
-			mini(2, source_items.size())
-		)
-	]
+	var step := build_card_assignment_step(
+		"sada_assignments",
+		"Attach up to 2 Basic Energy to your Ancient Pokemon",
+		source_items,
+		source_labels,
+		target_items,
+		target_labels,
+		1,
+		mini(2, source_items.size())
+	)
+	step["max_assignments_per_target"] = 1
+	return [step]
 
 
 func execute(card: CardInstance, targets: Array, state: GameState) -> void:
@@ -36,6 +36,7 @@ func execute(card: CardInstance, targets: Array, state: GameState) -> void:
 	var ctx: Dictionary = get_interaction_context(targets)
 	var assignments_raw: Array = ctx.get("sada_assignments", [])
 	var attached_count := 0
+	var attached_targets: Array[PokemonSlot] = []
 	for entry: Variant in assignments_raw:
 		if attached_count >= 2:
 			break
@@ -52,8 +53,11 @@ func execute(card: CardInstance, targets: Array, state: GameState) -> void:
 			continue
 		if not slot in _get_ancient_targets(player):
 			continue
+		if slot in attached_targets:
+			continue
 		player.discard_pile.erase(energy)
 		slot.attached_energy.append(energy)
+		attached_targets.append(slot)
 		attached_count += 1
 	_draw_cards_with_log(state, card.owner_index, 3, card, "trainer")
 

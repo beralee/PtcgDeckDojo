@@ -1,0 +1,19 @@
+{
+	"deck_id": 578647,
+	"deck_name": "沙奈朵",
+	"top_to_bottom": [
+		{"set_code": "CSV1C", "card_index": "060"},
+		{"set_code": "CS5aC", "card_index": "043"},
+		{"set_code": "CSV7C", "card_index": "177"},
+		{"set_code": "CSV2C", "card_index": "127"},
+		{"set_code": "CSV5C", "card_index": "119"},
+		{"set_code": "CSVE1C", "card_index": "PSY"},
+		{"set_code": "CSV1C", "card_index": "123"},
+		{"set_code": "CSVE1C", "card_index": "PSY"},
+		{"set_code": "CSVE1C", "card_index": "PSY"},
+		{"set_code": "CSVE1C", "card_index": "DAR"},
+		{"set_code": "CSV6C", "card_index": "114"},
+		{"set_code": "CSV8C", "card_index": "183"},
+		{"set_code": "CSV6C", "card_index": "115"}
+	]
+}

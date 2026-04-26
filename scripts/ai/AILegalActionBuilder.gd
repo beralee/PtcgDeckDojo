@@ -23,6 +23,15 @@ const _PRIORITY_ITEM_NAMES: Array[String] = [
 
 const _GARDEVOIR_SIGNATURES: Array[String] = ["沙奈朵ex", "奇鲁莉安", "拉鲁拉丝"]
 
+const _RARE_CANDY_STAGE_ONE_BASIC_OVERRIDES := {
+	"比比鸟": ["波波", "Pidgey"],
+	"呱头蛙": ["呱呱泡蛙", "Froakie"],
+	"冻脊龙": ["凉脊龙", "Frigibax"],
+	"Pidgeotto": ["Pidgey", "波波"],
+	"Frogadier": ["Froakie", "呱呱泡蛙"],
+	"Arctibax": ["Frigibax", "凉脊龙"],
+}
+
 var _deck_strategy = null
 var _deck_strategy_detected: bool = false
 var _deck_strategy_registry = DeckStrategyRegistryScript.new()
@@ -32,6 +41,19 @@ var _interaction_planner = AIInteractionPlannerScript.new()
 func set_deck_strategy(strategy: RefCounted) -> void:
 	_deck_strategy = strategy
 	_deck_strategy_detected = strategy != null
+
+
+func _build_turn_plan(gsm: GameStateMachine, player_index: int, extra_context: Dictionary = {}) -> Dictionary:
+	if _deck_strategy == null:
+		return {}
+	if gsm == null or gsm.game_state == null:
+		return {}
+	var plan_context: Dictionary = extra_context.duplicate(true)
+	if _deck_strategy.has_method("build_turn_contract"):
+		return _deck_strategy.call("build_turn_contract", gsm.game_state, player_index, plan_context)
+	if not _deck_strategy.has_method("build_turn_plan"):
+		return {}
+	return _deck_strategy.call("build_turn_plan", gsm.game_state, player_index, plan_context)
 
 
 func build_actions(
@@ -75,7 +97,7 @@ func _build_attach_tool_actions(gsm: GameStateMachine, player_index: int, player
 		for target_slot: PokemonSlot in slots:
 			if target_slot == null:
 				continue
-			if not gsm.rule_validator.can_attach_tool(gsm.game_state, player_index, target_slot):
+			if not gsm.rule_validator.can_attach_tool(gsm.game_state, player_index, target_slot, gsm.effect_processor):
 				continue
 			actions.append({
 				"kind": "attach_tool",
@@ -123,7 +145,7 @@ func _build_evolve_actions(gsm: GameStateMachine, player_index: int, player: Pla
 		if card == null or card.card_data == null or not card.card_data.is_pokemon():
 			continue
 		for target_slot: PokemonSlot in slots:
-			if not gsm.rule_validator.can_evolve(gsm.game_state, player_index, target_slot, card):
+			if not gsm.rule_validator.can_evolve(gsm.game_state, player_index, target_slot, card, gsm.effect_processor):
 				continue
 			actions.append({
 				"kind": "evolve",
@@ -167,6 +189,12 @@ func _build_play_trainer_actions(
 				allow_side_effectful_headless_resolution
 			)
 			if headless_targets == null:
+				actions.append({
+					"kind": "play_trainer",
+					"card": card,
+					"targets": [],
+					"requires_interaction": true,
+				})
 				continue
 			targets = headless_targets
 			requires_interaction = false
@@ -313,7 +341,7 @@ func _build_slot_ability_actions(
 
 func _build_retreat_actions(gsm: GameStateMachine, player_index: int, player: PlayerState) -> Array[Dictionary]:
 	var actions: Array[Dictionary] = []
-	if not gsm.rule_validator.can_retreat(gsm.game_state, player_index):
+	if not gsm.rule_validator.can_retreat(gsm.game_state, player_index, gsm.effect_processor):
 		return actions
 	var active: PokemonSlot = player.active_pokemon
 	if not _is_live_slot(active):
@@ -593,11 +621,101 @@ func _resolve_headless_step(
 	var items: Array = items_variant
 	var min_select: int = int(step.get("min_select", 0))
 	var legal_items: Array = _filter_step_items_by_context(step, items, interaction_context)
+	legal_items = _filter_rare_candy_targets_by_selected_stage2(gsm, owner_index, step_id, legal_items, interaction_context)
 	var max_select: int = int(step.get("max_select", legal_items.size()))
 	var selection: Array = _select_headless_items(gsm, player_index, owner_index, step, legal_items, max_select, interaction_context)
 	if selection.size() < min_select:
 		return null
 	return {step_id: selection}
+
+
+func _filter_rare_candy_targets_by_selected_stage2(
+	gsm: GameStateMachine,
+	owner_index: int,
+	step_id: String,
+	items: Array,
+	interaction_context: Dictionary
+) -> Array:
+	if step_id != "target_pokemon" or items.is_empty():
+		return items
+	var stage2_raw: Variant = interaction_context.get("stage2_card", [])
+	if not stage2_raw is Array or (stage2_raw as Array).is_empty():
+		return items
+	var stage2_card: CardInstance = (stage2_raw as Array)[0] as CardInstance
+	if stage2_card == null or stage2_card.card_data == null:
+		return items
+	if str(stage2_card.card_data.stage) != "Stage 2":
+		return items
+	var filtered: Array = []
+	for item: Variant in items:
+		if item is PokemonSlot and _rare_candy_target_matches_stage2(gsm, owner_index, stage2_card, item as PokemonSlot):
+			filtered.append(item)
+	return filtered if not filtered.is_empty() else items
+
+
+func _rare_candy_target_matches_stage2(
+	gsm: GameStateMachine,
+	owner_index: int,
+	stage2_card: CardInstance,
+	target_slot: PokemonSlot
+) -> bool:
+	if gsm == null or gsm.game_state == null or stage2_card == null or stage2_card.card_data == null or target_slot == null:
+		return false
+	if target_slot.pokemon_stack.size() != 1:
+		return false
+	var target_top: CardInstance = target_slot.get_top_card()
+	if target_top == null or target_top.card_data == null or not target_top.card_data.is_basic_pokemon():
+		return false
+	var evolves_from := str(stage2_card.card_data.evolves_from)
+	var target_name := str(target_slot.get_pokemon_name())
+	if evolves_from == "" or target_name == "":
+		return false
+	if evolves_from == target_name or _matches_rare_candy_override(evolves_from, target_name):
+		return true
+	if owner_index < 0 or owner_index >= gsm.game_state.players.size():
+		return false
+	var player: PlayerState = gsm.game_state.players[owner_index]
+	for ref_card: CardInstance in _collect_player_cards_for_evolution_reference(player):
+		if _matches_stage_one_reference_for_rare_candy(ref_card, evolves_from, target_name):
+			return true
+	return false
+
+
+func _collect_player_cards_for_evolution_reference(player: PlayerState) -> Array[CardInstance]:
+	var cards: Array[CardInstance] = []
+	if player == null:
+		return cards
+	cards.append_array(player.hand)
+	cards.append_array(player.deck)
+	cards.append_array(player.discard_pile)
+	cards.append_array(player.prizes)
+	for slot: PokemonSlot in player.get_all_pokemon():
+		if slot != null:
+			cards.append_array(slot.pokemon_stack)
+	return cards
+
+
+func _matches_stage_one_reference_for_rare_candy(card: CardInstance, stage_one_name: String, basic_name: String) -> bool:
+	if card == null or card.card_data == null:
+		return false
+	var card_data: CardData = card.card_data
+	return (
+		card_data.is_pokemon()
+		and str(card_data.stage) == "Stage 1"
+		and str(card_data.name) == stage_one_name
+		and str(card_data.evolves_from) == basic_name
+	)
+
+
+func _matches_rare_candy_override(stage_one_name: String, basic_name: String) -> bool:
+	var aliases: Variant = _RARE_CANDY_STAGE_ONE_BASIC_OVERRIDES.get(stage_one_name, [])
+	if aliases is String:
+		return str(aliases) == basic_name
+	if aliases is Array:
+		for alias: Variant in aliases:
+			if str(alias) == basic_name:
+				return true
+	return false
 
 
 func _resolve_headless_counter_distribution_step(
@@ -614,7 +732,7 @@ func _resolve_headless_counter_distribution_step(
 		return null
 	var assignments: Array[Dictionary] = _pick_counter_distribution_assignments(gsm, target_items, total_counters * 10)
 	if assignments.is_empty():
-		var target: Variant = _pick_preferred_assignment_target(gsm, target_items)
+		var target: Variant = _pick_preferred_assignment_target(gsm, target_items, -1, step_id)
 		if target == null:
 			target = target_items[0]
 		assignments = [{"target": target, "amount": total_counters * 10}]
@@ -736,6 +854,13 @@ func _select_headless_items(
 	}
 	for key: Variant in interaction_context.keys():
 		strategy_context[key] = interaction_context[key]
+	var turn_contract := _build_turn_plan(gsm, player_index, {
+		"step_id": step_id,
+		"prompt_kind": "headless_step",
+		"interaction_context": interaction_context,
+	})
+	strategy_context["turn_plan"] = turn_contract
+	strategy_context["turn_contract"] = turn_contract
 	match step_id:
 		"search_item":
 			var planned_items: Array = _pick_items_with_strategy(items, step_id, max_select, strategy_context)
@@ -876,11 +1001,19 @@ func _pick_discard_cards(
 	owner_index: int = -1
 ) -> Array:
 	if _deck_strategy != null and _deck_strategy.has_method("pick_interaction_items"):
-		var planned: Variant = _deck_strategy.call("pick_interaction_items", items, step, {
+		var discard_context := {
 			"game_state": gsm.game_state if gsm != null else null,
 			"player_index": player_index,
 			"owner_index": owner_index,
+		}
+		var turn_contract := _build_turn_plan(gsm, player_index, {
+			"step_id": str(step.get("id", "")),
+			"prompt_kind": "headless_discard",
+			"owner_index": owner_index,
 		})
+		discard_context["turn_plan"] = turn_contract
+		discard_context["turn_contract"] = turn_contract
+		var planned: Variant = _deck_strategy.call("pick_interaction_items", items, step, discard_context)
 		if planned is Array:
 			var selected: Array = []
 			for item: Variant in planned:
@@ -955,16 +1088,28 @@ func _pick_preferred_search_cards(
 	return selection
 
 
-func _pick_preferred_assignment_target(_gsm: GameStateMachine, target_items: Array) -> Variant:
+func _pick_preferred_assignment_target(gsm: GameStateMachine, target_items: Array, player_index: int = -1, step_id: String = "assignment_target") -> Variant:
 	if target_items.is_empty():
 		return null
 	if _deck_strategy != null and _deck_strategy.has_method("score_interaction_target"):
+		var assignment_context := {}
+		if gsm != null and gsm.game_state != null and player_index >= 0:
+			assignment_context = {
+				"game_state": gsm.game_state,
+				"player_index": player_index,
+			}
+			var turn_contract := _build_turn_plan(gsm, player_index, {
+				"step_id": step_id,
+				"prompt_kind": "assignment_target",
+			})
+			assignment_context["turn_plan"] = turn_contract
+			assignment_context["turn_contract"] = turn_contract
 		var best_index: int = _interaction_planner.pick_best_legal_target_index(
 			_deck_strategy,
 			target_items,
 			[],
-			{"id": "assignment_target"},
-			{}
+			{"id": step_id},
+			assignment_context
 		)
 		if best_index >= 0:
 			return target_items[best_index]
@@ -1002,6 +1147,13 @@ func _pick_preferred_assignment_target_for_source(
 			"pending_assignment_counts": pending_assignment_counts,
 			"pending_assignments": pending_assignments,
 		}
+		var turn_contract := _build_turn_plan(gsm, player_index, {
+			"step_id": step_id,
+			"prompt_kind": "assignment_target",
+			"pending_assignments": pending_assignments,
+		})
+		context["turn_plan"] = turn_contract
+		context["turn_contract"] = turn_contract
 		if source is CardInstance:
 			context["source_card"] = source
 		var best_index: int = _interaction_planner.pick_best_legal_target_index(
@@ -1013,7 +1165,7 @@ func _pick_preferred_assignment_target_for_source(
 		)
 		if best_index >= 0:
 			return target_items[best_index]
-	return _pick_preferred_assignment_target(gsm, target_items)
+	return _pick_preferred_assignment_target(gsm, target_items, player_index, step_id)
 
 
 func _pick_counter_distribution_assignments(_gsm: GameStateMachine, target_items: Array, total_damage: int) -> Array[Dictionary]:

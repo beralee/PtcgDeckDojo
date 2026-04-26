@@ -1,0 +1,264 @@
+{
+	"scenario_id": "e2e_valid_scenario",
+	"schema_version": 1,
+	"deck_id": 575720,
+	"tracked_player_index": 0,
+	"source_match_id": "fixture_match",
+	"source_turn_number": 2,
+	"tags": [
+		"e2e",
+		"deterministic_seed"
+	],
+	"notes": "Minimal end-to-end runner fixture with derivable expected end state.",
+	"state_at_turn_start": {
+		"turn_number": 2,
+		"current_player_index": 0,
+		"first_player_index": 1,
+		"phase": "4",
+		"winner_index": -1,
+		"win_reason": "",
+		"energy_attached_this_turn": false,
+		"supporter_used_this_turn": false,
+		"stadium_played_this_turn": false,
+		"retreat_used_this_turn": false,
+		"stadium_owner_index": -1,
+		"stadium_effect_used_turn": -1,
+		"stadium_effect_used_player": -1,
+		"stadium_effect_used_effect_id": "",
+		"vstar_power_used": [
+			false,
+			false
+		],
+		"last_knockout_turn_against": [
+			-999,
+			-999
+		],
+		"players": [
+			{
+				"player_index": 0,
+				"active": {
+					"pokemon_name": "密勒顿ex",
+					"damage_counters": 0,
+					"remaining_hp": 220,
+					"max_hp": 220,
+					"retreat_cost": 1,
+					"attached_energy": [],
+					"attached_tool": {},
+					"status_conditions": {
+						"poisoned": false,
+						"burned": false,
+						"asleep": false,
+						"paralyzed": false,
+						"confused": false
+					},
+					"effects": [],
+					"turn_played": 0,
+					"turn_evolved": -1,
+					"prize_count": 2,
+					"pokemon_stack": [
+						{
+							"instance_id": 1001,
+							"owner_index": 0,
+							"face_up": true,
+							"name": "密勒顿ex",
+							"card_name": "密勒顿ex",
+							"card_type": "Pokemon",
+							"stage": "Basic",
+							"hp": 220,
+							"energy_type": "L",
+							"retreat_cost": 1,
+							"mechanic": "ex",
+							"attacks": [],
+							"abilities": []
+						}
+					]
+				},
+				"bench": [],
+				"hand": [],
+				"deck": [],
+				"discard": [],
+				"prizes": [],
+				"lost_zone": [],
+				"shuffle_count": 0
+			},
+			{
+				"player_index": 1,
+				"active": {
+					"pokemon_name": "阿尔宙斯V",
+					"damage_counters": 0,
+					"remaining_hp": 220,
+					"max_hp": 220,
+					"retreat_cost": 2,
+					"attached_energy": [],
+					"attached_tool": {},
+					"status_conditions": {
+						"poisoned": false,
+						"burned": false,
+						"asleep": false,
+						"paralyzed": false,
+						"confused": false
+					},
+					"effects": [],
+					"turn_played": 0,
+					"turn_evolved": -1,
+					"prize_count": 2,
+					"pokemon_stack": [
+						{
+							"instance_id": 2001,
+							"owner_index": 1,
+							"face_up": true,
+							"name": "阿尔宙斯V",
+							"card_name": "阿尔宙斯V",
+							"card_type": "Pokemon",
+							"stage": "Basic",
+							"hp": 220,
+							"energy_type": "C",
+							"retreat_cost": 2,
+							"mechanic": "V",
+							"attacks": [],
+							"abilities": []
+						}
+					]
+				},
+				"bench": [],
+				"hand": [],
+				"deck": [],
+				"discard": [],
+				"prizes": [],
+				"lost_zone": [],
+				"shuffle_count": 0
+			}
+		]
+	},
+	"expected_end_state": {
+		"primary": {},
+		"secondary": {}
+	},
+	"approved_divergent_end_states": [],
+	"expected_end_state_source": {
+		"snapshot_event_index": 1,
+		"snapshot_reason": "turn_end",
+		"turn_number": 2,
+		"phase": "4",
+		"state": {
+			"turn_number": 2,
+			"current_player_index": 0,
+			"first_player_index": 1,
+			"phase": "4",
+			"winner_index": -1,
+			"win_reason": "",
+			"energy_attached_this_turn": false,
+			"supporter_used_this_turn": false,
+			"stadium_played_this_turn": false,
+			"retreat_used_this_turn": false,
+			"stadium_owner_index": -1,
+			"stadium_effect_used_turn": -1,
+			"stadium_effect_used_player": -1,
+			"stadium_effect_used_effect_id": "",
+			"vstar_power_used": [
+				false,
+				false
+			],
+			"last_knockout_turn_against": [
+				-999,
+				-999
+			],
+			"players": [
+				{
+					"player_index": 0,
+					"active": {
+						"pokemon_name": "密勒顿ex",
+						"damage_counters": 0,
+						"remaining_hp": 220,
+						"max_hp": 220,
+						"retreat_cost": 1,
+						"attached_energy": [],
+						"attached_tool": {},
+						"status_conditions": {
+							"poisoned": false,
+							"burned": false,
+							"asleep": false,
+							"paralyzed": false,
+							"confused": false
+						},
+						"effects": [],
+						"turn_played": 0,
+						"turn_evolved": -1,
+						"prize_count": 2,
+						"pokemon_stack": [
+							{
+								"instance_id": 1001,
+								"owner_index": 0,
+								"face_up": true,
+								"name": "密勒顿ex",
+								"card_name": "密勒顿ex",
+								"card_type": "Pokemon",
+								"stage": "Basic",
+								"hp": 220,
+								"energy_type": "L",
+								"retreat_cost": 1,
+								"mechanic": "ex",
+								"attacks": [],
+								"abilities": []
+							}
+						]
+					},
+					"bench": [],
+					"hand": [],
+					"deck": [],
+					"discard": [],
+					"prizes": [],
+					"lost_zone": [],
+					"shuffle_count": 0
+				},
+				{
+					"player_index": 1,
+					"active": {
+						"pokemon_name": "阿尔宙斯V",
+						"damage_counters": 0,
+						"remaining_hp": 220,
+						"max_hp": 220,
+						"retreat_cost": 2,
+						"attached_energy": [],
+						"attached_tool": {},
+						"status_conditions": {
+							"poisoned": false,
+							"burned": false,
+							"asleep": false,
+							"paralyzed": false,
+							"confused": false
+						},
+						"effects": [],
+						"turn_played": 0,
+						"turn_evolved": -1,
+						"prize_count": 2,
+						"pokemon_stack": [
+							{
+								"instance_id": 2001,
+								"owner_index": 1,
+								"face_up": true,
+								"name": "阿尔宙斯V",
+								"card_name": "阿尔宙斯V",
+								"card_type": "Pokemon",
+								"stage": "Basic",
+								"hp": 220,
+								"energy_type": "C",
+								"retreat_cost": 2,
+								"mechanic": "V",
+								"attacks": [],
+								"abilities": []
+							}
+						]
+					},
+					"bench": [],
+					"hand": [],
+					"deck": [],
+					"discard": [],
+					"prizes": [],
+					"lost_zone": [],
+					"shuffle_count": 0
+				}
+			]
+		}
+	}
+}

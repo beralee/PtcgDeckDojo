@@ -605,12 +605,18 @@ func _is_hidden_two_player_reveal(scene: Object, player_index: int) -> bool:
 	return GameManager.current_mode == GameManager.GameMode.TWO_PLAYER and player_index != int(scene.get("_view_player"))
 
 
+func _is_hidden_opponent_reveal(scene: Object, player_index: int) -> bool:
+	if player_index == int(scene.get("_view_player")):
+		return false
+	return GameManager.current_mode == GameManager.GameMode.TWO_PLAYER or GameManager.current_mode == GameManager.GameMode.VS_AI
+
+
 func _uses_top_center_hand_target(scene: Object, player_index: int) -> bool:
-	return _is_hidden_two_player_reveal(scene, player_index) or _is_ai_reveal(scene, player_index)
+	return _is_hidden_opponent_reveal(scene, player_index)
 
 
 func _should_keep_face_down(scene: Object, player_index: int) -> bool:
-	return _is_hidden_two_player_reveal(scene, player_index)
+	return _is_hidden_opponent_reveal(scene, player_index)
 
 
 func _should_auto_continue(scene: Object, player_index: int) -> bool:
@@ -618,7 +624,7 @@ func _should_auto_continue(scene: Object, player_index: int) -> bool:
 
 
 func _back_texture_for_player(scene: Object, player_index: int) -> Texture2D:
-	if _is_hidden_two_player_reveal(scene, player_index):
+	if _is_hidden_opponent_reveal(scene, player_index):
 		return scene.get("_opponent_card_back_texture") as Texture2D
 	return scene.get("_player_card_back_texture") as Texture2D
 

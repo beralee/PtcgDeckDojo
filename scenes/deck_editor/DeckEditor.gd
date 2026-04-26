@@ -68,7 +68,8 @@ var _pool_tab_buttons: Array[Button] = []
 
 ## AI 分析
 const AI_TIMEOUT_SECONDS := 180.0
-var _ai_client = preload("res://scripts/network/ZenMuxClient.gd").new()
+const ZENMUX_CLIENT_PATH := "res://scripts/network/ZenMuxClient.gd"
+var _ai_client = null
 var _ai_loading_dialog: AcceptDialog = null
 var _ai_loading_bar: ProgressBar = null
 var _ai_loading_elapsed_label: Label = null
@@ -78,6 +79,7 @@ var _ai_loading_active: bool = false
 var _ai_replacements: Array[Dictionary] = []
 var _ai_summary: String = ""
 var _ai_history: Array[Dictionary] = []
+var _deck_discussion_dialog: AcceptDialog = null
 
 ## 纹理缓存
 var _texture_cache: Dictionary = {}
@@ -90,6 +92,7 @@ func _ready() -> void:
 	%BtnReplace.pressed.connect(_on_replace_pressed)
 	%BtnStrategy.pressed.connect(_on_strategy_pressed)
 	%BtnAI.pressed.connect(_on_ai_pressed)
+	%BtnDiscussAI.pressed.connect(_on_discuss_ai_pressed)
 	%UnsavedDialog.confirmed.connect(_do_go_back)
 
 	_original_deck_id = GameManager.consume_deck_editor_id()
@@ -485,12 +488,10 @@ func _apply_tile_style(panel: PanelContainer, selected: bool) -> void:
 # -- 纹理加载 --
 
 func _load_card_texture(set_code: String, card_index: String) -> Texture2D:
-	var local_path := CardData.build_local_image_path(set_code, card_index)
-	if local_path == "":
-		return null
-
-	var file_path := ProjectSettings.globalize_path(local_path)
-	if not FileAccess.file_exists(file_path):
+	var file_path := CardData.resolve_existing_image_path(
+		CardData.get_image_candidate_paths(set_code, card_index)
+	)
+	if file_path == "":
 		return null
 
 	if _texture_cache.has(file_path):
@@ -654,34 +655,179 @@ func _find_pool_card(uid: String) -> CardData:
 # -- AI 分析 --
 
 func _on_strategy_pressed() -> void:
-	var win_size := get_viewport().get_visible_rect().size
-	var dlg_h := int(win_size.y * 0.7)
-	var text_h := dlg_h - 130  # 留出标题栏+提示+按钮+边距
-
+	if _deck == null:
+		return
+	var viewport_size := get_viewport().get_visible_rect().size
+	var dialog_size := Vector2i(
+		clampi(int(viewport_size.x) - 80, 660, 780),
+		clampi(int(viewport_size.y) - 90, 480, 560)
+	)
 	var dialog := AcceptDialog.new()
-	dialog.title = "编辑打法思路：%s" % _deck.deck_name
-	dialog.ok_button_text = "保存"
+	dialog.borderless = true
+	dialog.exclusive = false
+	dialog.transient = false
+	dialog.title = ""
+	dialog.ok_button_text = "关闭"
+	dialog.dialog_hide_on_ok = true
+	dialog.min_size = Vector2i(660, 480)
+	dialog.size = dialog_size
+	dialog.add_theme_stylebox_override("panel", _make_strategy_dialog_style(Color(0.035, 0.055, 0.095, 0.98), Color(0.18, 0.35, 0.46, 0.75), 18, 0, 18))
+	if dialog.get_ok_button() != null:
+		dialog.get_ok_button().visible = false
+
+	var root := Control.new()
+	root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	root.offset_left = 18
+	root.offset_top = 16
+	root.offset_right = -18
+	root.offset_bottom = -16
+	dialog.add_child(root)
+
+	var title := Label.new()
+	title.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	title.offset_top = 0
+	title.offset_bottom = 36
+	title.text = "编辑打法思路"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 24)
+	title.add_theme_color_override("font_color", Color(0.96, 0.98, 1.0, 1.0))
+	title.add_theme_color_override("font_shadow_color", Color(0.10, 0.55, 0.95, 0.65))
+	title.add_theme_constant_override("shadow_offset_x", 0)
+	title.add_theme_constant_override("shadow_offset_y", 2)
+	root.add_child(title)
+
+	var close_btn := Button.new()
+	close_btn.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	close_btn.offset_left = -44
+	close_btn.offset_top = 0
+	close_btn.offset_right = -8
+	close_btn.offset_bottom = 36
+	close_btn.text = "X"
+	close_btn.add_theme_font_size_override("font_size", 24)
+	_style_strategy_icon_button(close_btn)
+	root.add_child(close_btn)
+
+	var header := PanelContainer.new()
+	header.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	header.offset_top = 48
+	header.offset_bottom = 122
+	header.add_theme_stylebox_override("panel", _make_strategy_dialog_style(Color(0.055, 0.085, 0.135, 0.92), Color(0.22, 0.72, 0.86, 0.42), 14, 14, 10))
+	root.add_child(header)
+
+	var header_vbox := VBoxContainer.new()
+	header_vbox.add_theme_constant_override("separation", 6)
+	header.add_child(header_vbox)
 
 	var hint := Label.new()
-	hint.text = "描述这套卡组的核心战术、关键卡牌配合、各对局要点。AI 分析时会参考此信息。"
-	hint.autowrap_mode = TextServer.AUTOWRAP_WORD
-	hint.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
-	dialog.add_child(hint)
+	hint.text = _deck.deck_name
+	hint.add_theme_font_size_override("font_size", 20)
+	hint.add_theme_color_override("font_color", Color(0.96, 0.99, 1.0, 1.0))
+	header_vbox.add_child(hint)
+
+	var desc := Label.new()
+	desc.text = "描述这套卡组的核心战术、关键卡牌配合、各对局要点。AI 分析与对战建议会参考此信息。"
+	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	desc.add_theme_font_size_override("font_size", 14)
+	desc.add_theme_color_override("font_color", Color(0.74, 0.84, 0.92, 1.0))
+	header_vbox.add_child(desc)
+
+	var editor_panel := PanelContainer.new()
+	editor_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	editor_panel.offset_top = 136
+	editor_panel.offset_bottom = -72
+	editor_panel.add_theme_stylebox_override("panel", _make_strategy_dialog_style(Color(0.028, 0.044, 0.072, 0.97), Color(0.18, 0.68, 0.82, 0.48), 16, 12, 10))
+	root.add_child(editor_panel)
 
 	var text_edit := TextEdit.new()
 	text_edit.text = _deck.strategy
-	text_edit.custom_minimum_size = Vector2(600, text_h)
+	text_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text_edit.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	text_edit.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
 	text_edit.placeholder_text = "例：核心攻击手是XXex，通过YY加速能量，前两回合目标是展开ZZ线..."
-	dialog.add_child(text_edit)
+	text_edit.add_theme_color_override("font_color", Color(0.94, 0.98, 1.0, 1.0))
+	text_edit.add_theme_color_override("placeholder_color", Color(0.50, 0.58, 0.66, 1.0))
+	text_edit.add_theme_font_size_override("font_size", 15)
+	var input_normal := _make_strategy_dialog_style(Color(0.015, 0.024, 0.042, 0.92), Color(0.18, 0.31, 0.40, 0.95), 12, 10, 0)
+	var input_focus := _make_strategy_dialog_style(Color(0.020, 0.036, 0.062, 0.97), Color(0.22, 0.86, 0.95, 0.95), 12, 10, 0)
+	text_edit.add_theme_stylebox_override("normal", input_normal)
+	text_edit.add_theme_stylebox_override("focus", input_focus)
+	text_edit.add_theme_stylebox_override("read_only", input_normal)
+	editor_panel.add_child(text_edit)
+
+	var actions := HBoxContainer.new()
+	actions.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	actions.offset_top = -56
+	actions.offset_bottom = -4
+	actions.alignment = BoxContainer.ALIGNMENT_END
+	actions.add_theme_constant_override("separation", 10)
+	root.add_child(actions)
+
+	var cancel_btn := Button.new()
+	cancel_btn.custom_minimum_size = Vector2(110, 48)
+	cancel_btn.text = "取消"
+	_style_strategy_button(cancel_btn, false)
+	actions.add_child(cancel_btn)
+
+	var save_btn := Button.new()
+	save_btn.custom_minimum_size = Vector2(120, 48)
+	save_btn.text = "保存"
+	_style_strategy_button(save_btn, true)
+	actions.add_child(save_btn)
 
 	add_child(dialog)
-	dialog.popup_centered()
-	dialog.confirmed.connect(func() -> void:
+	var save_strategy := func() -> void:
 		_deck.strategy = text_edit.text
 		_dirty = true
 		dialog.queue_free()
-	)
+	save_btn.pressed.connect(save_strategy)
+	cancel_btn.pressed.connect(dialog.queue_free)
+	close_btn.pressed.connect(dialog.queue_free)
 	dialog.canceled.connect(dialog.queue_free)
+	dialog.popup_centered(dialog_size)
+	text_edit.call_deferred("grab_focus")
+
+
+func _make_strategy_dialog_style(bg: Color, border: Color, radius: int, margin: int, shadow_size: int = 0) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = bg
+	style.border_color = border
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(radius)
+	style.set_content_margin_all(margin)
+	if shadow_size > 0:
+		style.shadow_color = Color(0.0, 0.0, 0.0, 0.35)
+		style.shadow_size = shadow_size
+		style.shadow_offset = Vector2(0, 5)
+	return style
+
+
+func _style_strategy_button(button: Button, primary: bool) -> void:
+	var normal_bg := Color(0.08, 0.13, 0.18, 0.96)
+	var hover_bg := Color(0.11, 0.18, 0.24, 0.98)
+	var pressed_bg := Color(0.05, 0.10, 0.14, 1.0)
+	var border := Color(0.22, 0.34, 0.42, 0.9)
+	if primary:
+		normal_bg = Color(0.02, 0.55, 0.62, 1.0)
+		hover_bg = Color(0.07, 0.70, 0.76, 1.0)
+		pressed_bg = Color(0.02, 0.40, 0.48, 1.0)
+		border = Color(0.50, 1.0, 0.96, 0.65)
+	button.add_theme_stylebox_override("normal", _make_strategy_dialog_style(normal_bg, border, 10, 10, 0))
+	button.add_theme_stylebox_override("hover", _make_strategy_dialog_style(hover_bg, border, 10, 10, 0))
+	button.add_theme_stylebox_override("pressed", _make_strategy_dialog_style(pressed_bg, border, 10, 10, 0))
+	button.add_theme_color_override("font_color", Color(0.93, 0.99, 1.0, 1.0))
+	button.add_theme_color_override("font_hover_color", Color(1.0, 1.0, 1.0, 1.0))
+	button.add_theme_color_override("font_pressed_color", Color(0.86, 0.98, 1.0, 1.0))
+	button.add_theme_font_size_override("font_size", 14)
+
+
+func _style_strategy_icon_button(button: Button) -> void:
+	button.add_theme_stylebox_override("normal", _make_strategy_dialog_style(Color(0.04, 0.07, 0.11, 0.0), Color(0, 0, 0, 0), 999, 0, 0))
+	button.add_theme_stylebox_override("hover", _make_strategy_dialog_style(Color(0.12, 0.20, 0.28, 0.85), Color(0.30, 0.76, 0.95, 0.55), 999, 0, 0))
+	button.add_theme_stylebox_override("pressed", _make_strategy_dialog_style(Color(0.04, 0.12, 0.18, 0.95), Color(0.20, 0.70, 0.90, 0.75), 999, 0, 0))
+	button.add_theme_color_override("font_color", Color(0.78, 0.86, 0.94, 1.0))
+	button.add_theme_color_override("font_hover_color", Color(1.0, 1.0, 1.0, 1.0))
+	button.add_theme_font_size_override("font_size", 24)
 
 
 func _on_ai_pressed() -> void:
@@ -806,17 +952,30 @@ func _run_ai_analysis(target_decks: Array[DeckData], goals: Array[String]) -> vo
 		_show_ai_result("AI 未配置。请在 user://battle_review_api.json 中设置 endpoint 和 api_key。")
 		return
 
-	_ai_client.set_timeout_seconds(maxf(float(api_config.get("timeout_seconds", AI_TIMEOUT_SECONDS)), AI_TIMEOUT_SECONDS))
+	var ai_client = _get_ai_client()
+	if ai_client == null:
+		_show_ai_result("AI client failed to load.")
+		return
+
+	ai_client.set_timeout_seconds(maxf(float(api_config.get("timeout_seconds", AI_TIMEOUT_SECONDS)), AI_TIMEOUT_SECONDS))
 	var payload := _build_ai_payload(api_config, target_decks, goals)
 
 	_show_ai_loading()
-	var err: int = _ai_client.request_json(
+	var err: int = ai_client.request_json(
 		self, endpoint, api_key, payload,
 		_on_ai_response
 	)
 	if err != OK:
 		_dismiss_ai_loading()
 		_show_ai_result("AI 请求发送失败（错误码 %d）。请检查网络连接和 API 配置。" % err)
+
+
+func _get_ai_client() -> Variant:
+	if _ai_client == null:
+		var script := load(ZENMUX_CLIENT_PATH)
+		if script != null:
+			_ai_client = script.new()
+	return _ai_client
 
 
 func _build_ai_payload(api_config: Dictionary, target_decks: Array[DeckData], goals: Array[String]) -> Dictionary:
@@ -1390,6 +1549,42 @@ func _show_card_detail(card: CardData) -> void:
 	add_child(dialog)
 	dialog.popup_centered()
 	dialog.confirmed.connect(dialog.queue_free)
+
+
+func _on_discuss_ai_pressed() -> void:
+	if _deck == null:
+		return
+	if _deck_discussion_dialog == null or not is_instance_valid(_deck_discussion_dialog):
+		var scene := preload("res://scenes/deck_editor/DeckDiscussionDialog.tscn")
+		_deck_discussion_dialog = scene.instantiate() as AcceptDialog
+		add_child(_deck_discussion_dialog)
+	_deck_discussion_dialog.call("setup_for_deck", _deck)
+	_popup_deck_discussion_right_aligned()
+
+
+func _popup_deck_discussion_right_aligned() -> void:
+	if _deck_discussion_dialog == null or not is_instance_valid(_deck_discussion_dialog):
+		return
+	var viewport_rect := get_viewport().get_visible_rect()
+	var viewport_size := viewport_rect.size
+	var right_margin := 16
+	var vertical_margin := 22
+	var preferred_left_peek := 430
+	var min_dialog_width := 820
+	var max_dialog_width := 980
+	var dialog_width := clampi(int(viewport_size.x) - preferred_left_peek - right_margin, min_dialog_width, max_dialog_width)
+	if int(viewport_size.x) < min_dialog_width + 220:
+		dialog_width = maxi(720, int(viewport_size.x) - 32)
+	var dialog_height := clampi(int(viewport_size.y) - vertical_margin * 2, 620, 760)
+	var dialog_size := Vector2i(dialog_width, dialog_height)
+	var dialog_pos := Vector2i(
+		int(viewport_rect.position.x + viewport_size.x) - dialog_size.x - right_margin,
+		int(viewport_rect.position.y) + maxi(vertical_margin, int((viewport_size.y - dialog_size.y) * 0.5))
+	)
+	_deck_discussion_dialog.size = dialog_size
+	_deck_discussion_dialog.popup(Rect2i(dialog_pos, dialog_size))
+	_deck_discussion_dialog.position = dialog_pos
+	_deck_discussion_dialog.size = dialog_size
 
 
 func _add_separator(container: VBoxContainer) -> void:

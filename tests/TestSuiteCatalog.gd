@@ -25,6 +25,7 @@ const AI_TRAINING_FILES := {
 	"test_ai_training_test_runner.gd": true,
 	"test_action_cap_probe.gd": true,
 	"test_ai_strategy_wiring.gd": true,
+	"test_ai_strong_fixed_openings.gd": true,
 	"test_deck_strategy_contract.gd": true,
 	"test_deck_strategy_registry_expansion.gd": true,
 	"test_ai_tool_actions.gd": true,
@@ -37,11 +38,18 @@ const AI_TRAINING_FILES := {
 	"test_gardevoir_shell_lock.gd": true,
 	"test_gardevoir_strategy_churn.gd": true,
 	"test_gardevoir_tm_setup_priority.gd": true,
+	"test_gardevoir_fast_evolution_t1.gd": true,
+	"test_miraidon_fast_setup_t1.gd": true,
+	"test_arceus_fast_setup_t1.gd": true,
+	"test_raging_bolt_strong_opening.gd": true,
 	"test_charizard_strategy.gd": true,
+	"test_charizard_ultra_ball_search_pick.gd": true,
 	"test_dragapult_strategy.gd": true,
 	"test_miraidon_strategy.gd": true,
 	"test_water_lost_strategies.gd": true,
 	"test_future_ancient_strategies.gd": true,
+	"test_llm_interaction_bridge.gd": true,
+	"test_llm_raging_bolt_duel_tool.gd": true,
 	"test_blissey_tank_strategy.gd": true,
 	"test_vstar_engine_strategies.gd": true,
 	"test_game_state_cloner.gd": true,
@@ -109,37 +117,28 @@ static func has_suite_path(script_path: String) -> bool:
 
 static func _discover_test_files() -> Array[String]:
 	var files: Array[String] = []
-	var dir := DirAccess.open(TEST_DIR)
-	if dir == null:
-		return files
-
-	dir.list_dir_begin()
-	var file_name := dir.get_next()
-	while file_name != "":
-		if not dir.current_is_dir() and file_name.begins_with("test_") and file_name.ends_with(".gd"):
-			files.append(file_name)
-		file_name = dir.get_next()
-	dir.list_dir_end()
+	_collect_test_files(TEST_DIR, "", files)
 	files.sort()
 	return files
 
 
-static func _build_suite_entry(file_name: String) -> Dictionary:
+static func _build_suite_entry(relative_path: String) -> Dictionary:
 	return {
-		"name": _suite_name_for_file(file_name),
-		"path": "%s/%s" % [TEST_DIR, file_name],
-		"groups": _groups_for_file(file_name),
+		"name": _suite_name_for_file(relative_path),
+		"path": "%s/%s" % [TEST_DIR, relative_path],
+		"groups": _groups_for_file(relative_path),
 	}
 
 
-static func _groups_for_file(file_name: String) -> Array[String]:
+static func _groups_for_file(relative_path: String) -> Array[String]:
+	var file_name := relative_path.get_file()
 	if bool(AI_TRAINING_FILES.get(file_name, false)):
 		return [GROUP_AI_TRAINING]
 	return [GROUP_FUNCTIONAL]
 
 
-static func _suite_name_for_file(file_name: String) -> String:
-	var stem := file_name.trim_prefix("test_").trim_suffix(".gd")
+static func _suite_name_for_file(relative_path: String) -> String:
+	var stem := relative_path.get_file().trim_prefix("test_").trim_suffix(".gd")
 	var parts: Array[String] = []
 	for token: String in stem.split("_", false):
 		var lower := token.to_lower()
@@ -150,3 +149,23 @@ static func _suite_name_for_file(file_name: String) -> String:
 		elif token.length() > 0:
 			parts.append(token.substr(0, 1).to_upper() + token.substr(1))
 	return "".join(parts)
+
+
+static func _collect_test_files(root_dir: String, relative_dir: String, files: Array[String]) -> void:
+	var dir_path := root_dir if relative_dir == "" else "%s/%s" % [root_dir, relative_dir]
+	var dir := DirAccess.open(dir_path)
+	if dir == null:
+		return
+	dir.list_dir_begin()
+	var entry := dir.get_next()
+	while entry != "":
+		if entry in [".", ".."]:
+			entry = dir.get_next()
+			continue
+		var child_relative := entry if relative_dir == "" else "%s/%s" % [relative_dir, entry]
+		if dir.current_is_dir():
+			_collect_test_files(root_dir, child_relative, files)
+		elif entry.begins_with("test_") and entry.ends_with(".gd"):
+			files.append(child_relative)
+		entry = dir.get_next()
+	dir.list_dir_end()

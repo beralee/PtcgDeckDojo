@@ -289,8 +289,6 @@ func get_search_priority(card: CardInstance) -> int:
 
 func pick_interaction_items(items: Array, step: Dictionary, context: Dictionary = {}) -> Array:
 	var step_id := str(step.get("id", ""))
-	if step_id != "buddy_poffin_pokemon":
-		return []
 	var game_state: GameState = context.get("game_state", null)
 	var player_index := int(context.get("player_index", -1))
 	var player: PlayerState = game_state.players[player_index] if game_state != null and player_index >= 0 and player_index < game_state.players.size() else null
@@ -302,7 +300,37 @@ func pick_interaction_items(items: Array, step: Dictionary, context: Dictionary 
 			card_items.append(item as CardInstance)
 	if card_items.is_empty():
 		return []
-	return _pick_buddy_poffin_targets(card_items, player, int(step.get("max_select", 2)), game_state)
+	match step_id:
+		"buddy_poffin_pokemon":
+			return _pick_buddy_poffin_targets(card_items, player, int(step.get("max_select", 2)), game_state)
+		"energy_assignments":
+			return _pick_fire_energy_assignments(card_items, player, int(step.get("max_select", card_items.size())), game_state)
+		"search_pokemon", "basic_pokemon", "bench_pokemon":
+			return _pick_search_pokemon_by_score(card_items, int(step.get("max_select", 1)), context)
+	return []
+
+
+func _pick_search_pokemon_by_score(card_items: Array[CardInstance], max_select: int, context: Dictionary) -> Array:
+	if card_items.is_empty() or max_select <= 0:
+		return []
+	var scored: Array[Dictionary] = []
+	for i: int in card_items.size():
+		scored.append({
+			"index": i,
+			"card": card_items[i],
+			"score": _score_search_pokemon(card_items[i], context),
+		})
+	scored.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		var score_a: float = float(a.get("score", 0.0))
+		var score_b: float = float(b.get("score", 0.0))
+		if is_equal_approx(score_a, score_b):
+			return int(a.get("index", -1)) < int(b.get("index", -1))
+		return score_a > score_b
+	)
+	var picked: Array = []
+	for i: int in mini(max_select, scored.size()):
+		picked.append(scored[i].get("card"))
+	return picked
 
 
 func score_interaction_target(item: Variant, step: Dictionary, context: Dictionary = {}) -> float:
@@ -651,6 +679,8 @@ func _score_attack(action: Dictionary, game_state: GameState, player_index: int)
 
 	match _slot_name(active):
 		CHARIZARD_EX:
+			if _should_finish_pidgeot_before_first_charizard_attack(player, game_state):
+				score -= 520.0
 			if attack_name == "Burning Darkness" or attack_name == "":
 				score += 220.0
 			score += 30.0 * float(_opponent_prizes_taken(game_state, player_index))
@@ -809,16 +839,31 @@ func _score_search_pokemon(card: CardInstance, context: Dictionary) -> float:
 		return float(get_search_priority(card))
 	var defer_charizard_stage2 := _should_defer_charizard_stage2_search(player, game_state, player_index)
 	if name == CHARIZARD_EX and _player_has_ready_stage2_target(player, CHARMANDER, CHARMELEON):
+		if _should_force_pidgeot_completion_before_direct_charizard_search(player, game_state):
+			return 620.0
 		if defer_charizard_stage2:
 			return 380.0
 		return 940.0 if _should_prioritize_direct_charizard_line(player, game_state, player_index) else 860.0
 	if name == PIDGEOT_EX and _count_name(player, PIDGEY) > 0 and _count_name(player, PIDGEOT_EX) == 0:
+		if _should_force_pidgeot_completion_before_direct_charizard_search(player, game_state):
+			return 980.0
+		# 没有 Rare Candy 也没 Pidgeotto（场上或手牌）时，Pidgeot ex 搜到 hand 只能占位，
+		# 应把优先级让给可以立即铺桥或抽牌的 Basic（Charmander / Rotom V / Pidgey）。
+		var has_pidgeot_candy_bridge := _has_hand_card(player, RARE_CANDY) or _count_name(player, "Pidgeotto") > 0 or _has_hand_card(player, "Pidgeotto")
+		if not has_pidgeot_candy_bridge:
+			return 420.0
 		return 720.0 if _should_prioritize_direct_charizard_line(player, game_state, player_index) else 800.0
 	if name == CHARMANDER and _count_name(player, CHARMANDER) == 0:
 		return 740.0
 	if name == CHARMANDER and _should_shutdown_extra_charmander_lane(player, game_state):
 		return 40.0
 	if name == CHARMANDER and _needs_second_charmander_for_combo(player, game_state):
+		if _should_force_rotom_bridge_in_strong_opening(player, game_state):
+			return 500.0
+		if _has_direct_double_stage2_finish_in_hand(player, game_state) and _count_name(player, ROTOM_V) == 0:
+			return 520.0
+		if _should_prioritize_rotom_before_second_charmander(player, game_state):
+			return 580.0
 		return 700.0
 	if name == CHARMANDER and _count_name(player, CHARIZARD_EX) == 0 and _count_name(player, CHARMANDER) == 1:
 		return 540.0
@@ -840,6 +885,12 @@ func _score_search_pokemon(card: CardInstance, context: Dictionary) -> float:
 				return 340.0
 			return 260.0
 	if name == ROTOM_V and _count_name(player, PIDGEOT_EX) == 0 and _count_name(player, ROTOM_V) == 0:
+		if _should_force_rotom_bridge_in_strong_opening(player, game_state):
+			return 960.0
+		if _has_direct_double_stage2_finish_in_hand(player, game_state):
+			return 920.0
+		if _should_prioritize_rotom_before_second_charmander(player, game_state):
+			return 780.0
 		return 620.0 if _needs_early_rotom_setup(player, game_state) else 260.0
 	return float(get_search_priority(card))
 
@@ -955,14 +1006,19 @@ func _score_damage_counter_target(slot: PokemonSlot) -> float:
 
 
 func _opening_priority(name: String, player: PlayerState) -> float:
+	var strong_fixed_opening := _should_force_charmander_active_for_strong_opening(player)
 	match name:
 		PIDGEY:
+			if strong_fixed_opening:
+				return 300.0
 			return 340.0 if _hand_has_name(player, CHARMANDER) else 310.0
 		ROTOM_V:
 			if _hand_has_name(player, CHARMANDER) and _hand_has_name(player, PIDGEY):
 				return 360.0
 			return 320.0 if not _hand_has_name(player, PIDGEY) else 250.0
 		CHARMANDER:
+			if strong_fixed_opening:
+				return 380.0
 			return 280.0
 		DUSKULL:
 			return 120.0
@@ -971,6 +1027,25 @@ func _opening_priority(name: String, player: PlayerState) -> float:
 		RADIANT_CHARIZARD:
 			return 90.0
 	return 70.0
+
+
+func _should_force_charmander_active_for_strong_opening(player: PlayerState) -> bool:
+	if player == null:
+		return false
+	var has_strong_finish_piece := (
+		_count_hand_name(player, RARE_CANDY) >= 2
+		or _has_hand_card(player, PIDGEOT_EX)
+		or _has_hand_card(player, BUDDY_BUDDY_POFFIN)
+	)
+	return (
+		_hand_has_name(player, CHARMANDER)
+		and _hand_has_name(player, PIDGEY)
+		and _hand_has_name(player, NEST_BALL)
+		and _hand_has_name(player, "Fire Energy")
+		and _hand_has_name(player, RARE_CANDY)
+		and has_strong_finish_piece
+		and not _hand_has_name(player, ROTOM_V)
+	)
 
 
 func _bench_priority(name: String, player: PlayerState) -> float:
@@ -995,6 +1070,8 @@ func _bench_priority(name: String, player: PlayerState) -> float:
 
 
 func _rare_candy_value(player: PlayerState, game_state: GameState = null, player_index: int = -1) -> float:
+	if _should_finish_pidgeot_before_first_charizard_attack(player, game_state):
+		return 760.0
 	if (_has_hand_card(player, CHARIZARD_EX) or _deck_has(player, CHARIZARD_EX)) and _count_name(player, CHARMANDER) + _count_name(player, CHARMELEON) > 0:
 		return 560.0
 	if (_has_hand_card(player, PIDGEOT_EX) or _deck_has(player, PIDGEOT_EX)) and _count_name(player, PIDGEY) > 0:
@@ -1007,6 +1084,8 @@ func _rare_candy_value(player: PlayerState, game_state: GameState = null, player
 
 
 func _score_arven(player: PlayerState, game_state: GameState, player_index: int) -> float:
+	if _has_direct_double_stage2_finish_in_hand(player, game_state):
+		return 80.0
 	var item_value := 120.0
 	var combo_missing := _missing_opening_combo_piece_count(player)
 	var late_setup_shutdown := _should_shutdown_late_setup_trainers(player, game_state)
@@ -1044,6 +1123,15 @@ func _score_fire_attach_target(
 		return 0.0
 	var name := _slot_name(target_slot)
 	var opponent_taken := _opponent_prizes_taken(game_state, player_index)
+	var early_double_stage2_online := game_state != null and int(game_state.turn_number) <= 3 and _count_name(player, CHARIZARD_EX) > 0 and _count_name(player, PIDGEOT_EX) > 0
+	if early_double_stage2_online and name in [ROTOM_V, LUMINEON_V, PIDGEY, PIDGEOT_EX, MANAPHY, FEZANDIPITI_EX]:
+		return -80.0
+	if name in [PIDGEY, PIDGEOT_EX]:
+		if _should_force_charmander_active_for_strong_opening(player) \
+				or _has_direct_double_stage2_finish_in_hand(player, game_state) \
+				or _should_finish_pidgeot_before_first_charizard_attack(player, game_state):
+			return -80.0
+		return -25.0
 	if name in [DUSKULL, DUSCLOPS, DUSKNOIR] and _should_suppress_dusk_lane_actions(player, game_state, player_index):
 		return -30.0
 	var target_attack_gap_current := _attack_gap_after_pending(target_slot, context, 0)
@@ -1058,6 +1146,10 @@ func _score_fire_attach_target(
 			return 180.0
 	match name:
 		CHARIZARD_EX:
+			if _should_finish_pidgeot_before_first_charizard_attack(player, game_state) and target_attack_gap_current == 0:
+				return 20.0
+			if game_state != null and int(game_state.turn_number) <= 3 and _count_name(player, PIDGEOT_EX) > 0 and target_attack_gap_current == 0:
+				return -20.0
 			if target_attack_gap_current == 0:
 				return 160.0
 			if target_slot == player.active_pokemon and target_attack_gap_after == 0:
@@ -1195,6 +1287,22 @@ func _pick_buddy_poffin_targets(items: Array[CardInstance], player: PlayerState,
 	return selected
 
 
+func _pick_fire_energy_assignments(items: Array[CardInstance], player: PlayerState, max_select: int, game_state: GameState = null) -> Array:
+	if items.is_empty() or max_select <= 0:
+		return []
+	if player == null or game_state == null:
+		return items.slice(0, mini(max_select, items.size()))
+	if int(game_state.turn_number) <= 3 and _count_name(player, CHARIZARD_EX) > 0 and _count_name(player, PIDGEOT_EX) > 0:
+		var active := player.active_pokemon
+		if active != null and _slot_name(active) == CHARIZARD_EX:
+			var required := maxi(0, _attack_gap_after_pending(active, {}, 0))
+			required = mini(required, max_select)
+			if required <= 0:
+				return []
+			return items.slice(0, mini(required, items.size()))
+	return items.slice(0, mini(max_select, items.size()))
+
+
 func _try_take_named_card(
 	remaining: Array[CardInstance],
 	selected: Array[CardInstance],
@@ -1311,6 +1419,20 @@ func _needs_second_charmander_for_combo(player: PlayerState, game_state: GameSta
 	return true
 
 
+func _should_prioritize_rotom_before_second_charmander(player: PlayerState, game_state: GameState = null) -> bool:
+	if player == null:
+		return false
+	if not _needs_early_rotom_setup(player, game_state):
+		return false
+	if not _needs_second_charmander_for_combo(player, game_state):
+		return false
+	if _count_name(player, PIDGEY) == 0:
+		return false
+	if not _has_hand_card(player, BUDDY_BUDDY_POFFIN):
+		return false
+	return true
+
+
 func _should_defer_charizard_stage2_search(player: PlayerState, game_state: GameState, player_index: int) -> bool:
 	if player == null:
 		return false
@@ -1394,6 +1516,74 @@ func _should_shutdown_late_setup_trainers(player: PlayerState, game_state: GameS
 	if not _can_attack_soon(player):
 		return false
 	return _should_shutdown_extra_charmander_lane(player, game_state)
+
+
+func _should_finish_pidgeot_before_first_charizard_attack(player: PlayerState, game_state: GameState = null) -> bool:
+	if player == null or game_state == null:
+		return false
+	if int(game_state.turn_number) > 3:
+		return false
+	if _count_name(player, CHARIZARD_EX) == 0:
+		return false
+	if _count_name(player, PIDGEOT_EX) > 0:
+		return false
+	if _count_name(player, PIDGEY) == 0:
+		return false
+	if not _has_hand_card(player, PIDGEOT_EX):
+		return false
+	if not _has_hand_card(player, RARE_CANDY):
+		return false
+	return true
+
+
+func _has_direct_double_stage2_finish_in_hand(player: PlayerState, game_state: GameState = null) -> bool:
+	if player == null or game_state == null:
+		return false
+	if int(game_state.turn_number) > 3:
+		return false
+	if _count_name(player, CHARIZARD_EX) > 0 or _count_name(player, PIDGEOT_EX) > 0:
+		return false
+	if _count_name(player, CHARMANDER) == 0 or _count_name(player, PIDGEY) == 0:
+		return false
+	if _count_hand_name(player, RARE_CANDY) < 2:
+		return false
+	if not _has_hand_card(player, CHARIZARD_EX):
+		return false
+	if not _has_hand_card(player, PIDGEOT_EX):
+		return false
+	return true
+
+
+func _should_force_pidgeot_completion_before_direct_charizard_search(player: PlayerState, game_state: GameState = null) -> bool:
+	if player == null or game_state == null:
+		return false
+	if int(game_state.turn_number) > 3:
+		return false
+	if _count_name(player, PIDGEOT_EX) > 0:
+		return false
+	if _count_name(player, PIDGEY) == 0:
+		return false
+	if not _has_hand_card(player, RARE_CANDY):
+		return false
+	if not _has_hand_card(player, CHARIZARD_EX) and _count_name(player, CHARIZARD_EX) == 0:
+		return false
+	return true
+
+
+func _should_force_rotom_bridge_in_strong_opening(player: PlayerState, game_state: GameState = null) -> bool:
+	if player == null or game_state == null:
+		return false
+	if int(game_state.turn_number) > 2:
+		return false
+	if _count_name(player, ROTOM_V) > 0 or _has_hand_card(player, ROTOM_V):
+		return false
+	if not _deck_has(player, ROTOM_V):
+		return false
+	if not _has_primary_setup_established(player):
+		return false
+	if not _has_hand_card(player, RARE_CANDY):
+		return false
+	return _has_hand_card(player, PIDGEOT_EX) or _count_hand_name(player, RARE_CANDY) >= 2 or _has_hand_card(player, BUDDY_BUDDY_POFFIN)
 
 
 func _should_defer_duskull_lane(player: PlayerState, game_state: GameState = null) -> bool:
@@ -1871,9 +2061,52 @@ func _parse_damage_text(text: String) -> int:
 	return int(cleaned) if cleaned.is_valid_int() else 0
 
 
+## 本卡组涉及的中文卡名 -> 英文卡名映射。
+## 当卡牌快照缺失 name_en 时（例如 scenario 回放），用中文名回落到英文别名，
+## 避免所有 const 匹配失败导致的策略评分塌缩。
+const _ZH_TO_EN_NAME := {
+	"小火龙": "Charmander",
+	"火恐龙": "Charmeleon",
+	"喷火龙ex": "Charizard ex",
+	"波波": "Pidgey",
+	"大比鸟ex": "Pidgeot ex",
+	"夜巡灵": "Duskull",
+	"彷徨夜灵": "Dusclops",
+	"黑夜魔灵": "Dusknoir",
+	"光辉喷火龙": "Radiant Charizard",
+	"洛托姆V": "Rotom V",
+	"霓虹鱼V": "Lumineon V",
+	"吉雉鸡ex": "Fezandipiti ex",
+	"玛纳霏": "Manaphy",
+	"派帕": "Arven",
+	"奇树": "Iono",
+	"老大的指令": "Boss's Orders",
+	"弗图博士的剧本": "Professor Turo's Scenario",
+	"捩木": "Thorton",
+	"神奇糖果": "Rare Candy",
+	"友好宝芬": "Buddy-Buddy Poffin",
+	"高级球": "Ultra Ball",
+	"巢穴球": "Nest Ball",
+	"夜间担架": "Night Stretcher",
+	"厉害钓竿": "Super Rod",
+	"反击捕捉器": "Counter Catcher",
+	"放逐吸尘器": "Lost Vacuum",
+	"不公印章": "Unfair Stamp",
+	"崩塌的竞技场": "Collapsed Stadium",
+	"森林封印石": "Forest Seal Stone",
+	"不服输头带": "Defiance Band",
+	"双重涡轮能量": "Double Turbo Energy",
+	"基本火能量": "Fire Energy",
+}
+
+
 func _card_name(card: Variant) -> String:
 	if card is CardInstance:
 		var instance := card as CardInstance
 		if instance.card_data != null:
-			return str(instance.card_data.name_en) if str(instance.card_data.name_en) != "" else str(instance.card_data.name)
+			var en := str(instance.card_data.name_en)
+			if en != "":
+				return en
+			var raw := str(instance.card_data.name)
+			return str(_ZH_TO_EN_NAME.get(raw, raw))
 	return ""

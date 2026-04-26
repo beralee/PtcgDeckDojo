@@ -1,0 +1,16 @@
+{
+  "scenario_id": "smoke_missing_dependencies",
+  "deck_id": 569061,
+  "tracked_player_index": 0,
+  "state_at_turn_start": {
+    "turn_number": 3,
+    "current_player_index": 0,
+    "phase": "main",
+    "players": []
+  },
+  "expected_end_state": {
+    "primary": {},
+    "secondary": {}
+  },
+  "approved_divergent_end_states": []
+}

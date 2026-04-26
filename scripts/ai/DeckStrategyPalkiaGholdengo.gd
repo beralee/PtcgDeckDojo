@@ -1,4 +1,4 @@
-﻿class_name DeckStrategyPalkiaGholdengo
+class_name DeckStrategyPalkiaGholdengo
 extends "res://scripts/ai/DeckStrategyBase.gd"
 
 

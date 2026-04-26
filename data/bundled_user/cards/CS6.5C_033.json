@@ -1,0 +1,51 @@
+{
+	"name": "克雷色利亚",
+	"card_type": "Pokemon",
+	"mechanic": "",
+	"label": "",
+	"description": "【超】 月光逆动 \n选择放置于自己所有宝可梦身上的伤害指示物各2个，转放于对手的1只宝可梦身上。\n\n【超】【超】 月光爆破 110\n\n\n",
+	"yoren_code": "P488",
+	"set_code": "CS6.5C",
+	"card_index": "033",
+	"set_code_en": "LOR",
+	"card_index_en": "74",
+	"name_en": "Cresselia",
+	"artist": "saino misaki",
+	"rarity": "R",
+	"release_date": "2024-11-15T00:00:00+08:00",
+	"regulation_mark": "F",
+	"effect_id": "5a56387211377cf56bfeb12751a5eed3",
+	"image_url": "https://tcg.mik.moe/static/img/CS6.5C/033.png",
+	"image_local_path": "user://cards/images/CS6.5C/033.png",
+	"is_tags": [],
+	"regulation_standard": true,
+	"regulation_expanded": true,
+	"energy_type": "P",
+	"stage": "Basic",
+	"hp": 120,
+	"weakness_energy": "D",
+	"weakness_value": "×2",
+	"resistance_energy": "F",
+	"resistance_value": "-30",
+	"retreat_cost": 1,
+	"evolves_from": "",
+	"ancient_trait": "",
+	"attacks": [
+		{
+			"name": "月光逆动",
+			"text": "选择放置于自己所有宝可梦身上的伤害指示物各2个，转放于对手的1只宝可梦身上。",
+			"cost": "P",
+			"damage": "",
+			"is_vstar_power": false
+		},
+		{
+			"name": "月光爆破",
+			"text": "",
+			"cost": "PPC",
+			"damage": "110",
+			"is_vstar_power": false
+		}
+	],
+	"abilities": [],
+	"energy_provides": ""
+}

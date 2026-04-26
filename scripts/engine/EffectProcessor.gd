@@ -1,20 +1,32 @@
 class_name EffectProcessor
 extends RefCounted
 
+const EffectKieranScript = preload("res://scripts/effects/trainer_effects/EffectKieran.gd")
+const AbilityBasicVLockScript = preload("res://scripts/effects/pokemon_effects/AbilityBasicVLock.gd")
+
+static var _live_refs: Array[WeakRef] = []
+
 var _effect_registry: Dictionary = {}
 var _attack_effect_registry: Dictionary = {}
 var _registered_pokemon_effect_ids: Dictionary = {}
 var coin_flipper: CoinFlipper = null
-var game_state_machine: Object = null
+var _game_state_machine_ref: WeakRef = null
 
 
 func _init(flipper: CoinFlipper = null) -> void:
+	_live_refs.append(weakref(self))
 	coin_flipper = flipper if flipper != null else CoinFlipper.new()
 	EffectRegistry.register_all(self)
 
 
 func bind_game_state_machine(gsm: Object) -> void:
-	game_state_machine = gsm
+	_game_state_machine_ref = weakref(gsm) if gsm != null else null
+
+
+func _get_bound_game_state_machine() -> Object:
+	if _game_state_machine_ref == null:
+		return null
+	return _game_state_machine_ref.get_ref()
 
 
 func register_effect(effect_id: String, effect: BaseEffect) -> void:
@@ -25,6 +37,26 @@ func register_attack_effect(effect_id: String, effect: BaseEffect) -> void:
 	if not _attack_effect_registry.has(effect_id):
 		_attack_effect_registry[effect_id] = []
 	_attack_effect_registry[effect_id].append(effect)
+
+
+func prepare_for_disposal() -> void:
+	_effect_registry.clear()
+	_attack_effect_registry.clear()
+	_registered_pokemon_effect_ids.clear()
+	_game_state_machine_ref = null
+	coin_flipper = null
+
+
+static func cleanup_live_instances_for_tests() -> void:
+	var remaining: Array[WeakRef] = []
+	for ref: WeakRef in _live_refs:
+		var processor := ref.get_ref() as EffectProcessor
+		if processor == null:
+			continue
+		processor.prepare_for_disposal()
+		if ref.get_ref() != null:
+			remaining.append(ref)
+	_live_refs = remaining
 
 
 func register_effects(effects: Dictionary) -> void:
@@ -62,6 +94,7 @@ func draw_cards_with_log(
 	source_card: CardInstance = null,
 	source_kind: String = ""
 ) -> Array[CardInstance]:
+	var game_state_machine := _get_bound_game_state_machine()
 	if game_state_machine != null and game_state_machine.has_method("draw_cards_for_effect"):
 		if game_state_machine.get("game_state") == state:
 			return game_state_machine.call("draw_cards_for_effect", player_index, count, source_card, source_kind)
@@ -75,6 +108,7 @@ func discard_cards_from_hand_with_log(
 	source_card: CardInstance = null,
 	source_kind: String = ""
 ) -> Array[CardInstance]:
+	var game_state_machine := _get_bound_game_state_machine()
 	if game_state_machine != null and game_state_machine.has_method("discard_cards_from_hand_for_effect"):
 		if game_state_machine.get("game_state") == state:
 			return game_state_machine.call("discard_cards_from_hand_for_effect", player_index, cards, source_card, source_kind)
@@ -98,6 +132,7 @@ func move_public_cards_to_hand_with_log(
 	public_result_kind: String = "search_to_hand",
 	public_result_labels: Array[String] = []
 ) -> Array[CardInstance]:
+	var game_state_machine := _get_bound_game_state_machine()
 	if game_state_machine != null and game_state_machine.has_method("move_public_cards_to_hand_for_effect"):
 		if game_state_machine.get("game_state") == state:
 			return game_state_machine.call(
@@ -468,6 +503,7 @@ func get_attack_damage_modifier(
 			effect.set_attack_interaction_context(targets)
 			total += int(effect.call("get_damage_bonus", attacker, state))
 			effect.clear_attack_interaction_context()
+	total += EffectKieranScript.get_turn_damage_bonus(attacker, _defender, state)
 	return total
 
 
@@ -688,6 +724,8 @@ func is_ability_disabled(slot: PokemonSlot, state: GameState = null) -> bool:
 			return true
 		if AbilityIronThornsInit.is_locked_by_init(slot, state):
 			return true
+		if AbilityBasicVLockScript.is_locked(slot, state):
+			return true
 	if slot.attached_tool != null and not is_tool_effect_suppressed(slot, state):
 		var tool_effect: BaseEffect = get_effect(slot.attached_tool.card_data.effect_id)
 		if tool_effect != null and tool_effect.has_method("disables_ability"):
@@ -719,6 +757,10 @@ func get_knockout_prize_modifier(slot: PokemonSlot, state: GameState) -> int:
 	if slot == null:
 		return 0
 	var total: int = 0
+	if slot.attached_tool != null and not is_tool_effect_suppressed(slot, state):
+		var tool_effect: BaseEffect = get_effect(slot.attached_tool.card_data.effect_id)
+		if tool_effect != null and tool_effect.has_method("get_knockout_prize_modifier"):
+			total += int(tool_effect.call("get_knockout_prize_modifier", slot, state))
 	for energy: CardInstance in slot.attached_energy:
 		if is_special_energy_suppressed(energy, state):
 			continue

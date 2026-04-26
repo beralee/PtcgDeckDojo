@@ -9,6 +9,7 @@ const AttackMillSelfDeckEffect = preload("res://scripts/effects/pokemon_effects/
 const AttackKODefenderIfHasSpecialEnergyEffect = preload("res://scripts/effects/pokemon_effects/AttackKODefenderIfHasSpecialEnergy.gd")
 const AttackDistributedBenchCountersEffect = preload("res://scripts/effects/pokemon_effects/AttackDistributedBenchCounters.gd")
 const AttackLostZoneEnergyEffect = preload("res://scripts/effects/pokemon_effects/AttackLostZoneEnergy.gd")
+const AttackDiscardEnergyMultiDamageEffect = preload("res://scripts/effects/pokemon_effects/AttackDiscardEnergyMultiDamage.gd")
 
 const DRAW_TO_N_UIDS := ["151C_151", "CS5aC_105"]
 const THUNDEROUS_BENCH_COUNT_UIDS := ["CS4DaC_137", "CS5bC_051"]
@@ -274,6 +275,49 @@ func test_discard_multi_and_rule_box_defense_families() -> String:
 		assert_eq(player.discard_pile.size(), 2, "AttackDiscardEnergyMultiDamage should move discarded energy to discard"),
 		assert_eq(AbilityVReduceDamage.get_v_damage_reduction(defending_player, normal_defender, v_attacker), -20, "AbilityVReduceDamage should reduce damage from rule-box attackers"),
 		assert_eq(AbilityConditionalDefense.get_conditional_defense(zamazenta), -30, "AbilityConditionalDefense should require basic metal energy"),
+	])
+
+
+func test_raichu_v_registry_uses_exact_discard_energy_multi_damage_effect() -> String:
+	var processor := EffectProcessor.new()
+	var state := _make_state()
+	var player: PlayerState = state.players[0]
+	var raichu_cd: CardData = CardDatabase.get_card("CS5aC", "019")
+	processor.register_pokemon_card(raichu_cd)
+
+	var attacker := PokemonSlot.new()
+	attacker.pokemon_stack.append(CardInstance.create(raichu_cd, 0))
+	var active_lightning_a := CardInstance.create(_make_energy_data("Active Lightning A", "L"), 0)
+	var active_lightning_b := CardInstance.create(_make_energy_data("Active Lightning B", "L"), 0)
+	attacker.attached_energy = [active_lightning_a, active_lightning_b]
+	player.active_pokemon = attacker
+
+	var bench_lightning := CardInstance.create(_make_energy_data("Bench Lightning", "L"), 0)
+	player.bench[0].attached_energy = [bench_lightning]
+
+	var effects: Array[BaseEffect] = processor.get_attack_effects_for_slot(attacker, 1)
+	var discard_effect: AttackDiscardEnergyMultiDamageEffect = null
+	for effect: BaseEffect in effects:
+		if effect is AttackDiscardEnergyMultiDamageEffect:
+			discard_effect = effect as AttackDiscardEnergyMultiDamageEffect
+			break
+
+	if discard_effect != null:
+		discard_effect.set_attack_interaction_context([{
+			"discard_energy": [
+				{"card_instance_id": active_lightning_a.instance_id},
+				{"instance_id": bench_lightning.instance_id},
+			],
+		}])
+		discard_effect.execute_attack(attacker, state.players[1].active_pokemon, 1, state)
+		discard_effect.clear_attack_interaction_context()
+
+	return run_checks([
+		assert_not_null(discard_effect, "Raichu V's Strong Electric should register AttackDiscardEnergyMultiDamage"),
+		assert_false(active_lightning_a in attacker.attached_energy, "Selected Lightning on the attacker should be discarded"),
+		assert_true(active_lightning_b in attacker.attached_energy, "Unselected Lightning on the attacker should stay attached"),
+		assert_false(bench_lightning in player.bench[0].attached_energy, "Selected Lightning on the bench should be discarded"),
+		assert_eq(player.discard_pile.size(), 2, "Raichu V's Strong Electric should discard every selected Lightning Energy"),
 	])
 
 

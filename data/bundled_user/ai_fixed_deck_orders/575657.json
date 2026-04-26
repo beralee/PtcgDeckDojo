@@ -1,0 +1,20 @@
+{
+	"deck_id": 575657,
+	"deck_name": "Lugia Archeops",
+	"top_to_bottom": [
+		{"set_code": "CS6aC", "card_index": "102"},
+		{"set_code": "CS6bC", "card_index": "117"},
+		{"set_code": "CS6aC", "card_index": "113"},
+		{"set_code": "CS6aC", "card_index": "113"},
+		{"set_code": "CSV1C", "card_index": "112"},
+		{"set_code": "CS6aC", "card_index": "103"},
+		{"set_code": "CSNC", "card_index": "024"},
+		{"set_code": "CS6aC", "card_index": "131"},
+		{"set_code": "CSV4C", "card_index": "129"},
+		{"set_code": "CS6aC", "card_index": "102"},
+		{"set_code": "CS6aC", "card_index": "120"},
+		{"set_code": "CSV3C", "card_index": "116"},
+		{"set_code": "CSV1C", "card_index": "121"},
+		{"set_code": "CSV7C", "card_index": "171"}
+	]
+}

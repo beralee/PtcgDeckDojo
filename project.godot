@@ -31,6 +31,8 @@ window/size/viewport_width=1600
 window/size/viewport_height=900
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
+window/size/window_width=1600
+window/size/window_height=900
 
 [internationalization]
 
@@ -39,3 +41,4 @@ locale/default="zh_CN"
 [rendering]
 
 renderer/rendering_method="gl_compatibility"
+textures/vram_compression/import_etc2_astc=true

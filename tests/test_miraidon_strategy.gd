@@ -644,6 +644,108 @@ func test_load_missing_graceful() -> String:
 		assert_true(not loaded, "缺失文件应返回 false"),
 		assert_true(not s.has_miraidon_value_net(), "缺失文件后不应有 value net"),
 	])
+
+
+func test_live_opening_forced_active_raichu_prefers_energy_over_baton_bridge() -> String:
+	var gs := _make_game_state(1)
+	var player: PlayerState = gs.players[0]
+	var raichu := _make_slot(_make_pokemon_cd(DeckStrategyMiraidonScript.RAICHU_V, "Basic", "L", 200, "", "V", [],
+		[
+			{"name": "Quick Charge", "cost": "L", "damage": ""},
+			{"name": "Dynamic Spark", "cost": "LL", "damage": "60"}
+		], 1), 0)
+	var iron_hands := _make_slot(_make_pokemon_cd(DeckStrategyMiraidonScript.IRON_HANDS_EX, "Basic", "L", 230, "", "ex", [],
+		[{"name": "Amp You Very Much", "cost": "LLC", "damage": "160"}], 4), 0)
+	player.active_pokemon = raichu
+	player.bench.append(iron_hands)
+	var s := _new_strategy()
+	var launch_plan := {
+		"intent": "launch_shell",
+		"flags": {
+			"ready_attacker_on_board": false,
+			"close_out_window": false,
+			"need_energy_bridge": false,
+			"need_pivot_enabler": false,
+			"raikou_bridge_window": false,
+		},
+	}
+	var attach_raichu: float = s.score_action(
+		{
+			"kind": "attach_energy",
+			"card": CardInstance.create(_make_energy_cd("L1", "L"), 0),
+			"target_slot": raichu
+		},
+		{
+			"game_state": gs,
+			"player_index": 0,
+			"turn_plan": launch_plan,
+		}
+	)
+	var attach_iron_hands: float = s.score_action(
+		{
+			"kind": "attach_energy",
+			"card": CardInstance.create(_make_energy_cd("L2", "L"), 0),
+			"target_slot": iron_hands
+		},
+		{
+			"game_state": gs,
+			"player_index": 0,
+			"turn_plan": launch_plan,
+		}
+	)
+	var baton_iron_hands: float = s.score_action(
+		{
+			"kind": "attach_tool",
+			"card": CardInstance.create(_make_tool_cd(DeckStrategyMiraidonScript.HEAVY_BATON), 0),
+			"target_slot": iron_hands
+		},
+		{
+			"game_state": gs,
+			"player_index": 0,
+			"turn_plan": launch_plan,
+		}
+	)
+	return assert_true(
+		attach_raichu > attach_iron_hands and attach_raichu > baton_iron_hands,
+		"live launch-shell scoring should prefer active Raichu energy over backline Iron Hands bridge setup in forced Raichu openings (raichu=%f iron_hands=%f baton=%f)" % [attach_raichu, attach_iron_hands, baton_iron_hands]
+	)
+
+
+func test_early_emergency_board_prefers_active_shell_for_raikou_pivot() -> String:
+	var gs := _make_game_state(2)
+	var player: PlayerState = gs.players[0]
+	var miraidon := _make_slot(_make_pokemon_cd(DeckStrategyMiraidonScript.MIRAIDON_EX, "Basic", "L", 220, "", "ex",
+		[{"name": "Tandem Unit"}], [{"name": "Photon Blaster", "cost": "LLC", "damage": "220"}], 1), 0)
+	var raikou := _make_slot(_make_pokemon_cd(DeckStrategyMiraidonScript.RAIKOU_V, "Basic", "L", 200, "", "V",
+		[{"name": "Fleet Feet"}], [{"name": "Lightning Rondo", "cost": "LC", "damage": "20"}], 1), 0)
+	raikou.attached_energy.append(CardInstance.create(_make_energy_cd("L1", "L"), 0))
+	player.active_pokemon = miraidon
+	player.bench.append(raikou)
+	var s := _new_strategy()
+	var board_on_active: float = s.score_action_absolute(
+		{
+			"kind": "attach_tool",
+			"card": CardInstance.create(_make_tool_cd(DeckStrategyMiraidonScript.EMERGENCY_BOARD), 0),
+			"target_slot": miraidon
+		},
+		gs,
+		0
+	)
+	var board_on_iron_hands: float = s.score_action_absolute(
+		{
+			"kind": "attach_tool",
+			"card": CardInstance.create(_make_tool_cd(DeckStrategyMiraidonScript.EMERGENCY_BOARD), 0),
+			"target_slot": raikou
+		},
+		gs,
+		0
+	)
+	return assert_true(
+		board_on_active > board_on_iron_hands,
+		"early bridge turns should prefer Emergency Board on the active shell when it unlocks a Raikou pivot attack (active=%f raikou=%f)" % [board_on_active, board_on_iron_hands]
+	)
+
+
 func test_miraidon_baseline_backup_script_loads_and_keeps_contract() -> String:
 	var script: GDScript = load(MIRAIDON_BASELINE_SCRIPT_PATH)
 	if script == null:

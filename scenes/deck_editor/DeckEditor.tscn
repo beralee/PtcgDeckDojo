@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3 uid="uid://b3deckeditor01"]
+[gd_scene load_steps=3 format=3 uid="uid://b3deckeditor01"]
 
 [ext_resource type="Script" path="res://scenes/deck_editor/DeckEditor.gd" id="1_script"]
+[ext_resource type="Texture2D" path="res://assets/ui/gamesbackground.png" id="2_bg"]
 
 [node name="DeckEditor" type="Control"]
 layout_mode = 3
@@ -11,14 +12,27 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_script")
 
-[node name="Background" type="ColorRect" parent="."]
+[node name="Background" type="TextureRect" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0.12, 0.14, 0.2, 1)
+mouse_filter = 2
+texture = ExtResource("2_bg")
+expand_mode = 1
+stretch_mode = 6
+
+[node name="BackgroundShade" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.05, 0.07, 0.1, 0.32)
 
 [node name="MarginContainer" type="MarginContainer" parent="."]
 layout_mode = 1
@@ -60,9 +74,16 @@ text = "打法思路"
 
 [node name="BtnAI" type="Button" parent="MarginContainer/VBox/Header"]
 unique_name_in_owner = true
+visible = false
 layout_mode = 2
 custom_minimum_size = Vector2(100, 35)
 text = "AI 分析"
+
+[node name="BtnDiscussAI" type="Button" parent="MarginContainer/VBox/Header"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(110, 35)
+text = "与AI探讨"
 
 [node name="BtnBack" type="Button" parent="MarginContainer/VBox/Header"]
 unique_name_in_owner = true

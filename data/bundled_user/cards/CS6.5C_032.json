@@ -1,0 +1,51 @@
+{
+	"abilities": [],
+	"ancient_trait": "",
+	"artist": "Shibuzoh.",
+	"attacks": [
+		{
+			"cost": "C",
+			"damage": "20",
+			"is_vstar_power": false,
+			"name": "抓",
+			"text": ""
+		},
+		{
+			"cost": "P",
+			"damage": "",
+			"is_vstar_power": false,
+			"name": "放逐矿脉",
+			"text": "这个招式，只有在自己的放逐区有10张以上（包含10张）卡牌时才可使用。将12个伤害指示物，以任意方式放置于对手的宝可梦身上。"
+		}
+	],
+	"card_index": "032",
+	"card_index_en": "70",
+	"card_type": "Pokemon",
+	"description": " 抓 20\n\n\n【超】 放逐矿脉 \n这个招式，只有在自己的放逐区有10张以上（包含10张）卡牌时才可使用。将12个伤害指示物，以任意方式放置于对手的宝可梦身上。\n\n",
+	"effect_id": "11e3c629e34562a7061a05c483eb5718",
+	"energy_provides": "",
+	"energy_type": "P",
+	"evolves_from": "",
+	"hp": 80,
+	"image_local_path": "user://cards/images/CS6.5C/032.png",
+	"image_url": "https://tcg.mik.moe/static/img/CS6.5C/032.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "",
+	"name": "勾魂眼",
+	"name_en": "Sableye",
+	"rarity": "R",
+	"regulation_expanded": true,
+	"regulation_mark": "F",
+	"regulation_standard": true,
+	"release_date": "2024-11-15T00:00:00+08:00",
+	"resistance_energy": "F",
+	"resistance_value": "-30",
+	"retreat_cost": 1,
+	"set_code": "CS6.5C",
+	"set_code_en": "LOR",
+	"stage": "Basic",
+	"weakness_energy": "D",
+	"weakness_value": "×2",
+	"yoren_code": "P302"
+}

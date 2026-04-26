@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3 uid="uid://b4settings0001"]
+[gd_scene load_steps=3 format=3 uid="uid://b4settings0001"]
 
 [ext_resource type="Script" path="res://scenes/settings/Settings.gd" id="1_script"]
+[ext_resource type="Texture2D" path="res://assets/ui/gamesbackground.png" id="2_bg"]
 
 [node name="Settings" type="Control"]
 layout_mode = 3
@@ -11,14 +12,27 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_script")
 
-[node name="Background" type="ColorRect" parent="."]
+[node name="Background" type="TextureRect" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0.12, 0.14, 0.2, 1)
+mouse_filter = 2
+texture = ExtResource("2_bg")
+expand_mode = 1
+stretch_mode = 6
+
+[node name="BackgroundShade" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.05, 0.07, 0.1, 0.32)
 
 [node name="VBoxContainer" type="VBoxContainer" parent="."]
 layout_mode = 1
@@ -28,21 +42,21 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -260.0
-offset_top = -220.0
+offset_top = -270.0
 offset_right = 260.0
-offset_bottom = 220.0
+offset_bottom = 270.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_constants/separation = 12
 
 [node name="Title" type="Label" parent="VBoxContainer"]
 layout_mode = 2
-text = "设置"
+text = "AI 设置"
 horizontal_alignment = 1
 
 [node name="SectionLabel" type="Label" parent="VBoxContainer"]
 layout_mode = 2
-text = "ZenMux AI 配置"
+text = "ZenMux 与 AI 性格"
 
 [node name="EndpointLabel" type="Label" parent="VBoxContainer"]
 layout_mode = 2
@@ -67,13 +81,12 @@ secret = true
 
 [node name="ModelLabel" type="Label" parent="VBoxContainer"]
 layout_mode = 2
-text = "模型名称:"
+text = "模型:"
 
-[node name="ModelInput" type="LineEdit" parent="VBoxContainer"]
+[node name="ModelOption" type="OptionButton" parent="VBoxContainer"]
 unique_name_in_owner = true
 layout_mode = 2
 custom_minimum_size = Vector2(400, 35)
-placeholder_text = "gpt-4o / claude-sonnet-4-20250514 等"
 
 [node name="TimeoutLabel" type="Label" parent="VBoxContainer"]
 layout_mode = 2
@@ -87,6 +100,16 @@ min_value = 5.0
 max_value = 300.0
 step = 5.0
 value = 30.0
+
+[node name="PersonalityLabel" type="Label" parent="VBoxContainer"]
+layout_mode = 2
+text = "AI 性格:"
+
+[node name="PersonalityInput" type="LineEdit" parent="VBoxContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(400, 35)
+placeholder_text = "例如：乐观、谨慎、搞笑、严格但简洁"
 
 [node name="StatusLabel" type="Label" parent="VBoxContainer"]
 unique_name_in_owner = true
@@ -108,6 +131,12 @@ unique_name_in_owner = true
 layout_mode = 2
 custom_minimum_size = Vector2(140, 40)
 text = "保存"
+
+[node name="BtnTest" type="Button" parent="VBoxContainer/HBox"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(140, 40)
+text = "测试连接"
 
 [node name="BtnBack" type="Button" parent="VBoxContainer/HBox"]
 unique_name_in_owner = true

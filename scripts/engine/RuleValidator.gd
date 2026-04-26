@@ -46,12 +46,18 @@ func can_play_stadium(state: GameState, player_index: int, card: CardInstance) -
 	return true
 
 
-func can_evolve(state: GameState, player_index: int, slot: PokemonSlot, evolution: CardInstance) -> bool:
+func can_evolve(
+	state: GameState,
+	player_index: int,
+	slot: PokemonSlot,
+	evolution: CardInstance,
+	effect_processor: EffectProcessor = null
+) -> bool:
 	if state.current_player_index != player_index:
 		return false
 	if state.phase != GameState.GamePhase.MAIN:
 		return false
-	if slot == null or slot.is_knocked_out():
+	if slot == null or _is_effectively_knocked_out(slot, state, effect_processor):
 		return false
 	if state.is_first_turn_for_player(player_index):
 		return false
@@ -68,7 +74,11 @@ func can_evolve(state: GameState, player_index: int, slot: PokemonSlot, evolutio
 	return true
 
 
-func can_retreat(state: GameState, player_index: int) -> bool:
+func can_retreat(
+	state: GameState,
+	player_index: int,
+	effect_processor: EffectProcessor = null
+) -> bool:
 	if state.current_player_index != player_index:
 		return false
 	if state.phase != GameState.GamePhase.MAIN:
@@ -78,18 +88,27 @@ func can_retreat(state: GameState, player_index: int) -> bool:
 	var player: PlayerState = state.players[player_index]
 	if player.active_pokemon == null:
 		return false
-	if player.active_pokemon.is_knocked_out():
+	if _is_effectively_knocked_out(player.active_pokemon, state, effect_processor):
 		return false
 	if player.active_pokemon.status_conditions.get("asleep", false):
 		return false
 	if player.active_pokemon.status_conditions.get("paralyzed", false):
 		return false
+	if effect_processor != null:
+		var opponent_active: PokemonSlot = state.players[1 - player_index].active_pokemon
+		if opponent_active != null and not effect_processor.is_ability_disabled(opponent_active, state):
+			var ability_count: int = opponent_active.get_abilities().size()
+			for ability_index: int in ability_count:
+				var effect: BaseEffect = effect_processor.get_ability_effect(opponent_active, ability_index, state)
+				if effect != null and effect.has_method("prevents_opponent_retreat"):
+					if bool(effect.call("prevents_opponent_retreat", opponent_active, player_index, state)):
+						return false
 	for effect_data: Dictionary in player.active_pokemon.effects:
 		if effect_data.get("type", "") == "retreat_lock" and int(effect_data.get("turn", -999)) == state.turn_number - 1:
 			return false
 	var has_live_bench: bool = false
 	for bench_slot: PokemonSlot in player.bench:
-		if bench_slot != null and not bench_slot.is_knocked_out():
+		if bench_slot != null and not _is_effectively_knocked_out(bench_slot, state, effect_processor):
 			has_live_bench = true
 			break
 	if not has_live_bench:
@@ -138,8 +157,8 @@ func get_attack_unusable_reason(
 	if player.active_pokemon == null:
 		return "当前没有战斗宝可梦"
 	var active: PokemonSlot = player.active_pokemon
-	if active.is_knocked_out():
-		return "current_active_knocked_out"
+	if _is_effectively_knocked_out(active, state, effect_processor):
+		return "当前战斗宝可梦已昏厥"
 	var opponent_index: int = 1 - player_index
 	if opponent_index < 0 or opponent_index >= state.players.size():
 		return "Opponent has no Active Pokemon"
@@ -155,6 +174,9 @@ func get_attack_unusable_reason(
 	if attack_index < 0 or attack_index >= card_data.attacks.size():
 		return "招式索引无效"
 	var attack: Dictionary = card_data.attacks[attack_index]
+	var special_gate_reason := _fails_special_attack_usage_gate(state, player_index, active, attack_index)
+	if special_gate_reason != "":
+		return special_gate_reason
 
 	if (
 		state.turn_number == 1
@@ -174,6 +196,9 @@ func get_attack_unusable_reason(
 			if str(effect_data.get("attack_name", "")) == str(attack.get("name", "")):
 				return "该招式下回合无法再次使用"
 		if effect_data.get("type", "") == "defender_attack_lock" and int(effect_data.get("turn", -999)) == state.turn_number - 1:
+			var locked_attack_name: String = str(effect_data.get("attack_name", ""))
+			if locked_attack_name != "" and locked_attack_name != str(attack.get("name", "")):
+				continue
 			return "受到上回合效果影响，无法攻击"
 
 	var cost: String = CardData.normalize_attack_cost(attack.get("cost", ""))
@@ -205,6 +230,22 @@ func _allows_first_player_attack_on_first_turn(attack: Dictionary) -> bool:
 		return true
 	var attack_text: String = str(attack.get("text", ""))
 	return attack_text.contains("即使是先攻玩家的最初回合也可以使用")
+
+
+func _fails_special_attack_usage_gate(
+	state: GameState,
+	player_index: int,
+	active: PokemonSlot,
+	attack_index: int
+) -> String:
+	var card_data: CardData = active.get_card_data()
+	if card_data == null:
+		return ""
+	match card_data.effect_id:
+		"11e3c629e34562a7061a05c483eb5718":
+			if attack_index == 1 and state.players[player_index].lost_zone.size() < 10:
+				return "自己的放逐区没有达到 10 张，无法使用这个招式"
+	return ""
 
 
 func has_enough_energy(
@@ -276,14 +317,31 @@ func can_play_basic_to_bench(state: GameState, player_index: int, card: CardInst
 	return not BenchLimit.is_bench_full(state, player)
 
 
-func can_attach_tool(state: GameState, player_index: int, slot: PokemonSlot) -> bool:
+func can_attach_tool(
+	state: GameState,
+	player_index: int,
+	slot: PokemonSlot,
+	effect_processor: EffectProcessor = null
+) -> bool:
 	if state.current_player_index != player_index:
 		return false
 	if state.phase != GameState.GamePhase.MAIN:
 		return false
-	if slot == null or slot.is_knocked_out():
+	if slot == null or _is_effectively_knocked_out(slot, state, effect_processor):
 		return false
 	return slot.attached_tool == null
+
+
+func _is_effectively_knocked_out(
+	slot: PokemonSlot,
+	state: GameState,
+	effect_processor: EffectProcessor = null
+) -> bool:
+	if slot == null:
+		return false
+	if effect_processor != null:
+		return effect_processor.is_effectively_knocked_out(slot, state)
+	return slot.is_knocked_out()
 
 
 func has_basic_pokemon_in_hand(player: PlayerState) -> bool:

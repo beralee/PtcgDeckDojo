@@ -1,4 +1,4 @@
-﻿class_name BattleAttackVfxRegistry
+class_name BattleAttackVfxRegistry
 extends RefCounted
 
 const BattleAttackVfxProfileScript := preload("res://scripts/ui/battle/BattleAttackVfxProfile.gd")
@@ -72,6 +72,14 @@ const DARKNESS_ASSET_SPECS := {
 	"cast": {"path": "res://assets/textures/vfx/attribute_darkness/source/charge_core.png", "frames": 1},
 	"impact": {"path": "res://assets/textures/vfx/attribute_darkness/source/impact_bloom.png", "frames": 1},
 	"residue": {"path": "res://assets/textures/vfx/attribute_darkness/source/residue_smoke.png", "frames": 1},
+}
+
+const COUNTER_TRANSFER_ASSET_SPECS := {
+	"cast": {"path": "res://assets/textures/vfx/attribute_darkness/source/charge_core.png", "frames": 1},
+	"travel_core": {"path": "res://assets/textures/vfx/attribute_psychic/source/psychic_travel_core.png", "frames": 1},
+	"travel_outer": {"path": "res://assets/textures/vfx/attribute_psychic/source/psychic_travel_outer.png", "frames": 1},
+	"impact": {"path": "res://assets/textures/vfx/attribute_darkness/source/impact_bloom.png", "frames": 1},
+	"residue": {"path": "res://assets/textures/vfx/attribute_psychic/source/psychic_residue_motes.png", "frames": 1},
 }
 
 const GRASS_ASSET_SPECS := {
@@ -355,6 +363,20 @@ var _generic_profile := _make_profile(
 	1.0
 )
 
+var _counter_transfer_profile := _make_profile(
+	"ability_counter_transfer",
+	"counter_siphon",
+	Color(0.86, 0.24, 1.0, 1.0),
+	Color(0.28, 0.9, 1.0, 1.0),
+	12,
+	3,
+	0.96,
+	{
+		"asset_specs": COUNTER_TRANSFER_ASSET_SPECS,
+		"disable_generic_shockwave": true,
+	}
+)
+
 
 static func _make_profile(
 	id: String,
@@ -432,6 +454,10 @@ func resolve_profile(attacker_card_data: CardData, _attack_name: String = "") ->
 		if _energy_fallback_profiles.has(energy_type):
 			return _energy_fallback_profiles[energy_type] as RefCounted
 	return _generic_profile
+
+
+func get_counter_transfer_profile() -> RefCounted:
+	return _counter_transfer_profile
 
 
 func _hero_profile_candidates(card_data: CardData) -> Array[String]:

@@ -1,0 +1,51 @@
+{
+	"name": "古玉鱼ex",
+	"card_type": "Pokemon",
+	"mechanic": "ex",
+	"label": "",
+	"description": "【火】 妒火中烧 \n将对手牌库上方2张卡牌放于弃牌区。\n\n【火】【火】 火焰巨浪 100\n选择自己最多3只备战宝可梦，各附着1张牌库中的「基本【火】能量」。并重洗牌库。\n\n",
+	"yoren_code": "Y1275",
+	"set_code": "CSV3C",
+	"card_index": "031",
+	"set_code_en": "PAL",
+	"card_index_en": "40",
+	"name_en": "Chi-Yu ex",
+	"artist": "5ban Graphics",
+	"rarity": "RR",
+	"release_date": "2025-05-16T00:00:00+08:00",
+	"regulation_mark": "G",
+	"effect_id": "2f6f444122be1e8d9af6c5a134f66572",
+	"image_url": "https://tcg.mik.moe/static/img/CSV3C/031.png",
+	"image_local_path": "user://cards/images/CSV3C/031.png",
+	"is_tags": [],
+	"regulation_standard": true,
+	"regulation_expanded": true,
+	"energy_type": "R",
+	"stage": "Basic",
+	"hp": 190,
+	"weakness_energy": "W",
+	"weakness_value": "×2",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 1,
+	"evolves_from": "",
+	"ancient_trait": "",
+	"attacks": [
+		{
+			"name": "妒火中烧",
+			"text": "将对手牌库上方2张卡牌放于弃牌区。",
+			"cost": "R",
+			"damage": "",
+			"is_vstar_power": false
+		},
+		{
+			"name": "火焰巨浪",
+			"text": "选择自己最多3只备战宝可梦，各附着1张牌库中的「基本【火】能量」。并重洗牌库。",
+			"cost": "RR",
+			"damage": "100",
+			"is_vstar_power": false
+		}
+	],
+	"abilities": [],
+	"energy_provides": ""
+}

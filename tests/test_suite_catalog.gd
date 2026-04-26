@@ -11,23 +11,32 @@ func test_catalog_discovers_every_test_file() -> String:
 		discovered_paths[str(suite.get("path", ""))] = true
 
 	var missing: Array[String] = []
-	var dir := DirAccess.open("res://tests")
-	if dir == null:
-		return "Unable to open tests directory"
-
-	dir.list_dir_begin()
-	var file_name := dir.get_next()
-	while file_name != "":
-		if not dir.current_is_dir() and file_name.begins_with("test_") and file_name.ends_with(".gd"):
-			var script_path := "res://tests/%s" % file_name
-			if not bool(discovered_paths.get(script_path, false)):
-				missing.append(script_path)
-		file_name = dir.get_next()
-	dir.list_dir_end()
+	_collect_missing("res://tests", "res://tests", discovered_paths, missing)
 
 	return run_checks([
 		assert_eq(missing.size(), 0, "Every test_*.gd file should be discoverable through the suite catalog"),
 	])
+
+
+func _collect_missing(root_dir: String, current_dir: String, discovered_paths: Dictionary, missing: Array[String]) -> void:
+	var dir := DirAccess.open(current_dir)
+	if dir == null:
+		missing.append("%s::<open_failed>" % current_dir)
+		return
+	dir.list_dir_begin()
+	var entry := dir.get_next()
+	while entry != "":
+		if entry in [".", ".."]:
+			entry = dir.get_next()
+			continue
+		var script_path := current_dir.path_join(entry)
+		if dir.current_is_dir():
+			_collect_missing(root_dir, script_path, discovered_paths, missing)
+		elif entry.begins_with("test_") and entry.ends_with(".gd"):
+			if not bool(discovered_paths.get(script_path, false)):
+				missing.append(script_path)
+		entry = dir.get_next()
+	dir.list_dir_end()
 
 
 func test_functional_group_includes_previously_omitted_core_suites() -> String:

@@ -1,0 +1,20 @@
+{
+	"deck_id": 575716,
+	"deck_name": "喷火龙 大比鸟",
+	"top_to_bottom": [
+		{"set_code": "151C", "card_index": "004"},
+		{"set_code": "CSV4C", "card_index": "099"},
+		{"set_code": "CSVH1C", "card_index": "043"},
+		{"set_code": "CSVE1C", "card_index": "FIR"},
+		{"set_code": "CSVH1C", "card_index": "045"},
+		{"set_code": "CSVH1C", "card_index": "045"},
+		{"set_code": "CSV4C", "card_index": "101"},
+		{"set_code": "CSV5C", "card_index": "075"},
+		{"set_code": "CS6.5C", "card_index": "066"},
+		{"set_code": "CSV7C", "card_index": "177"},
+		{"set_code": "CSVE1C", "card_index": "FIR"},
+		{"set_code": "CSV1C", "card_index": "123"},
+		{"set_code": "CSV8C", "card_index": "082"},
+		{"set_code": "CS5.5C", "card_index": "032"}
+	]
+}

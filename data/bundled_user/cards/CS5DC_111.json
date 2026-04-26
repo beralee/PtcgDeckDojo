@@ -1,0 +1,49 @@
+{
+	"name": "诡角鹿V",
+	"card_type": "Pokemon",
+	"mechanic": "V",
+	"label": "",
+	"description": "特性: 拓荒之路\n在自己的回合，当这只宝可梦从备战区被放入战斗场时，可使用1次。选择任意数量的附着于自己场上宝可梦身上的能量，转附于这只宝可梦身上。\n\n 屏障猛攻 40×\n造成这只宝可梦身上附有的能量数量×40点伤害。\n\n",
+	"yoren_code": "Y948",
+	"set_code": "CS5DC",
+	"card_index": "111",
+	"set_code_en": "ASR",
+	"card_index_en": "134",
+	"name_en": "Wyrdeer V",
+	"artist": "aky CG Works",
+	"rarity": "无标记",
+	"release_date": "2024-06-18T00:00:00+08:00",
+	"regulation_mark": "F",
+	"effect_id": "32f943010bf08cb6046c0bcc64e1d7b8",
+	"image_url": "https://tcg.mik.moe/static/img/CS5DC/111.png",
+	"image_local_path": "user://cards/images/CS5DC/111.png",
+	"is_tags": [],
+	"regulation_standard": true,
+	"regulation_expanded": true,
+	"energy_type": "C",
+	"stage": "Basic",
+	"hp": 220,
+	"weakness_energy": "F",
+	"weakness_value": "×2",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 2,
+	"evolves_from": "",
+	"ancient_trait": "",
+	"attacks": [
+		{
+			"name": "屏障猛攻",
+			"text": "造成这只宝可梦身上附有的能量数量×40点伤害。",
+			"cost": "CCC",
+			"damage": "40×",
+			"is_vstar_power": false
+		}
+	],
+	"abilities": [
+		{
+			"name": "拓荒之路",
+			"text": "在自己的回合，当这只宝可梦从备战区被放入战斗场时，可使用1次。选择任意数量的附着于自己场上宝可梦身上的能量，转附于这只宝可梦身上。"
+		}
+	],
+	"energy_provides": ""
+}

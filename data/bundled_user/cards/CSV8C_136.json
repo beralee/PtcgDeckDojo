@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "支配锁链",
+			"text": "在自己的回合可以使用1次。选择自己备战区中的1只【恶】宝可梦（除「桃歹郎【ex】」外），将其与战斗宝可梦互换。然后，令新的战斗宝可梦陷入【中毒】状态。在这个回合，如果已经使用了其他的「支配锁链」的话，则无法使用这个特性。"
+		}
+	],
+	"ancient_trait": "",
+	"artist": "aky CG Works",
+	"attacks": [
+		{
+			"cost": "DD",
+			"damage": "60×",
+			"is_vstar_power": false,
+			"name": "焦躁爆破",
+			"text": "造成对手已经获得的奖赏卡张数×60伤害。"
+		}
+	],
+	"card_index": "136",
+	"card_index_en": "39",
+	"card_type": "Pokemon",
+	"description": "特性: 支配锁链\n在自己的回合可以使用1次。选择自己备战区中的1只【恶】宝可梦（除「桃歹郎【ex】」外），将其与战斗宝可梦互换。然后，令新的战斗宝可梦陷入【中毒】状态。在这个回合，如果已经使用了其他的「支配锁链」的话，则无法使用这个特性。\n\n【恶】【恶】 焦躁爆破 60×\n造成对手已经获得的奖赏卡张数×60伤害。\n\n",
+	"effect_id": "e92d1881bfe5e0b957b87c93cd757fc7",
+	"energy_provides": "",
+	"energy_type": "D",
+	"evolves_from": "",
+	"hp": 190,
+	"image_local_path": "user://cards/images/CSV8C/136.png",
+	"image_url": "https://tcg.mik.moe/static/img/CSV8C/136.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "ex",
+	"name": "桃歹郎ex",
+	"name_en": "Pecharunt ex",
+	"rarity": "RR",
+	"regulation_expanded": true,
+	"regulation_mark": "H",
+	"regulation_standard": true,
+	"release_date": "2026-03-13T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 1,
+	"set_code": "CSV8C",
+	"set_code_en": "SFA",
+	"stage": "Basic",
+	"weakness_energy": "F",
+	"weakness_value": "×2",
+	"yoren_code": "Y1456"
+}

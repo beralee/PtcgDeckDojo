@@ -1,0 +1,51 @@
+{
+	"abilities": [],
+	"ancient_trait": "",
+	"artist": "OKACHEKE",
+	"attacks": [
+		{
+			"cost": "C",
+			"damage": "",
+			"is_vstar_power": false,
+			"name": "搬运上岸",
+			"text": "选择自己或对手弃牌区中的1张【基础】宝可梦，放于持有者的备战区。"
+		},
+		{
+			"cost": "WWC",
+			"damage": "100",
+			"is_vstar_power": false,
+			"name": "水流利刃",
+			"text": ""
+		}
+	],
+	"card_index": "045",
+	"card_index_en": "34",
+	"card_type": "Pokemon",
+	"description": " 搬运上岸 \n选择自己或对手弃牌区中的1张【基础】宝可梦，放于持有者的备战区。\n\n【水】【水】 水流利刃 100\n\n\n",
+	"effect_id": "ca76ce7dc5236e870eccf6bfafbc1f59",
+	"energy_provides": "",
+	"energy_type": "W",
+	"evolves_from": "",
+	"hp": 110,
+	"image_local_path": "user://cards/images/CS5bC/045.png",
+	"image_url": "https://tcg.mik.moe/static/img/CS5bC/045.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "",
+	"name": "巨翅飞鱼",
+	"name_en": "Mantine",
+	"rarity": "C",
+	"regulation_expanded": true,
+	"regulation_mark": "F",
+	"regulation_standard": true,
+	"release_date": "2024-06-18T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 1,
+	"set_code": "CS5bC",
+	"set_code_en": "ASR",
+	"stage": "Basic",
+	"weakness_energy": "L",
+	"weakness_value": "×2",
+	"yoren_code": "P226"
+}

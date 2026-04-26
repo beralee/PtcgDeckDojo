@@ -1,0 +1,309 @@
+{
+	"cards": [
+		{
+			"card_index": "114",
+			"card_type": "Item",
+			"count": 2,
+			"effect_id": "06bc00d5dcec33898dc6db2e4c4d10ec",
+			"name": "反击捕捉器",
+			"name_en": "Counter Catcher",
+			"set_code": "CSV6C"
+		},
+		{
+			"card_index": "186",
+			"card_type": "Tool",
+			"count": 1,
+			"effect_id": "12164ed03296d2df4ef6d0fa8b5f8aae",
+			"name": "璀璨结晶",
+			"name_en": "Sparkling Crystal",
+			"set_code": "CSV8C"
+		},
+		{
+			"card_index": "043",
+			"card_type": "Item",
+			"count": 3,
+			"effect_id": "1af63a7e2cb7a79215474ad8db8fd8fd",
+			"name": "巢穴球",
+			"name_en": "Nest Ball",
+			"set_code": "CSVH1C"
+		},
+		{
+			"card_index": "105",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "1b951205e53e179bde0905c4a194d9ee",
+			"name": "怒鹦哥ex",
+			"name_en": "Squawkabilly ex",
+			"set_code": "CSV2C"
+		},
+		{
+			"card_index": "FIR",
+			"card_type": "Basic Energy",
+			"count": 5,
+			"effect_id": "22db5405bf0cce61a00aa8082cdd1e65",
+			"name": "基本火能量",
+			"name_en": "Fire Energy",
+			"set_code": "CSVE1C"
+		},
+		{
+			"card_index": "183",
+			"card_type": "Item",
+			"count": 1,
+			"effect_id": "3e6f1daf545dfed48d0588dd50792a2e",
+			"name": "夜间担架",
+			"name_en": "Night Stretcher",
+			"set_code": "CSV8C"
+		},
+		{
+			"card_index": "PSY",
+			"card_type": "Basic Energy",
+			"count": 2,
+			"effect_id": "41b2d1a95fafc35e4cf39383ffae928a",
+			"name": "基本超能量",
+			"name_en": "Psychic Energy",
+			"set_code": "CSVE1C"
+		},
+		{
+			"card_index": "158",
+			"card_type": "Pokemon",
+			"count": 3,
+			"effect_id": "4e13cd08de3b6d141ce8e2f09d17a3a4",
+			"name": "多龙奇",
+			"name_en": "Drakloak",
+			"set_code": "CSV8C"
+		},
+		{
+			"card_index": "203",
+			"card_type": "Stadium",
+			"count": 1,
+			"effect_id": "4e16157bfa88a41e823d058a732df8e0",
+			"name": "阻碍之塔",
+			"name_en": "Jamming Tower",
+			"set_code": "CSV8C"
+		},
+		{
+			"card_index": "159",
+			"card_type": "Pokemon",
+			"count": 2,
+			"effect_id": "52a205820de799a53a689f23cbeb8622",
+			"name": "多龙巴鲁托ex",
+			"name_en": "Dragapult ex",
+			"set_code": "CSV8C"
+		},
+		{
+			"card_index": "127",
+			"card_type": "Special Energy",
+			"count": 1,
+			"effect_id": "540ee48bb93584e4bfe3d7f5d0ee0efc",
+			"name": "夜光能量",
+			"name_en": "Luminous Energy",
+			"set_code": "CSV1C"
+		},
+		{
+			"card_index": "049",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "553639840a44f19ad83b89a892a21f98",
+			"name": "霓虹鱼V",
+			"name_en": "Lumineon V",
+			"set_code": "CS5bC"
+		},
+		{
+			"card_index": "123",
+			"card_type": "Supporter",
+			"count": 2,
+			"effect_id": "5bdbc985f9aa2e6f248b53f6f35d1d37",
+			"name": "派帕",
+			"name_en": "Arven",
+			"set_code": "CSV1C"
+		},
+		{
+			"card_index": "125",
+			"card_type": "Supporter",
+			"count": 1,
+			"effect_id": "73d5f46ecf3a6d71b23ce7bc1a28d4f4",
+			"name": "弗图博士的剧本",
+			"name_en": "Professor Turo's Scenario",
+			"set_code": "CSV6C"
+		},
+		{
+			"card_index": "075",
+			"card_type": "Pokemon",
+			"count": 2,
+			"effect_id": "767b6233bf90b98b7af190ea3b40d7a2",
+			"name": "喷火龙ex",
+			"name_en": "Charizard ex",
+			"set_code": "CSV5C"
+		},
+		{
+			"card_index": "113",
+			"card_type": "Item",
+			"count": 1,
+			"effect_id": "7c0b20e121c9d0e0d2d8a43524f7494e",
+			"name": "宝可梦交替",
+			"name_en": "Switch",
+			"set_code": "CSV1C"
+		},
+		{
+			"card_index": "004",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "7d8db29232cb263d7a9f27342814dff9",
+			"name": "小火龙",
+			"name_en": "Charmander",
+			"set_code": "151C"
+		},
+		{
+			"card_index": "023",
+			"card_type": "Supporter",
+			"count": 2,
+			"effect_id": "8e1fa2c9018db938084c94c7c970d419",
+			"name": "老大的指令",
+			"name_en": "Boss's Orders",
+			"set_code": "CSVH1aC"
+		},
+		{
+			"card_index": "023",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "8ef5ff61fd97838af568f00fe3b0e3ea",
+			"name": "洛托姆V",
+			"name_en": "Rotom V",
+			"set_code": "CS6.5C"
+		},
+		{
+			"card_index": "009",
+			"card_type": "Pokemon",
+			"count": 2,
+			"effect_id": "94c6f72a67045857fa44962e4fbb8c27",
+			"name": "阿尔宙斯V",
+			"name_en": "Arceus V",
+			"set_code": "CSNC"
+		},
+		{
+			"card_index": "067",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "98ecdb0066cdc5dc6697a0075bcfa4a9",
+			"name": "小火龙",
+			"name_en": "Charmander",
+			"set_code": "SVP"
+		},
+		{
+			"card_index": "107",
+			"card_type": "Pokemon",
+			"count": 2,
+			"effect_id": "9a0982e46cf9a3aaed89e6d3517e7d58",
+			"name": "阿尔宙斯VSTAR",
+			"name_en": "Arceus VSTAR",
+			"set_code": "CS5aC"
+		},
+		{
+			"card_index": "024",
+			"card_type": "Special Energy",
+			"count": 1,
+			"effect_id": "9c04dd0addf56a7b2c88476bc8e45c0e",
+			"name": "双重涡轮能量",
+			"name_en": "Double Turbo Energy",
+			"set_code": "CSNC"
+		},
+		{
+			"card_index": "112",
+			"card_type": "Item",
+			"count": 4,
+			"effect_id": "a337ed34a45e63c6d21d98c3d8e0cb6e",
+			"name": "高级球",
+			"name_en": "Ultra Ball",
+			"set_code": "CSV1C"
+		},
+		{
+			"card_index": "135",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "ab6c3357e2b8a8385a68da738f41e0c1",
+			"name": "吉雉鸡ex",
+			"name_en": "Fezandipiti ex",
+			"set_code": "CSV8C"
+		},
+		{
+			"card_index": "121",
+			"card_type": "Supporter",
+			"count": 1,
+			"effect_id": "aecd80ca2722885c3d062a2255346f3e",
+			"name": "博士的研究",
+			"name_en": "Professor's Research",
+			"set_code": "CSV1C"
+		},
+		{
+			"card_index": "123",
+			"card_type": "Supporter",
+			"count": 3,
+			"effect_id": "af514f82d182aeae5327b2c360df703d",
+			"name": "奇树",
+			"name_en": "Iono",
+			"set_code": "CSV3C"
+		},
+		{
+			"card_index": "128",
+			"card_type": "Stadium",
+			"count": 1,
+			"effect_id": "b87089abe625a7abb3c523074a8497df",
+			"name": "宝可梦联盟总部",
+			"name_en": "Pokémon League Headquarters",
+			"set_code": "CSV6C"
+		},
+		{
+			"card_index": "109",
+			"card_type": "Item",
+			"count": 1,
+			"effect_id": "c9c948169525fbb3dce70c477ec7a90a",
+			"name": "厉害钓竿",
+			"name_en": "Super Rod",
+			"set_code": "CSV1C"
+		},
+		{
+			"card_index": "045",
+			"card_type": "Item",
+			"count": 3,
+			"effect_id": "d3891abcfe3277c8811cde06741d3236",
+			"name": "神奇糖果",
+			"name_en": "Rare Candy",
+			"set_code": "CSVH1C"
+		},
+		{
+			"card_index": "058",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "ddf863adb9287aa59fd079a80a94f05a",
+			"name": "多龙巴鲁托",
+			"name_en": "Dragapult",
+			"set_code": "CS6bC"
+		},
+		{
+			"card_index": "157",
+			"card_type": "Pokemon",
+			"count": 4,
+			"effect_id": "e793842faf5a8017e5456f898b1bf9d2",
+			"name": "多龙梅西亚",
+			"name_en": "Dreepy",
+			"set_code": "CSV8C"
+		},
+		{
+			"card_index": "177",
+			"card_type": "Item",
+			"count": 2,
+			"effect_id": "f866dfee26cd6b0dbbb52b74438d0a59",
+			"name": "友好宝芬",
+			"name_en": "Buddy-Buddy Poffin",
+			"set_code": "CSV7C"
+		}
+	],
+	"deck_code": "dBjVvQX6oYqW3ftXc1",
+	"deck_name": "喷火龙 阿尔宙斯",
+	"id": 594978,
+	"import_date": "2026-04-19T00:10:16",
+	"source_url": "https://tcg.mik.moe/decks/list/594978",
+	"strategy": "",
+	"total_cards": 60,
+	"variant_name": "喷火龙 阿尔宙斯"
+}

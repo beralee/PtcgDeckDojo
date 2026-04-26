@@ -1,0 +1,51 @@
+{
+	"name": "捷拉奥拉",
+	"card_type": "Pokemon",
+	"mechanic": "",
+	"label": "",
+	"description": "【雷】 战斗利爪 30+\n如果对手的战斗宝可梦为进化宝可梦的话，则追加造成30点伤害。\n\n【雷】 音速伏特 80\n\n\n",
+	"yoren_code": "P807",
+	"set_code": "CS6aC",
+	"card_index": "073",
+	"set_code_en": "SIT",
+	"card_index_en": "56",
+	"name_en": "Zeraora",
+	"artist": "GOSSAN",
+	"rarity": "U",
+	"release_date": "2024-09-20T00:00:00+08:00",
+	"regulation_mark": "F",
+	"effect_id": "73e3252852acd5361a563d7f88aef367",
+	"image_url": "https://tcg.mik.moe/static/img/CS6aC/073.png",
+	"image_local_path": "user://cards/images/CS6aC/073.png",
+	"is_tags": [],
+	"regulation_standard": true,
+	"regulation_expanded": true,
+	"energy_type": "L",
+	"stage": "Basic",
+	"hp": 110,
+	"weakness_energy": "F",
+	"weakness_value": "×2",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 0,
+	"evolves_from": "",
+	"ancient_trait": "",
+	"attacks": [
+		{
+			"name": "战斗利爪",
+			"text": "如果对手的战斗宝可梦为进化宝可梦的话，则追加造成30点伤害。",
+			"cost": "L",
+			"damage": "30+",
+			"is_vstar_power": false
+		},
+		{
+			"name": "音速伏特",
+			"text": "",
+			"cost": "LCC",
+			"damage": "80",
+			"is_vstar_power": false
+		}
+	],
+	"abilities": [],
+	"energy_provides": ""
+}

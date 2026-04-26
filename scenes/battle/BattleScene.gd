@@ -36,6 +36,7 @@ const BattleReplayControllerScript := preload("res://scripts/ui/battle/BattleRep
 const BattleRecordingControllerScript := preload("res://scripts/ui/battle/BattleRecordingController.gd")
 const BattleRuntimeLogControllerScript := preload("res://scripts/ui/battle/BattleRuntimeLogController.gd")
 const BattleReviewFormatterScript := preload("res://scripts/ui/battle/BattleReviewFormatter.gd")
+const DeckDiscussionDialogScene := preload("res://scenes/deck_editor/DeckDiscussionDialog.tscn")
 const CARD_ASPECT := 0.716
 const BATTLE_RUNTIME_LOG_PATH := "user://logs/battle_runtime.log"
 const BATTLE_BACKDROP_RESOURCE := "res://assets/ui/background.png"
@@ -112,6 +113,9 @@ var _ai_action_pause_seconds: float = AI_ACTION_PAUSE_SECONDS
 var _ai_action_pause_timer: Variant = null
 var _ai_llm_waiting: bool = false
 var _ai_llm_turn_requested: int = -1
+var _ai_llm_wait_label: Label = null
+var _ai_llm_wait_started_msec: int = 0
+var _ai_llm_wait_anim_token: int = 0
 var _latest_opponent_action_text: String = ""
 var _latest_opponent_action_turn_number: int = -1
 var _battle_mode: String = "live"
@@ -194,6 +198,9 @@ var _battle_advice_panel_content: RichTextLabel = null
 var _battle_advice_panel_collapsed: bool = false
 var _review_pin_btn: Button = null
 var _review_overlay_mode: String = ""
+var _battle_discussion_dialog: AcceptDialog = null
+var _battle_discussion_signature := ""
+var _battle_discussion_flash_tween: Tween = null
 
 # ===================== UI References =====================
 @onready var _log_list: RichTextLabel = %LogList
@@ -208,6 +215,7 @@ var _review_overlay_mode: String = ""
 @onready var _btn_end_turn: Button = %BtnEndTurn
 @onready var _btn_back: Button = %BtnBack
 @onready var _btn_ai_advice: Button = %BtnAiAdvice
+@onready var _btn_battle_discuss_ai: Button = %BtnBattleDiscussAI
 @onready var _btn_attack_vfx_preview: Button = %BtnAttackVfxPreview
 @onready var _btn_opponent_hand: Button = %BtnOpponentHand
 @onready var _btn_zeus_help: Button = %BtnZeusHelp
@@ -333,6 +341,9 @@ func _ready() -> void:
 	_btn_opponent_hand.pressed.connect(_on_opponent_hand_pressed)
 	_btn_attack_vfx_preview.pressed.connect(_on_attack_vfx_preview_pressed)
 	_btn_ai_advice.pressed.connect(_on_ai_advice_pressed)
+	_btn_battle_discuss_ai.pressed.connect(_on_battle_discuss_ai_pressed)
+	_btn_ai_advice.visible = false
+	_btn_attack_vfx_preview.visible = false
 	_btn_zeus_help.pressed.connect(_on_zeus_help_pressed)
 	_btn_replay_prev_turn.pressed.connect(_on_replay_prev_turn_pressed)
 	_btn_replay_next_turn.pressed.connect(_on_replay_next_turn_pressed)
@@ -868,6 +879,7 @@ func _apply_battle_surface_styles() -> void:
 	_style_hud_button(_btn_opponent_hand)
 	_style_hud_button(_btn_attack_vfx_preview)
 	_style_hud_button(_btn_ai_advice)
+	_style_hud_button(_btn_battle_discuss_ai)
 	_style_hud_button(_btn_zeus_help)
 	_style_hud_button(_btn_back)
 	for label: Label in [_lbl_phase, _lbl_turn]:
@@ -1286,6 +1298,13 @@ func _on_action_logged(action: GameAction) -> void:
 		and not _is_review_mode()
 	):
 		_battle_attack_vfx_controller.call("play_attack_vfx", self, action)
+	elif (
+		action != null
+		and action.action_type == GameAction.ActionType.USE_ABILITY
+		and not _is_review_mode()
+		and str(action.data.get("ability_vfx", "")) == "counter_transfer"
+	):
+		_battle_attack_vfx_controller.call("play_counter_transfer_vfx", self, action.data)
 	_record_battle_event({
 		"event_type": "action_resolved",
 		"action_type": action.action_type,
@@ -1391,7 +1410,7 @@ func _on_game_over(winner_index: int, reason: String) -> void:
 	})
 	if _battle_recorder != null and _battle_recorder.has_method("get_match_dir"):
 		_battle_review_match_dir = str(_battle_recorder.call("get_match_dir"))
-	if GameManager.has_active_tournament():
+	if GameManager.is_tournament_battle_active():
 		GameManager.finalize_current_tournament_battle(winner_index, reason)
 		_finalize_battle_recording({
 			"winner_index": winner_index,
@@ -1497,6 +1516,8 @@ func _on_stadium_area_input(event: InputEvent) -> void:
 		return
 	var mbe := event as InputEventMouseButton
 	if not mbe.pressed or mbe.button_index != MOUSE_BUTTON_RIGHT:
+		return
+	if not _can_accept_live_action():
 		return
 	if _gsm == null or _gsm.game_state.stadium_card == null:
 		return
@@ -2319,7 +2340,7 @@ func _handle_dialog_choice(selected_indices: PackedInt32Array) -> void:
 					_refresh_ui_after_successful_action(false, cp)
 		"confirm_exit":
 			if idx == 0:
-				if GameManager.has_active_tournament():
+				if GameManager.is_tournament_battle_active():
 					GameManager.forfeit_current_tournament_battle("技术负（退出对局）")
 					GameManager.goto_tournament_standings()
 				else:
@@ -2352,7 +2373,7 @@ func _handle_dialog_choice(selected_indices: PackedInt32Array) -> void:
 					"marked":
 						_log("该对局已在学习池中")
 			elif idx == return_action_index:
-				if GameManager.has_active_tournament():
+				if GameManager.is_tournament_battle_active():
 					GameManager.clear_tournament()
 					GameManager.goto_main_menu()
 				else:
@@ -3005,6 +3026,306 @@ func _on_ai_advice_pressed() -> void:
 	_battle_advice_controller.call("on_ai_advice_pressed", self)
 
 
+func _on_battle_discuss_ai_pressed() -> void:
+	var view_deck := _battle_discussion_view_deck()
+	if view_deck == null:
+		return
+	if _battle_discussion_dialog == null or not is_instance_valid(_battle_discussion_dialog):
+		_battle_discussion_dialog = DeckDiscussionDialogScene.instantiate() as AcceptDialog
+		add_child(_battle_discussion_dialog)
+		if _battle_discussion_dialog.has_signal("assistant_response_finished"):
+			_battle_discussion_dialog.connect("assistant_response_finished", Callable(self, "_on_battle_discussion_response_finished"))
+	_stop_battle_discussion_flash()
+	var context := _build_battle_discussion_context()
+	var signature := _battle_discussion_current_signature()
+	var reset_session := signature != _battle_discussion_signature
+	_battle_discussion_signature = signature
+	_battle_discussion_dialog.call(
+		"setup_for_battle_context",
+		view_deck,
+		context,
+		_battle_discussion_session_id(),
+		reset_session,
+		Callable(self, "_build_battle_discussion_context")
+	)
+	_battle_discussion_dialog.popup_centered(Vector2i(980, 760))
+	_battle_discussion_dialog.size = Vector2i(980, 760)
+
+
+func _on_battle_discussion_response_finished() -> void:
+	_start_battle_discussion_flash()
+
+
+func _start_battle_discussion_flash() -> void:
+	if _btn_battle_discuss_ai == null or not is_instance_valid(_btn_battle_discuss_ai) or not _btn_battle_discuss_ai.visible:
+		return
+	_stop_battle_discussion_flash()
+	_battle_discussion_flash_tween = create_tween()
+	_battle_discussion_flash_tween.set_loops()
+	_battle_discussion_flash_tween.tween_property(_btn_battle_discuss_ai, "self_modulate", Color(0.28, 1.0, 0.95, 1.0), 0.35).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_battle_discussion_flash_tween.tween_property(_btn_battle_discuss_ai, "self_modulate", Color(1.0, 1.0, 1.0, 1.0), 0.35).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+
+func _stop_battle_discussion_flash() -> void:
+	if _battle_discussion_flash_tween != null:
+		_battle_discussion_flash_tween.kill()
+		_battle_discussion_flash_tween = null
+	if _btn_battle_discuss_ai != null and is_instance_valid(_btn_battle_discuss_ai):
+		_btn_battle_discuss_ai.self_modulate = Color(1.0, 1.0, 1.0, 1.0)
+
+
+func _battle_discussion_current_signature() -> String:
+	var deck_ids: PackedStringArray = []
+	for deck_id: Variant in GameManager.selected_deck_ids:
+		deck_ids.append(str(deck_id))
+	return "%s:%d:%s" % [str(GameManager.current_mode), int(_view_player), ",".join(deck_ids)]
+
+
+func _battle_discussion_session_id() -> int:
+	var deck_a := int(GameManager.selected_deck_ids[0]) if GameManager.selected_deck_ids.size() > 0 else 0
+	var deck_b := int(GameManager.selected_deck_ids[1]) if GameManager.selected_deck_ids.size() > 1 else 0
+	return 730000000 + int(_view_player) * 100000000 + (abs(deck_a) % 10000) * 10000 + (abs(deck_b) % 10000)
+
+
+func _battle_discussion_view_deck() -> DeckData:
+	if GameManager.selected_deck_ids.size() <= _view_player:
+		return null
+	return GameManager.resolve_selected_battle_deck(_view_player)
+
+
+func _build_battle_discussion_context() -> Dictionary:
+	var snapshot := _build_battle_state_snapshot()
+	var view_player := int(_view_player)
+	var opponent_index := 1 - view_player
+	var players: Array = snapshot.get("players", [])
+	var my_player: Dictionary = players[view_player] if view_player >= 0 and view_player < players.size() and players[view_player] is Dictionary else {}
+	var opp_player: Dictionary = players[opponent_index] if opponent_index >= 0 and opponent_index < players.size() and players[opponent_index] is Dictionary else {}
+	var my_deck := GameManager.resolve_selected_battle_deck(view_player)
+	var opp_deck := GameManager.resolve_selected_battle_deck(opponent_index)
+	var my_prize_remaining := int(my_player.get("prize_count", 0))
+	var opponent_prize_remaining := int(opp_player.get("prize_count", 0))
+	var my_prizes_taken := _prizes_taken_from_remaining(my_prize_remaining)
+	var opponent_prizes_taken := _prizes_taken_from_remaining(opponent_prize_remaining)
+	var current_player_index := int(snapshot.get("current_player_index", -1))
+	return {
+		"context_type": "live_battle_visible_state",
+		"perspective_player_index": view_player,
+		"perspective_label": "玩家%d / %s" % [view_player + 1, my_deck.deck_name if my_deck != null else "未知卡组"],
+		"score_explanation": {
+			"prize_remaining_score": "my_prize_remaining-opponent_prize_remaining; lower remaining prize count is better",
+			"prizes_taken_score": "my_prizes_taken-opponent_prizes_taken; higher taken prize count is better",
+			"do_not_treat_remaining_prizes_as_prizes_taken": true,
+		},
+		"hidden_information_policy": {
+			"allowed": [
+				"己方手牌完整内容",
+				"己方公开场面、弃牌区、放逐区、卡组构筑列表",
+				"双方场上公开宝可梦、能量、道具、HP、异常状态",
+				"双方奖赏剩余数量、手牌数量、牌库剩余数量",
+				"对手公开弃牌区和放逐区",
+			],
+			"forbidden": [
+				"对手手牌内容",
+				"对手牌库内容或顺序",
+				"双方奖赏卡具体身份",
+				"任何当前视角不可见的隐藏信息",
+			],
+		},
+		"state": {
+			"turn_number": int(snapshot.get("turn_number", 0)),
+			"phase": str(snapshot.get("phase", "")),
+			"current_player_index": current_player_index,
+			"is_perspective_players_turn": current_player_index == view_player,
+			"acting_side_from_perspective": "me" if current_player_index == view_player else "opponent",
+			"first_player_index": int(snapshot.get("first_player_index", -1)),
+			"energy_attached_this_turn": bool(snapshot.get("energy_attached_this_turn", false)),
+			"supporter_used_this_turn": bool(snapshot.get("supporter_used_this_turn", false)),
+			"stadium_played_this_turn": bool(snapshot.get("stadium_played_this_turn", false)),
+			"retreat_used_this_turn": bool(snapshot.get("retreat_used_this_turn", false)),
+			"stadium_card": _public_card_detail(snapshot.get("stadium_card", {})),
+			"stadium_owner_index": int(snapshot.get("stadium_owner_index", -1)),
+			"vstar_power_used": snapshot.get("vstar_power_used", []),
+		},
+		"public_counts": {
+			"my_hand_count": int(my_player.get("hand_count", 0)),
+			"my_deck_count": int(my_player.get("deck_count", 0)),
+			"my_prize_count": my_prize_remaining,
+			"my_prize_remaining": my_prize_remaining,
+			"my_prizes_taken": my_prizes_taken,
+			"opponent_hand_count": int(opp_player.get("hand_count", 0)),
+			"opponent_deck_count": int(opp_player.get("deck_count", 0)),
+			"opponent_prize_count": opponent_prize_remaining,
+			"opponent_prize_remaining": opponent_prize_remaining,
+			"opponent_prizes_taken": opponent_prizes_taken,
+			"prize_remaining_score": "%d-%d" % [my_prize_remaining, opponent_prize_remaining],
+			"prizes_taken_score": "%d-%d" % [my_prizes_taken, opponent_prizes_taken],
+			"perspective_is_ahead_by_remaining_prizes": my_prize_remaining < opponent_prize_remaining,
+			"perspective_is_ahead_by_prizes_taken": my_prizes_taken > opponent_prizes_taken,
+		},
+		"knockout_projection": _knockout_projection_from_visible_state(my_player, opp_player),
+		"my_visible_state": _visible_player_context(my_player, true),
+		"opponent_public_state": _visible_player_context(opp_player, false),
+		"my_decklist": _decklist_context(my_deck),
+		"opponent_deck_name": opp_deck.deck_name if opp_deck != null else "",
+	}
+
+
+func _visible_player_context(player: Dictionary, include_hand: bool) -> Dictionary:
+	var context := {
+		"player_index": int(player.get("player_index", -1)),
+		"hand_count": int(player.get("hand_count", 0)),
+		"deck_count": int(player.get("deck_count", 0)),
+		"discard_count": int(player.get("discard_count", 0)),
+		"prize_count": int(player.get("prize_count", 0)),
+		"prize_remaining": int(player.get("prize_count", 0)),
+		"prizes_taken": _prizes_taken_from_remaining(int(player.get("prize_count", 0))),
+		"active": _public_slot_detail(player.get("active", {})),
+		"bench": _public_slot_array(player.get("bench", [])),
+		"discard_pile": _public_card_array(player.get("discard_pile", [])),
+		"lost_zone": _public_card_array(player.get("lost_zone", [])),
+	}
+	if include_hand:
+		context["hand"] = _public_card_array(player.get("hand", []))
+	else:
+		context["hand"] = "[hidden: opponent hand contents are not visible]"
+		context["deck"] = "[hidden: opponent deck contents/order are not visible]"
+		context["prizes"] = "[hidden: prize identities are not visible]"
+	return context
+
+
+func _prizes_taken_from_remaining(prize_remaining: int) -> int:
+	return clampi(6 - prize_remaining, 0, 6)
+
+
+func _knockout_projection_from_visible_state(my_player: Dictionary, opponent_player: Dictionary) -> Dictionary:
+	var my_remaining := int(my_player.get("prize_count", 0))
+	var opponent_remaining := int(opponent_player.get("prize_count", 0))
+	var opponent_active := _public_slot_detail(opponent_player.get("active", {}))
+	var prize_gain := 0
+	if not opponent_active.is_empty():
+		prize_gain = maxi(0, int(opponent_active.get("prize_count_if_knocked_out", 1)))
+	var my_remaining_after := maxi(0, my_remaining - prize_gain)
+	var my_taken_after := _prizes_taken_from_remaining(my_remaining_after)
+	var opponent_taken_after := _prizes_taken_from_remaining(opponent_remaining)
+	return {
+		"if_perspective_player_knocks_out_opponent_active_now": {
+			"prizes_to_take": prize_gain,
+			"my_prize_remaining_after": my_remaining_after,
+			"opponent_prize_remaining_after": opponent_remaining,
+			"prize_remaining_score_after": "%d-%d" % [my_remaining_after, opponent_remaining],
+			"my_prizes_taken_after": my_taken_after,
+			"opponent_prizes_taken_after": opponent_taken_after,
+			"prizes_taken_score_after": "%d-%d" % [my_taken_after, opponent_taken_after],
+		},
+	}
+
+
+func _public_slot_array(slots_variant: Variant) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if not (slots_variant is Array):
+		return result
+	for slot_variant: Variant in slots_variant:
+		var slot := _public_slot_detail(slot_variant)
+		if not slot.is_empty():
+			result.append(slot)
+	return result
+
+
+func _public_slot_detail(slot_variant: Variant) -> Dictionary:
+	if not (slot_variant is Dictionary):
+		return {}
+	var slot := slot_variant as Dictionary
+	if str(slot.get("pokemon_name", "")).strip_edges() == "":
+		return {}
+	return {
+		"pokemon_name": str(slot.get("pokemon_name", "")),
+		"prize_count_if_knocked_out": int(slot.get("prize_count", 1)),
+		"remaining_hp": int(slot.get("remaining_hp", 0)),
+		"max_hp": int(slot.get("max_hp", 0)),
+		"damage_counters": int(slot.get("damage_counters", 0)),
+		"retreat_cost": int(slot.get("retreat_cost", 0)),
+		"attached_energy": _public_card_array(slot.get("attached_energy", [])),
+		"attached_tool": _public_card_detail(slot.get("attached_tool", {})),
+		"status_conditions": slot.get("status_conditions", {}),
+		"effects": slot.get("effects", []),
+		"turn_played": int(slot.get("turn_played", -1)),
+		"turn_evolved": int(slot.get("turn_evolved", -1)),
+		"pokemon_stack": _public_card_array(slot.get("pokemon_stack", [])),
+	}
+
+
+func _public_card_array(cards_variant: Variant) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if not (cards_variant is Array):
+		return result
+	for card_variant: Variant in cards_variant:
+		var card := _public_card_detail(card_variant)
+		if not card.is_empty():
+			result.append(card)
+	return result
+
+
+func _public_card_detail(card_variant: Variant) -> Dictionary:
+	if not (card_variant is Dictionary):
+		return {}
+	var card := (card_variant as Dictionary).duplicate(true)
+	card.erase("instance_id")
+	card.erase("owner_index")
+	card.erase("face_up")
+	return card
+
+
+func _decklist_context(deck: DeckData) -> Dictionary:
+	if deck == null:
+		return {}
+	var entries: Array[Dictionary] = []
+	for entry_variant: Variant in deck.cards:
+		if not (entry_variant is Dictionary):
+			continue
+		var entry := entry_variant as Dictionary
+		var card := CardDatabase.get_card(str(entry.get("set_code", "")), str(entry.get("card_index", "")))
+		var row := {
+			"name": str(entry.get("name", card.name if card != null else "")),
+			"count": int(entry.get("count", 0)),
+			"card_type": str(entry.get("card_type", card.card_type if card != null else "")),
+			"set_code": str(entry.get("set_code", "")),
+			"card_index": str(entry.get("card_index", "")),
+		}
+		if card != null:
+			row["detail"] = _card_data_detail(card)
+		entries.append(row)
+	return {
+		"deck_id": deck.id,
+		"deck_name": deck.deck_name,
+		"total_cards": deck.total_cards,
+		"strategy": deck.strategy,
+		"cards": entries,
+	}
+
+
+func _card_data_detail(card: CardData) -> Dictionary:
+	if card == null:
+		return {}
+	return {
+		"card_name": card.name,
+		"name_en": card.name_en,
+		"card_type": card.card_type,
+		"mechanic": card.mechanic,
+		"description": card.description,
+		"stage": card.stage,
+		"hp": card.hp,
+		"energy_type": card.energy_type,
+		"energy_provides": card.energy_provides,
+		"evolves_from": card.evolves_from,
+		"weakness": {"energy": card.weakness_energy, "value": card.weakness_value},
+		"resistance": {"energy": card.resistance_energy, "value": card.resistance_value},
+		"retreat_cost": card.retreat_cost,
+		"attacks": card.attacks.duplicate(true),
+		"abilities": card.abilities.duplicate(true),
+		"effect_id": card.effect_id,
+	}
+
+
 func _on_attack_vfx_preview_pressed() -> void:
 	var entries_variant: Variant = _battle_attack_vfx_registry.call("get_preview_entries")
 	var entries: Array = entries_variant if entries_variant is Array else []
@@ -3312,6 +3633,8 @@ func _resolve_strategy_variant_override(strategy: RefCounted) -> RefCounted:
 	var variant: RefCounted = _deck_strategy_registry.call("create_strategy_by_id", variant_id)
 	if variant == null:
 		return strategy
+	if strategy.has_method("get_deck_strategy_text") and variant.has_method("set_deck_strategy_text"):
+		variant.call("set_deck_strategy_text", str(strategy.call("get_deck_strategy_text")))
 	if variant.has_method("set_llm_host_node"):
 		variant.call("set_llm_host_node", self)
 	_connect_llm_strategy_signals(variant)
@@ -3531,37 +3854,133 @@ func _on_ai_action_pause_finished() -> void:
 func _connect_llm_strategy_signals(strategy: RefCounted) -> void:
 	if strategy == null:
 		return
-	if strategy.has_signal("llm_thinking_started"):
-		strategy.connect("llm_thinking_started", _on_llm_thinking_started)
-	if strategy.has_signal("llm_thinking_finished"):
-		strategy.connect("llm_thinking_finished", _on_llm_thinking_finished)
-	if strategy.has_signal("llm_thinking_failed"):
-		strategy.connect("llm_thinking_failed", _on_llm_thinking_failed)
+	var started_cb := Callable(self, "_on_llm_thinking_started")
+	var finished_cb := Callable(self, "_on_llm_thinking_finished")
+	var failed_cb := Callable(self, "_on_llm_thinking_failed")
+	if strategy.has_signal("llm_thinking_started") and not strategy.is_connected("llm_thinking_started", started_cb):
+		strategy.connect("llm_thinking_started", started_cb)
+	if strategy.has_signal("llm_thinking_finished") and not strategy.is_connected("llm_thinking_finished", finished_cb):
+		strategy.connect("llm_thinking_finished", finished_cb)
+	if strategy.has_signal("llm_thinking_failed") and not strategy.is_connected("llm_thinking_failed", failed_cb):
+		strategy.connect("llm_thinking_failed", failed_cb)
 
 
 func _on_llm_thinking_started(turn_number: int) -> void:
 	_ai_llm_waiting = true
 	_ai_llm_turn_requested = turn_number
-	_log("[LLM] 回合%d: AI正在思考策略..." % turn_number)
+	_start_llm_wait_hud(turn_number)
+	_log("[LLM] turn %d: planning..." % turn_number)
+	if _ai_opponent == null:
+		return
+	var strategy: Variant = _ai_opponent.get("_deck_strategy")
+	var soft_timeout := 10.0
+	if strategy != null and strategy.has_method("get_llm_soft_timeout_seconds"):
+		soft_timeout = float(strategy.call("get_llm_soft_timeout_seconds"))
+	if soft_timeout <= 0.0 or not is_inside_tree():
+		return
+	var timer: SceneTreeTimer = get_tree().create_timer(soft_timeout)
+	timer.timeout.connect(func() -> void:
+		if _ai_llm_waiting and _ai_llm_turn_requested == turn_number:
+			_maybe_run_ai()
+	)
 
 
 func _on_llm_thinking_finished(turn_number: int, plan: Dictionary, reasoning: String) -> void:
 	_ai_llm_waiting = false
-	var intent: String = str(plan.get("intent", ""))
-	var target: String = str(plan.get("targets", {}).get("primary_attacker_name", ""))
-	var msg := "[LLM] 回合%d策略: %s" % [turn_number, intent]
-	if target != "":
-		msg += " (目标: %s)" % target
-	if reasoning != "":
-		msg += "\n[LLM] 理由: %s" % reasoning
-	_log(msg)
+	_stop_llm_wait_hud()
+	if plan.has("fast_choice"):
+		var fast_choice: Dictionary = plan.get("fast_choice", {}) if plan.get("fast_choice", {}) is Dictionary else {}
+		var msg_fast := "[LLM] turn %d fast choice: kind=%s selected=%d" % [
+			turn_number,
+			str(plan.get("prompt_kind", "")),
+			int(fast_choice.get("selected_index", -1)),
+		]
+		_log(msg_fast)
+		_maybe_run_ai()
+		return
+	var msg_clean := "[LLM] turn %d selected action queue:" % turn_number
+	var clean_queue: Array = plan.get("action_queue", []) if plan.get("action_queue", []) is Array else []
+	if not clean_queue.is_empty():
+		var clean_summaries: PackedStringArray = PackedStringArray()
+		for i: int in mini(clean_queue.size(), 10):
+			var clean_item: Dictionary = clean_queue[i] if clean_queue[i] is Dictionary else {}
+			var clean_label: String = str(clean_item.get("type", "?"))
+			var clean_detail: String = str(clean_item.get("card", clean_item.get("pokemon", clean_item.get("target", ""))))
+			if clean_detail != "":
+				clean_label += "(%s)" % clean_detail
+			clean_summaries.append("%d.%s" % [i + 1, clean_label])
+		msg_clean += " " + ", ".join(clean_summaries)
+	else:
+		msg_clean += " empty; rules fallback will continue"
+	_log(msg_clean)
 	_maybe_run_ai()
 
 
 func _on_llm_thinking_failed(turn_number: int, reason: String) -> void:
 	_ai_llm_waiting = false
-	_log("[LLM] 回合%d: 思考失败，使用规则策略 (%s)" % [turn_number, reason])
+	_stop_llm_wait_hud()
+	_log("[LLM] turn %d: planning failed, using rules (%s)" % [turn_number, reason])
 	_maybe_run_ai()
+
+
+func _start_llm_wait_hud(turn_number: int) -> void:
+	_ai_llm_wait_started_msec = Time.get_ticks_msec()
+	_ai_llm_wait_anim_token += 1
+	_ensure_llm_wait_label()
+	_update_llm_wait_hud(turn_number)
+	_schedule_llm_wait_hud_tick(_ai_llm_wait_anim_token, turn_number)
+
+
+func _stop_llm_wait_hud() -> void:
+	_ai_llm_wait_anim_token += 1
+	_ai_llm_wait_started_msec = 0
+	if _ai_llm_wait_label != null and is_instance_valid(_ai_llm_wait_label):
+		_ai_llm_wait_label.visible = false
+
+
+func _ensure_llm_wait_label() -> void:
+	if _ai_llm_wait_label != null and is_instance_valid(_ai_llm_wait_label):
+		return
+	if _hand_title == null:
+		return
+	var parent := _hand_title.get_parent()
+	if parent == null:
+		return
+	var label := Label.new()
+	label.name = "LlmThinkingHudLabel"
+	label.visible = false
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.theme_type_variation = _hand_title.theme_type_variation
+	label.add_theme_font_size_override("font_size", 12)
+	label.add_theme_color_override("font_color", Color(0.55, 0.95, 1.0, 1.0))
+	parent.add_child(label)
+	parent.move_child(label, mini(_hand_title.get_index() + 1, parent.get_child_count() - 1))
+	_ai_llm_wait_label = label
+
+
+func _update_llm_wait_hud(turn_number: int) -> void:
+	if _ai_llm_wait_label == null or not is_instance_valid(_ai_llm_wait_label):
+		return
+	var elapsed_sec := 0
+	if _ai_llm_wait_started_msec > 0:
+		elapsed_sec = maxi(0, int((Time.get_ticks_msec() - _ai_llm_wait_started_msec) / 1000))
+	var dot_count := (elapsed_sec % 4) + 1
+	_ai_llm_wait_label.text = "AI thinking%s turn %d (%ds)" % [".".repeat(dot_count), turn_number, elapsed_sec]
+	_ai_llm_wait_label.visible = true
+
+
+func _schedule_llm_wait_hud_tick(token: int, turn_number: int) -> void:
+	if not is_inside_tree():
+		return
+	var timer := get_tree().create_timer(1.0)
+	timer.timeout.connect(func() -> void:
+		if token != _ai_llm_wait_anim_token:
+			return
+		if not _ai_llm_waiting or _ai_llm_turn_requested != turn_number:
+			return
+		_update_llm_wait_hud(turn_number)
+		_schedule_llm_wait_hud_tick(token, turn_number)
+	)
 
 
 func _should_wait_for_llm() -> bool:
@@ -3572,13 +3991,30 @@ func _should_wait_for_llm() -> bool:
 		return false
 	if _gsm == null or _gsm.game_state == null:
 		return false
+	if _pending_choice.begins_with("setup_active_") or _pending_choice == "send_out":
+		return false
 	var turn: int = int(_gsm.game_state.turn_number)
+	if strategy.has_method("is_llm_disabled_for_turn") and strategy.call("is_llm_disabled_for_turn", turn):
+		return false
 	if strategy.has_method("has_llm_plan_for_turn") and strategy.call("has_llm_plan_for_turn", turn):
 		return false
 	if strategy.has_method("ensure_llm_request_fired"):
-		strategy.call("ensure_llm_request_fired", _gsm.game_state, _ai_opponent.player_index)
+		var legal_actions: Array[Dictionary] = _ai_opponent.get_legal_actions(_gsm)
+		strategy.call("ensure_llm_request_fired", _gsm.game_state, _ai_opponent.player_index, legal_actions)
+	if strategy.has_method("is_llm_soft_timed_out_for_turn") and strategy.call("is_llm_soft_timed_out_for_turn", turn):
+		if strategy.has_method("force_rules_for_turn"):
+			strategy.call("force_rules_for_turn", turn, "soft timeout")
+		_ai_llm_waiting = false
+		_stop_llm_wait_hud()
+		_log("[LLM] turn %d: soft timeout, using rules" % turn)
+		return false
 	if strategy.call("is_llm_pending"):
-		_ai_llm_waiting = true
+		if not _ai_llm_waiting or _ai_llm_turn_requested != turn or _ai_llm_wait_started_msec <= 0:
+			_ai_llm_waiting = true
+			_ai_llm_turn_requested = turn
+			_start_llm_wait_hud(turn)
+		else:
+			_ai_llm_waiting = true
 		return true
 	return false
 
@@ -3639,6 +4075,8 @@ func _run_ai_step() -> void:
 
 
 func _on_hand_card_clicked(inst: CardInstance, _panel: PanelContainer) -> void:
+	if not _can_accept_live_action():
+		return
 	_battle_action_controller.call("on_hand_card_clicked", self, inst, _panel)
 
 
@@ -3766,7 +4204,7 @@ func _is_review_mode() -> bool:
 
 
 func _can_accept_live_action() -> bool:
-	return not _is_review_mode() and not _draw_reveal_active and not _is_ai_action_pause_active() and _pending_choice != "take_prize"
+	return not _is_review_mode() and not _draw_reveal_active and not _ai_llm_waiting and not _is_ai_action_pause_active() and _pending_choice != "take_prize"
 
 
 func _refresh_replay_controls() -> void:

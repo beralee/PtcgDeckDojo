@@ -11,7 +11,7 @@ const BUNDLED_USER_DIR := "res://data/bundled_user/"
 const BUNDLED_CARDS_DIR := BUNDLED_USER_DIR + "cards/"
 const BUNDLED_DECKS_DIR := BUNDLED_USER_DIR + "decks/"
 const BUNDLED_MANIFEST := BUNDLED_USER_DIR + "_manifest.txt"
-const SUPPORTED_AI_DECK_IDS: Array[int] = [575716, 575720, 569061, 578647]
+const SUPPORTED_AI_DECK_IDS: Array[int] = [569061, 575657, 575716, 575718, 575720, 575723, 578647, 579502]
 
 ## 内存中的卡牌缓存 {uid -> CardData}
 var _card_cache: Dictionary = {}
@@ -61,7 +61,6 @@ func _seed_bundled_user_data() -> void:
 			var target_path := DECKS_DIR.path_join(entry_name)
 			_copy_file_if_missing(bundled_path, target_path)
 	_backfill_deck_strategy_from_bundled(manifest)
-	_seed_ai_decks_from_bundled(manifest)
 
 
 ## 读取清单文件（导出后 DirAccess 无法遍历 pck，需要预生成清单）
@@ -150,7 +149,7 @@ func _merge_strategy_field(bundled_path: String, user_path: String) -> void:
 
 	var user_dict := user_data as Dictionary
 	var existing: String = user_dict.get("strategy", "")
-	if existing == bundled_strategy:
+	if existing.strip_edges() != "" and not _is_legacy_raging_bolt_strategy_text(user_dict, existing):
 		return
 
 	user_dict["strategy"] = bundled_strategy
@@ -159,6 +158,12 @@ func _merge_strategy_field(bundled_path: String, user_path: String) -> void:
 		return
 	wf.store_string(JSON.stringify(user_dict, "\t"))
 	wf.close()
+
+
+func _is_legacy_raging_bolt_strategy_text(deck_data: Dictionary, strategy_text: String) -> bool:
+	if int(deck_data.get("id", -1)) != 575718:
+		return false
+	return strategy_text.contains("从弃牌区") and strategy_text.contains("猛雷鼓") and strategy_text.contains("厄诡椪")
 
 
 func _resolve_bundled_target_path(target_dir_path: String, entry_name: String) -> String:
@@ -352,6 +357,11 @@ func save_deck(deck: DeckData) -> void:
 
 
 func save_ai_deck(deck: DeckData) -> void:
+	if deck != null and SUPPORTED_AI_DECK_IDS.has(deck.id):
+		var bundled_ai_deck := _load_bundled_ai_deck(deck.id)
+		if bundled_ai_deck != null:
+			_ai_deck_cache[deck.id] = bundled_ai_deck
+		return
 	var path := AI_DECKS_DIR + "%d.json" % deck.id
 	var file := FileAccess.open(path, FileAccess.WRITE)
 	if file == null:
@@ -363,6 +373,11 @@ func save_ai_deck(deck: DeckData) -> void:
 
 
 func delete_ai_deck(deck_id: int) -> void:
+	if SUPPORTED_AI_DECK_IDS.has(deck_id):
+		var bundled_ai_deck := _load_bundled_ai_deck(deck_id)
+		if bundled_ai_deck != null:
+			_ai_deck_cache[deck_id] = bundled_ai_deck
+		return
 	var path := AI_DECKS_DIR + "%d.json" % deck_id
 	if FileAccess.file_exists(path):
 		DirAccess.remove_absolute(path)
@@ -397,7 +412,12 @@ func get_all_decks() -> Array[DeckData]:
 
 func get_all_ai_decks() -> Array[DeckData]:
 	_ensure_ai_deck_cache_ready()
-	return _sorted_deck_values(_ai_deck_cache)
+	var result: Array[DeckData] = []
+	for deck_id: int in SUPPORTED_AI_DECK_IDS:
+		var deck: DeckData = _ai_deck_cache.get(deck_id)
+		if deck != null:
+			result.append(deck)
+	return result
 
 
 ## 是否存在指定卡组
@@ -422,6 +442,10 @@ func _load_all_decks() -> void:
 
 func _load_all_ai_decks() -> void:
 	_ai_deck_cache = _load_deck_cache_from_dir(AI_DECKS_DIR)
+	for deck_id: int in SUPPORTED_AI_DECK_IDS:
+		var bundled_ai_deck := _load_bundled_ai_deck(deck_id)
+		if bundled_ai_deck != null:
+			_ai_deck_cache[deck_id] = bundled_ai_deck
 
 
 func _ensure_deck_cache_ready() -> void:
@@ -436,18 +460,14 @@ func _ensure_ai_deck_cache_ready() -> void:
 	if not _ai_deck_cache.is_empty():
 		return
 	_ensure_deck_cache_ready()
-	_seed_ai_decks_from_bundled(_load_bundled_manifest())
 	_load_all_ai_decks()
-	if not _ai_deck_cache.is_empty():
-		return
-	for deck_id: int in SUPPORTED_AI_DECK_IDS:
-		var source_deck: DeckData = _deck_cache.get(deck_id)
-		if source_deck == null:
-			continue
-		var ai_copy := DeckData.from_dict(source_deck.to_dict())
-		_ai_deck_cache[deck_id] = ai_copy
-		if not FileAccess.file_exists(AI_DECKS_DIR + "%d.json" % deck_id):
-			save_ai_deck(ai_copy)
+
+
+func _load_bundled_ai_deck(deck_id: int) -> DeckData:
+	var bundled_path := BUNDLED_DECKS_DIR.path_join("%d.json" % deck_id)
+	if not FileAccess.file_exists(bundled_path):
+		return null
+	return _load_deck_from_file(bundled_path)
 
 
 func _load_deck_cache_from_dir(dir_path: String) -> Dictionary:

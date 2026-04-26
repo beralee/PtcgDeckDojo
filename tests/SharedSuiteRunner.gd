@@ -24,7 +24,11 @@ static func run_suites(
 			continue
 
 		lines.append("--- %s ---" % suite_name)
-		var suite_script: GDScript = load(str(suite.get("path", "")))
+		var suite_script: GDScript = ResourceLoader.load(
+			str(suite.get("path", "")),
+			"GDScript",
+			ResourceLoader.CACHE_MODE_IGNORE_DEEP
+		)
 		if suite_script == null:
 			total += 1
 			failed += 1
@@ -47,6 +51,8 @@ static func run_suites(
 				continue
 
 			total += 1
+			var root_snapshot := _capture_root_children()
+			var orphan_snapshot := _capture_orphan_nodes()
 			var result: Variant = test_obj.call(method_name)
 			var message := str(result)
 			if message == "":
@@ -57,7 +63,20 @@ static func run_suites(
 				lines.append("FAIL %s :: %s" % [method_name, message])
 				print("FAIL: %s.%s: %s" % [suite_name, method_name, message])
 
+			await _cleanup_root_children(root_snapshot)
+			_cleanup_orphan_nodes(orphan_snapshot)
+			var tree := Engine.get_main_loop() as SceneTree
+			if tree != null:
+				await tree.process_frame
+				await tree.process_frame
+
 		lines.append("")
+		test_obj = null
+		suite_script = null
+		var suite_tree := Engine.get_main_loop() as SceneTree
+		if suite_tree != null:
+			await suite_tree.process_frame
+			await suite_tree.process_frame
 
 	lines.append("===== Summary =====")
 	lines.append("Total: %d | Passed: %d | Failed: %d" % [total, passed, failed])
@@ -72,3 +91,39 @@ static func run_suites(
 		"failed": failed,
 		"output": "\n".join(lines),
 	}
+
+
+static func _capture_root_children() -> Dictionary:
+	var snapshot := {}
+	var tree := Engine.get_main_loop() as SceneTree
+	if tree == null or tree.root == null:
+		return snapshot
+	for child: Node in tree.root.get_children():
+		snapshot[child.get_instance_id()] = true
+	return snapshot
+
+
+static func _cleanup_root_children(before_snapshot: Dictionary) -> void:
+	var tree := Engine.get_main_loop() as SceneTree
+	if tree == null or tree.root == null:
+		return
+	for child: Node in tree.root.get_children():
+		if before_snapshot.has(child.get_instance_id()):
+			continue
+		child.queue_free()
+
+
+static func _capture_orphan_nodes() -> Dictionary:
+	var snapshot := {}
+	for orphan_id: int in Node.get_orphan_node_ids():
+		snapshot[orphan_id] = true
+	return snapshot
+
+
+static func _cleanup_orphan_nodes(before_snapshot: Dictionary) -> void:
+	for orphan_id: int in Node.get_orphan_node_ids():
+		if before_snapshot.has(orphan_id):
+			continue
+		var obj := instance_from_id(orphan_id)
+		if obj is Node:
+			(obj as Node).free()

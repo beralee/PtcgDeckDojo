@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "挡道",
+			"text": "只要这只宝可梦在战斗场上，对手的战斗宝可梦，无法撤退。"
+		}
+	],
+	"ancient_trait": "",
+	"artist": "Saboteri",
+	"attacks": [
+		{
+			"cost": "CCCC",
+			"damage": "150",
+			"is_vstar_power": false,
+			"name": "瘫倒",
+			"text": "使这只宝可梦陷入【睡眠】状态。"
+		}
+	],
+	"card_index": "093",
+	"card_index_en": "55",
+	"card_type": "Pokemon",
+	"description": "特性: 挡道\n只要这只宝可梦在战斗场上，对手的战斗宝可梦，无法撤退。\n\n 瘫倒 150\n使这只宝可梦陷入【睡眠】状态。\n\n",
+	"effect_id": "abf4ae7b5adf11b9d4f46ffda1417ac2",
+	"energy_provides": "",
+	"energy_type": "C",
+	"evolves_from": "",
+	"hp": 150,
+	"image_local_path": "user://cards/images/CS5aC/093.png",
+	"image_url": "https://tcg.mik.moe/static/img/CS5aC/093.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "",
+	"name": "卡比兽",
+	"name_en": "Snorlax",
+	"rarity": "R",
+	"regulation_expanded": true,
+	"regulation_mark": "F",
+	"regulation_standard": true,
+	"release_date": "2024-06-18T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 4,
+	"set_code": "CS5aC",
+	"set_code_en": "PGO",
+	"stage": "Basic",
+	"weakness_energy": "F",
+	"weakness_value": "×2",
+	"yoren_code": "P143"
+}

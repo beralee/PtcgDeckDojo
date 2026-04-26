@@ -1,4 +1,4 @@
-﻿class_name TestBattleReviewContextBuilder
+class_name TestBattleReviewContextBuilder
 extends TestBase
 
 const FixturePath := "res://tests/fixtures/match_review_fixture"

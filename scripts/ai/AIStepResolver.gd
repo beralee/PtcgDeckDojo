@@ -18,6 +18,19 @@ func set_deck_strategy(strategy: RefCounted) -> void:
 	deck_strategy = strategy
 
 
+func _build_turn_plan(game_state: GameState, player_index: int, extra_context: Dictionary = {}) -> Dictionary:
+	if deck_strategy == null:
+		return {}
+	if game_state == null:
+		return {}
+	var plan_context: Dictionary = extra_context.duplicate(true)
+	if deck_strategy.has_method("build_turn_contract"):
+		return deck_strategy.call("build_turn_contract", game_state, player_index, plan_context)
+	if not deck_strategy.has_method("build_turn_plan"):
+		return {}
+	return deck_strategy.call("build_turn_plan", game_state, player_index, plan_context)
+
+
 func resolve_pending_step(
 	battle_scene: Control,
 	_gsm: GameStateMachine,
@@ -36,11 +49,28 @@ func resolve_pending_step(
 	var chooser_player: int = int(battle_scene.call("_resolve_effect_step_chooser_player", step))
 	if chooser_player != player_index:
 		return false
+	var interaction_context: Dictionary = battle_scene.get("_pending_effect_context")
+	var pending_ability_index_variant: Variant = battle_scene.get("_pending_effect_ability_index")
+	var pending_ability_index: int = int(pending_ability_index_variant) if pending_ability_index_variant != null else -1
 	var strategy_context := {
 		"game_state": _gsm.game_state if _gsm != null else null,
 		"player_index": player_index,
+		"pending_effect_kind": str(battle_scene.get("_pending_effect_kind")),
+		"pending_effect_card": battle_scene.get("_pending_effect_card"),
+		"pending_effect_slot": battle_scene.get("_pending_effect_slot"),
+		"pending_effect_ability_index": pending_ability_index,
 	}
-	var interaction_context: Dictionary = battle_scene.get("_pending_effect_context")
+	var turn_contract := _build_turn_plan(
+		_gsm.game_state if _gsm != null else null,
+		player_index,
+		{
+			"step_id": str(step.get("id", "")),
+			"prompt_kind": "effect_interaction",
+			"interaction_context": interaction_context,
+		}
+	)
+	strategy_context["turn_plan"] = turn_contract
+	strategy_context["turn_contract"] = turn_contract
 	if bool(battle_scene.call("_effect_step_uses_counter_distribution_ui", step)):
 		return _resolve_counter_distribution_step(battle_scene, step, strategy_context, state_features)
 	if bool(battle_scene.call("_effect_step_uses_field_assignment_ui", step)):
@@ -65,6 +95,17 @@ func _resolve_dialog_step(
 	var legal_indices: Array = legal_pool.get("indices", [])
 	var min_select: int = int(step.get("min_select", 1))
 	var max_select: int = int(step.get("max_select", 1))
+	if not legal_items.is_empty() and deck_strategy != null and deck_strategy.has_method("pick_interaction_items"):
+		var strategy_picks: Variant = deck_strategy.call("pick_interaction_items", legal_items, step, context)
+		if strategy_picks is Array and not (strategy_picks as Array).is_empty():
+			var explicit_indices := PackedInt32Array()
+			for picked_item: Variant in (strategy_picks as Array):
+				var legal_idx: int = legal_items.find(picked_item)
+				if legal_idx >= 0 and legal_idx < legal_indices.size():
+					explicit_indices.append(int(legal_indices[legal_idx]))
+			if explicit_indices.size() >= min_select:
+				battle_scene.call("_handle_effect_interaction_choice", explicit_indices)
+				return true
 	var selected_count: int = _baseline_pick_count(legal_items.size(), min_select, max_select)
 	if legal_items.is_empty() or selected_count <= 0:
 		battle_scene.call("_handle_effect_interaction_choice", PackedInt32Array())
@@ -169,6 +210,14 @@ func _resolve_field_assignment_step(
 	context: Dictionary = {},
 	state_features: Array[float] = []
 ) -> bool:
+	var assignment_plan: Dictionary = _build_assignment_source_plan(
+		step.get("source_items", []),
+		int(step.get("min_select", 0)),
+		int(step.get("max_select", 0)),
+		step,
+		context,
+		state_features
+	)
 	var assignments_made: int = _assign_sources_to_targets(
 		int(step.get("min_select", 0)),
 		int(step.get("max_select", 0)),
@@ -180,9 +229,10 @@ func _resolve_field_assignment_step(
 			battle_scene.call("_handle_field_assignment_target_index", target_index),
 		step,
 		context,
-		state_features
+		state_features,
+		assignment_plan
 	)
-	if assignments_made <= 0:
+	if assignments_made <= 0 and not bool(assignment_plan.get("handled", false)):
 		return false
 	if str(battle_scene.get("_field_interaction_mode")) == "assignment":
 		battle_scene.call("_finalize_field_assignment_selection")
@@ -195,6 +245,14 @@ func _resolve_dialog_assignment_step(
 	context: Dictionary = {},
 	state_features: Array[float] = []
 ) -> bool:
+	var assignment_plan: Dictionary = _build_assignment_source_plan(
+		step.get("source_items", []),
+		int(step.get("min_select", 0)),
+		int(step.get("max_select", 0)),
+		step,
+		context,
+		state_features
+	)
 	var assignments_made: int = _assign_sources_to_targets(
 		int(step.get("min_select", 0)),
 		int(step.get("max_select", 0)),
@@ -206,12 +264,53 @@ func _resolve_dialog_assignment_step(
 			battle_scene.call("_on_assignment_target_chosen", target_index),
 		step,
 		context,
-		state_features
+		state_features,
+		assignment_plan
 	)
-	if assignments_made <= 0:
+	if assignments_made <= 0 and not bool(assignment_plan.get("handled", false)):
 		return false
 	battle_scene.call("_confirm_assignment_dialog")
 	return true
+
+
+func _build_assignment_source_plan(
+	source_items: Array,
+	min_assignments: int,
+	max_assignments: int,
+	step: Dictionary,
+	context: Dictionary = {},
+	state_features: Array[float] = []
+) -> Dictionary:
+	var explicit_plan: Dictionary = _pick_explicit_interaction_items_with_empty_support(
+		source_items,
+		step,
+		max_assignments,
+		context
+	)
+	if bool(explicit_plan.get("has_plan", false)):
+		var selected_items: Array = explicit_plan.get("items", [])
+		var selected_indices: Array[int] = []
+		for wanted: Variant in selected_items:
+			var source_index: int = source_items.find(wanted)
+			if source_index >= 0 and not selected_indices.has(source_index):
+				selected_indices.append(source_index)
+		if selected_indices.is_empty():
+			return {
+				"handled": min_assignments <= 0,
+				"has_explicit_plan": true,
+				"selected_source_indices": selected_indices,
+			}
+		return {
+			"handled": true,
+			"has_explicit_plan": true,
+			"selected_source_indices": selected_indices,
+		}
+	return {
+		"handled": false,
+		"has_explicit_plan": false,
+		"selected_source_indices": [],
+		"selected_count": _baseline_pick_count(source_items.size(), min_assignments, max_assignments),
+	}
 
 
 func _assign_sources_to_targets(
@@ -223,22 +322,32 @@ func _assign_sources_to_targets(
 	apply_assignment: Callable,
 	step: Dictionary = {},
 	context: Dictionary = {},
-	state_features: Array[float] = []
+	state_features: Array[float] = [],
+	assignment_plan: Dictionary = {}
 ) -> int:
 	if source_items.is_empty() or target_items.is_empty() or not apply_assignment.is_valid():
 		return 0
-	var target_assignment_count: int = _baseline_pick_count(source_items.size(), min_assignments, max_assignments)
+	var explicit_source_indices: Array = assignment_plan.get("selected_source_indices", [])
+	var has_explicit_plan: bool = bool(assignment_plan.get("has_explicit_plan", false))
+	var target_assignment_count: int = explicit_source_indices.size() if has_explicit_plan else int(assignment_plan.get("selected_count", _baseline_pick_count(source_items.size(), min_assignments, max_assignments)))
 	if target_assignment_count <= 0:
 		return 0
 	var assignments_made: int = 0
 	var picked_targets := PackedInt32Array()
-	for source_index: int in source_items.size():
+	var pending_assignment_counts: Dictionary = {}
+	var pending_assignments: Array[Dictionary] = []
+	var source_indices: Array = explicit_source_indices if has_explicit_plan else range(source_items.size())
+	for source_index_variant: Variant in source_indices:
+		var source_index: int = int(source_index_variant)
 		if assignments_made >= target_assignment_count:
 			break
 		var excluded_targets: Array = source_exclude_targets.get(source_index, [])
 		var assignment_context: Dictionary = context.duplicate(true)
 		assignment_context["assignment_source"] = source_items[source_index]
 		assignment_context["assignment_source_index"] = source_index
+		assignment_context["source_card"] = source_items[source_index]
+		assignment_context["pending_assignment_counts"] = pending_assignment_counts.duplicate()
+		assignment_context["pending_assignments"] = pending_assignments.duplicate(true)
 		var chosen_target_index: int = _best_legal_target_index(
 			target_items,
 			excluded_targets,
@@ -250,6 +359,15 @@ func _assign_sources_to_targets(
 			continue
 		apply_assignment.call(source_index, chosen_target_index)
 		picked_targets.append(chosen_target_index)
+		var chosen_target: Variant = target_items[chosen_target_index]
+		if chosen_target is PokemonSlot:
+			var chosen_slot := chosen_target as PokemonSlot
+			var target_id := int(chosen_slot.get_instance_id())
+			pending_assignment_counts[target_id] = int(pending_assignment_counts.get(target_id, 0)) + 1
+		pending_assignments.append({
+			"source": source_items[source_index],
+			"target": chosen_target,
+		})
 		assignments_made += 1
 		_record_interaction_decision(
 			target_items,
@@ -260,6 +378,31 @@ func _assign_sources_to_targets(
 			"assignment"
 		)
 	return assignments_made
+
+
+func _pick_explicit_interaction_items_with_empty_support(
+	items: Array,
+	step: Dictionary,
+	max_select: int,
+	context: Dictionary = {}
+) -> Dictionary:
+	if deck_strategy == null or not deck_strategy.has_method("pick_interaction_items"):
+		return {"has_plan": false, "items": []}
+	var planned: Variant = deck_strategy.call("pick_interaction_items", items, {"id": str(step.get("id", "")), "max_select": max_select}, context)
+	if not (planned is Array):
+		return {"has_plan": false, "items": []}
+	var planned_items: Array = planned
+	if not planned_items.is_empty():
+		return {"has_plan": true, "items": planned_items}
+	if _should_preserve_empty_interaction_selection(step, context):
+		return {"has_plan": true, "items": []}
+	return {"has_plan": false, "items": []}
+
+
+func _should_preserve_empty_interaction_selection(step: Dictionary, context: Dictionary = {}) -> bool:
+	if deck_strategy == null or not deck_strategy.has_method("should_preserve_empty_interaction_selection"):
+		return false
+	return bool(deck_strategy.call("should_preserve_empty_interaction_selection", step, context))
 
 
 func _first_legal_target_index(target_count: int, excluded_targets: Array) -> int:

@@ -140,6 +140,67 @@ func test_register_pokemon_card_by_ability_and_attack_name() -> String:
 	])
 
 
+func test_register_chien_pao_and_baxcalibur_water_engine_effects() -> String:
+	var proc := EffectProcessor.new()
+
+	var chien_pao := CardData.new()
+	chien_pao.name = "古剑豹ex"
+	chien_pao.card_type = "Pokemon"
+	chien_pao.stage = "Basic"
+	chien_pao.hp = 220
+	chien_pao.energy_type = "W"
+	chien_pao.effect_id = "1ffc5951ba805342e6fa071781d03452"
+	chien_pao.abilities = [{"name": "战栗冷气", "text": ""}]
+	chien_pao.attacks = [{"name": "冰雹利刃", "cost": "WW", "damage": "60×", "text": "", "is_vstar_power": false}]
+
+	var baxcalibur := CardData.new()
+	baxcalibur.name = "戟脊龙"
+	baxcalibur.card_type = "Pokemon"
+	baxcalibur.stage = "Stage 2"
+	baxcalibur.hp = 160
+	baxcalibur.energy_type = "W"
+	baxcalibur.effect_id = "eed03ece4ff26ddc67213000278b20a6"
+	baxcalibur.abilities = [{"name": "极低温", "text": ""}]
+	baxcalibur.attacks = [{"name": "爆破之尾", "cost": "WWC", "damage": "130", "text": "", "is_vstar_power": false}]
+
+	proc.register_pokemon_card(chien_pao)
+	proc.register_pokemon_card(baxcalibur)
+
+	var chien_slot := PokemonSlot.new()
+	chien_slot.pokemon_stack.append(CardInstance.create(chien_pao, 0))
+
+	return run_checks([
+		assert_true(str(proc.get_effect(chien_pao.effect_id).get_script().resource_path).ends_with("AbilitySearchBasicWaterEnergyActive.gd"), "古剑豹ex 应注册战栗冷气特性"),
+		assert_true(proc.has_attack_effect(chien_pao.effect_id), "古剑豹ex 应注册冰雹利刃招式效果"),
+		assert_true(proc.get_attack_effects_for_slot(chien_slot, 0)[0] is AttackDiscardEnergyMultiDamage, "冰雹利刃应使用弃水能量×60伤害效果"),
+		assert_true(str(proc.get_effect(baxcalibur.effect_id).get_script().resource_path).ends_with("AbilityAttachBasicWaterEnergyFromHand.gd"), "戟脊龙应注册极低温特性"),
+	])
+
+
+func test_register_frigibax_call_draw_attack_effect() -> String:
+	var proc := EffectProcessor.new()
+	var card := CardData.new()
+	card.name = "凉脊龙"
+	card.card_type = "Pokemon"
+	card.stage = "Basic"
+	card.hp = 70
+	card.energy_type = "W"
+	card.effect_id = "425e58e5e825380966cdfd039594a596"
+	card.attacks = [
+		{"name": "招来", "cost": "W", "damage": "", "text": "", "is_vstar_power": false},
+		{"name": "敲打", "cost": "WC", "damage": "20", "text": "", "is_vstar_power": false},
+	]
+
+	proc.register_pokemon_card(card)
+	var slot := PokemonSlot.new()
+	slot.pokemon_stack.append(CardInstance.create(card, 0))
+
+	return run_checks([
+		assert_true(proc.has_attack_effect(card.effect_id), "凉脊龙应注册招来抽牌招式效果"),
+		assert_true(str(proc.get_attack_effects_for_slot(slot, 0)[0].get_script().resource_path).ends_with("AttackDrawCards.gd"), "招来应映射为抽1张卡"),
+	])
+
+
 func test_register_pokemon_card_executes_combustion_blast_self_lock_only() -> String:
 	var proc := EffectProcessor.new()
 	var state := _make_state()

@@ -1,17 +1,11 @@
-## 金属制造者特性效果 - 金属怪（金属制造者）
-## 查看牌库顶 look_count 张牌，从中选出基本钢能量附着于己方任意宝可梦，
-## 剩余卡牌按任意顺序放回牌库底部
-## 参数: look_count (int), energy_type (String)
 class_name AbilityMetalMaker
 extends BaseEffect
 
-## 查看牌库顶的卡牌数量
-var look_count: int = 4
-## 筛选的能量类型（默认 "M" = 钢能量）
-var energy_type: String = "M"
-
-## 每回合已使用标记 key
+const ASSIGNMENT_STEP_ID := "metal_maker_assignments"
 const USED_KEY: String = "ability_metal_maker_used"
+
+var look_count: int = 4
+var energy_type: String = "M"
 
 
 func _init(look: int = 4, e_type: String = "M") -> void:
@@ -19,51 +13,108 @@ func _init(look: int = 4, e_type: String = "M") -> void:
 	energy_type = e_type
 
 
-## 检查特性是否可以使用
 func can_use_ability(pokemon: PokemonSlot, state: GameState) -> bool:
+	if pokemon == null or state == null:
+		return false
 	var top: CardInstance = pokemon.get_top_card()
 	if top == null:
 		return false
-	var pi: int = top.owner_index
+	var player_index: int = top.owner_index
+	if state.current_player_index != player_index:
+		return false
 
-	# 每回合限用1次
-	for eff: Dictionary in pokemon.effects:
-		if eff.get("type") == USED_KEY and eff.get("turn") == state.turn_number:
+	for effect: Dictionary in pokemon.effects:
+		if effect.get("type") == USED_KEY and effect.get("turn") == state.turn_number:
 			return false
 
-	# 牌库必须有牌
-	var player: PlayerState = state.players[pi]
+	var player: PlayerState = state.players[player_index]
 	return not player.deck.is_empty()
 
 
-## 执行特性
-## targets: 每个元素为要附着能量的 PokemonSlot（可为空，此时自动选己方战斗宝可梦）
-## 简化逻辑：
-##   1. 查看牌库顶 look_count 张（最多，不足时取全部）
-##   2. 将其中符合条件的钢能量依次附着到 targets 指定宝可梦（或自动选择）
-##   3. 剩余卡牌放回牌库底部（简化：直接 append 到 deck 末尾）
+func get_interaction_steps(card: CardInstance, state: GameState) -> Array[Dictionary]:
+	if card == null or state == null:
+		return []
+	var player: PlayerState = state.players[card.owner_index]
+	var viewed_cards: Array[CardInstance] = _peek_top_cards(player)
+	var energy_cards: Array[CardInstance] = _filter_matching_energy(viewed_cards)
+	if energy_cards.is_empty():
+		return [build_empty_search_resolution_step_with_view_label(
+			"Metal Maker: no Basic Metal Energy found in the top %d cards. You may still view them." % look_count,
+			"View cards"
+		)]
+
+	var target_items: Array = []
+	target_items.append_array(player.get_all_pokemon())
+	if target_items.is_empty():
+		return []
+
+	var energy_labels: Array[String] = []
+	for energy_card: CardInstance in energy_cards:
+		energy_labels.append(energy_card.card_data.name if energy_card.card_data != null else "")
+
+	var target_labels: Array[String] = []
+	for item: Variant in target_items:
+		var slot := item as PokemonSlot
+		if slot == null:
+			target_labels.append("")
+			continue
+		target_labels.append("%s (%d/%d)" % [
+			slot.get_pokemon_name(),
+			slot.get_remaining_hp(),
+			slot.get_max_hp(),
+		])
+
+	return [build_card_assignment_step(
+		ASSIGNMENT_STEP_ID,
+		"Metal Maker: assign any Basic Metal Energy from the top %d cards" % look_count,
+		energy_cards,
+		energy_labels,
+		target_items,
+		target_labels,
+		0,
+		energy_cards.size(),
+		true
+	)]
+
+
+func get_followup_interaction_steps(
+	card: CardInstance,
+	state: GameState,
+	resolved_context: Dictionary
+) -> Array[Dictionary]:
+	if not should_preview_empty_search_deck(resolved_context):
+		return []
+	if card == null or state == null:
+		return []
+	var player: PlayerState = state.players[card.owner_index]
+	return [build_readonly_card_preview_step(
+		"Metal Maker: viewed cards",
+		_peek_top_cards(player),
+		"Close and continue"
+	)]
+
+
 func execute_ability(
 	pokemon: PokemonSlot,
 	_ability_index: int,
 	targets: Array,
 	state: GameState
 ) -> void:
+	if pokemon == null or state == null:
+		return
 	var top: CardInstance = pokemon.get_top_card()
 	if top == null:
 		return
-	var pi: int = top.owner_index
-	var player: PlayerState = state.players[pi]
-
+	var player_index: int = top.owner_index
+	var player: PlayerState = state.players[player_index]
 	if player.deck.is_empty():
 		return
 
-	# 取牌库顶 look_count 张（不足则全取）
 	var take: int = mini(look_count, player.deck.size())
 	var viewed: Array[CardInstance] = []
-	for _i: int in take:
+	for _i: int in range(take):
 		viewed.append(player.deck.pop_front())
 
-	# 分离：符合能量条件的卡 vs 其他卡
 	var energies: Array[CardInstance] = []
 	var others: Array[CardInstance] = []
 	for card: CardInstance in viewed:
@@ -72,64 +123,129 @@ func execute_ability(
 		else:
 			others.append(card)
 
-	# 将符合条件的能量附着到目标宝可梦
-	# targets 中每个元素为 PokemonSlot；若未指定目标则依次附着到己方所有宝可梦
-	var attach_targets: Array[PokemonSlot] = []
-	if not targets.is_empty():
-		for t: Variant in targets:
-			if t is PokemonSlot:
-				attach_targets.append(t as PokemonSlot)
-	else:
-		attach_targets.append_array(player.get_all_pokemon())
+	var context: Dictionary = get_interaction_context(targets)
+	var assignments: Array[Dictionary] = _resolve_assignments(player, energies, targets, context)
+	var attached_sources: Array[CardInstance] = []
+	for assignment: Dictionary in assignments:
+		var energy_card: CardInstance = assignment.get("source")
+		var target_slot: PokemonSlot = assignment.get("target")
+		if energy_card == null or target_slot == null:
+			continue
+		if energy_card in attached_sources:
+			continue
+		energy_card.face_up = true
+		target_slot.attached_energy.append(energy_card)
+		attached_sources.append(energy_card)
 
-	var energy_idx: int = 0
-	if attach_targets.size() == 1 and not energies.is_empty():
-		var single_target: PokemonSlot = attach_targets[0]
-		for energy_card: CardInstance in energies:
-			energy_card.face_up = true
-			single_target.attached_energy.append(energy_card)
-			energy_idx += 1
-	else:
-		for target_slot: PokemonSlot in attach_targets:
-			if energy_idx >= energies.size():
-				break
-			var energy_card: CardInstance = energies[energy_idx]
-			energy_card.face_up = true
-			target_slot.attached_energy.append(energy_card)
-			energy_idx += 1
-
-	# 未能附着的能量也放回牌库底
-	while energy_idx < energies.size():
-		var leftover: CardInstance = energies[energy_idx]
-		leftover.face_up = false
-		player.deck.append(leftover)
-		energy_idx += 1
-
-	# 其他卡牌放回牌库底
-	for card: CardInstance in others:
+	var return_cards: Array[CardInstance] = []
+	for energy_card: CardInstance in energies:
+		if energy_card not in attached_sources:
+			return_cards.append(energy_card)
+	return_cards.append_array(others)
+	_shuffle_cards(return_cards)
+	for card: CardInstance in return_cards:
 		card.face_up = false
 		player.deck.append(card)
 
-	# 不再额外洗牌（规则中剩余卡回到牌库底，非顶，通常不洗牌）
-
-	# 标记本回合已使用
 	pokemon.effects.append({
 		"type": USED_KEY,
 		"turn": state.turn_number,
 	})
 
 
-## 判断卡牌是否为目标能量类型（基本钢能量）
 func _matches_energy(card: CardInstance) -> bool:
-	var cd: CardData = card.card_data
-	if cd == null:
+	if card == null or card.card_data == null:
 		return false
+	var cd: CardData = card.card_data
 	if cd.card_type != "Basic Energy":
 		return false
-	return cd.energy_provides == energy_type
+	return cd.energy_provides == energy_type or cd.energy_type == energy_type
+
+
+func _peek_top_cards(player: PlayerState) -> Array[CardInstance]:
+	var cards: Array[CardInstance] = []
+	if player == null:
+		return cards
+	for idx: int in range(mini(look_count, player.deck.size())):
+		cards.append(player.deck[idx])
+	return cards
+
+
+func _filter_matching_energy(cards: Array[CardInstance]) -> Array[CardInstance]:
+	var result: Array[CardInstance] = []
+	for card: CardInstance in cards:
+		if _matches_energy(card):
+			result.append(card)
+	return result
+
+
+func _resolve_assignments(
+	player: PlayerState,
+	energies: Array[CardInstance],
+	targets: Array,
+	context: Dictionary
+) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var selected_raw: Array = context.get(ASSIGNMENT_STEP_ID, [])
+	var has_explicit_assignments: bool = context.has(ASSIGNMENT_STEP_ID)
+	var used_sources: Array[CardInstance] = []
+	var valid_targets: Array[PokemonSlot] = player.get_all_pokemon()
+
+	for entry: Variant in selected_raw:
+		if not (entry is Dictionary):
+			continue
+		var assignment: Dictionary = entry
+		var source_variant: Variant = assignment.get("source")
+		var target_variant: Variant = assignment.get("target")
+		if not (source_variant is CardInstance) or not (target_variant is PokemonSlot):
+			continue
+		var source: CardInstance = source_variant as CardInstance
+		var target: PokemonSlot = target_variant as PokemonSlot
+		if source not in energies or source in used_sources:
+			continue
+		if target not in valid_targets:
+			continue
+		used_sources.append(source)
+		result.append({
+			"source": source,
+			"target": target,
+		})
+
+	if has_explicit_assignments:
+		return result
+
+	var legacy_targets: Array[PokemonSlot] = []
+	for target_variant: Variant in targets:
+		if target_variant is PokemonSlot and target_variant in valid_targets:
+			legacy_targets.append(target_variant as PokemonSlot)
+	if legacy_targets.is_empty():
+		legacy_targets.append_array(valid_targets)
+	if legacy_targets.is_empty():
+		return result
+
+	for i: int in range(energies.size()):
+		var target_index: int = 0 if legacy_targets.size() == 1 else mini(i, legacy_targets.size() - 1)
+		result.append({
+			"source": energies[i],
+			"target": legacy_targets[target_index],
+		})
+	return result
+
+
+func _shuffle_cards(cards: Array[CardInstance]) -> void:
+	if cards.size() < 2:
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	for i: int in range(cards.size() - 1, 0, -1):
+		var j: int = rng.randi_range(0, i)
+		var tmp: CardInstance = cards[i]
+		cards[i] = cards[j]
+		cards[j] = tmp
 
 
 func get_description() -> String:
-	return "特性【金属制造者】：查看牌库顶%d张牌，从中将基本%s能量附着于己方宝可梦，其余放回牌库底。（每回合1次）" % [
-		look_count, energy_type
+	return "Metal Maker: look at the top %d cards of your deck and attach any Basic %s Energy you find to your Pokemon. Put the other cards on the bottom of your deck." % [
+		look_count,
+		energy_type,
 	]

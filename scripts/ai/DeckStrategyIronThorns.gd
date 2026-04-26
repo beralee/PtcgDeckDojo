@@ -19,8 +19,8 @@ const BOSSS_ORDERS := "Boss's Orders"
 const IONO := "Iono"
 const PENNY := "Penny"
 const ERI := "Eri"
-const POKEGEAR := "Pokégear 3.0"
-const POKEMON_CATCHER := "Pokémon Catcher"
+const POKEGEAR := "Pok\u00e9gear 3.0"
+const POKEMON_CATCHER := "Pok\u00e9mon Catcher"
 const LOST_VACUUM := "Lost Vacuum"
 const ENERGY_LOTO := "Energy Loto"
 const EARTHEN_VESSEL := "Earthen Vessel"
@@ -583,6 +583,10 @@ func _card_name(card: CardInstance) -> String:
 
 
 func _canonical_name(name: String) -> String:
+	if name == "Pok\\u00e9gear 3.0":
+		return POKEGEAR
+	if name == "Pok\\u00e9mon Catcher":
+		return POKEMON_CATCHER
 	for canonical: Variant in NAME_ALIASES.keys():
 		var aliases: Array = NAME_ALIASES[canonical]
 		for alias: Variant in aliases:

@@ -7,6 +7,9 @@ const BenchLimit = preload("res://scripts/engine/BenchLimitHelper.gd")
 const AutoloadResolverScript = preload("res://scripts/engine/AutoloadResolver.gd")
 
 const AbilityAttachFromDeckEffect = preload("res://scripts/effects/pokemon_effects/AbilityAttachFromDeck.gd")
+const EffectHandheldFan = preload("res://scripts/effects/tool_effects/EffectHandheldFan.gd")
+
+static var _live_refs: Array[WeakRef] = []
 
 
 ## 游戏状态变更信号
@@ -47,12 +50,50 @@ const MAX_SETUP_MULLIGAN_LOOPS: int = 64
 
 
 func _init() -> void:
+	_live_refs.append(weakref(self))
 	coin_flipper = CoinFlipper.new()
 	rule_validator = RuleValidator.new()
 	damage_calculator = DamageCalculator.new()
 	effect_processor = EffectProcessor.new(coin_flipper)
 	effect_processor.bind_game_state_machine(self)
 	game_state = GameState.new()
+
+
+func prepare_for_disposal() -> void:
+	action_log.clear()
+	_deck_order_overrides.clear()
+	_expected_card_totals = [0, 0]
+	_mulligan_counts = [0, 0]
+	_pending_heavy_baton_player_index = -1
+	_pending_heavy_baton_slot = null
+	_pending_heavy_baton_is_active = false
+	_pending_prize_player_index = -1
+	_pending_prize_remaining = 0
+	_pending_prize_knocked_out_player_index = -1
+	_pending_prize_knockout_is_active = false
+	_pending_prize_resume_mode = ""
+	_pending_prize_resume_player_index = -1
+	if game_state != null:
+		game_state.shared_turn_flags.clear()
+	if effect_processor != null:
+		effect_processor.prepare_for_disposal()
+	game_state = null
+	rule_validator = null
+	damage_calculator = null
+	effect_processor = null
+	coin_flipper = null
+
+
+static func cleanup_live_instances_for_tests() -> void:
+	var remaining: Array[WeakRef] = []
+	for ref: WeakRef in _live_refs:
+		var gsm := ref.get_ref() as GameStateMachine
+		if gsm == null:
+			continue
+		gsm.prepare_for_disposal()
+		if ref.get_ref() != null:
+			remaining.append(ref)
+	_live_refs = remaining
 
 
 # ===================== 游戏初始化 =====================
@@ -323,6 +364,71 @@ func setup_place_active_pokemon(player_index: int, card: CardInstance) -> bool:
 		{"card_name": card.card_data.name},
 		"玩家%d选择 %s 作为战斗宝可梦" % [player_index + 1, card.card_data.name])
 	return true
+
+
+func _build_ability_vfx_data(effect: BaseEffect, caster: PokemonSlot, targets: Array) -> Dictionary:
+	if not (effect is AbilityMoveDamageCountersToOpponent):
+		return {}
+	var ctx: Dictionary = effect.get_interaction_context(targets)
+	var source: PokemonSlot = _first_slot_from_context(ctx, "source_pokemon")
+	var target: PokemonSlot = _first_slot_from_context(ctx, "target_pokemon")
+	var selected_count := 1
+	var assignments: Array = ctx.get("target_damage_counters", [])
+	if target == null and not assignments.is_empty() and assignments[0] is Dictionary:
+		var assignment: Dictionary = assignments[0]
+		var assigned_target: Variant = assignment.get("target", null)
+		if assigned_target is PokemonSlot:
+			target = assigned_target as PokemonSlot
+			selected_count = maxi(1, int(assignment.get("amount", 10)) / 10)
+	if source == null or target == null:
+		return {}
+	var count_raw: Array = ctx.get("counter_count", [])
+	if not count_raw.is_empty() and assignments.is_empty():
+		selected_count = int(count_raw[0])
+	selected_count = clampi(selected_count, 1, (effect as AbilityMoveDamageCountersToOpponent).max_counters)
+	var moved_damage := mini(selected_count * 10, source.damage_counters)
+	if moved_damage <= 0:
+		return {}
+	return {
+		"ability_vfx": "counter_transfer",
+		"counter_count": moved_damage / 10,
+		"damage_amount": moved_damage,
+		"source": _slot_action_spec(source),
+		"target": _slot_action_spec(target),
+		"caster": _slot_action_spec(caster),
+	}
+
+
+func _first_slot_from_context(ctx: Dictionary, key: String) -> PokemonSlot:
+	var raw: Array = ctx.get(key, [])
+	if raw.is_empty() or not (raw[0] is PokemonSlot):
+		return null
+	return raw[0] as PokemonSlot
+
+
+func _slot_action_spec(slot: PokemonSlot) -> Dictionary:
+	if slot == null or game_state == null:
+		return {}
+	for player_index: int in game_state.players.size():
+		var player: PlayerState = game_state.players[player_index]
+		if player == null:
+			continue
+		if player.active_pokemon == slot:
+			return {
+				"player_index": player_index,
+				"slot_kind": "active",
+				"slot_index": 0,
+				"pokemon_name": slot.get_pokemon_name(),
+			}
+		var bench_index: int = player.bench.find(slot)
+		if bench_index >= 0:
+			return {
+				"player_index": player_index,
+				"slot_kind": "bench",
+				"slot_index": bench_index,
+				"pokemon_name": slot.get_pokemon_name(),
+			}
+	return {}
 
 
 ## 准备阶段：放置备战区宝可梦（可选，由UI调用，pass_setup表示不再放置）
@@ -848,6 +954,7 @@ func send_out_pokemon(player_index: int, bench_slot: PokemonSlot) -> bool:
 
 	player.bench.erase(bench_slot)
 	player.active_pokemon = bench_slot
+	bench_slot.mark_entered_active_from_bench(game_state.turn_number)
 
 	_log_action(GameAction.ActionType.SEND_OUT, player_index,
 		{"pokemon_name": bench_slot.get_pokemon_name()},
@@ -875,9 +982,31 @@ func _advance_to_next_turn() -> void:
 	if _check_win_condition() >= 0:
 		return
 	_discard_expired_tools()
+	if _consume_pending_extra_turn(game_state.current_player_index):
+		_start_turn()
+		return
 	# 切换玩家
 	game_state.switch_player()
 	_start_turn()
+
+
+func _consume_pending_extra_turn(player_index: int) -> bool:
+	var pending_player_index := int(game_state.shared_turn_flags.get("pending_extra_turn_player_index", -1))
+	if pending_player_index != player_index:
+		return false
+	game_state.shared_turn_flags.erase("pending_extra_turn_player_index")
+	game_state.shared_turn_flags.erase("pending_extra_turn_turn_number")
+	for player: PlayerState in game_state.players:
+		for slot: PokemonSlot in player.get_all_pokemon():
+			if slot == null:
+				continue
+			var remaining_effects: Array[Dictionary] = []
+			for effect: Dictionary in slot.effects:
+				if str(effect.get("type", "")) == "extra_turn" and int(effect.get("player_index", -1)) == player_index:
+					continue
+				remaining_effects.append(effect)
+			slot.effects = remaining_effects
+	return true
 
 
 # ===================== 玩家操作 =====================
@@ -1021,7 +1150,7 @@ func play_basic_to_bench(
 func evolve_pokemon(player_index: int, evolution: CardInstance, target_slot: PokemonSlot) -> bool:
 	if not _slot_belongs_to_player(target_slot, player_index):
 		return false
-	if not rule_validator.can_evolve(game_state, player_index, target_slot, evolution):
+	if not rule_validator.can_evolve(game_state, player_index, target_slot, evolution, effect_processor):
 		return false
 
 	var player: PlayerState = game_state.players[player_index]
@@ -1130,7 +1259,7 @@ func attach_energy(player_index: int, energy: CardInstance, target_slot: Pokemon
 
 ## 附着道具卡到宝可梦
 func attach_tool(player_index: int, tool_card: CardInstance, target_slot: PokemonSlot) -> bool:
-	if not rule_validator.can_attach_tool(game_state, player_index, target_slot):
+	if not rule_validator.can_attach_tool(game_state, player_index, target_slot, effect_processor):
 		return false
 	if not _slot_belongs_to_player(target_slot, player_index):
 		return false
@@ -1290,7 +1419,7 @@ func use_stadium_effect(player_index: int, targets: Array = []) -> bool:
 
 ## 撤退
 func retreat(player_index: int, energy_to_discard: Array[CardInstance], bench_slot: PokemonSlot) -> bool:
-	if not rule_validator.can_retreat(game_state, player_index):
+	if not rule_validator.can_retreat(game_state, player_index, effect_processor):
 		return false
 
 	var player: PlayerState = game_state.players[player_index]
@@ -1320,6 +1449,7 @@ func retreat(player_index: int, energy_to_discard: Array[CardInstance], bench_sl
 	active.clear_on_leave_active()
 	player.bench.append(active)
 	player.active_pokemon = bench_slot
+	bench_slot.mark_entered_active_from_bench(game_state.turn_number)
 
 	game_state.retreat_used_this_turn = true
 
@@ -1372,40 +1502,54 @@ func use_attack(player_index: int, attack_index: int, targets: Array = []) -> bo
 		return false
 
 	var attack: Dictionary = attacker.get_card_data().attacks[attack_index]
-	var attack_name: String = attack.get("name", "")
+	var attack_name: String = str(attack.get("name", ""))
 
-	# 混乱状态投币判定
 	if attacker.status_conditions.get("confused", false):
 		var flip_result: bool = coin_flipper.flip()
-		_log_action(GameAction.ActionType.COIN_FLIP, player_index,
-			{"result": flip_result, "reason": "混乱投币"}, "混乱投币：%s" % ("正面" if flip_result else "反面"))
+		_log_action(
+			GameAction.ActionType.COIN_FLIP,
+			player_index,
+			{"result": flip_result, "reason": "confused_attack"},
+			"混乱判定：%s" % ("正面" if flip_result else "反面")
+		)
 		if not flip_result:
-			# 反面：失败，战斗宝可梦自伤30
 			damage_calculator.apply_damage_to_slot(attacker, 30)
-			_log_action(GameAction.ActionType.DAMAGE_DEALT, player_index,
-				{"target": attacker.get_pokemon_name(), "damage": 30}, "混乱自伤30")
-			# 结束回合（使用招式后）
+			_log_action(
+				GameAction.ActionType.DAMAGE_DEALT,
+				player_index,
+				{"target": attacker.get_pokemon_name(), "damage": 30},
+				"攻击者因混乱受到 30 点伤害"
+			)
 			_after_attack(player_index)
 			return true
 
-	# 计算并应用伤害
 	var damage: int = _calculate_attack_damage(attacker, defender, attack, attack_index, targets)
 
 	if damage > 0:
 		damage_calculator.apply_damage_to_slot(defender, damage)
-		_log_action(GameAction.ActionType.DAMAGE_DEALT, player_index,
+		_apply_handheld_fan_if_possible(attacker, defender, targets)
+		_log_action(
+			GameAction.ActionType.DAMAGE_DEALT,
+			player_index,
 			{"target": defender.get_pokemon_name(), "damage": damage},
-			"玩家%d使用 %s 对 %s 造成 %d 点伤害" % [player_index + 1, attack_name, defender.get_pokemon_name(), damage])
+			"玩家%d使用 %s 对 %s 造成 %d 点伤害" % [
+				player_index + 1,
+				attack_name,
+				defender.get_pokemon_name(),
+				damage
+			]
+		)
 
-	# VSTAR力量标记
+	effect_processor.execute_attack_effect(attacker, attack_index, defender, game_state, targets)
 	if attack.get("is_vstar_power", false):
 		game_state.vstar_power_used[player_index] = true
 
-	# 执行招式附加效果
-	effect_processor.execute_attack_effect(attacker, attack_index, defender, game_state, targets)
-
-	_log_action(GameAction.ActionType.ATTACK, player_index,
-		{"attack_name": attack_name}, "玩家%d使用招式「%s」" % [player_index + 1, attack_name])
+	_log_action(
+		GameAction.ActionType.ATTACK,
+		player_index,
+		{"attack_name": attack_name},
+		"玩家%d使用招式「%s」" % [player_index + 1, attack_name]
+	)
 
 	var attack_action: GameAction = action_log.back()
 	if attack_action != null:
@@ -1449,10 +1593,55 @@ func use_granted_attack(
 		return false
 
 	var attack_name: String = str(granted_attack.get("name", ""))
-	_log_action(GameAction.ActionType.ATTACK, player_index, {"attack_name": attack_name}, "玩家%d使用招式：%s" % [player_index + 1, attack_name])
+	var granted_damage: int = 0
+	var granted_damage_raw: Variant = granted_attack.get("damage", 0)
+	if granted_damage_raw is int:
+		granted_damage = int(granted_damage_raw)
+	elif granted_damage_raw is String:
+		granted_damage = int(str(granted_damage_raw).to_int())
+
+	if attacker.status_conditions.get("confused", false):
+		var flip_result: bool = coin_flipper.flip()
+		_log_action(
+			GameAction.ActionType.COIN_FLIP,
+			player_index,
+			{"result": flip_result, "reason": "confused_granted_attack"},
+			"混乱判定：%s" % ("正面" if flip_result else "反面")
+		)
+		if not flip_result:
+			damage_calculator.apply_damage_to_slot(attacker, 30)
+			_log_action(
+				GameAction.ActionType.DAMAGE_DEALT,
+				player_index,
+				{"target": attacker.get_pokemon_name(), "damage": 30},
+				"攻击者因混乱受到 30 点伤害"
+			)
+			_after_attack(player_index)
+			return true
+
+	if granted_damage > 0:
+		damage_calculator.apply_damage_to_slot(defender, granted_damage)
+		_apply_handheld_fan_if_possible(attacker, defender, targets)
+		_log_action(
+			GameAction.ActionType.DAMAGE_DEALT,
+			player_index,
+			{"target": defender.get_pokemon_name(), "damage": granted_damage},
+			"玩家%d使用 %s 对 %s 造成 %d 点伤害" % [
+				player_index + 1,
+				attack_name,
+				defender.get_pokemon_name(),
+				granted_damage
+			]
+		)
+
+	_log_action(
+		GameAction.ActionType.ATTACK,
+		player_index,
+		{"attack_name": attack_name},
+		"玩家%d使用招式「%s」" % [player_index + 1, attack_name]
+	)
 	var granted_attack_action: GameAction = action_log.back()
 	if granted_attack_action != null:
-		var granted_damage: int = int(granted_attack.get("damage", 0))
 		var has_explicit_attack_target: bool = _attack_targets_define_resolved_target(targets)
 		if not has_explicit_attack_target and (granted_damage > 0 or targets.is_empty()):
 			granted_attack_action.data["target_pokemon_name"] = defender.get_pokemon_name()
@@ -1460,12 +1649,63 @@ func use_granted_attack(
 	_after_attack(player_index)
 	return true
 
-
 func _attack_targets_define_resolved_target(targets: Array) -> bool:
 	for entry: Variant in targets:
 		if _contains_target_selection_marker(entry):
 			return true
 	return false
+
+
+func get_post_damage_defender_interaction_steps(attacker: PokemonSlot, defender: PokemonSlot) -> Array[Dictionary]:
+	if attacker == null or defender == null or defender.attached_tool == null:
+		return []
+	if effect_processor.is_tool_effect_suppressed(defender, game_state):
+		return []
+	var effect: BaseEffect = effect_processor.get_effect(defender.attached_tool.card_data.effect_id)
+	if not effect is EffectHandheldFan:
+		return []
+	var fan_effect: EffectHandheldFan = effect as EffectHandheldFan
+	return fan_effect.get_trigger_interaction_steps(attacker, defender, game_state)
+
+
+func _apply_handheld_fan_if_possible(attacker: PokemonSlot, defender: PokemonSlot, targets: Array = []) -> void:
+	if attacker == null or defender == null or defender.attached_tool == null:
+		return
+	if effect_processor.is_tool_effect_suppressed(defender, game_state):
+		return
+	var effect: BaseEffect = effect_processor.get_effect(defender.attached_tool.card_data.effect_id)
+	if not effect is EffectHandheldFan:
+		return
+	var fan_effect: EffectHandheldFan = effect as EffectHandheldFan
+	var resolved: Dictionary = fan_effect.apply(attacker, defender, game_state, targets)
+	if resolved.is_empty():
+		return
+	var attacker_owner: int = _find_slot_owner_index(attacker)
+	var moved_target: Variant = resolved.get("target", null)
+	if attacker_owner < 0 or not (moved_target is PokemonSlot):
+		return
+	var moved_target_slot: PokemonSlot = moved_target
+	_log_action(
+		GameAction.ActionType.ATTACH_ENERGY,
+		attacker_owner,
+		{
+			"tool": defender.attached_tool.card_data.name,
+			"source": attacker.get_pokemon_name(),
+			"target": moved_target_slot.get_pokemon_name(),
+		},
+		"%s 将 %s 身上的 1 个能量移到了 %s" % [
+			defender.attached_tool.card_data.name,
+			attacker.get_pokemon_name(),
+			moved_target_slot.get_pokemon_name(),
+		]
+	)
+
+
+func _find_slot_owner_index(slot: PokemonSlot) -> int:
+	for player_index: int in game_state.players.size():
+		if slot in game_state.players[player_index].get_all_pokemon():
+			return player_index
+	return -1
 
 
 func _contains_target_selection_marker(value: Variant) -> bool:
@@ -1753,11 +1993,16 @@ func use_ability(
 		return false
 
 	var ability_name: String = effect_processor.get_ability_name(pokemon, ability_index, game_state)
+	var ability_effect: BaseEffect = effect_processor.get_ability_effect(pokemon, ability_index, game_state)
+	var ability_vfx_data: Dictionary = _build_ability_vfx_data(ability_effect, pokemon, targets)
 	if not effect_processor.execute_ability_effect(pokemon, ability_index, targets, game_state):
 		return false
 
+	var action_data := {"pokemon_name": pokemon.get_pokemon_name(), "ability_name": ability_name}
+	if not ability_vfx_data.is_empty():
+		action_data.merge(ability_vfx_data, true)
 	_log_action(GameAction.ActionType.USE_ABILITY, player_index,
-		{"pokemon_name": pokemon.get_pokemon_name(), "ability_name": ability_name},
+		action_data,
 		"玩家%d使用特性「%s」" % [player_index + 1, ability_name])
 	if _resolve_mid_turn_knockouts():
 		return true

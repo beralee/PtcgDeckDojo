@@ -1,4 +1,4 @@
-﻿extends RefCounted
+extends RefCounted
 
 const BattleI18nScript := preload("res://scripts/ui/battle/BattleI18n.gd")
 

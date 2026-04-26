@@ -50,6 +50,35 @@ func update_prize_title(scene: Object, label: Label, player_index: int, default_
 	var normal_color := Color(0.54, 0.9, 0.94, 0.9) if is_hud else Color(0.93, 0.97, 1.0, 0.9)
 	var active_color := Color(1.0, 0.87, 0.34, 1.0)
 	label.add_theme_color_override("font_color", active_color if is_pending else normal_color)
+	_update_prize_panel_style(scene, player_index, is_pending, is_hud)
+
+
+func _update_prize_panel_style(scene: Object, player_index: int, is_pending: bool, is_hud: bool) -> void:
+	var view_player: int = int(scene.get("_view_player"))
+	var is_self := player_index == view_player
+	var panel: Control = null
+	if is_hud:
+		panel = scene.get("_my_hud_left") if is_self else scene.get("_opp_hud_left")
+	else:
+		panel = scene.get("_my_prizes_box") if is_self else scene.get("_opp_prizes_box")
+	if panel == null:
+		return
+	var style := StyleBoxFlat.new()
+	style.set_corner_radius_all(16)
+	style.set_border_width_all(4 if is_pending else 2)
+	if is_pending:
+		style.bg_color = Color(0.18, 0.13, 0.03, 0.90)
+		style.border_color = Color(1.0, 0.84, 0.18, 1.0)
+		style.shadow_color = Color(1.0, 0.68, 0.05, 0.34)
+		style.shadow_size = 14
+		style.shadow_offset = Vector2.ZERO
+	else:
+		style.bg_color = Color(0.03, 0.11, 0.15, 0.70) if is_self else Color(0.02, 0.10, 0.16, 0.70)
+		style.border_color = Color(0.27, 0.86, 0.70, 0.92) if is_self else Color(0.22, 0.68, 0.84, 0.92)
+	if panel is PanelContainer:
+		(panel as PanelContainer).add_theme_stylebox_override("panel", style)
+	elif panel is Panel:
+		(panel as Panel).add_theme_stylebox_override("panel", style)
 
 
 func focus_prize_panel(scene: Object, player_index: int) -> void:

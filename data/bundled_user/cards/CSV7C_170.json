@@ -1,0 +1,51 @@
+{
+	"name": "泡沫栗鼠",
+	"card_type": "Pokemon",
+	"mechanic": "",
+	"label": "",
+	"description": " 敲打 10\n\n\n 扫除 \n选择放于对手场上宝可梦身上最多2张「宝可梦道具」，放于弃牌区。\n\n",
+	"yoren_code": "P572",
+	"set_code": "CSV7C",
+	"card_index": "170",
+	"set_code_en": "TEF",
+	"card_index_en": "136",
+	"name_en": "Minccino",
+	"artist": "Yuka Morii",
+	"rarity": "C",
+	"release_date": "2026-01-16T00:00:00+08:00",
+	"regulation_mark": "H",
+	"effect_id": "683af7fe3f0a254c5de433dfae8e1562",
+	"image_url": "https://tcg.mik.moe/static/img/CSV7C/170.png",
+	"image_local_path": "user://cards/images/CSV7C/170.png",
+	"is_tags": [],
+	"regulation_standard": true,
+	"regulation_expanded": true,
+	"energy_type": "C",
+	"stage": "Basic",
+	"hp": 70,
+	"weakness_energy": "F",
+	"weakness_value": "×2",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 1,
+	"evolves_from": "",
+	"ancient_trait": "",
+	"attacks": [
+		{
+			"name": "敲打",
+			"text": "",
+			"cost": "C",
+			"damage": "10",
+			"is_vstar_power": false
+		},
+		{
+			"name": "扫除",
+			"text": "选择放于对手场上宝可梦身上最多2张「宝可梦道具」，放于弃牌区。",
+			"cost": "CC",
+			"damage": "",
+			"is_vstar_power": false
+		}
+	],
+	"abilities": [],
+	"energy_provides": ""
+}

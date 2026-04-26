@@ -655,6 +655,166 @@ func test_moonlight_shuriken_discards_two_attached_energy() -> String:
 	])
 
 
+func test_chien_pao_shivery_chill_active_searches_basic_water_energy() -> String:
+	var processor := EffectProcessor.new()
+	var state := _make_state()
+	var player: PlayerState = state.players[0]
+	player.deck.clear()
+	var water_a := CardInstance.create(_make_energy_data("基本水能量A", "W"), 0)
+	var water_b := CardInstance.create(_make_energy_data("基本水能量B", "W"), 0)
+	var lightning := CardInstance.create(_make_energy_data("基本雷能量", "L"), 0)
+	player.deck.append_array([water_a, lightning, water_b])
+
+	var chien_cd := _make_basic_pokemon_data("古剑豹ex", "W", 220, "Basic", "ex", "1ffc5951ba805342e6fa071781d03452")
+	chien_cd.abilities = [{"name": "战栗冷气", "text": ""}]
+	var active := PokemonSlot.new()
+	active.pokemon_stack.append(CardInstance.create(chien_cd, 0))
+	player.active_pokemon = active
+	var bench := PokemonSlot.new()
+	bench.pokemon_stack.append(CardInstance.create(chien_cd, 0))
+	player.bench.append(bench)
+	processor.register_pokemon_card(chien_cd)
+
+	var steps: Array[Dictionary] = processor.get_effect(chien_cd.effect_id).get_interaction_steps(active.get_top_card(), state)
+	var can_use_active_before: bool = processor.can_use_ability(active, state)
+	var can_use_bench_before: bool = processor.can_use_ability(bench, state)
+	var used_active: bool = processor.execute_ability_effect(active, 0, [{
+		"search_water_energy": [water_b, water_a],
+	}], state)
+
+	return run_checks([
+		assert_true(can_use_active_before, "战栗冷气应在古剑豹ex处于战斗场时可用"),
+		assert_false(can_use_bench_before, "战栗冷气不应在备战区可用"),
+		assert_eq(steps.size(), 1, "战栗冷气应提供选牌库水能量交互"),
+		assert_eq(int(steps[0].get("max_select", -1)), 2, "战栗冷气最多选择2张基本水能量"),
+		assert_true(used_active, "战栗冷气应能结算"),
+		assert_true(water_a in player.hand and water_b in player.hand, "选中的2张基本水能量应加入手牌"),
+		assert_true(lightning in player.deck, "非水能量不应被加入手牌"),
+		assert_false(processor.can_use_ability(active, state), "战栗冷气同一回合只能使用1次"),
+	])
+
+
+func test_baxcalibur_super_cold_attaches_basic_water_from_hand_without_turn_limit() -> String:
+	var processor := EffectProcessor.new()
+	var state := _make_state()
+	var player: PlayerState = state.players[0]
+	player.hand.clear()
+	var water_a := CardInstance.create(_make_energy_data("基本水能量A", "W"), 0)
+	var water_b := CardInstance.create(_make_energy_data("基本水能量B", "W"), 0)
+	var lightning := CardInstance.create(_make_energy_data("基本雷能量", "L"), 0)
+	player.hand.append_array([water_a, lightning, water_b])
+
+	var bax_cd := _make_basic_pokemon_data("戟脊龙", "W", 160, "Stage 2", "", "eed03ece4ff26ddc67213000278b20a6")
+	bax_cd.abilities = [{"name": "极低温", "text": ""}]
+	var bax := PokemonSlot.new()
+	bax.pokemon_stack.append(CardInstance.create(bax_cd, 0))
+	player.active_pokemon = bax
+	var target := player.bench[0]
+	processor.register_pokemon_card(bax_cd)
+
+	var first_used: bool = processor.execute_ability_effect(bax, 0, [{
+		"basic_water_energy_from_hand": [water_a],
+		"attach_target": [target],
+	}], state)
+	var second_used: bool = processor.execute_ability_effect(bax, 0, [{
+		"basic_water_energy_from_hand": [water_b],
+		"attach_target": [bax],
+	}], state)
+
+	return run_checks([
+		assert_true(first_used, "极低温第一次应能结算"),
+		assert_true(second_used, "极低温同一回合应可继续使用"),
+		assert_true(water_a in target.attached_energy, "第一张水能量应贴到选择的备战宝可梦"),
+		assert_true(water_b in bax.attached_energy, "第二张水能量应贴到选择的戟脊龙"),
+		assert_true(lightning in player.hand, "非水能量不应被极低温自动消耗"),
+	])
+
+
+func test_chien_pao_hail_blade_discards_selected_water_energy_for_damage() -> String:
+	var processor := EffectProcessor.new()
+	var state := _make_state()
+	var player: PlayerState = state.players[0]
+	var opponent: PlayerState = state.players[1]
+
+	var chien_cd := _make_basic_pokemon_data("古剑豹ex", "W", 220, "Basic", "ex", "1ffc5951ba805342e6fa071781d03452")
+	chien_cd.attacks = [{"name": "冰雹利刃", "cost": "WW", "damage": "60×", "text": "", "is_vstar_power": false}]
+	var attacker := PokemonSlot.new()
+	attacker.pokemon_stack.append(CardInstance.create(chien_cd, 0))
+	var active_water := CardInstance.create(_make_energy_data("基本水能量A", "W"), 0)
+	attacker.attached_energy.append(active_water)
+	player.active_pokemon = attacker
+	var bench_water := CardInstance.create(_make_energy_data("基本水能量B", "W"), 0)
+	player.bench[0].attached_energy.append(bench_water)
+	processor.register_pokemon_card(chien_cd)
+
+	var attack: Dictionary = chien_cd.attacks[0]
+	var targets := [{"discard_energy": [active_water, bench_water]}]
+	var bonus: int = processor.get_attack_damage_modifier(attacker, opponent.active_pokemon, attack, state, targets)
+	var total_damage: int = DamageCalculator.new().calculate_damage(attacker, opponent.active_pokemon, attack, state, bonus)
+	processor.execute_attack_effect(attacker, 0, opponent.active_pokemon, state, targets)
+
+	return run_checks([
+		assert_eq(total_damage, 120, "冰雹利刃弃2张水能量应造成120伤害"),
+		assert_false(active_water in attacker.attached_energy, "选择的战斗场水能量应弃置"),
+		assert_false(bench_water in player.bench[0].attached_energy, "选择的备战区水能量应弃置"),
+		assert_true(active_water in player.discard_pile and bench_water in player.discard_pile, "弃置的水能量应进入弃牌区"),
+	])
+
+
+func test_chien_pao_hail_blade_accepts_luminous_energy_as_water_when_not_suppressed() -> String:
+	var processor := EffectProcessor.new()
+	var state := _make_state()
+	var player: PlayerState = state.players[0]
+	var opponent: PlayerState = state.players[1]
+
+	var chien_cd := _make_basic_pokemon_data("古剑豹ex", "W", 220, "Basic", "ex", "1ffc5951ba805342e6fa071781d03452")
+	chien_cd.attacks = [{"name": "冰雹利刃", "cost": "WW", "damage": "60×", "text": "", "is_vstar_power": false}]
+	var attacker := PokemonSlot.new()
+	attacker.pokemon_stack.append(CardInstance.create(chien_cd, 0))
+	var luminous := CardInstance.create(_make_energy_data("夜光能量", "", "Special Energy", "540ee48bb93584e4bfe3d7f5d0ee0efc"), 0)
+	attacker.attached_energy.append(luminous)
+	player.active_pokemon = attacker
+	processor.register_pokemon_card(chien_cd)
+
+	var attack: Dictionary = chien_cd.attacks[0]
+	var effects: Array[BaseEffect] = processor.get_attack_effects_for_slot(attacker, 0)
+	var steps: Array[Dictionary] = effects[0].get_attack_interaction_steps(attacker.get_top_card(), attack, state)
+	var targets := [{"discard_energy": [luminous]}]
+	var bonus: int = processor.get_attack_damage_modifier(attacker, opponent.active_pokemon, attack, state, targets)
+	var total_damage: int = DamageCalculator.new().calculate_damage(attacker, opponent.active_pokemon, attack, state, bonus)
+	processor.execute_attack_effect(attacker, 0, opponent.active_pokemon, state, targets)
+
+	return run_checks([
+		assert_true(luminous in steps[0].get("items", []), "夜光能量未被压制时应作为水能量可被冰雹利刃选择"),
+		assert_eq(total_damage, 60, "弃1张夜光能量应造成60伤害"),
+		assert_true(luminous in player.discard_pile, "被选择的夜光能量应进入弃牌区"),
+	])
+
+
+func test_frigibax_call_draws_one_card() -> String:
+	var processor := EffectProcessor.new()
+	var state := _make_state()
+	var player: PlayerState = state.players[0]
+	player.hand.clear()
+	player.deck.clear()
+	var draw_card := CardInstance.create(_make_trainer_data("抽到的卡"), 0)
+	player.deck.append(draw_card)
+
+	var frigibax_cd := _make_basic_pokemon_data("凉脊龙", "W", 70, "Basic", "", "425e58e5e825380966cdfd039594a596")
+	frigibax_cd.attacks = [{"name": "招来", "cost": "W", "damage": "", "text": "", "is_vstar_power": false}]
+	var attacker := PokemonSlot.new()
+	attacker.pokemon_stack.append(CardInstance.create(frigibax_cd, 0))
+	player.active_pokemon = attacker
+	processor.register_pokemon_card(frigibax_cd)
+
+	processor.execute_attack_effect(attacker, 0, state.players[1].active_pokemon, state)
+
+	return run_checks([
+		assert_true(draw_card in player.hand, "招来应从牌库上方抽1张卡"),
+		assert_eq(player.deck.size(), 0, "招来后牌库应减少1张"),
+	])
+
+
 func test_gust_ability_uses_selected_target() -> String:
 	var state := _make_state()
 	var player: PlayerState = state.players[0]
@@ -840,6 +1000,39 @@ func test_rare_candy_accepts_greninja_ex_without_frogadier_in_cache() -> String:
 		assert_true(greninja in stage2_items, "Greninja ex should appear in the Rare Candy Stage 2 selection list"),
 		assert_true(player.active_pokemon in target_items, "Froakie should appear in the Rare Candy target list for Greninja ex"),
 		assert_eq(player.active_pokemon.get_pokemon_name(), greninja_cd.name, "Rare Candy should evolve Froakie directly into Greninja ex"),
+	])
+
+
+func test_rare_candy_accepts_baxcalibur_without_arctibax_reference() -> String:
+	var state := _make_state()
+	var player: PlayerState = state.players[0]
+	var effect := EffectRareCandy.new()
+	var card := CardInstance.create(_make_trainer_data("Rare Candy"), 0)
+
+	var baxcalibur_cd := _make_basic_pokemon_data("戟脊龙", "W", 160, "Stage 2")
+	baxcalibur_cd.name_en = "Baxcalibur"
+	baxcalibur_cd.evolves_from = "冻脊龙"
+	baxcalibur_cd.abilities = [{"name": "极寒音波", "text": ""}]
+	var baxcalibur := CardInstance.create(baxcalibur_cd, 0)
+	player.hand.append(baxcalibur)
+
+	var frigibax_cd := _make_basic_pokemon_data("凉脊龙", "W", 60)
+	frigibax_cd.name_en = "Frigibax"
+	player.active_pokemon.pokemon_stack.clear()
+	player.active_pokemon.pokemon_stack.append(CardInstance.create(frigibax_cd, 0))
+	player.active_pokemon.turn_played = 0
+
+	var steps: Array[Dictionary] = effect.get_interaction_steps(card, state)
+	var stage2_items: Array = steps[0].get("items", []) if not steps.is_empty() else []
+	var target_items: Array = steps[1].get("items", []) if steps.size() > 1 else []
+	var can_execute: bool = effect.can_execute(card, state)
+	effect.execute(card, [], state)
+
+	return run_checks([
+		assert_true(can_execute, "Rare Candy should support Baxcalibur even when Arctibax is missing from local references"),
+		assert_true(baxcalibur in stage2_items, "Baxcalibur should appear in the Rare Candy Stage 2 selection list"),
+		assert_true(player.active_pokemon in target_items, "Frigibax should appear in the Rare Candy target list for Baxcalibur"),
+		assert_eq(player.active_pokemon.get_pokemon_name(), "戟脊龙", "Rare Candy should evolve Frigibax directly into Baxcalibur"),
 	])
 
 

@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/training/run_deck_benchmark.gd" id="1"]
+
+[node name="RunDeckBenchmark" type="Control"]
+script = ExtResource("1")

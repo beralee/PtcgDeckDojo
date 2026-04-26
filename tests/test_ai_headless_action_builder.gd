@@ -99,6 +99,22 @@ class CountingCoinFlipper extends CoinFlipper:
 		return result
 
 
+class NullHeadlessTargetsEffect extends BaseEffect:
+	func get_interaction_steps(_card: CardInstance, _state: GameState) -> Array[Dictionary]:
+		var filler := CardData.new()
+		filler.name = "Only Card"
+		filler.card_type = "Item"
+		return [{
+			"id": "discard_cards",
+			"items": [CardInstance.create(filler, 0)],
+			"labels": ["Only Card"],
+			"min_select": 2,
+			"max_select": 2,
+			"allow_cancel": true,
+			"title": "Choose 2 cards to discard",
+		}]
+
+
 func _make_manual_gsm() -> GameStateMachine:
 	var gsm := GameStateMachine.new()
 	gsm.game_state = GameState.new()
@@ -324,6 +340,35 @@ func test_builder_uses_charizard_strategy_for_rare_candy_pairing() -> String:
 	])
 
 
+func test_builder_filters_generic_rare_candy_target_for_baxcalibur() -> String:
+	var gsm := _make_manual_gsm()
+	gsm.game_state.turn_number = 3
+	var builder := AILegalActionBuilderScript.new()
+	var player: PlayerState = gsm.game_state.players[0]
+	player.active_pokemon = _make_slot(CardInstance.create(_make_pokemon_card_data("Other Basic", "C"), 0))
+	player.bench = [_make_slot(CardInstance.create(_make_pokemon_card_data("凉脊龙", "W"), 0))]
+
+	var rare_candy := CardInstance.create(_make_trainer_card_data("Rare Candy", "Item", ""), 0)
+	var baxcalibur_cd := _make_pokemon_card_data("戟脊龙", "W")
+	baxcalibur_cd.name_en = "Baxcalibur"
+	baxcalibur_cd.stage = "Stage 2"
+	baxcalibur_cd.evolves_from = "冻脊龙"
+	player.hand = [rare_candy, CardInstance.create(baxcalibur_cd, 0)]
+
+	var steps: Array[Dictionary] = EffectRareCandyScript.new().get_interaction_steps(rare_candy, gsm.game_state)
+	var targets: Variant = builder._build_headless_targets_from_steps(gsm, 0, 0, steps)
+	var ctx: Dictionary = {} if not (targets is Array) or (targets as Array).is_empty() else (targets as Array)[0]
+	var selected_stage2: Array = ctx.get("stage2_card", [])
+	var selected_target: Array = ctx.get("target_pokemon", [])
+	var stage2_name := "" if selected_stage2.is_empty() else str((selected_stage2[0] as CardInstance).card_data.name)
+	var target_name := "" if selected_target.is_empty() else str((selected_target[0] as PokemonSlot).get_pokemon_name())
+
+	return run_checks([
+		assert_eq(stage2_name, "戟脊龙", "Generic Rare Candy headless resolution should select Baxcalibur when it is the live Stage 2"),
+		assert_eq(target_name, "凉脊龙", "Generic Rare Candy headless resolution should pair Baxcalibur with Frigibax instead of the first unrelated basic"),
+	])
+
+
 func test_builder_passes_previous_search_selection_into_followup_tool_choice() -> String:
 	var gsm := _make_manual_gsm()
 	var builder := AILegalActionBuilderScript.new()
@@ -381,6 +426,24 @@ func test_builder_does_not_flip_coin_while_previewing_live_capturing_aroma() -> 
 		assert_true(bool(action.get("requires_interaction", false)), "Capturing Aroma should stay interactive in live preview mode so the real play path owns the coin flip"),
 		assert_eq((action.get("targets", []) as Array).size(), 0, "Live preview should not synthesize headless targets for Capturing Aroma before the card is played"),
 		assert_eq(flipper.flip_count, 0, "AI action preview should not flip the shared coin before Capturing Aroma is actually played"),
+	])
+
+
+func test_builder_keeps_interactive_trainer_when_headless_target_build_fails() -> String:
+	var gsm := _make_manual_gsm()
+	var player: PlayerState = gsm.game_state.players[0]
+	player.active_pokemon = _make_slot(CardInstance.create(_make_pokemon_card_data("Lead"), 0))
+	var glitch_ball := CardInstance.create(_make_trainer_card_data("Glitch Ball", "Item", "test_null_headless_targets"), 0)
+	player.hand = [glitch_ball]
+	gsm.effect_processor.register_effect("test_null_headless_targets", NullHeadlessTargetsEffect.new())
+	var builder := AILegalActionBuilderScript.new()
+	var action := _find_action(builder.build_actions(gsm, 0), "play_trainer", func(candidate: Dictionary) -> bool:
+		return candidate.get("card") == glitch_ball
+	)
+	return run_checks([
+		assert_false(action.is_empty(), "Interactive trainer actions should remain legal even if headless target synthesis fails"),
+		assert_true(bool(action.get("requires_interaction", false)), "When headless target synthesis fails, the trainer should fall back to requires_interaction=true"),
+		assert_eq((action.get("targets", []) as Array).size(), 0, "Fallback interactive trainer actions should not synthesize stale targets"),
 	])
 
 

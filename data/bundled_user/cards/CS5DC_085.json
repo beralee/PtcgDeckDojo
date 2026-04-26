@@ -1,0 +1,51 @@
+{
+	"abilities": [],
+	"ancient_trait": "",
+	"artist": "takuyoa",
+	"attacks": [
+		{
+			"cost": "DC",
+			"damage": "50",
+			"is_vstar_power": false,
+			"name": "暗之风",
+			"text": ""
+		},
+		{
+			"cost": "DDC",
+			"damage": "130",
+			"is_vstar_power": false,
+			"name": "暗黑洞",
+			"text": "使对手的战斗宝可梦陷入【睡眠】状态。"
+		}
+	],
+	"card_index": "085",
+	"card_index_en": "98",
+	"card_type": "Pokemon",
+	"description": "【恶】 暗之风 50\n\n\n【恶】【恶】 暗黑洞 130\n使对手的战斗宝可梦陷入【睡眠】状态。\n\n",
+	"effect_id": "32ad0aabda779aea0420eed4505407be",
+	"energy_provides": "",
+	"energy_type": "D",
+	"evolves_from": "",
+	"hp": 210,
+	"image_local_path": "user://cards/images/CS5DC/085.png",
+	"image_url": "https://tcg.mik.moe/static/img/CS5DC/085.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "V",
+	"name": "达克莱伊V",
+	"name_en": "Darkrai V",
+	"rarity": "无标记",
+	"regulation_expanded": true,
+	"regulation_mark": "F",
+	"regulation_standard": true,
+	"release_date": "2024-06-18T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 2,
+	"set_code": "CS5DC",
+	"set_code_en": "ASR",
+	"stage": "Basic",
+	"weakness_energy": "G",
+	"weakness_value": "×2",
+	"yoren_code": "Y944"
+}

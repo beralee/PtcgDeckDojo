@@ -4,6 +4,7 @@ extends Resource
 
 const IMAGE_BASE_URL := "https://tcg.mik.moe/static/img"
 const LOCAL_IMAGE_ROOT := "user://cards/images"
+const BUNDLED_IMAGE_ROOT := "res://data/bundled_user/cards/images"
 const FUTURE_TAG := "Future"
 const ANCIENT_TAG := "Ancient"
 const TAG_OVERRIDE_PATH := "res://scripts/data/card_tag_overrides.json"
@@ -103,6 +104,37 @@ static func build_local_image_path(card_set_code: String, card_idx: String) -> S
 	if card_set_code == "" or card_idx == "":
 		return ""
 	return "%s/%s/%s.png" % [LOCAL_IMAGE_ROOT, card_set_code, card_idx]
+
+
+static func build_bundled_image_path(card_set_code: String, card_idx: String) -> String:
+	if card_set_code == "" or card_idx == "":
+		return ""
+	return "%s/%s/%s.png.bin" % [BUNDLED_IMAGE_ROOT, card_set_code, card_idx]
+
+
+static func get_image_candidate_paths(card_set_code: String, card_idx: String, preferred_local_path: String = "") -> PackedStringArray:
+	var candidates := PackedStringArray()
+	var local_path := preferred_local_path if preferred_local_path != "" else build_local_image_path(card_set_code, card_idx)
+	if local_path != "":
+		candidates.append(local_path)
+	var bundled_path := build_bundled_image_path(card_set_code, card_idx)
+	if bundled_path != "" and bundled_path not in candidates:
+		candidates.append(bundled_path)
+	return candidates
+
+
+static func resolve_existing_image_path(paths: PackedStringArray) -> String:
+	for candidate: String in paths:
+		if candidate == "":
+			continue
+		if candidate.begins_with("res://"):
+			if FileAccess.file_exists(candidate):
+				return candidate
+			continue
+		var absolute_path := ProjectSettings.globalize_path(candidate)
+		if FileAccess.file_exists(absolute_path):
+			return absolute_path
+	return ""
 
 
 func ensure_image_metadata() -> bool:

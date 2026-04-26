@@ -233,6 +233,57 @@ func test_opening_setup_prefers_rotom_v_active_when_core_basics_are_already_avai
 	])
 
 
+func test_opening_setup_prefers_charmander_active_in_strong_fixed_opening_window() -> String:
+	var strategy := _new_strategy()
+	if strategy == null:
+		return "DeckStrategyCharizardEx.gd should exist before strong-opening active priorities can be verified"
+	var player := _make_player()
+	player.hand.append(CardInstance.create(_make_pokemon_cd("Charmander", "Basic", "R", 70), 0))
+	player.hand.append(CardInstance.create(_make_pokemon_cd("Pidgey", "Basic", "C", 60), 0))
+	player.hand.append(CardInstance.create(_make_trainer_cd("Nest Ball"), 0))
+	player.hand.append(CardInstance.create(_make_trainer_cd("Buddy-Buddy Poffin"), 0))
+	player.hand.append(CardInstance.create(_make_trainer_cd("Rare Candy"), 0))
+	player.hand.append(CardInstance.create(_make_energy_cd("Fire Energy", "R"), 0))
+	var choice: Dictionary = strategy.plan_opening_setup(player)
+	var active_idx: int = int(choice.get("active_hand_index", -1))
+	var active_name := "" if active_idx < 0 else str(player.hand[active_idx].card_data.name)
+	return assert_eq(active_name, "Charmander",
+		"When the strong fixed opening already has Nest Ball + Buddy-Buddy Poffin + Fire, Charmander should lead so the first Fire powers the main line")
+
+
+func test_fire_attach_avoids_pidgeot_line_in_strong_fixed_opening_window() -> String:
+	var strategy := _new_strategy()
+	if strategy == null:
+		return "DeckStrategyCharizardEx.gd should exist before strong-opening Fire routing can be verified"
+	var gs := _make_game_state(3)
+	var player: PlayerState = gs.players[0]
+	player.active_pokemon = _make_slot(_make_pokemon_cd("Charmander", "Basic", "R", 70), 0)
+	player.bench.clear()
+	player.bench.append(_make_slot(_make_pokemon_cd("Pidgey", "Basic", "C", 60), 0))
+	player.hand.append(CardInstance.create(_make_trainer_cd("Rare Candy"), 0))
+	player.hand.append(CardInstance.create(_make_trainer_cd("Rare Candy"), 0))
+	player.hand.append(CardInstance.create(_make_pokemon_cd("Charizard ex", "Stage 2", "R", 330, "Charmeleon", "ex"), 0))
+	player.hand.append(CardInstance.create(_make_pokemon_cd("Pidgeot ex", "Stage 2", "C", 280, "Pidgeotto", "ex"), 0))
+	player.hand.append(CardInstance.create(_make_trainer_cd("Nest Ball"), 0))
+	player.hand.append(CardInstance.create(_make_energy_cd("Fire Energy", "R"), 0))
+	var charmander_attach: float = strategy.score_action_absolute({
+		"kind": "attach_energy",
+		"card": CardInstance.create(_make_energy_cd("Fire Energy", "R"), 0),
+		"target_slot": player.active_pokemon,
+	}, gs, 0)
+	var pidgey_attach: float = strategy.score_action_absolute({
+		"kind": "attach_energy",
+		"card": CardInstance.create(_make_energy_cd("Fire Energy", "R"), 0),
+		"target_slot": player.bench[0],
+	}, gs, 0)
+	return run_checks([
+		assert_true(charmander_attach > pidgey_attach,
+			"Strong-opening Fire should stay on the Charizard line instead of drifting into the Pidgeot lane"),
+		assert_true(pidgey_attach <= 0.0,
+			"Pidgey should not be a positive Fire attach target in the strong fixed-opening window (got %f)" % pidgey_attach),
+	])
+
+
 func test_rare_candy_scores_higher_than_generic_item_when_stage2_line_is_live() -> String:
 	var strategy := _new_strategy()
 	if strategy == null:
@@ -1634,6 +1685,112 @@ func test_search_pokemon_keeps_duskull_as_fifth_piece_behind_second_charmander_a
 	])
 
 
+func test_search_pokemon_prefers_rotom_over_second_charmander_when_poffin_can_cover_backup_lane() -> String:
+	var strategy := _new_strategy()
+	if strategy == null:
+		return "DeckStrategyCharizardEx.gd should exist before Rotom-first strong opening priorities can be verified"
+	var gs := _make_game_state(2)
+	var player: PlayerState = gs.players[0]
+	player.active_pokemon = _make_slot(_make_pokemon_cd("Charmander", "Basic", "R", 70), 0)
+	player.bench.append(_make_slot(_make_pokemon_cd("Pidgey", "Basic", "C", 60), 0))
+	player.hand.append(CardInstance.create(_make_trainer_cd("Buddy-Buddy Poffin"), 0))
+	player.hand.append(CardInstance.create(_make_trainer_cd("Rare Candy"), 0))
+	player.hand.append(CardInstance.create(_make_trainer_cd("Arven", "Supporter"), 0))
+	player.deck.append(CardInstance.create(_make_pokemon_cd("Rotom V", "Basic", "L", 190, "", "V"), 0))
+	var second_charmander := CardInstance.create(_make_pokemon_cd("Charmander", "Basic", "R", 70), 0)
+	var rotom := CardInstance.create(_make_pokemon_cd("Rotom V", "Basic", "L", 190, "", "V"), 0)
+	var context := {"game_state": gs, "player_index": 0}
+	var step := {"id": "search_pokemon"}
+	var charmander_score: float = strategy.score_interaction_target(second_charmander, step, context)
+	var rotom_score: float = strategy.score_interaction_target(rotom, step, context)
+	return run_checks([
+		assert_true(rotom_score > charmander_score,
+			"When Buddy-Buddy Poffin already covers the backup Charmander lane, Nest Ball should pivot to Rotom V first (got %f vs %f)" % [rotom_score, charmander_score]),
+		assert_true(rotom_score >= 700.0,
+			"Rotom V should become a premium search target in the strong opening window (got %f)" % rotom_score),
+	])
+
+
+func test_search_pokemon_prefers_rotom_over_second_charmander_in_direct_double_stage2_window() -> String:
+	var strategy := _new_strategy()
+	if strategy == null:
+		return "DeckStrategyCharizardEx.gd should exist before direct double-stage2 Rotom priorities can be verified"
+	var gs := _make_game_state(2)
+	var player: PlayerState = gs.players[0]
+	player.active_pokemon = _make_slot(_make_pokemon_cd("Charmander", "Basic", "R", 70), 0)
+	player.bench.append(_make_slot(_make_pokemon_cd("Pidgey", "Basic", "C", 60), 0))
+	player.hand.append(CardInstance.create(_make_trainer_cd("Rare Candy"), 0))
+	player.hand.append(CardInstance.create(_make_trainer_cd("Rare Candy"), 0))
+	player.hand.append(CardInstance.create(_make_pokemon_cd("Charizard ex", "Stage 2", "R", 330, "Charmeleon", "ex"), 0))
+	player.hand.append(CardInstance.create(_make_pokemon_cd("Pidgeot ex", "Stage 2", "C", 280, "Pidgeotto", "ex"), 0))
+	player.deck.append(CardInstance.create(_make_pokemon_cd("Rotom V", "Basic", "L", 190, "", "V"), 0))
+	player.deck.append(CardInstance.create(_make_pokemon_cd("Charmander", "Basic", "R", 70), 0))
+	var second_charmander := CardInstance.create(_make_pokemon_cd("Charmander", "Basic", "R", 70), 0)
+	var rotom := CardInstance.create(_make_pokemon_cd("Rotom V", "Basic", "L", 190, "", "V"), 0)
+	var context := {"game_state": gs, "player_index": 0}
+	var step := {"id": "search_pokemon"}
+	var charmander_score: float = strategy.score_interaction_target(second_charmander, step, context)
+	var rotom_score: float = strategy.score_interaction_target(rotom, step, context)
+	return run_checks([
+		assert_true(rotom_score > charmander_score,
+			"When both Stage 2s and both Rare Candies are already in hand, Nest Ball should pivot to Rotom V before a second Charmander (got %f vs %f)" % [rotom_score, charmander_score]),
+		assert_true(rotom_score >= 900.0,
+			"Rotom V should become a top-tier search target in the direct double-stage2 opening window (got %f)" % rotom_score),
+	])
+
+
+func test_search_pokemon_prefers_rotom_in_strong_opening_bridge_window_with_pidgeot_piece_in_hand() -> String:
+	var strategy := _new_strategy()
+	if strategy == null:
+		return "DeckStrategyCharizardEx.gd should exist before strong-opening Rotom bridge priorities can be verified"
+	var gs := _make_game_state(1)
+	var player: PlayerState = gs.players[0]
+	player.active_pokemon = _make_slot(_make_pokemon_cd("Charmander", "Basic", "R", 70), 0)
+	player.bench.append(_make_slot(_make_pokemon_cd("Pidgey", "Basic", "C", 60), 0))
+	player.hand.append(CardInstance.create(_make_trainer_cd("Rare Candy"), 0))
+	player.hand.append(CardInstance.create(_make_pokemon_cd("Pidgeot ex", "Stage 2", "C", 280, "Pidgeotto", "ex"), 0))
+	player.deck.append(CardInstance.create(_make_pokemon_cd("Rotom V", "Basic", "L", 190, "", "V"), 0))
+	player.deck.append(CardInstance.create(_make_pokemon_cd("Charmander", "Basic", "R", 70), 0))
+	var rotom := CardInstance.create(_make_pokemon_cd("Rotom V", "Basic", "L", 190, "", "V"), 0)
+	var second_charmander := CardInstance.create(_make_pokemon_cd("Charmander", "Basic", "R", 70), 0)
+	var context := {"game_state": gs, "player_index": 0}
+	var step := {"id": "search_pokemon"}
+	var rotom_score: float = strategy.score_interaction_target(rotom, step, context)
+	var charmander_score: float = strategy.score_interaction_target(second_charmander, step, context)
+	return run_checks([
+		assert_true(rotom_score > charmander_score,
+			"When Pidgeot ex is already in hand and the opening only lacks Rotom V, Nest Ball should bridge into Rotom before a second Charmander (got %f vs %f)" % [rotom_score, charmander_score]),
+		assert_true(rotom_score >= 940.0,
+			"Rotom V should become an almost forced search target in the strong-opening bridge window (got %f)" % rotom_score),
+	])
+
+
+func test_search_pokemon_prefers_pidgeot_ex_over_charizard_ex_once_charizard_piece_is_already_in_hand() -> String:
+	var strategy := _new_strategy()
+	if strategy == null:
+		return "DeckStrategyCharizardEx.gd should exist before Pidgeot-completion search priorities can be verified"
+	var gs := _make_game_state(3)
+	var player: PlayerState = gs.players[0]
+	player.active_pokemon = _make_slot(_make_pokemon_cd("Charmander", "Basic", "R", 70), 0)
+	player.bench.append(_make_slot(_make_pokemon_cd("Pidgey", "Basic", "C", 60), 0))
+	player.hand.append(CardInstance.create(_make_trainer_cd("Rare Candy"), 0))
+	player.hand.append(CardInstance.create(_make_pokemon_cd("Charizard ex", "Stage 2", "R", 330, "Charmeleon", "ex"), 0))
+	player.deck.append(CardInstance.create(_make_pokemon_cd("Pidgeot ex", "Stage 2", "C", 280, "Pidgeotto", "ex"), 0))
+	player.deck.append(CardInstance.create(_make_pokemon_cd("Charizard ex", "Stage 2", "R", 330, "Charmeleon", "ex"), 0))
+	var pidgeot := CardInstance.create(_make_pokemon_cd("Pidgeot ex", "Stage 2", "C", 280, "Pidgeotto", "ex"), 0)
+	var charizard := CardInstance.create(_make_pokemon_cd("Charizard ex", "Stage 2", "R", 330, "Charmeleon", "ex"), 0)
+	var context := {"game_state": gs, "player_index": 0}
+	var step := {"id": "search_pokemon"}
+	var pidgeot_score: float = strategy.score_interaction_target(pidgeot, step, context)
+	var charizard_score: float = strategy.score_interaction_target(charizard, step, context)
+	return run_checks([
+		assert_true(pidgeot_score > charizard_score,
+			"When Charizard ex is already in hand and the Pidgey + Rare Candy lane is ready, search should finish Pidgeot ex first (got %f vs %f)" % [pidgeot_score, charizard_score]),
+		assert_true(pidgeot_score >= 950.0,
+			"Pidgeot ex should become the top search target in the direct completion window (got %f)" % pidgeot_score),
+	])
+
+
 func test_buddy_buddy_poffin_picks_pidgey_before_second_charmander_when_pidgey_is_missing() -> String:
 	var strategy := _new_strategy()
 	if strategy == null:
@@ -2539,6 +2696,135 @@ func test_search_cards_prefers_direct_rare_candy_over_arven_once_pidgeot_is_onli
 	)
 	return assert_eq(picked_name, "Rare Candy",
 		"Once Pidgeot ex is already online, Quick Search should prefer the direct Rare Candy piece over routing through Arven again")
+
+
+func test_attack_waits_for_pidgeot_ex_when_early_double_stage2_window_is_live() -> String:
+	var strategy := _new_strategy()
+	if strategy == null:
+		return "DeckStrategyCharizardEx.gd should exist before early double-stage2 finishing can be verified"
+	var gs := _make_game_state(3)
+	var player: PlayerState = gs.players[0]
+	player.active_pokemon = _make_slot(_make_pokemon_cd(
+		"Charizard ex",
+		"Stage 2",
+		"R",
+		330,
+		"Charmeleon",
+		"ex",
+		[],
+		[{"name": "Burning Darkness", "cost": "RR", "damage": "180"}]
+	), 0)
+	player.active_pokemon.attached_energy.append(CardInstance.create(_make_energy_cd("Fire Energy", "R"), 0))
+	player.active_pokemon.attached_energy.append(CardInstance.create(_make_energy_cd("Fire Energy", "R"), 0))
+	player.bench.append(_make_slot(_make_pokemon_cd("Pidgey", "Basic", "C", 60), 0))
+	player.hand.append(CardInstance.create(_make_trainer_cd("Rare Candy"), 0))
+	player.hand.append(CardInstance.create(_make_pokemon_cd("Pidgeot ex", "Stage 2", "C", 280, "Pidgeotto", "ex"), 0))
+	var attack_score: float = strategy.score_action_absolute(
+		{"kind": "attack", "attack_name": "Burning Darkness", "projected_damage": 180},
+		gs,
+		0
+	)
+	var candy_score: float = strategy.score_action_absolute(
+		{"kind": "play_trainer", "card": CardInstance.create(_make_trainer_cd("Rare Candy"), 0)},
+		gs,
+		0
+	)
+	return run_checks([
+		assert_true(candy_score > attack_score,
+			"Before the first Charizard attack in the early setup window, finishing Pidgeot ex should outrank swinging immediately (got %f vs %f)" % [candy_score, attack_score]),
+		assert_true(candy_score >= 700.0,
+			"Rare Candy should become a premium setup-finishing action when Pidgeot ex is the last missing engine piece (got %f)" % candy_score),
+	])
+
+
+func test_arven_stays_low_when_double_stage2_finish_is_already_in_hand() -> String:
+	var strategy := _new_strategy()
+	if strategy == null:
+		return "DeckStrategyCharizardEx.gd should exist before direct double-stage2 finish windows can be verified"
+	var gs := _make_game_state(3)
+	var player: PlayerState = gs.players[0]
+	player.active_pokemon = _make_slot(_make_pokemon_cd("Charmander", "Basic", "R", 70), 0)
+	player.bench.append(_make_slot(_make_pokemon_cd("Pidgey", "Basic", "C", 60), 0))
+	player.hand.append(CardInstance.create(_make_trainer_cd("Rare Candy"), 0))
+	player.hand.append(CardInstance.create(_make_trainer_cd("Rare Candy"), 0))
+	player.hand.append(CardInstance.create(_make_pokemon_cd("Charizard ex", "Stage 2", "R", 330, "Charmeleon", "ex"), 0))
+	player.hand.append(CardInstance.create(_make_pokemon_cd("Pidgeot ex", "Stage 2", "C", 280, "Pidgeotto", "ex"), 0))
+	var arven_score: float = strategy.score_action_absolute(
+		{"kind": "play_trainer", "card": CardInstance.create(_make_trainer_cd("Arven", "Supporter"), 0)},
+		gs,
+		0
+	)
+	var candy_score: float = strategy.score_action_absolute(
+		{"kind": "play_trainer", "card": CardInstance.create(_make_trainer_cd("Rare Candy"), 0)},
+		gs,
+		0
+	)
+	return run_checks([
+		assert_true(arven_score < candy_score,
+			"When both Stage 2 pieces and two Rare Candy are already in hand, Arven should stay behind direct evolution (got %f vs %f)" % [arven_score, candy_score]),
+		assert_true(arven_score <= 120.0,
+			"Arven should stop reopening the bridge when the full double-stage2 finish is already available in hand (got %f)" % arven_score),
+	])
+
+
+func test_infernal_reign_stops_overfilling_charizard_while_pidgeot_ex_is_still_missing() -> String:
+	var strategy := _new_strategy()
+	if strategy == null:
+		return "DeckStrategyCharizardEx.gd should exist before early Infernal Reign caps can be verified"
+	var gs := _make_game_state(3)
+	var player: PlayerState = gs.players[0]
+	player.active_pokemon = _make_slot(_make_pokemon_cd(
+		"Charizard ex",
+		"Stage 2",
+		"R",
+		330,
+		"Charmeleon",
+		"ex",
+		[],
+		[{"name": "Burning Darkness", "cost": "RR", "damage": "180"}]
+	), 0)
+	player.active_pokemon.attached_energy.append(CardInstance.create(_make_energy_cd("Fire Energy", "R"), 0))
+	player.active_pokemon.attached_energy.append(CardInstance.create(_make_energy_cd("Fire Energy", "R"), 0))
+	player.bench.append(_make_slot(_make_pokemon_cd("Pidgey", "Basic", "C", 60), 0))
+	player.hand.append(CardInstance.create(_make_trainer_cd("Rare Candy"), 0))
+	player.hand.append(CardInstance.create(_make_pokemon_cd("Pidgeot ex", "Stage 2", "C", 280, "Pidgeotto", "ex"), 0))
+	var target_score: float = strategy.score_interaction_target(
+		player.active_pokemon,
+		{"id": "manual_attach_energy_target"},
+		{"game_state": gs, "player_index": 0, "source_card": CardInstance.create(_make_energy_cd("Fire Energy", "R"), 0)}
+	)
+	return assert_true(target_score <= 30.0,
+		"Once Charizard ex is already attack-ready and Pidgeot ex is still the missing engine piece, extra Fire attachments should stay near-dead (got %f)" % target_score)
+
+
+func test_infernal_reign_stops_overfilling_charizard_once_both_stage2s_are_online_early() -> String:
+	var strategy := _new_strategy()
+	if strategy == null:
+		return "DeckStrategyCharizardEx.gd should exist before early double-stage2 Infernal Reign caps can be verified"
+	var gs := _make_game_state(3)
+	var player: PlayerState = gs.players[0]
+	player.active_pokemon = _make_slot(_make_pokemon_cd(
+		"Charizard ex",
+		"Stage 2",
+		"R",
+		330,
+		"Charmeleon",
+		"ex",
+		[],
+		[{"name": "Burning Darkness", "cost": "RR", "damage": "180"}]
+	), 0)
+	player.active_pokemon.attached_energy.append(CardInstance.create(_make_energy_cd("Fire Energy", "R"), 0))
+	player.active_pokemon.attached_energy.append(CardInstance.create(_make_energy_cd("Fire Energy", "R"), 0))
+	player.bench.append(_make_slot(_make_pokemon_cd("Pidgeot ex", "Stage 2", "C", 280, "Pidgeotto", "ex"), 0))
+	var backup_charmander := _make_slot(_make_pokemon_cd("Charmander", "Basic", "R", 70), 0)
+	player.bench.append(backup_charmander)
+	var charizard_score: float = strategy.score_interaction_target(
+		player.active_pokemon,
+		{"id": "manual_attach_energy_target"},
+		{"game_state": gs, "player_index": 0, "source_card": CardInstance.create(_make_energy_cd("Fire Energy", "R"), 0)}
+	)
+	return assert_true(charizard_score <= 0.0,
+		"Once both Stage 2 lines are already online early and Charizard ex is attack-ready, extra Fire should stop going into the active Charizard (got %f)" % charizard_score)
 
 
 func test_handoff_target_prefers_rotom_v_for_early_send_out_when_shell_basics_are_already_down() -> String:

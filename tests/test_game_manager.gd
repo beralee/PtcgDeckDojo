@@ -91,8 +91,9 @@ func test_battle_review_api_config_uses_defaults_when_file_is_missing() -> Strin
 		assert_eq(str(manager.call("get_battle_review_api_config_path")), CONFIG_PATH, "GameManager should expose the fixed user:// config path"),
 		assert_eq(str(config.get("endpoint", "")), "https://zenmux.ai/api/v1", "missing config file should keep default endpoint"),
 		assert_eq(str(config.get("api_key", "")), "", "missing config file should keep default api_key"),
-		assert_eq(str(config.get("model", "")), "openai/gpt-5.4", "missing config file should keep default model"),
+		assert_eq(str(config.get("model", "")), "kimi-k2.6", "missing config file should keep default no-reasoning model"),
 		assert_eq(float(config.get("timeout_seconds", 0.0)), 60.0, "missing config file should keep default timeout"),
+		assert_eq(str(config.get("ai_personality", "")), "", "missing config file should keep default AI personality"),
 	])
 
 
@@ -102,8 +103,9 @@ func test_battle_review_api_config_loads_user_file() -> String:
 	_write_config({
 		"endpoint": "https://example.invalid/v1/chat/completions",
 		"api_key": "zenmux-key",
-		"model": "gpt-test",
+		"model": "z-ai/glm-5.1",
 		"timeout_seconds": 45,
+		"ai_personality": "谨慎但幽默",
 	})
 	var manager: Node = _load_game_manager_script().new()
 	var config: Dictionary = manager.call("get_battle_review_api_config")
@@ -112,8 +114,54 @@ func test_battle_review_api_config_loads_user_file() -> String:
 	return run_checks([
 		assert_eq(str(config.get("endpoint", "")), "https://example.invalid/v1/chat/completions", "GameManager should load endpoint from user config"),
 		assert_eq(str(config.get("api_key", "")), "zenmux-key", "GameManager should load api_key from user config"),
-		assert_eq(str(config.get("model", "")), "gpt-test", "GameManager should load model from user config"),
+		assert_eq(str(config.get("model", "")), "z-ai/glm-5.1", "GameManager should load supported no-reasoning model from user config"),
 		assert_eq(float(config.get("timeout_seconds", 0.0)), 45.0, "GameManager should load timeout_seconds from user config"),
+		assert_eq(str(config.get("ai_personality", "")), "谨慎但幽默", "GameManager should load AI personality from user config"),
+	])
+
+
+func test_battle_review_api_config_migrates_missing_ai_personality() -> String:
+	var original_config_text := _read_config_text()
+	_remove_config_file()
+	_write_config({
+		"endpoint": "https://example.invalid/v1",
+		"api_key": "old-key",
+		"model": "qwen/qwen3.6-plus",
+		"timeout_seconds": 30,
+	})
+	var manager: Node = _load_game_manager_script().new()
+	var config: Dictionary = manager.call("get_battle_review_api_config")
+	_restore_config_text(original_config_text)
+
+	return run_checks([
+		assert_true(config.has("ai_personality"), "Old config files should be upgraded in memory with ai_personality"),
+		assert_eq(str(config.get("ai_personality", "")), "", "Old config files should use an empty AI personality by default"),
+	])
+
+
+func test_battle_review_api_config_restricts_models_to_supported_allowlist() -> String:
+	var original_config_text := _read_config_text()
+	_remove_config_file()
+	_write_config({
+		"endpoint": "https://example.invalid/v1",
+		"api_key": "old-key",
+		"model": "openai/gpt-5.4",
+		"timeout_seconds": 30,
+	})
+	var manager: Node = _load_game_manager_script().new()
+	var unsupported_config: Dictionary = manager.call("get_battle_review_api_config")
+	_write_config({
+		"endpoint": "https://example.invalid/v1",
+		"api_key": "old-key",
+		"model": "deepseek-v4-flash",
+		"timeout_seconds": 30,
+	})
+	var deepseek_config: Dictionary = manager.call("get_battle_review_api_config")
+	_restore_config_text(original_config_text)
+
+	return run_checks([
+		assert_eq(str(unsupported_config.get("model", "")), "kimi-k2.6", "Unsupported models should fall back to the default model"),
+		assert_eq(str(deepseek_config.get("model", "")), "deepseek/deepseek-chat", "DeepSeek V4 Flash should map to the current non-thinking compatibility slug"),
 	])
 
 

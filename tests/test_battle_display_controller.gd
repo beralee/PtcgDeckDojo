@@ -2,6 +2,7 @@ class_name TestBattleDisplayController
 extends TestBase
 
 const BattleDisplayControllerScript = preload("res://scripts/ui/battle/BattleDisplayController.gd")
+const BattleSceneScript = preload("res://scenes/battle/BattleScene.gd")
 
 
 class RefreshHandSceneStub extends Control:
@@ -86,6 +87,42 @@ func test_get_selected_deck_name_uses_dedicated_ai_deck_in_vs_ai_mode() -> Strin
 
 	return run_checks([
 		assert_eq(result, "AI Slot 2", "Battle display should show the dedicated AI deck name for player 2 in VS_AI mode"),
+	])
+
+
+func test_get_display_player_name_prefers_tournament_names() -> String:
+	var controller := BattleDisplayControllerScript.new()
+	var previous_names := GameManager.battle_player_display_names.duplicate()
+	var previous_mode := GameManager.current_mode
+	var previous_selection := GameManager.ai_selection.duplicate(true)
+
+	GameManager.current_mode = GameManager.GameMode.VS_AI
+	GameManager.ai_selection["display_name"] = "系统AI"
+	GameManager.set_battle_player_display_names(["小林", "青木"])
+	var player_name := str(controller.call("get_display_player_name", 0))
+	var opponent_name := str(controller.call("get_display_player_name", 1))
+
+	GameManager.battle_player_display_names = previous_names
+	GameManager.current_mode = previous_mode
+	GameManager.ai_selection = previous_selection
+
+	return run_checks([
+		assert_eq(player_name, "小林", "Battle display should use the explicit player tournament name for player 1"),
+		assert_eq(opponent_name, "青木", "Battle display should use the explicit player tournament name for player 2"),
+	])
+	
+
+func test_battle_scene_formats_action_log_with_display_names() -> String:
+	var scene := BattleSceneScript.new()
+	var previous_names := GameManager.battle_player_display_names.duplicate()
+	GameManager.set_battle_player_display_names(["小林", "青木"])
+	var rendered := str(scene.call("_format_action_description_for_display", "第3回合开始，玩家1行动；玩家2抽1张牌"))
+	GameManager.battle_player_display_names = previous_names
+
+	return run_checks([
+		assert_true(rendered.find("小林") >= 0, "BattleScene should replace 玩家1 with the player display name in battle logs"),
+		assert_true(rendered.find("青木") >= 0, "BattleScene should replace 玩家2 with the opponent display name in battle logs"),
+		assert_true(rendered.find("玩家1") < 0 and rendered.find("玩家2") < 0, "BattleScene display log text should not keep numeric default player labels when tournament names are available"),
 	])
 
 

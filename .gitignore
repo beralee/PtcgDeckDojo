@@ -24,10 +24,19 @@ battle_review_api.json
 
 # Local runtime artifacts
 logs/
+tmp/
+detail.jsonl
+__pycache__/
 .tmp_*.gd
 .tmp_*.gd.uid
+tmp_*.gd
+tmp_*.gd.uid
+tmp_*.py
 tests/tmp_*.gd
 tests/tmp_*.gd.uid
+tests/temp_*.gd
+tests/temp_*.gd.uid
+data/bundled_user/cards/images/UTEST/
 
 # Local Python cache
 scripts/training/__pycache__/

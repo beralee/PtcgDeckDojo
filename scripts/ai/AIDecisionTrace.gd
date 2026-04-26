@@ -10,6 +10,8 @@ var scored_actions: Array = []
 var chosen_action: Dictionary = {}
 var reason_tags: Array = []
 var used_mcts: bool = false
+var runtime_mode: String = ""
+var turn_contract: Dictionary = {}
 
 
 func clone():
@@ -23,6 +25,8 @@ func clone():
 	copy.chosen_action = chosen_action.duplicate(true)
 	copy.reason_tags = reason_tags.duplicate(true)
 	copy.used_mcts = used_mcts
+	copy.runtime_mode = runtime_mode
+	copy.turn_contract = turn_contract.duplicate(true)
 	return copy
 
 
@@ -37,4 +41,6 @@ func to_dictionary() -> Dictionary:
 		"chosen_action": chosen_action.duplicate(true),
 		"reason_tags": reason_tags.duplicate(true),
 		"used_mcts": used_mcts,
+		"runtime_mode": runtime_mode,
+		"turn_contract": turn_contract.duplicate(true),
 	}

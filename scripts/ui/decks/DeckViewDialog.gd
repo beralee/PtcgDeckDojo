@@ -278,11 +278,10 @@ func _energy_display(energy_code: String) -> String:
 
 
 func _load_card_texture(set_code: String, card_index: String) -> Texture2D:
-	var local_path := CardData.build_local_image_path(set_code, card_index)
-	if local_path == "":
-		return null
-	var file_path := ProjectSettings.globalize_path(local_path)
-	if not FileAccess.file_exists(file_path):
+	var file_path := CardData.resolve_existing_image_path(
+		CardData.get_image_candidate_paths(set_code, card_index)
+	)
+	if file_path == "":
 		return null
 	if _texture_cache.has(file_path):
 		return _texture_cache[file_path]

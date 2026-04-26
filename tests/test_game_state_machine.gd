@@ -1,4 +1,4 @@
-﻿## GameStateMachine tests
+## GameStateMachine tests
 class_name TestGameStateMachine
 extends TestBase
 
@@ -1424,6 +1424,68 @@ func test_can_use_attack_counts_special_energy_provided_energy() -> String:
 	])
 
 
+func test_hp_tool_keeps_active_attack_and_retreat_usable() -> String:
+	var gsm := _make_gsm_with_decks()
+	gsm.game_state.phase = GameState.GamePhase.MAIN
+	gsm.game_state.turn_number = 10
+	gsm.game_state.current_player_index = 0
+	gsm.game_state.first_player_index = 1
+
+	var active_cd := CardData.new()
+	active_cd.name = "飘飘球"
+	active_cd.card_type = "Pokemon"
+	active_cd.stage = "Basic"
+	active_cd.hp = 70
+	active_cd.energy_type = "P"
+	active_cd.retreat_cost = 1
+	active_cd.attacks = [
+		{"name": "起风", "cost": "CC", "damage": "10", "is_vstar_power": false},
+		{"name": "气球炸弹", "cost": "PP", "damage": "30×", "is_vstar_power": false},
+	]
+	var active_slot := PokemonSlot.new()
+	active_slot.pokemon_stack.append(CardInstance.create(active_cd, 0))
+	active_slot.attached_energy.append(CardInstance.create(_make_test_energy("P"), 0))
+	active_slot.attached_energy.append(CardInstance.create(_make_test_energy("P"), 0))
+
+	var tool_cd := CardData.new()
+	tool_cd.name = "勇气护符"
+	tool_cd.card_type = "Tool"
+	tool_cd.effect_id = "d1c2f018a644e662f2b6895fdfc29281"
+	active_slot.attached_tool = CardInstance.create(tool_cd, 0)
+	active_slot.damage_counters = 100
+	gsm.game_state.players[0].active_pokemon = active_slot
+
+	var bench_cd := CardData.new()
+	bench_cd.name = "Bench Pivot"
+	bench_cd.card_type = "Pokemon"
+	bench_cd.stage = "Basic"
+	bench_cd.hp = 80
+	bench_cd.energy_type = "P"
+	var bench_slot := PokemonSlot.new()
+	bench_slot.pokemon_stack.append(CardInstance.create(bench_cd, 0))
+	gsm.game_state.players[0].bench = [bench_slot]
+
+	var defender_cd := CardData.new()
+	defender_cd.name = "Opponent Active"
+	defender_cd.card_type = "Pokemon"
+	defender_cd.stage = "Basic"
+	defender_cd.hp = 120
+	defender_cd.energy_type = "R"
+	var defender_slot := PokemonSlot.new()
+	defender_slot.pokemon_stack.append(CardInstance.create(defender_cd, 1))
+	gsm.game_state.players[1].active_pokemon = defender_slot
+
+	var attack_reason := gsm.get_attack_unusable_reason(0, 1)
+	var can_retreat := gsm.rule_validator.can_retreat(gsm.game_state, 0, gsm.effect_processor)
+
+	return run_checks([
+		assert_true(active_slot.is_knocked_out(), "Raw base-HP check should still mark 100 damage on 70 HP as knocked out"),
+		assert_false(gsm.effect_processor.is_effectively_knocked_out(active_slot, gsm.game_state), "Bravery Charm should keep the active Pokemon effectively alive"),
+		assert_eq(attack_reason, "", "Effective HP should stop current_active_knocked_out from blocking attacks"),
+		assert_true(can_retreat, "Effective HP should also keep retreat available when a live bench exists"),
+	])
+
+
 func test_knockout_replace_advances_after_send_out() -> String:
 	var gsm := _make_gsm_with_decks()
 	gsm.game_state.phase = GameState.GamePhase.MAIN
@@ -2307,6 +2369,7 @@ func test_attack_log_includes_damage_and_target_details() -> String:
 		assert_eq(str(attack_action.data.get("attack_name", "")), "Quick Bolt", "Attack log should include the attack name"),
 		assert_eq(int(attack_action.data.get("damage", -1)), 40, "Attack log should include the damage dealt"),
 		assert_eq(str(attack_action.data.get("target_pokemon_name", "")), "Defender", "Attack log should include the target Pokemon name"),
+		assert_eq(str(attack_action.description).find("?"), -1, "Attack log description should not contain mojibake placeholders"),
 	])
 
 

@@ -20,6 +20,11 @@ const ROTOM_V := "Rotom V"
 const LUMINEON_V := "Lumineon V"
 const FEZANDIPITI_EX := "Fezandipiti ex"
 const RADIANT_ALAKAZAM := "Radiant Alakazam"
+const MIRAIDON_EX := "Miraidon ex"
+const IRON_HANDS_EX := "Iron Hands ex"
+const RAIKOU_V := "Raikou V"
+const RAICHU_V := "Raichu V"
+const SQUAWKABILLY_EX := "Squawkabilly ex"
 
 const ARVEN := "Arven"
 const IONO := "Iono"
@@ -36,6 +41,7 @@ const NIGHT_STRETCHER := "Night Stretcher"
 const RESCUE_BOARD := "Rescue Board"
 const SPARKLING_CRYSTAL := "Sparkling Crystal"
 const FOREST_SEAL_STONE := "Forest Seal Stone"
+const FOREST_SEAL_STONE_EFFECT_ID := "9fa9943ccda36f417ac3cb675177c216"
 const TM_DEVOLUTION := "Technical Machine: Devolution"
 const TEMPLE_OF_SINNOH := "Temple of Sinnoh"
 
@@ -85,6 +91,95 @@ func get_mcts_config() -> Dictionary:
 		"time_budget_ms": 1200,
 		"rollouts_per_sequence": 0,
 	}
+
+
+func build_turn_plan(game_state: GameState, player_index: int, context: Dictionary = {}) -> Dictionary:
+	if game_state == null or player_index < 0 or player_index >= game_state.players.size():
+		return {}
+	var player: PlayerState = game_state.players[player_index]
+	var opponent: PlayerState = game_state.players[1 - player_index]
+	var has_dragapult: bool = _count_name(player, DRAGAPULT_EX) > 0
+	var ready_dragapult := _best_ready_dragapult_slot(player)
+	var ready_dragapult_live: bool = ready_dragapult != null
+	var dragapult_shell_ready: bool = _count_name(player, DREEPY) > 0 or _count_name(player, DRAKLOAK) > 0
+	var support_shell_ready: bool = _count_name(player, DUSKULL) > 0
+	var shell_ready: bool = has_dragapult or dragapult_shell_ready
+	var candy_dragapult_live: bool = _rare_candy_dragapult_live(player)
+	var first_dragapult_window: bool = not has_dragapult and candy_dragapult_live
+	var immediate_attack_window: bool = _has_immediate_attack_window(player)
+	var devolution_window: bool = _has_real_devolution_window(game_state, player_index)
+	var miraidon_pressure: bool = _is_miraidon_pressure_matchup(opponent)
+	var launch_pivot_name: String = _launch_pivot_name(player)
+	var intent := "launch_shell"
+	if ready_dragapult_live:
+		intent = "convert_attack" if immediate_attack_window else "bridge_to_attack"
+	elif has_dragapult:
+		intent = "rebuild_dragapult" if _count_name(player, DREEPY) == 0 and _count_name(player, DRAKLOAK) == 0 else "bridge_to_attack"
+	elif dragapult_shell_ready:
+		intent = "force_first_dragapult"
+	elif first_dragapult_window:
+		intent = "force_first_dragapult"
+	else:
+		intent = "launch_shell"
+	var flags := {
+		"launch_shell": intent == "launch_shell",
+		"force_first_dragapult": intent == "force_first_dragapult",
+		"bridge_to_attack": intent == "bridge_to_attack",
+		"convert_attack": intent == "convert_attack",
+		"rebuild_dragapult": intent == "rebuild_dragapult",
+		"miraidon_pressure": miraidon_pressure,
+		"devolution_window": devolution_window,
+		"immediate_attack_window": immediate_attack_window,
+		"shell_ready": shell_ready,
+		"support_shell_ready": support_shell_ready,
+		"launch_pivot_active": launch_pivot_name != "" and _slot_name(player.active_pokemon) == launch_pivot_name,
+	}
+	var primary_attacker_name := DRAGAPULT_EX if ready_dragapult_live or has_dragapult or first_dragapult_window else DREEPY
+	var bridge_target_name := DRAGAPULT_EX if intent in ["force_first_dragapult", "bridge_to_attack", "rebuild_dragapult"] else DREEPY
+	var priorities := {
+		"attach": [DRAGAPULT_EX, DRAKLOAK, DREEPY],
+		"handoff": [DRAGAPULT_EX, DUSKNOIR, DRAKLOAK],
+		"search": [DREEPY, DUSKULL, DRAGAPULT_EX, DRAKLOAK, DUSKNOIR],
+	}
+	if intent == "convert_attack":
+		priorities["handoff"] = [DRAGAPULT_EX, DUSKNOIR, DRAKLOAK, DREEPY]
+	return {
+		"intent": intent,
+		"phase": "launch" if not has_dragapult else ("convert" if ready_dragapult_live else "bridge"),
+		"flags": flags,
+		"targets": {
+			"primary_attacker_name": primary_attacker_name,
+			"bridge_target_name": bridge_target_name,
+			"pivot_target_name": launch_pivot_name,
+		},
+		"owner": {
+			"turn_owner_name": primary_attacker_name if intent != "launch_shell" else launch_pivot_name,
+			"bridge_target_name": bridge_target_name,
+			"pivot_target_name": launch_pivot_name,
+		},
+		"constraints": {
+			"must_attack_if_available": intent == "convert_attack" and immediate_attack_window,
+			"forbid_engine_churn": intent in ["force_first_dragapult", "bridge_to_attack", "convert_attack"],
+			"forbid_extra_bench_padding": intent in ["bridge_to_attack", "convert_attack"] and shell_ready,
+		},
+		"priorities": priorities,
+		"context": context.duplicate(true),
+	}
+
+
+func build_turn_contract(game_state: GameState, player_index: int, context: Dictionary = {}) -> Dictionary:
+	var contract := _normalize_turn_contract(build_turn_plan(game_state, player_index, context))
+	var priorities: Dictionary = contract.get("priorities", {}) if contract.get("priorities", {}) is Dictionary else {}
+	var attach_priority: Array[String] = []
+	var raw_attach: Variant = priorities.get("attach", [])
+	if raw_attach is Array:
+		for name_variant: Variant in raw_attach:
+			attach_priority.append(str(name_variant))
+	if attach_priority.is_empty():
+		attach_priority = [DRAGAPULT_EX, DRAKLOAK, DREEPY]
+	priorities["attach"] = attach_priority
+	contract["priorities"] = priorities
+	return contract
 
 
 func plan_opening_setup(player: PlayerState) -> Dictionary:
@@ -149,7 +244,7 @@ func score_action_absolute(action: Dictionary, game_state: GameState, player_ind
 		"use_ability":
 			return _score_use_ability(action, game_state, player_index)
 		"retreat":
-			return _score_retreat(player)
+			return _score_retreat(player, game_state, player_index)
 		"attack", "granted_attack":
 			return _score_attack(action, game_state, player_index)
 	return 0.0
@@ -289,21 +384,45 @@ func score_interaction_target(item: Variant, step: Dictionary, context: Dictiona
 	return 0.0
 
 
+func _resolved_turn_contract(game_state: GameState, player_index: int, context: Dictionary = {}) -> Dictionary:
+	var turn_contract := get_turn_contract_context()
+	if not turn_contract.is_empty():
+		return turn_contract
+	return build_turn_contract(game_state, player_index, context)
+
+
 func _score_basic_to_bench(action: Dictionary, game_state: GameState, player_index: int) -> float:
 	var card: CardInstance = action.get("card")
 	if card == null or card.card_data == null:
 		return 0.0
 	var player: PlayerState = game_state.players[player_index]
+	if _should_shutdown_extra_setup(player, game_state):
+		match _card_name(card):
+			DREEPY:
+				return 80.0 if _count_name(player, DREEPY) == 0 else -10.0
+			DUSKULL:
+				return 60.0 if _count_name(player, DUSKULL) == 0 else -10.0
+			TATSUGIRI, ROTOM_V, FEZANDIPITI_EX, LUMINEON_V, RADIANT_ALAKAZAM:
+				return -20.0
+	var turn_contract := _resolved_turn_contract(game_state, player_index, {"prompt_kind": "action_selection", "kind": "play_basic_to_bench"})
+	var flags: Dictionary = turn_contract.get("flags", {}) if turn_contract.get("flags", {}) is Dictionary else {}
+	var shell_ready: bool = bool(flags.get("shell_ready", false))
 	match _card_name(card):
 		DREEPY:
-			return 380.0 if _count_name(player, DREEPY) == 0 else 230.0
+			return 420.0 if _count_name(player, DREEPY) == 0 else 250.0
 		DUSKULL:
-			return 340.0 if _count_name(player, DUSKULL) == 0 else 180.0
+			return 380.0 if _count_name(player, DUSKULL) == 0 else 210.0
 		TATSUGIRI:
+			if shell_ready and bool(turn_contract.get("constraints", {}).get("forbid_extra_bench_padding", false)):
+				return 20.0
 			return 240.0 if _count_name(player, TATSUGIRI) == 0 else 90.0
 		ROTOM_V:
+			if shell_ready and bool(turn_contract.get("constraints", {}).get("forbid_extra_bench_padding", false)):
+				return 25.0
 			return 220.0 if _count_name(player, DRAGAPULT_EX) == 0 and _count_name(player, ROTOM_V) == 0 else 70.0
 		FEZANDIPITI_EX:
+			if shell_ready and bool(turn_contract.get("constraints", {}).get("forbid_extra_bench_padding", false)):
+				return 10.0
 			return 170.0 if _count_name(player, FEZANDIPITI_EX) == 0 else 80.0
 	return 50.0
 
@@ -329,12 +448,34 @@ func _score_trainer(action: Dictionary, game_state: GameState, player_index: int
 	var player: PlayerState = game_state.players[player_index]
 	var opponent: PlayerState = game_state.players[1 - player_index]
 	var name := _card_name(action.get("card"))
+	var turn_contract := _resolved_turn_contract(game_state, player_index, {"prompt_kind": "action_selection", "kind": "play_trainer", "trainer_name": name})
+	var flags: Dictionary = turn_contract.get("flags", {}) if turn_contract.get("flags", {}) is Dictionary else {}
+	var intent := str(turn_contract.get("intent", ""))
+	var immediate_attack_window: bool = bool(flags.get("immediate_attack_window", false))
+	if _should_shutdown_extra_setup(player, game_state):
+		match name:
+			BUDDY_BUDDY_POFFIN, NEST_BALL:
+				return 20.0
+			ULTRA_BALL:
+				return 80.0 if _count_name(player, DREEPY) == 0 or _count_name(player, DUSKULL) == 0 else 30.0
+			ARVEN:
+				if _deck_has(player, COUNTER_CATCHER) and _player_is_behind_in_prizes(game_state, player_index) and immediate_attack_window:
+					return 140.0
+				if _deck_has(player, NIGHT_STRETCHER) and _has_core_piece_in_discard(player):
+					return 120.0
+				return 30.0
+			EARTHEN_VESSEL:
+				return 40.0 if _needs_dragapult_energy(player) else -10.0
+			NIGHT_STRETCHER:
+				return 300.0 if _has_core_piece_in_discard(player) else 40.0
 	match name:
 		RARE_CANDY:
-			return _rare_candy_value(player)
+			return _rare_candy_value(player) + (140.0 if intent == "force_first_dragapult" else 0.0)
 		ARVEN:
 			return _score_arven(player, game_state, player_index)
 		BUDDY_BUDDY_POFFIN:
+			if _count_name(player, DRAGAPULT_EX) > 0 and intent in ["bridge_to_attack", "convert_attack", "rebuild_dragapult"]:
+				return 30.0
 			if player.bench.size() >= 5:
 				return 0.0
 			var missing := 0
@@ -342,17 +483,23 @@ func _score_trainer(action: Dictionary, game_state: GameState, player_index: int
 				missing += 1
 			if _count_name(player, DUSKULL) == 0:
 				missing += 1
-			return 360.0 if missing >= 2 else 240.0
+			return 420.0 if missing >= 2 else 260.0
 		NEST_BALL:
-			return 280.0 if player.bench.size() < 5 and (_count_name(player, DREEPY) == 0 or _count_name(player, DUSKULL) == 0) else 150.0
+			if _count_name(player, DRAGAPULT_EX) > 0 and intent in ["bridge_to_attack", "convert_attack", "rebuild_dragapult"]:
+				return 60.0
+			return 340.0 if player.bench.size() < 5 and (_count_name(player, DREEPY) == 0 or _count_name(player, DUSKULL) == 0) else 150.0
 		ULTRA_BALL:
-			return 320.0 if _count_name(player, DRAGAPULT_EX) == 0 or _count_name(player, DUSKNOIR) == 0 else 180.0
+			return 360.0 if intent in ["force_first_dragapult", "bridge_to_attack"] else (320.0 if _count_name(player, DRAGAPULT_EX) == 0 or _count_name(player, DUSKNOIR) == 0 else 180.0)
 		EARTHEN_VESSEL:
 			return 300.0 if _needs_dragapult_energy(player) else 160.0
 		COUNTER_CATCHER:
-			return 430.0 if _player_is_behind_in_prizes(game_state, player_index) and _can_attack_soon(player) else 150.0
+			if not immediate_attack_window:
+				return 30.0
+			return 430.0 if _player_is_behind_in_prizes(game_state, player_index) and _can_attack_soon(player) else 120.0
 		BOSSS_ORDERS:
-			return 420.0 if _can_take_bench_prize(game_state, player_index) else 180.0
+			if not immediate_attack_window:
+				return 20.0
+			return 420.0 if _can_take_bench_prize(game_state, player_index) else 90.0
 		ROXANNE:
 			return 320.0 if opponent.prizes.size() <= 3 else 90.0
 		MELA:
@@ -360,7 +507,7 @@ func _score_trainer(action: Dictionary, game_state: GameState, player_index: int
 		NIGHT_STRETCHER:
 			return 280.0 if _has_core_piece_in_discard(player) else 90.0
 		TEMPLE_OF_SINNOH:
-			return 80.0
+			return 20.0 if bool(flags.get("miraidon_pressure", false)) else 80.0
 	return 70.0
 
 
@@ -383,6 +530,8 @@ func _score_attach_tool(action: Dictionary, game_state: GameState, player_index:
 		return 0.0
 	var tool_name := _card_name(card)
 	var target_name := _slot_name(target_slot)
+	var player: PlayerState = game_state.players[player_index]
+	var turn_contract := _resolved_turn_contract(game_state, player_index, {"prompt_kind": "action_selection", "kind": "attach_tool", "tool_name": tool_name})
 	match tool_name:
 		SPARKLING_CRYSTAL:
 			if target_name == DRAGAPULT_EX:
@@ -390,23 +539,44 @@ func _score_attach_tool(action: Dictionary, game_state: GameState, player_index:
 			return 80.0
 		RESCUE_BOARD:
 			if target_name in [DUSKULL, TATSUGIRI, ROTOM_V] or target_slot == game_state.players[player_index].active_pokemon:
-				return 280.0
+				return 340.0 if target_slot == game_state.players[player_index].active_pokemon else 280.0
 			return 120.0
 		FOREST_SEAL_STONE:
-			if target_name in [ROTOM_V, LUMINEON_V, FEZANDIPITI_EX]:
-				return 360.0 if _count_name(game_state.players[player_index], DRAGAPULT_EX) == 0 else 120.0
+			if target_name not in [ROTOM_V, LUMINEON_V]:
+				return -20.0
+			if target_name == ROTOM_V:
+				return 520.0 if _should_route_forest_seal_stone_to_rotom(player, game_state) else (360.0 if _count_name(player, DRAGAPULT_EX) == 0 else 120.0)
+			if target_name == LUMINEON_V:
+				if _count_name(player, DRAGAPULT_EX) == 0 and not _has_supporter_in_hand(player):
+					return 420.0
+				return 220.0 if _count_name(player, DRAGAPULT_EX) == 0 else 80.0
 			return 40.0
 		TM_DEVOLUTION:
-			return 220.0 if _opponent_has_evolution(game_state, player_index) else 90.0
+			if str(turn_contract.get("intent", "")) in ["bridge_to_attack", "convert_attack"] and not _has_real_devolution_window(game_state, player_index):
+				return 0.0
+			return 280.0 if _has_real_devolution_window(game_state, player_index) else 0.0
 	return 50.0
 
 
 func _score_use_ability(action: Dictionary, game_state: GameState, player_index: int) -> float:
 	var source_slot: PokemonSlot = action.get("source_slot")
+	var ability_index := int(action.get("ability_index", 0))
 	if source_slot == null:
 		return 0.0
 	var player: PlayerState = game_state.players[player_index]
 	var opponent: PlayerState = game_state.players[1 - player_index]
+	if _is_forest_seal_stone_ability(source_slot, ability_index):
+		return _score_forest_seal_stone_ability(player, game_state, player_index)
+	if _should_shutdown_extra_setup(player, game_state):
+		match _slot_name(source_slot):
+			ROTOM_V:
+				return -20.0
+			LUMINEON_V:
+				return 20.0 if not _has_supporter_in_hand(player) else -10.0
+			FEZANDIPITI_EX:
+				return -10.0 if player.hand.size() >= 4 else 60.0
+			TATSUGIRI:
+				return 20.0 if source_slot == player.active_pokemon and not _has_supporter_in_hand(player) else -10.0
 	match _slot_name(source_slot):
 		DRAKLOAK:
 			return 430.0
@@ -446,10 +616,15 @@ func _score_attack(action: Dictionary, game_state: GameState, player_index: int)
 		score += 80.0
 
 	if _slot_name(active) == DRAGAPULT_EX:
+		var phantom_dive_online: bool = _can_use_named_attack(active, "Phantom Dive")
 		if attack_name == "Phantom Dive" or projected_damage >= 200:
 			score += 260.0
 			if _phantom_dive_has_pickoff(opponent):
 				score += 160.0
+			if phantom_dive_online:
+				score += 80.0
+		elif phantom_dive_online and attack_name == "Jet Head":
+			score -= 220.0
 		else:
 			score += 40.0
 	if _slot_name(active) == DUSKNOIR and projected_damage >= 150:
@@ -464,6 +639,16 @@ func _score_search_item(card: CardInstance, context: Dictionary) -> float:
 	var name := _card_name(card)
 	if player == null:
 		return float(get_search_priority(card))
+	if _should_shutdown_extra_setup(player, game_state):
+		match name:
+			BUDDY_BUDDY_POFFIN, NEST_BALL:
+				return 20.0
+			ULTRA_BALL:
+				return 80.0 if _count_name(player, DREEPY) == 0 or _count_name(player, DUSKULL) == 0 else 20.0
+			EARTHEN_VESSEL:
+				return 40.0 if _needs_dragapult_energy(player) else -10.0
+			NIGHT_STRETCHER:
+				return 340.0 if _has_core_piece_in_discard(player) else 40.0
 	match name:
 		RARE_CANDY:
 			return _rare_candy_value(player) + 320.0
@@ -489,6 +674,8 @@ func _score_search_tool(card: CardInstance, context: Dictionary) -> float:
 	var name := _card_name(card)
 	if player == null:
 		return 0.0
+	if _should_shutdown_extra_setup(player, game_state) and name == FOREST_SEAL_STONE:
+		return 40.0
 	match name:
 		SPARKLING_CRYSTAL:
 			if _count_name(player, DRAGAPULT_EX) > 0 or ((_count_name(player, DREEPY) + _count_name(player, DRAKLOAK) > 0) and (_has_hand_card(player, DRAGAPULT_EX) or _deck_has(player, DRAGAPULT_EX))):
@@ -497,9 +684,13 @@ func _score_search_tool(card: CardInstance, context: Dictionary) -> float:
 		RESCUE_BOARD:
 			return 340.0 if player.active_pokemon != null and _slot_name(player.active_pokemon) in [DUSKULL, TATSUGIRI, ROTOM_V] else 180.0
 		FOREST_SEAL_STONE:
-			return 360.0 if _count_name(player, DRAGAPULT_EX) == 0 and _count_name(player, ROTOM_V) + _count_name(player, LUMINEON_V) + _count_name(player, FEZANDIPITI_EX) > 0 else 100.0
+			if not _has_live_forest_seal_target(player):
+				return 20.0
+			if _count_name(player, DRAGAPULT_EX) == 0:
+				return 420.0 if _needs_first_dragapult_push(player) else 320.0
+			return 120.0
 		TM_DEVOLUTION:
-			return 260.0 if game_state != null and _opponent_has_evolution(game_state, player_index) else 90.0
+			return 320.0 if game_state != null and _has_real_devolution_window(game_state, player_index) else 0.0
 	return 90.0
 
 
@@ -510,6 +701,14 @@ func _score_search_pokemon(card: CardInstance, context: Dictionary) -> float:
 	var name := _card_name(card)
 	if player == null:
 		return float(get_search_priority(card))
+	if _should_shutdown_extra_setup(player, game_state):
+		match name:
+			DREEPY:
+				return 80.0 if _count_name(player, DREEPY) == 0 else 10.0
+			DUSKULL:
+				return 60.0 if _count_name(player, DUSKULL) == 0 else 10.0
+			TATSUGIRI, ROTOM_V, LUMINEON_V, FEZANDIPITI_EX, RADIANT_ALAKAZAM:
+				return -20.0
 	if name == DRAGAPULT_EX and _count_name(player, DREEPY) + _count_name(player, DRAKLOAK) > 0:
 		return 860.0
 	if name == DRAKLOAK and _count_name(player, DREEPY) > 0:
@@ -570,13 +769,13 @@ func _score_bench_counter_target(slot: PokemonSlot) -> float:
 func _opening_priority(name: String, player: PlayerState) -> float:
 	match name:
 		DREEPY:
-			return 340.0
-		TATSUGIRI:
-			return 280.0 if not _hand_has_name(player, ARVEN) else 220.0
-		ROTOM_V:
 			return 250.0
+		TATSUGIRI:
+			return 360.0 if not _hand_has_name(player, ARVEN) else 300.0
+		ROTOM_V:
+			return 330.0
 		DUSKULL:
-			return 210.0
+			return 220.0
 		FEZANDIPITI_EX:
 			return 140.0
 	return 80.0
@@ -589,9 +788,9 @@ func _bench_priority(name: String, _player: PlayerState) -> float:
 		DREEPY:
 			return 500.0
 		ROTOM_V:
-			return 250.0
+			return 280.0
 		TATSUGIRI:
-			return 180.0
+			return 240.0
 		FEZANDIPITI_EX:
 			return 160.0
 		RADIANT_ALAKAZAM:
@@ -608,6 +807,20 @@ func _rare_candy_value(player: PlayerState) -> float:
 
 
 func _score_arven(player: PlayerState, game_state: GameState, player_index: int) -> float:
+	var turn_contract := get_turn_contract_context()
+	var intent := str(turn_contract.get("intent", ""))
+	if _should_shutdown_extra_setup(player, game_state):
+		var shutdown_item_value := 80.0
+		if _deck_has(player, COUNTER_CATCHER) and _player_is_behind_in_prizes(game_state, player_index) and _can_attack_soon(player):
+			shutdown_item_value = maxf(shutdown_item_value, 180.0)
+		if _deck_has(player, NIGHT_STRETCHER) and _has_core_piece_in_discard(player):
+			shutdown_item_value = maxf(shutdown_item_value, 160.0)
+		if _deck_has(player, EARTHEN_VESSEL) and _needs_dragapult_energy(player):
+			shutdown_item_value = maxf(shutdown_item_value, 100.0)
+		var shutdown_tool_value := 40.0
+		if _deck_has(player, SPARKLING_CRYSTAL) and _count_name(player, DRAGAPULT_EX) > 0:
+			shutdown_tool_value = maxf(shutdown_tool_value, 180.0)
+		return maxf(shutdown_item_value + shutdown_tool_value, 120.0)
 	var item_value := 120.0
 	if _deck_has(player, RARE_CANDY):
 		item_value = maxf(item_value, _rare_candy_value(player) - 80.0)
@@ -617,14 +830,16 @@ func _score_arven(player: PlayerState, game_state: GameState, player_index: int)
 		item_value = maxf(item_value, 260.0)
 	if _deck_has(player, COUNTER_CATCHER) and _player_is_behind_in_prizes(game_state, player_index) and _can_attack_soon(player):
 		item_value = maxf(item_value, 280.0)
+	if intent == "force_first_dragapult":
+		item_value = maxf(item_value, 420.0)
 
 	var tool_value := 60.0
 	if _deck_has(player, SPARKLING_CRYSTAL) and (_count_name(player, DRAGAPULT_EX) > 0 or _count_name(player, DREEPY) + _count_name(player, DRAKLOAK) > 0):
 		tool_value = maxf(tool_value, 320.0)
 	if _deck_has(player, RESCUE_BOARD):
-		tool_value = maxf(tool_value, 180.0)
-	if _deck_has(player, FOREST_SEAL_STONE) and _count_name(player, ROTOM_V) + _count_name(player, LUMINEON_V) + _count_name(player, FEZANDIPITI_EX) > 0:
-		tool_value = maxf(tool_value, 220.0)
+		tool_value = maxf(tool_value, 260.0 if intent == "launch_shell" else 180.0)
+	if _deck_has(player, FOREST_SEAL_STONE) and _has_live_forest_seal_target(player):
+		tool_value = maxf(tool_value, 300.0 if _count_name(player, DRAGAPULT_EX) == 0 else 180.0)
 	return maxf(item_value + tool_value, 190.0)
 
 
@@ -647,12 +862,148 @@ func _dragapult_energy_score(target_slot: PokemonSlot, player: PlayerState) -> f
 	return 60.0
 
 
-func _score_retreat(player: PlayerState) -> float:
+func _score_retreat(player: PlayerState, game_state: GameState, player_index: int) -> float:
 	if player.active_pokemon == null:
 		return 0.0
+	var turn_contract := get_turn_contract_context()
+	if turn_contract.is_empty() and game_state != null:
+		turn_contract = build_turn_contract(game_state, player_index, {"prompt_kind": "action_selection", "kind": "retreat"})
+	var flags: Dictionary = turn_contract.get("flags", {}) if turn_contract.get("flags", {}) is Dictionary else {}
 	if _slot_name(player.active_pokemon) in [TATSUGIRI, ROTOM_V, DUSKULL]:
-		return 220.0 if not player.bench.is_empty() else 80.0
+		return 260.0 if bool(flags.get("bridge_to_attack", false)) or bool(flags.get("convert_attack", false)) else (220.0 if not player.bench.is_empty() else 80.0)
 	return 60.0
+
+
+func _best_ready_dragapult_slot(player: PlayerState) -> PokemonSlot:
+	for slot: PokemonSlot in _all_slots(player):
+		if _slot_name(slot) == DRAGAPULT_EX and _can_slot_attack(slot):
+			return slot
+	return null
+
+
+func _rare_candy_dragapult_live(player: PlayerState) -> bool:
+	if _count_name(player, DREEPY) + _count_name(player, DRAKLOAK) <= 0:
+		return false
+	if not (_has_hand_card(player, RARE_CANDY) or _deck_has(player, RARE_CANDY)):
+		return false
+	return _has_hand_card(player, DRAGAPULT_EX) or _deck_has(player, DRAGAPULT_EX)
+
+
+func _has_immediate_attack_window(player: PlayerState) -> bool:
+	if player.active_pokemon != null and _can_slot_attack(player.active_pokemon):
+		return true
+	if player.active_pokemon == null or _retreat_gap(player.active_pokemon) > 0:
+		return false
+	return _best_ready_dragapult_slot(player) != null
+
+
+func _can_use_named_attack(slot: PokemonSlot, attack_name: String) -> bool:
+	if slot == null or slot.get_card_data() == null:
+		return false
+	for attack: Dictionary in slot.get_card_data().attacks:
+		if str(attack.get("name", "")) != attack_name:
+			continue
+		return slot.attached_energy.size() >= str(attack.get("cost", "")).length()
+	return false
+
+
+func _launch_pivot_name(player: PlayerState) -> String:
+	if _count_name(player, TATSUGIRI) > 0:
+		return TATSUGIRI
+	if _count_name(player, ROTOM_V) > 0:
+		return ROTOM_V
+	if _count_name(player, DUSKULL) > 0:
+		return DUSKULL
+	if _count_name(player, DREEPY) > 0:
+		return DREEPY
+	return ""
+
+
+func _has_live_forest_seal_target(player: PlayerState) -> bool:
+	return _count_name(player, ROTOM_V) + _count_name(player, LUMINEON_V) > 0
+
+
+func _needs_first_dragapult_push(player: PlayerState) -> bool:
+	if _count_name(player, DRAGAPULT_EX) > 0:
+		return false
+	if _count_name(player, DREEPY) + _count_name(player, DRAKLOAK) <= 0:
+		return false
+	if _has_hand_card(player, DRAGAPULT_EX):
+		return not _has_hand_card(player, RARE_CANDY)
+	return _deck_has(player, DRAGAPULT_EX)
+
+
+func _should_route_forest_seal_stone_to_rotom(player: PlayerState, game_state: GameState = null) -> bool:
+	if player == null:
+		return false
+	if _count_name(player, ROTOM_V) == 0:
+		return false
+	if _count_name(player, DRAGAPULT_EX) > 0:
+		return false
+	if game_state != null and int(game_state.turn_number) <= 2:
+		return true
+	return _needs_first_dragapult_push(player)
+
+
+func _is_miraidon_pressure_matchup(opponent: PlayerState) -> bool:
+	for slot: PokemonSlot in _all_slots(opponent):
+		var name := _slot_name(slot)
+		if name in [MIRAIDON_EX, IRON_HANDS_EX, RAIKOU_V, RAICHU_V, SQUAWKABILLY_EX]:
+			return true
+	return false
+
+
+func _is_forest_seal_stone_ability(slot: PokemonSlot, ability_index: int) -> bool:
+	if slot == null or slot.get_card_data() == null or slot.attached_tool == null or slot.attached_tool.card_data == null:
+		return false
+	var native_count := slot.get_card_data().abilities.size()
+	if ability_index < native_count:
+		return false
+	return str(slot.attached_tool.card_data.effect_id) == FOREST_SEAL_STONE_EFFECT_ID
+
+
+func _score_forest_seal_stone_ability(player: PlayerState, game_state: GameState, _player_index: int) -> float:
+	if player == null:
+		return 0.0
+	if _count_name(player, DRAGAPULT_EX) > 0 and _can_attack_soon(player):
+		return 120.0
+	if _needs_first_dragapult_push(player):
+		return 620.0
+	if _count_name(player, DREEPY) == 0 or _count_name(player, DUSKULL) == 0:
+		return 220.0
+	if game_state != null and int(game_state.turn_number) <= 2:
+		return 460.0
+	if _count_name(player, DUSKNOIR) == 0 and (_count_name(player, DUSKULL) + _count_name(player, DUSCLOPS) > 0):
+		return 320.0
+	return 180.0
+
+
+func _has_real_devolution_window(game_state: GameState, player_index: int) -> bool:
+	if game_state == null or player_index < 0 or player_index >= game_state.players.size():
+		return false
+	var opponent: PlayerState = game_state.players[1 - player_index]
+	for slot: PokemonSlot in _all_slots(opponent):
+		if slot == null or slot.get_card_data() == null:
+			continue
+		if str(slot.get_card_data().stage) == "Basic":
+			continue
+		if slot.damage_counters > 0 or slot.get_remaining_hp() <= 160:
+			return true
+	return false
+
+
+func _should_shutdown_extra_setup(player: PlayerState, game_state: GameState = null) -> bool:
+	if player == null:
+		return false
+	if _best_ready_dragapult_slot(player) == null:
+		return false
+	var support_shell_online: bool = _count_name(player, DUSKULL) + _count_name(player, DUSCLOPS) + _count_name(player, DUSKNOIR) > 0
+	var backup_dragapult_online: bool = _count_name(player, DREEPY) + _count_name(player, DRAKLOAK) + _count_name(player, DRAGAPULT_EX) > 1
+	if not support_shell_online and not backup_dragapult_online:
+		return false
+	if game_state != null and int(game_state.turn_number) <= 3 and player.hand.size() <= 4 and not support_shell_online:
+		return false
+	return true
 
 
 func _needs_dragapult_energy(player: PlayerState) -> bool:

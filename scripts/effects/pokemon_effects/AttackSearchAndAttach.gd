@@ -10,6 +10,7 @@ var search_mode: String = "deck_search"
 var top_n_count: int = 5
 var attach_to: String = "any"
 var target_tag: String = ""
+var attack_index_to_match: int = -1
 
 
 func _init(
@@ -26,6 +27,10 @@ func _init(
 	top_n_count = top_n
 	attach_to = a_to
 	target_tag = required_tag
+
+
+func applies_to_attack_index(attack_index: int) -> bool:
+	return attack_index_to_match < 0 or attack_index_to_match == attack_index
 
 
 func get_attack_interaction_steps(

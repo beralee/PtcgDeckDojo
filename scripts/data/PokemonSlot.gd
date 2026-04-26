@@ -28,6 +28,9 @@ var turn_evolved: int = -1
 ## 每个元素为 Dictionary: {type: String, source: String, turn: int, ...}
 var effects: Array[Dictionary] = []
 
+const ENTERED_ACTIVE_FROM_BENCH_EFFECT_TYPE := "entered_active_from_bench"
+const ABILITY_USED_EFFECT_TYPE := "ability_used"
+
 
 ## 获取顶层卡牌（当前形态）
 func get_top_card() -> CardInstance:
@@ -131,6 +134,34 @@ func clear_on_leave_active() -> void:
 		if eff.get("type", "") not in _BENCH_CLEAR_EFFECT_TYPES:
 			kept.append(eff)
 	effects = kept
+
+
+func mark_entered_active_from_bench(turn_number: int) -> void:
+	effects.append({
+		"type": ENTERED_ACTIVE_FROM_BENCH_EFFECT_TYPE,
+		"turn": turn_number,
+	})
+
+
+func entered_active_from_bench_this_turn(turn_number: int) -> bool:
+	for eff: Dictionary in effects:
+		if eff.get("type", "") == ENTERED_ACTIVE_FROM_BENCH_EFFECT_TYPE and int(eff.get("turn", -999)) == turn_number:
+			return true
+	return false
+
+
+func mark_ability_used(turn_number: int) -> void:
+	effects.append({
+		"type": ABILITY_USED_EFFECT_TYPE,
+		"turn": turn_number,
+	})
+
+
+func has_ability_used(turn_number: int) -> bool:
+	for eff: Dictionary in effects:
+		if eff.get("type", "") == ABILITY_USED_EFFECT_TYPE and int(eff.get("turn", -999)) == turn_number:
+			return true
+	return false
 
 
 ## 设置特殊状态（自动处理互斥关系）

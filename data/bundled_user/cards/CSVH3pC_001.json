@@ -1,0 +1,51 @@
+{
+	"abilities": [],
+	"ancient_trait": "",
+	"artist": "Taira Akitsu",
+	"attacks": [
+		{
+			"cost": "W",
+			"damage": "",
+			"is_vstar_power": false,
+			"name": "招来",
+			"text": "从自己牌库上方抽取1张卡牌。"
+		},
+		{
+			"cost": "WC",
+			"damage": "20",
+			"is_vstar_power": false,
+			"name": "敲打",
+			"text": ""
+		}
+	],
+	"card_index": "001",
+	"card_index_en": "17",
+	"card_type": "Pokemon",
+	"description": "【水】 招来 \n从自己牌库上方抽取1张卡牌。\n\n【水】 敲打 20\n\n\n",
+	"effect_id": "425e58e5e825380966cdfd039594a596",
+	"energy_provides": "",
+	"energy_type": "W",
+	"evolves_from": "",
+	"hp": 70,
+	"image_local_path": "user://cards/images/CSVH3pC/001.png",
+	"image_url": "https://tcg.mik.moe/static/img/CSVH3pC/001.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "",
+	"name": "凉脊龙",
+	"name_en": "Frigibax",
+	"rarity": "无标记",
+	"regulation_expanded": true,
+	"regulation_mark": "G",
+	"regulation_standard": true,
+	"release_date": "2025-09-12T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 2,
+	"set_code": "CSVH3pC",
+	"set_code_en": "PAF",
+	"stage": "Basic",
+	"weakness_energy": "M",
+	"weakness_value": "×2",
+	"yoren_code": "P0996"
+}

@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "神秘守护",
+			"text": "这只宝可梦，不受到对手「宝可梦【ex】・【V】」的招式的伤害。"
+		}
+	],
+	"ancient_trait": "",
+	"artist": "Kagemaru Himeno",
+	"attacks": [
+		{
+			"cost": "PC",
+			"damage": "",
+			"is_vstar_power": false,
+			"name": "幽灵之眼",
+			"text": "给对手的战斗宝可梦身上，放置7个伤害指示物。"
+		}
+	],
+	"card_index": "062",
+	"card_index_en": "37",
+	"card_type": "Pokemon",
+	"description": "特性: 神秘守护\n这只宝可梦，不受到对手「宝可梦【ex】・【V】」的招式的伤害。\n\n【超】 幽灵之眼 \n给对手的战斗宝可梦身上，放置7个伤害指示物。\n\n",
+	"effect_id": "4ba364fe554ffe8577561515bc8b5979",
+	"energy_provides": "",
+	"energy_type": "P",
+	"evolves_from": "",
+	"hp": 70,
+	"image_local_path": "user://cards/images/CSV3C/062.png",
+	"image_url": "https://tcg.mik.moe/static/img/CSV3C/062.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "",
+	"name": "谜拟丘",
+	"name_en": "Mimikyu",
+	"rarity": "R",
+	"regulation_expanded": true,
+	"regulation_mark": "G",
+	"regulation_standard": true,
+	"release_date": "2025-05-16T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 1,
+	"set_code": "CSV3C",
+	"set_code_en": "PAF",
+	"stage": "Basic",
+	"weakness_energy": "M",
+	"weakness_value": "×2",
+	"yoren_code": "P778"
+}

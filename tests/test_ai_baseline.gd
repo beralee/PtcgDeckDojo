@@ -2664,6 +2664,43 @@ func test_deck_bias_charizard_prefers_rare_candy() -> String:
 	])
 
 
+func test_shared_heuristics_prioritizes_baxcalibur_rare_candy_engine() -> String:
+	var heuristics := AIHeuristicsScript.new()
+	var gsm := _make_ai_manual_gsm()
+	var player: PlayerState = gsm.game_state.players[0]
+	var frigibax_cd := _make_ai_pokemon_card_data("凉脊龙", "Basic")
+	var frigibax_slot := _make_ai_slot(CardInstance.create(frigibax_cd, 0), 1)
+	player.active_pokemon = frigibax_slot
+
+	var baxcalibur_cd := _make_ai_pokemon_card_data("戟脊龙", "Stage 2", "冻脊龙", "", [{"name": "极寒音波", "text": ""}])
+	baxcalibur_cd.name_en = "Baxcalibur"
+	var baxcalibur_card := CardInstance.create(baxcalibur_cd, 0)
+	var rare_candy := CardInstance.create(_make_ai_trainer_card_data("Rare Candy", "Item", ""), 0)
+	player.hand = [baxcalibur_card, rare_candy]
+
+	var candy_action := {
+		"kind": "play_trainer",
+		"card": rare_candy,
+		"productive": true,
+		"targets": [{
+			"stage2_card": [baxcalibur_card],
+			"target_pokemon": [frigibax_slot],
+		}],
+	}
+	var attack_action := {"kind": "attack", "projected_knockout": false}
+	var candy_ctx := _make_deck_bias_context(gsm, 0, candy_action)
+	var attack_ctx := _make_deck_bias_context(gsm, 0, attack_action)
+	var candy_score: float = heuristics.score_action(candy_action, candy_ctx)
+	var attack_score: float = heuristics.score_action(attack_action, attack_ctx)
+	return run_checks([
+		assert_true(
+			candy_score > attack_score,
+			"Baxcalibur Rare Candy engine should outrank a non-KO attack (got candy=%s, attack=%s)" % [candy_score, attack_score]
+		),
+		assert_true("rare_candy_engine" in candy_action.get("reason_tags", []), "Rare Candy engine action should be tagged for trace review"),
+	])
+
+
 func test_deck_bias_charizard_prefers_stage2_evolution_progress() -> String:
 	## Charizard 卡组中 Charmander->Charmeleon 进化应获得额外加分
 	var heuristics := AIHeuristicsScript.new()

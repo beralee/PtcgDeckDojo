@@ -6,6 +6,26 @@ const BUILTIN_MIRROR_DIR := "user://music/battle_bgm"
 const TRACK_ID_NONE := "none"
 const SUPPORTED_EXTENSIONS := ["ogg", "mp3", "wav"]
 const MIN_VOLUME_DB := -80.0
+const BUILTIN_TRACKS_FALLBACK: Array[Dictionary] = [
+	{
+		"id": "pokemon_sv_battle_zeiyu",
+		"label": "宝可梦 朱紫：战斗！妮莫",
+		"path": "res://assets/audio/bgm/pokemon_sv_battle_zeiyu.mp3",
+		"source": "builtin",
+	},
+	{
+		"id": "pokemon_sv_battle_gym_leader",
+		"label": "宝可梦 朱紫：战斗！道馆馆主",
+		"path": "res://assets/audio/bgm/pokemon_sv_battle_gym_leader.mp3",
+		"source": "builtin",
+	},
+	{
+		"id": "pokemon_sv_battle_star_barrage",
+		"label": "宝可梦 朱紫：战斗！天星队",
+		"path": "res://assets/audio/bgm/pokemon_sv_battle_star_barrage.mp3",
+		"source": "builtin",
+	},
+]
 
 var _audio_player: AudioStreamPlayer = null
 var _builtin_tracks_override: Array[Dictionary] = []
@@ -181,17 +201,24 @@ func _load_builtin_tracks() -> Array[Dictionary]:
 		return _builtin_tracks_override.duplicate(true)
 
 	if not FileAccess.file_exists(BUILTIN_CATALOG_PATH):
-		return []
+		return _fallback_builtin_tracks()
 	var file := FileAccess.open(BUILTIN_CATALOG_PATH, FileAccess.READ)
 	if file == null:
-		return []
+		return _fallback_builtin_tracks()
 	var parsed: Variant = JSON.parse_string(file.get_as_text())
 	file.close()
+	var normalized: Array[Dictionary] = []
 	if typeof(parsed) == TYPE_ARRAY:
-		return _normalize_track_entries(parsed as Array)
-	if typeof(parsed) != TYPE_DICTIONARY:
-		return []
-	return _normalize_track_entries((parsed as Dictionary).get("tracks", []))
+		normalized = _normalize_track_entries(parsed as Array)
+	elif typeof(parsed) == TYPE_DICTIONARY:
+		normalized = _normalize_track_entries((parsed as Dictionary).get("tracks", []))
+	if normalized.is_empty():
+		return _fallback_builtin_tracks()
+	return normalized
+
+
+func _fallback_builtin_tracks() -> Array[Dictionary]:
+	return _normalize_track_entries(BUILTIN_TRACKS_FALLBACK)
 
 
 func _normalize_track_entries(raw_entries: Variant) -> Array[Dictionary]:

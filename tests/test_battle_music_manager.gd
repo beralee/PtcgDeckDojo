@@ -80,7 +80,7 @@ func test_builtin_res_tracks_load_from_packed_resource_path() -> String:
 	_cleanup_manager(manager)
 
 	return run_checks([
-		assert_true(stream is AudioStream, "鍐呯疆瀵规垬 BGM 搴斿彲鐩存帴浠?res:// 鎵撳寘璧勬簮鍔犺浇"),
+		assert_true(stream is AudioStream, "内置对战 BGM 应可直接从 res:// 打包资源加载"),
 	])
 
 
@@ -98,9 +98,9 @@ func test_builtin_tracks_are_mirrored_to_user_music_directory() -> String:
 	_clear_directory(temp_dir)
 
 	return run_checks([
-		assert_true(mirrored_zeiyu, "鍐呯疆 BGM 搴斿湪棣栨鍚姩鏃堕暅鍍忓埌鐜╁鐩綍"),
-		assert_true(mirrored_gym, "閬嗛鎴樻洸搴斿悓姝ュ埌鐜╁鐩綍"),
-		assert_true(mirrored_star, "澶╂槦闃熸洸搴斿悓姝ュ埌鐜╁鐩綍"),
+		assert_true(mirrored_zeiyu, "内置 BGM 应在首次启动时镜像到玩家目录"),
+		assert_true(mirrored_gym, "道馆战曲应同步到玩家目录"),
+		assert_true(mirrored_star, "天星队战曲应同步到玩家目录"),
 	])
 
 

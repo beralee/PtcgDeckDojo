@@ -32,16 +32,22 @@ func refresh_ui(scene: Object) -> void:
 	})
 	turn_label.text = _bt(scene, "battle.top.turn_line", {
 		"turn": gs.turn_number,
-		"player": current_player + 1,
+		"player": get_display_player_name(current_player),
 	})
 
 	var opponent_hand_button: Button = scene.get("_btn_opponent_hand")
 	if opponent_hand_button != null:
 		opponent_hand_button.visible = (not bool(scene.call("_is_review_mode"))) and GameManager.current_mode == GameManager.GameMode.VS_AI
+	var attack_vfx_preview_button: Button = scene.get("_btn_attack_vfx_preview")
+	if attack_vfx_preview_button != null:
+		attack_vfx_preview_button.visible = false
 	var ai_advice_button: Button = scene.get("_btn_ai_advice")
 	if ai_advice_button != null:
-		ai_advice_button.visible = (not bool(scene.call("_is_review_mode"))) and GameManager.current_mode == GameManager.GameMode.TWO_PLAYER
+		ai_advice_button.visible = false
 		ai_advice_button.disabled = bool(scene.get("_battle_advice_busy"))
+	var battle_discuss_button: Button = scene.get("_btn_battle_discuss_ai")
+	if battle_discuss_button != null:
+		battle_discuss_button.visible = not bool(scene.call("_is_review_mode"))
 	var zeus_help_button: Button = scene.get("_btn_zeus_help")
 	if zeus_help_button != null:
 		zeus_help_button.visible = not bool(scene.call("_is_review_mode"))
@@ -103,6 +109,10 @@ func get_selected_deck_name(player_index: int) -> String:
 	if deck_data != null and deck_data.deck_name != "":
 		return deck_data.deck_name
 	return BattleI18n.t("battle.player.default", {"index": player_index + 1})
+
+
+func get_display_player_name(player_index: int) -> String:
+	return GameManager.resolve_battle_player_display_name(player_index)
 
 
 func update_side_previews(scene: Object, opp: PlayerState, my_player: PlayerState) -> void:
@@ -228,8 +238,12 @@ func update_prize_slots(scene: Object, slots: Array, prize_layout: Array, is_sel
 		else:
 			prize_view.setup_from_instance(null, BattleCardView.MODE_PREVIEW)
 			prize_view.set_face_down(true)
-		prize_view.set_selected(filled and is_selectable)
+		prize_view.set_selectable_hint_text("点击拿奖")
+		prize_view.set_selected_badge_text("已拿")
+		prize_view.set_selectable_hint(filled and is_selectable)
+		prize_view.set_selected(false)
 		prize_view.set_disabled(not filled or (str(scene.get("_pending_choice")) == "take_prize" and not is_selectable))
+		prize_view.set_badges("点这里" if filled and is_selectable else "", "")
 		prize_view.self_modulate = Color(1, 1, 1, 1) if filled else Color(1, 1, 1, 0.02)
 
 
@@ -243,6 +257,7 @@ func update_pile_preview(preview: BattleCardView, card: CardInstance, face_down:
 		preview.setup_from_instance(null, BattleCardView.MODE_PREVIEW)
 		preview.set_face_down(face_down)
 	preview.set_selected(false)
+	preview.set_selectable_hint(false)
 	preview.set_disabled(false)
 	preview.set_badges("", "")
 	preview.set_info("", "")
@@ -307,13 +322,15 @@ func refresh_slot_card_view(scene: Object, slot_id: String, slot: PokemonSlot, i
 		card_view.set_tilt_degrees(0.0)
 		card_view.set_disabled(false)
 		card_view.set_selected(false)
+		card_view.set_selectable_hint(false)
 		apply_field_slot_style(scene, slot_panel, slot_id, false, is_active)
 		return
 
 	var top_card: CardInstance = slot.get_top_card()
 	card_view.setup_from_instance(top_card, BattleCardView.MODE_SLOT_ACTIVE if is_active else BattleCardView.MODE_SLOT_BENCH)
 	card_view.set_disabled(should_disable)
-	card_view.set_selected(is_selected or is_selectable)
+	card_view.set_selected(is_selected)
+	card_view.set_selectable_hint(is_selectable and not is_selected)
 	card_view.set_badges()
 	card_view.set_battle_status(build_battle_status(scene, slot))
 	card_view.set_tilt_degrees(USED_ABILITY_TILT_DEGREES if slot_used_ability_this_turn(scene, slot) else 0.0)

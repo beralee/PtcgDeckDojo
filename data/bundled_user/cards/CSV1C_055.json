@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "漆黑灾祸",
+			"text": "只要这只宝可梦在场上，双方场上【基础】宝可梦的「宝可梦【V】」的特性，全部消除。"
+		}
+	],
+	"ancient_trait": "",
+	"artist": "Aya Kusube",
+	"attacks": [
+		{
+			"cost": "C",
+			"damage": "10",
+			"is_vstar_power": false,
+			"name": "瞬间消失",
+			"text": "将这只宝可梦，以及放于其身上的所有卡牌，放回手牌。"
+		}
+	],
+	"card_index": "055",
+	"card_index_en": "89",
+	"card_type": "Pokemon",
+	"description": "特性: 漆黑灾祸\n只要这只宝可梦在场上，双方场上【基础】宝可梦的「宝可梦【V】」的特性，全部消除。\n\n 瞬间消失 10\n将这只宝可梦，以及放于其身上的所有卡牌，放回手牌。\n\n",
+	"effect_id": "db7b9902fd4fed3b6f9d94a7ee7a12ba",
+	"energy_provides": "",
+	"energy_type": "P",
+	"evolves_from": "",
+	"hp": 60,
+	"image_local_path": "user://cards/images/CSV1C/055.png",
+	"image_url": "https://tcg.mik.moe/static/img/CSV1C/055.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "",
+	"name": "花岩怪",
+	"name_en": "Spiritomb",
+	"rarity": "R",
+	"regulation_expanded": true,
+	"regulation_mark": "G",
+	"regulation_standard": true,
+	"release_date": "2025-01-17T00:00:00+08:00",
+	"resistance_energy": "F",
+	"resistance_value": "-30",
+	"retreat_cost": 1,
+	"set_code": "CSV1C",
+	"set_code_en": "PAL",
+	"stage": "Basic",
+	"weakness_energy": "D",
+	"weakness_value": "×2",
+	"yoren_code": "P442"
+}

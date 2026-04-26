@@ -1,0 +1,53 @@
+{
+	"name": "沙铁皮",
+	"card_type": "Pokemon",
+	"mechanic": "",
+	"label": "Ancient",
+	"description": "【斗】 磁场炸裂 20+\n如果自己场上有3个及以上能量的话，则追加造成70伤害。这个招式的伤害不计算弱点。\n\n【斗】 力量宝石 60\n\n\n",
+	"yoren_code": "P0989",
+	"set_code": "CSV7C",
+	"card_index": "132",
+	"set_code_en": "TEF",
+	"card_index_en": "98",
+	"name_en": "Sandy Shocks",
+	"artist": "DOM",
+	"rarity": "C",
+	"release_date": "2026-01-16T00:00:00+08:00",
+	"regulation_mark": "H",
+	"effect_id": "0d7ccbc99ac0f5108c6c7d7d5506f64b",
+	"image_url": "https://tcg.mik.moe/static/img/CSV7C/132.png",
+	"image_local_path": "user://cards/images/CSV7C/132.png",
+	"is_tags": [
+		"Ancient"
+	],
+	"regulation_standard": true,
+	"regulation_expanded": true,
+	"energy_type": "F",
+	"stage": "Basic",
+	"hp": 120,
+	"weakness_energy": "G",
+	"weakness_value": "×2",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 2,
+	"evolves_from": "",
+	"ancient_trait": "",
+	"attacks": [
+		{
+			"name": "磁场炸裂",
+			"text": "如果自己场上有3个及以上能量的话，则追加造成70伤害。这个招式的伤害不计算弱点。",
+			"cost": "F",
+			"damage": "20+",
+			"is_vstar_power": false
+		},
+		{
+			"name": "力量宝石",
+			"text": "",
+			"cost": "FC",
+			"damage": "60",
+			"is_vstar_power": false
+		}
+	],
+	"abilities": [],
+	"energy_provides": ""
+}

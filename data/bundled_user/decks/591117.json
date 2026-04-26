@@ -1,0 +1,228 @@
+{
+	"cards": [
+		{
+			"card_index": "192",
+			"card_type": "Supporter",
+			"count": 3,
+			"effect_id": "050b081d65e7c3ccff3eed61107e17a5",
+			"name": "阿杏的秘招",
+			"name_en": "Janine's Secret Art",
+			"set_code": "CSV8C"
+		},
+		{
+			"card_index": "020",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "09445b8c32fd4abef4230ebcdc964096",
+			"name": "光辉甲贺忍蛙",
+			"name_en": "Radiant Greninja",
+			"set_code": "CS6.5C"
+		},
+		{
+			"card_index": "133",
+			"card_type": "Pokemon",
+			"count": 2,
+			"effect_id": "0da4be5989cece0719477261c8571fd9",
+			"name": "够赞狗ex",
+			"name_en": "Okidogi ex",
+			"set_code": "CSV8C"
+		},
+		{
+			"card_index": "126",
+			"card_type": "Item",
+			"count": 4,
+			"effect_id": "11ca8ef52edb2599280e7d5827e9dfb1",
+			"name": "暗黑补丁",
+			"name_en": "Dark Patch",
+			"set_code": "CS5DC"
+		},
+		{
+			"card_index": "043",
+			"card_type": "Item",
+			"count": 4,
+			"effect_id": "1af63a7e2cb7a79215474ad8db8fd8fd",
+			"name": "巢穴球",
+			"name_en": "Nest Ball",
+			"set_code": "CSVH1C"
+		},
+		{
+			"card_index": "105",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "1b951205e53e179bde0905c4a194d9ee",
+			"name": "怒鹦哥ex",
+			"name_en": "Squawkabilly ex",
+			"set_code": "CSV2C"
+		},
+		{
+			"card_index": "008",
+			"card_type": "Item",
+			"count": 1,
+			"effect_id": "294212d9c02dc0acb886a7ef01ebeac4",
+			"name": "能量转移",
+			"name_en": "Energy Switch",
+			"set_code": "CSVH1aC"
+		},
+		{
+			"card_index": "085",
+			"card_type": "Pokemon",
+			"count": 2,
+			"effect_id": "32ad0aabda779aea0420eed4505407be",
+			"name": "达克莱伊V",
+			"name_en": "Darkrai V",
+			"set_code": "CS5DC"
+		},
+		{
+			"card_index": "183",
+			"card_type": "Item",
+			"count": 2,
+			"effect_id": "3e6f1daf545dfed48d0588dd50792a2e",
+			"name": "夜间担架",
+			"name_en": "Night Stretcher",
+			"set_code": "CSV8C"
+		},
+		{
+			"card_index": "DAR",
+			"card_type": "Basic Energy",
+			"count": 12,
+			"effect_id": "46c769fc57a6c250c560df648bb779f8",
+			"name": "基本恶能量",
+			"name_en": "Darkness Energy",
+			"set_code": "CSVE1C"
+		},
+		{
+			"card_index": "094",
+			"card_type": "Pokemon",
+			"count": 2,
+			"effect_id": "66fee12502043db7d92b97b0d62b0f59",
+			"name": "愿增猿",
+			"name_en": "Munkidori",
+			"set_code": "CSV8C"
+		},
+		{
+			"card_index": "086",
+			"card_type": "Pokemon",
+			"count": 2,
+			"effect_id": "6d8bfccd0e05c3cfdea28540dce2deab",
+			"name": "达克莱伊VSTAR",
+			"name_en": "Darkrai VSTAR",
+			"set_code": "CS5DC"
+		},
+		{
+			"card_index": "063",
+			"card_type": "Item",
+			"count": 3,
+			"effect_id": "70d14b4a5a9c15581b8a0c8dfd325717",
+			"name": "健行鞋",
+			"name_en": "Trekking Shoes",
+			"set_code": "CS6.5C"
+		},
+		{
+			"card_index": "113",
+			"card_type": "Item",
+			"count": 2,
+			"effect_id": "768b545a38fccd5e265093b5adce10af",
+			"name": "宝可装置3.0",
+			"name_en": "Pokégear 3.0",
+			"set_code": "CSV2C"
+		},
+		{
+			"card_index": "023",
+			"card_type": "Supporter",
+			"count": 2,
+			"effect_id": "8e1fa2c9018db938084c94c7c970d419",
+			"name": "老大的指令",
+			"name_en": "Boss's Orders",
+			"set_code": "CSVH1aC"
+		},
+		{
+			"card_index": "123",
+			"card_type": "Item",
+			"count": 1,
+			"effect_id": "8f655fea1f90164bfbccb7a95c223e17",
+			"name": "放逐吸尘器",
+			"name_en": "Lost Vacuum",
+			"set_code": "CS6bC"
+		},
+		{
+			"card_index": "112",
+			"card_type": "Item",
+			"count": 4,
+			"effect_id": "a337ed34a45e63c6d21d98c3d8e0cb6e",
+			"name": "高级球",
+			"name_en": "Ultra Ball",
+			"set_code": "CSV1C"
+		},
+		{
+			"card_index": "111",
+			"card_type": "Item",
+			"count": 1,
+			"effect_id": "a47d5a8ed00e14a2146fc511745d23b5",
+			"name": "朋友手册",
+			"name_en": "Pal Pad",
+			"set_code": "CSV1C"
+		},
+		{
+			"card_index": "187",
+			"card_type": "Tool",
+			"count": 2,
+			"effect_id": "a77ef1e9df5b37e1d529682b2b38a4b8",
+			"name": "锁链粘糕",
+			"name_en": "Binding Mochi",
+			"set_code": "CSV8C"
+		},
+		{
+			"card_index": "135",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "ab6c3357e2b8a8385a68da738f41e0c1",
+			"name": "吉雉鸡ex",
+			"name_en": "Fezandipiti ex",
+			"set_code": "CSV8C"
+		},
+		{
+			"card_index": "121",
+			"card_type": "Supporter",
+			"count": 3,
+			"effect_id": "aecd80ca2722885c3d062a2255346f3e",
+			"name": "博士的研究",
+			"name_en": "Professor's Research",
+			"set_code": "CSV1C"
+		},
+		{
+			"card_index": "123",
+			"card_type": "Supporter",
+			"count": 2,
+			"effect_id": "af514f82d182aeae5327b2c360df703d",
+			"name": "奇树",
+			"name_en": "Iono",
+			"set_code": "CSV3C"
+		},
+		{
+			"card_index": "173",
+			"card_type": "Item",
+			"count": 1,
+			"effect_id": "d324e01179ab048ed023bf4a20bf658d",
+			"name": "不公印章",
+			"name_en": "Unfair Stamp",
+			"set_code": "CSV8C"
+		},
+		{
+			"card_index": "136",
+			"card_type": "Pokemon",
+			"count": 2,
+			"effect_id": "e92d1881bfe5e0b957b87c93cd757fc7",
+			"name": "桃歹郎ex",
+			"name_en": "Pecharunt ex",
+			"set_code": "CSV8C"
+		}
+	],
+	"deck_code": "L1WmOb3hN4LYTeecAY",
+	"deck_name": "达克莱伊",
+	"id": 591117,
+	"import_date": "2026-04-18T19:20:23",
+	"source_url": "https://tcg.mik.moe/decks/list/591117",
+	"strategy": "",
+	"total_cards": 60,
+	"variant_name": "达克莱伊"
+}

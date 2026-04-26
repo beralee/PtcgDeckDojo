@@ -1,0 +1,51 @@
+{
+	"abilities": [],
+	"ancient_trait": "",
+	"artist": "takuyoa",
+	"attacks": [
+		{
+			"cost": "C",
+			"damage": "",
+			"is_vstar_power": false,
+			"name": "毒液肌力",
+			"text": "选择自己牌库中最多2张「基本【恶】能量」，附着于这只宝可梦身上。并重洗牌库。如果成功附着了的情况下，则令这只宝可梦陷入【中毒】状态。"
+		},
+		{
+			"cost": "DDC",
+			"damage": "130+",
+			"is_vstar_power": false,
+			"name": "狂热锁链",
+			"text": "如果这只宝可梦处于【中毒】状态的话，则追加造成130伤害。"
+		}
+	],
+	"card_index": "133",
+	"card_index_en": "36",
+	"card_type": "Pokemon",
+	"description": " 毒液肌力 \n选择自己牌库中最多2张「基本【恶】能量」，附着于这只宝可梦身上。并重洗牌库。如果成功附着了的情况下，则令这只宝可梦陷入【中毒】状态。\n\n【恶】【恶】 狂热锁链 130+\n如果这只宝可梦处于【中毒】状态的话，则追加造成130伤害。\n\n",
+	"effect_id": "0da4be5989cece0719477261c8571fd9",
+	"energy_provides": "",
+	"energy_type": "D",
+	"evolves_from": "",
+	"hp": 250,
+	"image_local_path": "user://cards/images/CSV8C/133.png",
+	"image_url": "https://tcg.mik.moe/static/img/CSV8C/133.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "ex",
+	"name": "够赞狗ex",
+	"name_en": "Okidogi ex",
+	"rarity": "RR",
+	"regulation_expanded": true,
+	"regulation_mark": "H",
+	"regulation_standard": true,
+	"release_date": "2026-03-13T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 3,
+	"set_code": "CSV8C",
+	"set_code_en": "SFA",
+	"stage": "Basic",
+	"weakness_energy": "F",
+	"weakness_value": "×2",
+	"yoren_code": "Y1453"
+}

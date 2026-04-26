@@ -1,0 +1,49 @@
+{
+	"name": "火焰鸡ex",
+	"card_type": "Pokemon",
+	"mechanic": "ex",
+	"label": "",
+	"description": "特性: 沸腾斗志\n在自己的回合可以使用1次。选择自己弃牌区中的1张基本能量，附着于自己的宝可梦身上。\n\n【火】 燃烧旋踢 200\n在下一个自己的回合，这只宝可梦无法使用招式。\n\n",
+	"yoren_code": "Y1385",
+	"set_code": "CSV7C",
+	"card_index": "038",
+	"set_code_en": "JTG",
+	"card_index_en": "24",
+	"name_en": "Blaziken ex",
+	"artist": "takuyoa",
+	"rarity": "RR",
+	"release_date": "2026-01-16T00:00:00+08:00",
+	"regulation_mark": "H",
+	"effect_id": "15eb5f310fd523c4c468e4519e30ae70",
+	"image_url": "https://tcg.mik.moe/static/img/CSV7C/038.png",
+	"image_local_path": "user://cards/images/CSV7C/038.png",
+	"is_tags": [],
+	"regulation_standard": true,
+	"regulation_expanded": true,
+	"energy_type": "R",
+	"stage": "Stage 2",
+	"hp": 320,
+	"weakness_energy": "W",
+	"weakness_value": "×2",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 2,
+	"evolves_from": "力壮鸡",
+	"ancient_trait": "",
+	"attacks": [
+		{
+			"name": "燃烧旋踢",
+			"text": "在下一个自己的回合，这只宝可梦无法使用招式。",
+			"cost": "RC",
+			"damage": "200",
+			"is_vstar_power": false
+		}
+	],
+	"abilities": [
+		{
+			"name": "沸腾斗志",
+			"text": "在自己的回合可以使用1次。选择自己弃牌区中的1张基本能量，附着于自己的宝可梦身上。"
+		}
+	],
+	"energy_provides": ""
+}

@@ -5,6 +5,20 @@ const BattleSetupScene := preload("res://scenes/battle_setup/BattleSetup.tscn")
 const SETTINGS_PATH := "user://battle_setup.json"
 
 
+func _set_navigation_suppressed(suppressed: bool) -> void:
+	if GameManager.has_method("set_scene_navigation_suppressed_for_tests"):
+		GameManager.call("set_scene_navigation_suppressed_for_tests", suppressed)
+
+
+func _force_two_player_mode(scene: Control) -> void:
+	var mode_option := scene.find_child("ModeOption", true, false) as OptionButton
+	if mode_option == null:
+		return
+	mode_option.select(0)
+	scene.call("_refresh_deck_options")
+	scene.call("_refresh_ai_ui_visibility")
+
+
 func _read_settings_text() -> String:
 	var file := FileAccess.open(SETTINGS_PATH, FileAccess.READ)
 	if file == null:
@@ -31,6 +45,7 @@ func test_battle_setup_populates_bgm_option() -> String:
 	var scene := BattleSetupScene.instantiate()
 	var tree := Engine.get_main_loop() as SceneTree
 	tree.root.add_child(scene)
+	_force_two_player_mode(scene)
 	scene.call("_setup_battle_music_options")
 
 	var bgm_option := scene.get_node("%BgmOption") as OptionButton
@@ -57,6 +72,7 @@ func test_battle_setup_applies_selected_bgm_volume_to_game_manager() -> String:
 	var scene := BattleSetupScene.instantiate()
 	var tree := Engine.get_main_loop() as SceneTree
 	tree.root.add_child(scene)
+	_force_two_player_mode(scene)
 	scene.call("_setup_battle_music_options")
 	var deck1 := DeckData.new()
 	deck1.id = 101
@@ -97,6 +113,7 @@ func test_battle_setup_defaults_bgm_volume_to_20_without_saved_settings() -> Str
 	var scene := BattleSetupScene.instantiate()
 	var tree := Engine.get_main_loop() as SceneTree
 	tree.root.add_child(scene)
+	_force_two_player_mode(scene)
 	var bgm_volume_slider := scene.get_node("%BgmVolumeSlider") as HSlider
 	var bgm_volume_value := scene.get_node("%BgmVolumeValue") as Label
 
@@ -115,9 +132,11 @@ func test_battle_setup_defaults_bgm_volume_to_20_without_saved_settings() -> Str
 func test_battle_setup_back_persists_bgm_volume_setting() -> String:
 	var original_settings_text := _read_settings_text()
 	_restore_settings_text("")
+	_set_navigation_suppressed(true)
 	var scene := BattleSetupScene.instantiate()
 	var tree := Engine.get_main_loop() as SceneTree
 	tree.root.add_child(scene)
+	_force_two_player_mode(scene)
 
 	var bgm_volume_slider := scene.get_node("%BgmVolumeSlider") as HSlider
 	bgm_volume_slider.value = 24
@@ -129,6 +148,7 @@ func test_battle_setup_back_persists_bgm_volume_setting() -> String:
 	var saved_data: Dictionary = json.data if parse_ok and json.data is Dictionary else {}
 
 	scene.queue_free()
+	_set_navigation_suppressed(false)
 	_restore_settings_text(original_settings_text)
 	return run_checks([
 		assert_true(parse_ok, "返回对战设置后应写入 battle_setup.json"),
@@ -140,6 +160,7 @@ func test_battle_setup_preview_button_reflects_playing_state() -> String:
 	var scene := BattleSetupScene.instantiate()
 	var tree := Engine.get_main_loop() as SceneTree
 	tree.root.add_child(scene)
+	_force_two_player_mode(scene)
 	scene.call("_setup_battle_music_options")
 
 	var bgm_option := scene.get_node("%BgmOption") as OptionButton
@@ -161,6 +182,7 @@ func test_battle_setup_preview_respects_volume_slider_changes_in_real_time() -> 
 	var scene := BattleSetupScene.instantiate()
 	var tree := Engine.get_main_loop() as SceneTree
 	tree.root.add_child(scene)
+	_force_two_player_mode(scene)
 	scene.call("_setup_battle_music_options")
 
 	var bgm_option := scene.get_node("%BgmOption") as OptionButton

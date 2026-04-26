@@ -1,4 +1,4 @@
-﻿class_name TestGardevoirStrategyChurn
+class_name TestGardevoirStrategyChurn
 extends TestBase
 
 const DeckStrategyGardevoirScript = preload("res://scripts/ai/DeckStrategyGardevoir.gd")
@@ -211,6 +211,34 @@ func _build_online_shell_without_attacker_state() -> GameState:
 	return gs
 
 
+func _build_first_gardevoir_without_kirlia_state() -> GameState:
+	var gs := _make_game_state(8)
+	var player := gs.players[0]
+	player.active_pokemon = _make_slot(_require_card(MUNKIDORI_SET, MUNKIDORI_INDEX), 0)
+	player.bench.append(_make_slot(_require_card(GARDEVOIR_SET, GARDEVOIR_INDEX), 0))
+	player.bench.append(_make_slot(_require_card(RALTS_SET, RALTS_INDEX), 0))
+	return gs
+
+
+func _build_first_gardevoir_without_kirlia_with_attacker_in_discard_state() -> GameState:
+	var gs := _build_first_gardevoir_without_kirlia_state()
+	var player := gs.players[0]
+	player.discard_pile.append(CardInstance.create(_require_card(DRIFLOON_SET, DRIFLOON_INDEX), 0))
+	player.discard_pile.append(CardInstance.create(_make_energy_cd("Psychic C", "P"), 0))
+	player.discard_pile.append(CardInstance.create(_make_energy_cd("Psychic D", "P"), 0))
+	return gs
+
+
+func _build_first_gardevoir_without_kirlia_with_bench_handoff_targets_state() -> GameState:
+	var gs := _build_first_gardevoir_without_kirlia_state()
+	var player := gs.players[0]
+	player.active_pokemon.attached_energy.append(CardInstance.create(_make_energy_cd("Psychic A", "P"), 0))
+	player.bench.append(_make_slot(_require_card(DRIFLOON_SET, DRIFLOON_INDEX), 0))
+	player.discard_pile.append(CardInstance.create(_make_energy_cd("Psychic C", "P"), 0))
+	player.discard_pile.append(CardInstance.create(_make_energy_cd("Psychic D", "P"), 0))
+	return gs
+
+
 func _build_online_shell_without_attacker_vs_weak_bench_state() -> GameState:
 	var gs := _build_online_shell_without_attacker_state()
 	var opponent := gs.players[1]
@@ -250,6 +278,16 @@ func _build_online_shell_with_attacker_in_discard_state() -> GameState:
 	var player := gs.players[0]
 	player.discard_pile.append(CardInstance.create(_require_card(DRIFLOON_SET, DRIFLOON_INDEX), 0))
 	player.deck.append(CardInstance.create(_require_card(RALTS_SET, RALTS_INDEX), 0))
+	return gs
+
+
+func _build_online_shell_with_support_only_in_discard_state() -> GameState:
+	var gs := _build_online_shell_without_attacker_state()
+	var player := gs.players[0]
+	var manaphy := _make_placeholder_pokemon(DeckStrategyGardevoirScript.MANAPHY)
+	manaphy.energy_type = "W"
+	manaphy.hp = 70
+	player.discard_pile.append(CardInstance.create(manaphy, 0))
 	return gs
 
 
@@ -616,6 +654,67 @@ func test_search_priority_prefers_rebuilding_attacker_over_support_piece_once_sh
 		"Once the shell is online but no attacker remains on board, search effects should prefer rebuilding Drifloon over another support piece (drifloon=%f munkidori=%f)" % [drifloon_score, munkidori_score])
 
 
+func test_nest_ball_prioritizes_first_attacker_body_rebuild_once_stage2_shell_is_online() -> String:
+	var gs := _build_online_shell_without_attacker_state()
+	var s := _new_strategy()
+	var nest_score: float = s.score_action_absolute(
+		{"kind": "play_trainer", "card": CardInstance.create(_make_trainer_cd(DeckStrategyGardevoirScript.NEST_BALL), 0)},
+		gs,
+		0
+	)
+	var stretcher_score: float = s.score_action_absolute(
+		{"kind": "play_trainer", "card": CardInstance.create(_make_trainer_cd(DeckStrategyGardevoirScript.NIGHT_STRETCHER), 0)},
+		gs,
+		0
+	)
+	return assert_true(nest_score > stretcher_score,
+		"Once the stage2 shell is online but no attacker body exists, Nest Ball should outrank blind Night Stretcher lines (nest=%f stretcher=%f)" % [nest_score, stretcher_score])
+
+
+func test_turn_plan_switches_to_rebuild_attacker_once_stage2_shell_is_online_without_attacker_body() -> String:
+	var gs := _build_online_shell_without_attacker_state()
+	var s := _new_strategy()
+	var plan: Dictionary = s.build_turn_plan(gs, 0, {})
+	return run_checks([
+		assert_eq(str(plan.get("intent", "")), "rebuild_attacker", "Once the stage2 shell is online but no attacker body exists, the turn intent should switch to rebuild_attacker"),
+		assert_true(bool(plan.get("flags", {}).get("shell_online", false)), "Stage2 shell should be marked online in the rebuild-attacker window"),
+	])
+
+
+func test_first_gardevoir_online_without_kirlia_still_switches_to_rebuild_attacker() -> String:
+	var gs := _build_first_gardevoir_without_kirlia_state()
+	var s := _new_strategy()
+	var plan: Dictionary = s.build_turn_plan(gs, 0, {})
+	return run_checks([
+		assert_eq(str(plan.get("intent", "")), "rebuild_attacker", "Once the first Gardevoir ex is online but no attacker body exists yet, intent should still pivot to rebuild_attacker even without Kirlia"),
+		assert_true(bool(plan.get("flags", {}).get("has_gardevoir_ex", false)), "The rebuild-attacker window should recognize the first Gardevoir ex as online"),
+	])
+
+
+func test_night_stretcher_stays_low_when_first_attacker_body_is_missing_but_no_attacker_is_in_discard() -> String:
+	var gs := _build_online_shell_without_attacker_state()
+	var s := _new_strategy()
+	var score: float = s.score_action_absolute(
+		{"kind": "play_trainer", "card": CardInstance.create(_make_trainer_cd(DeckStrategyGardevoirScript.NIGHT_STRETCHER), 0)},
+		gs,
+		0
+	)
+	return assert_true(score <= 0.0,
+		"When the stage2 shell is online but no attacker is in discard, Night Stretcher should stay low and let the deck rebuild a fresh attacker body first (got %f)" % score)
+
+
+func test_night_stretcher_stays_low_when_only_support_target_is_in_discard() -> String:
+	var gs := _build_online_shell_with_support_only_in_discard_state()
+	var s := _new_strategy()
+	var score: float = s.score_action_absolute(
+		{"kind": "play_trainer", "card": CardInstance.create(_make_trainer_cd(DeckStrategyGardevoirScript.NIGHT_STRETCHER), 0)},
+		gs,
+		0
+	)
+	return assert_true(score <= 0.0,
+		"When the online shell only has support bodies like Manaphy in discard, Night Stretcher should stay low instead of stealing the turn (got %f)" % score)
+
+
 func test_bench_priority_prefers_rebuilding_attacker_over_ralts_once_shell_is_online() -> String:
 	var gs := _build_online_shell_without_attacker_state()
 	var s := _new_strategy()
@@ -637,6 +736,104 @@ func test_bench_priority_prefers_rebuilding_attacker_over_ralts_once_shell_is_on
 	var ok := drifloon_score > ralts_score and drifloon_score > munkidori_score and ralts_score <= 20.0 and munkidori_score <= 20.0
 	return assert_true(ok,
 		"Once the shell is online but no attacker remains, hand benching should rebuild Drifloon while cooling off Ralts and Munkidori (drifloon=%f ralts=%f munkidori=%f)" % [drifloon_score, ralts_score, munkidori_score])
+
+
+func test_first_gardevoir_online_without_kirlia_still_prefers_rebuilding_attacker_over_ralts() -> String:
+	var gs := _build_first_gardevoir_without_kirlia_state()
+	var s := _new_strategy()
+	var drifloon_score: float = s.score_action_absolute(
+		{"kind": "play_basic_to_bench", "card": CardInstance.create(_require_card(DRIFLOON_SET, DRIFLOON_INDEX), 0)},
+		gs,
+		0
+	)
+	var ralts_score: float = s.score_action_absolute(
+		{"kind": "play_basic_to_bench", "card": CardInstance.create(_require_card(RALTS_SET, RALTS_INDEX), 0)},
+		gs,
+		0
+	)
+	return assert_true(drifloon_score > ralts_score,
+		"Even with only the first Gardevoir ex online, attacker rebuild should outrank extra Ralts padding (drifloon=%f ralts=%f)" % [drifloon_score, ralts_score])
+
+
+func test_first_gardevoir_online_without_kirlia_search_still_prefers_attacker_rebuild_over_ralts() -> String:
+	var gs := _build_first_gardevoir_without_kirlia_state()
+	var s := _new_strategy()
+	var drifloon_score: float = s.score_interaction_target(
+		CardInstance.create(_require_card(DRIFLOON_SET, DRIFLOON_INDEX), 0),
+		{"id": "search_pokemon"},
+		{"game_state": gs, "player_index": 0}
+	)
+	var ralts_score: float = s.score_interaction_target(
+		CardInstance.create(_require_card(RALTS_SET, RALTS_INDEX), 0),
+		{"id": "search_pokemon"},
+		{"game_state": gs, "player_index": 0}
+	)
+	return assert_true(drifloon_score > ralts_score,
+		"Even with only the first Gardevoir ex online, search routing should still prefer rebuilding a real attacker over another Ralts (drifloon=%f ralts=%f)" % [drifloon_score, ralts_score])
+
+
+func test_first_gardevoir_online_without_kirlia_night_stretcher_prefers_attacker_rebuild() -> String:
+	var gs := _build_first_gardevoir_without_kirlia_with_attacker_in_discard_state()
+	var s := _new_strategy()
+	var action_score: float = s.score_action_absolute(
+		{"kind": "play_trainer", "card": CardInstance.create(_make_trainer_cd(DeckStrategyGardevoirScript.NIGHT_STRETCHER), 0)},
+		gs,
+		0
+	)
+	var drifloon_score: float = s._score_night_stretcher_choice_target(
+		CardInstance.create(_require_card(DRIFLOON_SET, DRIFLOON_INDEX), 0),
+		gs,
+		0
+	)
+	var ralts_score: float = s._score_night_stretcher_choice_target(
+		CardInstance.create(_require_card(RALTS_SET, RALTS_INDEX), 0),
+		gs,
+		0
+	)
+	return run_checks([
+		assert_true(action_score >= 200.0, "Once the first Gardevoir ex is online and fuel exists, Night Stretcher should become a real attacker rebuild action even without Kirlia (got %f)" % action_score),
+		assert_true(drifloon_score > ralts_score, "Night Stretcher target routing should prefer Drifloon rebuild over extra Ralts padding once the first Gardevoir ex is online (drifloon=%f ralts=%f)" % [drifloon_score, ralts_score]),
+	])
+
+
+func test_first_gardevoir_online_without_kirlia_handoff_prefers_attacker_body_over_ralts() -> String:
+	var gs := _build_first_gardevoir_without_kirlia_with_bench_handoff_targets_state()
+	var player := gs.players[0]
+	var s := _new_strategy()
+	var drifloon_slot: PokemonSlot = null
+	var ralts_slot: PokemonSlot = null
+	for slot: PokemonSlot in player.bench:
+		if slot.get_pokemon_name() == DeckStrategyGardevoirScript.DRIFLOON:
+			drifloon_slot = slot
+		elif slot.get_pokemon_name() == DeckStrategyGardevoirScript.RALTS and ralts_slot == null:
+			ralts_slot = slot
+	var context := {"game_state": gs, "player_index": 0}
+	var drifloon_score: float = s._score_handoff_target(drifloon_slot, "pivot_target", context)
+	var ralts_score: float = s._score_handoff_target(ralts_slot, "pivot_target", context)
+	return assert_true(drifloon_score > ralts_score,
+		"Once the first Gardevoir ex is online, handoff routing should prefer the attacker body over extra Ralts padding even without Kirlia (drifloon=%f ralts=%f)" % [drifloon_score, ralts_score])
+
+
+func test_first_gardevoir_online_without_kirlia_post_stage2_handoff_live_with_attacker_body_and_fuel() -> String:
+	var gs := _build_first_gardevoir_without_kirlia_with_bench_handoff_targets_state()
+	var s := _new_strategy()
+	return assert_true(
+		s._post_stage2_handoff_live(gs, gs.players[0], 0),
+		"Once the first Gardevoir ex is online, an attacker body exists, and discard fuel is ready, post-stage2 handoff should already be live even without Kirlia"
+	)
+
+
+func test_rebuild_attacker_closed_loop_uses_bridge_target_as_owner_once_first_gardevoir_is_online() -> String:
+	var gs := _build_first_gardevoir_without_kirlia_with_attacker_in_discard_state()
+	var s := _new_strategy()
+	var plan: Dictionary = s.build_turn_plan(gs, 0, {})
+	var contract: Dictionary = s.build_turn_contract(gs, 0, {})
+	return run_checks([
+		assert_eq(str(plan.get("intent", "")), "rebuild_attacker_closed_loop", "First Gardevoir online plus attacker-in-discard fuel should enter rebuild_attacker_closed_loop"),
+		assert_eq(str(plan.get("targets", {}).get("primary_attacker_name", "")), DeckStrategyGardevoirScript.DRIFLOON, "Closed-loop rebuild should treat the bridge attacker as the primary attacker target"),
+		assert_eq(str(plan.get("targets", {}).get("pivot_target_name", "")), DeckStrategyGardevoirScript.DRIFLOON, "Closed-loop rebuild should pivot toward the bridge attacker instead of Gardevoir ex"),
+		assert_eq(str(contract.get("owner", {}).get("turn_owner_name", "")), DeckStrategyGardevoirScript.DRIFLOON, "Closed-loop rebuild contract owner should move onto the bridge attacker"),
+	])
 
 
 func test_ralts_bench_cools_off_once_online_shell_already_has_an_unready_attacker_body() -> String:
@@ -712,6 +909,90 @@ func test_night_stretcher_cools_off_when_unready_attacker_body_already_exists() 
 	)
 	return assert_true(stretcher_score <= 100.0,
 		"When an unready attacker body already exists on board, Night Stretcher should cool off instead of acting like urgent recovery just because another attacker is in discard (got %f)" % stretcher_score)
+
+
+func test_night_stretcher_choice_prefers_real_attacker_over_munkidori_in_transition_shell() -> String:
+	var gs := _build_online_shell_with_attacker_in_discard_state()
+	var player := gs.players[0]
+	player.discard_pile.clear()
+	player.discard_pile.append(CardInstance.create(_require_card(DRIFLOON_SET, DRIFLOON_INDEX), 0))
+	var munkidori_cd := _make_placeholder_pokemon(DeckStrategyGardevoirScript.MUNKIDORI)
+	munkidori_cd.energy_type = "D"
+	munkidori_cd.hp = 110
+	player.discard_pile.append(CardInstance.create(munkidori_cd, 0))
+	var s := _new_strategy()
+	var drifloon: CardInstance = player.discard_pile[0]
+	var munkidori: CardInstance = player.discard_pile[1]
+	var drifloon_score: float = s.score_interaction_target(drifloon, {"id": "night_stretcher_choice"}, {"game_state": gs, "player_index": 0})
+	var munkidori_score: float = s.score_interaction_target(munkidori, {"id": "night_stretcher_choice"}, {"game_state": gs, "player_index": 0})
+	return assert_true(drifloon_score > munkidori_score,
+		"Night Stretcher should prefer rebuilding a real attacker over recovering Munkidori in transition-shell states (drifloon=%f munkidori=%f)" % [drifloon_score, munkidori_score])
+
+
+func test_night_stretcher_choice_prefers_real_attacker_over_manaphy_in_transition_shell() -> String:
+	var gs := _build_online_shell_with_attacker_in_discard_state()
+	var player := gs.players[0]
+	var manaphy := _make_placeholder_pokemon(DeckStrategyGardevoirScript.MANAPHY)
+	manaphy.energy_type = "W"
+	manaphy.hp = 70
+	player.discard_pile.append(CardInstance.create(manaphy, 0))
+	var s := _new_strategy()
+	var drifloon: CardInstance = player.discard_pile[0]
+	var manaphy_card: CardInstance = player.discard_pile[1]
+	var drifloon_score: float = s.score_interaction_target(drifloon, {"id": "night_stretcher_choice"}, {"game_state": gs, "player_index": 0})
+	var manaphy_score: float = s.score_interaction_target(manaphy_card, {"id": "night_stretcher_choice"}, {"game_state": gs, "player_index": 0})
+	return assert_true(drifloon_score > manaphy_score,
+		"Night Stretcher should prefer rebuilding a real attacker over recovering Manaphy in transition-shell states (drifloon=%f manaphy=%f)" % [drifloon_score, manaphy_score])
+
+
+func test_night_stretcher_choice_prefers_first_gardevoir_over_munkidori_when_stage2_missing() -> String:
+	var gs := _make_game_state(6)
+	var player := gs.players[0]
+	player.active_pokemon = _make_slot(_require_card(KIRLIA_SET, KIRLIA_INDEX), 0)
+	player.discard_pile.append(CardInstance.create(_require_card(GARDEVOIR_SET, GARDEVOIR_INDEX), 0))
+	var munkidori_cd := _make_placeholder_pokemon(DeckStrategyGardevoirScript.MUNKIDORI)
+	munkidori_cd.energy_type = "D"
+	munkidori_cd.hp = 110
+	player.discard_pile.append(CardInstance.create(munkidori_cd, 0))
+	var s := _new_strategy()
+	var gardevoir: CardInstance = player.discard_pile[0]
+	var munkidori: CardInstance = player.discard_pile[1]
+	var gardevoir_score: float = s.score_interaction_target(gardevoir, {"id": "night_stretcher_choice"}, {"game_state": gs, "player_index": 0})
+	var munkidori_score: float = s.score_interaction_target(munkidori, {"id": "night_stretcher_choice"}, {"game_state": gs, "player_index": 0})
+	return assert_true(gardevoir_score > munkidori_score,
+		"Night Stretcher should prefer the first Gardevoir ex over Munkidori while the stage2 shell is still missing (gard=%f munk=%f)" % [gardevoir_score, munkidori_score])
+
+
+func test_iono_stays_low_while_first_gardevoir_is_still_missing() -> String:
+	var gs := _make_game_state(6)
+	var player := gs.players[0]
+	player.active_pokemon = _make_slot(_require_card(KIRLIA_SET, KIRLIA_INDEX), 0)
+	player.bench.append(_make_slot(_require_card(RALTS_SET, RALTS_INDEX), 0))
+	player.hand.append(CardInstance.create(_make_trainer_cd("Filler A"), 0))
+	player.hand.append(CardInstance.create(_make_trainer_cd("Filler B"), 0))
+	var s := _new_strategy()
+	var score: float = s.score_action_absolute(
+		{"kind": "play_trainer", "card": CardInstance.create(_make_trainer_cd(DeckStrategyGardevoirScript.IONO, "Supporter"), 0)},
+		gs,
+		0
+	)
+	return assert_true(score <= 0.0,
+		"While the first Gardevoir ex is still missing, Iono should stay low instead of interrupting shell completion (got %f)" % score)
+
+
+func test_prof_turo_stays_low_while_first_gardevoir_is_still_missing() -> String:
+	var gs := _make_game_state(6)
+	var player := gs.players[0]
+	player.active_pokemon = _make_slot(_require_card(KIRLIA_SET, KIRLIA_INDEX), 0)
+	player.bench.append(_make_slot(_require_card(RALTS_SET, RALTS_INDEX), 0))
+	var s := _new_strategy()
+	var score: float = s.score_action_absolute(
+		{"kind": "play_trainer", "card": CardInstance.create(_make_trainer_cd(DeckStrategyGardevoirScript.PROF_TURO, "Supporter"), 0)},
+		gs,
+		0
+	)
+	return assert_true(score <= 0.0,
+		"While the first Gardevoir ex is still missing, Professor Turo should stay low instead of stealing the rebuild turn (got %f)" % score)
 
 
 func test_refinement_shuts_off_under_deck_out_pressure_once_attack_is_ready() -> String:
@@ -915,6 +1196,27 @@ func test_munkidori_ability_turns_negative_without_immediate_ko_once_shell_and_a
 		"Once the shell and a ready attacker are already online, Munkidori should not spend turns moving damage unless it can immediately convert into a KO (got %f)" % score)
 
 
+func test_munkidori_ability_stays_negative_when_total_damage_exceeds_hp_but_single_use_cannot_ko() -> String:
+	var gs := _build_online_shell_attack_ready_state()
+	var s := _new_strategy()
+	var player := gs.players[0]
+	player.active_pokemon.damage_counters = 40
+	player.bench.append(_make_slot(_require_card(MUNKIDORI_SET, MUNKIDORI_INDEX), 0))
+	player.bench[2].attached_energy.append(CardInstance.create(_make_energy_cd("Darkness A", "D"), 0))
+	gs.players[1].active_pokemon = _make_slot(_make_placeholder_pokemon("Tight Target"), 1)
+	gs.players[1].active_pokemon.pokemon_stack[0].card_data.hp = 40
+	var score: float = s.score_action_absolute(
+		{
+			"kind": "use_ability",
+			"source_slot": player.bench[2],
+		},
+		gs,
+		0
+	)
+	return assert_true(score < 0.0,
+		"Munkidori should stay negative when the board has 40 damage total but a single ability use can only move 30 damage (got %f)" % score)
+
+
 func test_buddy_buddy_poffin_turns_negative_once_shell_and_attacker_are_online() -> String:
 	var gs := _build_online_shell_attack_ready_state()
 	var s := _new_strategy()
@@ -925,6 +1227,57 @@ func test_buddy_buddy_poffin_turns_negative_once_shell_and_attacker_are_online()
 	)
 	return assert_true(score < 0.0,
 		"Once the shell and a ready attacker are online, Buddy-Buddy Poffin should be actively worse than ending turn or attacking (got %f)" % score)
+
+
+func test_one_energy_attacker_body_is_not_counted_as_ready_attacker() -> String:
+	var gs := _build_online_shell_with_unready_attacker_body_state()
+	var player := gs.players[0]
+	player.bench[2].attached_energy.append(CardInstance.create(_make_energy_cd("Psychic A", "P"), 0))
+	var s := _new_strategy()
+	return assert_eq(s._count_ready_attackers(player), 0, "A one-energy Drifloon body should not be counted as a ready attacker")
+
+
+func test_boss_orders_stays_low_when_only_one_energy_attacker_body_exists() -> String:
+	var gs := _build_online_shell_with_unready_attacker_body_state()
+	var player := gs.players[0]
+	player.bench[2].attached_energy.append(CardInstance.create(_make_energy_cd("Psychic A", "P"), 0))
+	gs.players[1].bench.append(_make_slot(_make_placeholder_pokemon("Weak Target"), 1))
+	gs.players[1].bench[0].pokemon_stack[0].card_data.hp = 60
+	var s := _new_strategy()
+	var score: float = s.score_action_absolute(
+		{"kind": "play_trainer", "card": CardInstance.create(_make_trainer_cd(DeckStrategyGardevoirScript.BOSSS_ORDERS, "Supporter"), 0)},
+		gs,
+		0
+	)
+	return assert_true(score <= 0.0,
+		"Boss should stay low when the only bench attacker body has one energy and cannot actually attack this turn (got %f)" % score)
+
+
+func test_psychic_embrace_cools_off_under_deck_out_pressure_when_ready_attacker_cannot_pivot() -> String:
+	var gs := _make_game_state(14)
+	var player := gs.players[0]
+	var gardevoir := _make_slot(_require_card(GARDEVOIR_SET, GARDEVOIR_INDEX), 0)
+	gardevoir.get_card_data().retreat_cost = 2
+	player.active_pokemon = gardevoir
+	var kirlia := _make_slot(_require_card(KIRLIA_SET, KIRLIA_INDEX), 0)
+	player.bench.append(kirlia)
+	var drifloon := _make_slot(_require_card(DRIFLOON_SET, DRIFLOON_INDEX), 0)
+	drifloon.damage_counters = 40
+	drifloon.attached_energy.append(CardInstance.create(_make_energy_cd("Psychic A", "P"), 0))
+	drifloon.attached_energy.append(CardInstance.create(_make_energy_cd("Psychic B", "P"), 0))
+	player.bench.append(drifloon)
+	player.deck.append(CardInstance.create(_make_trainer_cd("LastDeckCard"), 0))
+	player.discard_pile.append(CardInstance.create(_make_energy_cd("Psychic C", "P"), 0))
+	player.discard_pile.append(CardInstance.create(_make_energy_cd("Psychic D", "P"), 0))
+	player.discard_pile.append(CardInstance.create(_make_energy_cd("Psychic E", "P"), 0))
+	var s := _new_strategy()
+	var score: float = s.score_action_absolute(
+		{"kind": "use_ability", "source_slot": player.active_pokemon},
+		gs,
+		0
+	)
+	return assert_true(score <= 80.0,
+		"Under deck-out pressure, extra Psychic Embrace should cool off when a ready attacker exists but the active Pokemon cannot pivot this turn (got %f)" % score)
 
 
 func test_arven_turns_negative_once_shell_and_attacker_are_online() -> String:
@@ -1103,6 +1456,34 @@ func test_embrace_prefers_scream_tail_when_extra_counter_unlocks_bench_prize() -
 		"When one extra Embrace lets Scream Tail pick off a weak bench target, it should outrank Drifloon as the embrace target")
 
 
+func test_psychic_embrace_turns_negative_when_stage2_shell_is_online_but_no_attacker_body_exists() -> String:
+	var gs := _build_online_shell_without_attacker_state()
+	var player := gs.players[0]
+	player.discard_pile.append(CardInstance.create(_make_energy_cd("Psychic A", "P"), 0))
+	player.discard_pile.append(CardInstance.create(_make_energy_cd("Psychic B", "P"), 0))
+	var s := _new_strategy()
+	var score: float = s.score_action_absolute(
+		{"kind": "use_ability", "source_slot": player.bench[0]},
+		gs,
+		0
+	)
+	return assert_true(score < 0.0,
+		"Once Gardevoir ex is online but no attacker body exists on board, Psychic Embrace should stay negative and let the turn rebuild a real attacker first (got %f)" % score)
+
+
+func test_embrace_target_never_falls_back_to_dead_slot() -> String:
+	var gs := _build_online_shell_with_unready_attacker_body_state()
+	var player := gs.players[0]
+	var dead_ralts := _make_slot(_require_card(RALTS_SET, RALTS_INDEX), 0)
+	dead_ralts.damage_counters = 70
+	player.bench.append(dead_ralts)
+	player.discard_pile.append(CardInstance.create(_make_energy_cd("Psychic A", "P"), 0))
+	var s := _new_strategy()
+	var picked: Variant = s.pick_embrace_target([dead_ralts, player.bench[2]], gs, 0)
+	return assert_true(picked == player.bench[2],
+		"Psychic Embrace should never fall back to a dead shell slot when a live attacker body exists")
+
+
 func test_bench_priority_prefers_scream_tail_even_with_ready_attacker_when_weak_bench_is_exposed() -> String:
 	var gs := _build_online_shell_with_ready_drifloon_vs_weak_bench_state()
 	var s := _new_strategy()
@@ -1203,3 +1584,45 @@ func test_manual_attach_dark_bridges_benched_scream_tail_once_stage2_shell_is_on
 	)
 	return assert_true(attach_score >= 500.0,
 		"When the stage2 shell is online and Scream Tail is one Dark Energy short of a bench prize line, manual Dark attach should become a real bridge action (got %f)" % attach_score)
+
+
+func test_handoff_prefers_scream_tail_owner_into_weak_bench_transition_shell() -> String:
+	var gs := _build_online_shell_without_attacker_vs_weak_bench_state()
+	var s := _new_strategy()
+	var scream_tail := _make_slot(_make_scream_tail_cd(), 0)
+	var drifloon := _make_slot(_require_card(DRIFLOON_SET, DRIFLOON_INDEX), 0)
+	var kirlia := _make_slot(_require_card(KIRLIA_SET, KIRLIA_INDEX), 0)
+	var munkidori := _make_slot(_require_card(MUNKIDORI_SET, MUNKIDORI_INDEX), 0)
+	var scream_send_out: float = s.score_handoff_target(scream_tail, {"id": "send_out"}, {"game_state": gs, "player_index": 0})
+	var drifloon_send_out: float = s.score_handoff_target(drifloon, {"id": "send_out"}, {"game_state": gs, "player_index": 0})
+	var kirlia_send_out: float = s.score_handoff_target(kirlia, {"id": "send_out"}, {"game_state": gs, "player_index": 0})
+	var munkidori_send_out: float = s.score_handoff_target(munkidori, {"id": "send_out"}, {"game_state": gs, "player_index": 0})
+	var scream_switch: float = s.score_handoff_target(scream_tail, {"id": "self_switch_target"}, {"game_state": gs, "player_index": 0})
+	var drifloon_switch: float = s.score_handoff_target(drifloon, {"id": "self_switch_target"}, {"game_state": gs, "player_index": 0})
+	return run_checks([
+		assert_true(scream_send_out > drifloon_send_out,
+			"When weak bench prizes are exposed, send_out should hand off to Scream Tail before Drifloon (scream=%f drifloon=%f)" % [scream_send_out, drifloon_send_out]),
+		assert_true(scream_send_out > kirlia_send_out,
+			"When weak bench prizes are exposed, send_out should hand off to Scream Tail before shell pieces like Kirlia (scream=%f kirlia=%f)" % [scream_send_out, kirlia_send_out]),
+		assert_true(scream_send_out > munkidori_send_out,
+			"When weak bench prizes are exposed, send_out should hand off to Scream Tail before Munkidori (scream=%f munkidori=%f)" % [scream_send_out, munkidori_send_out]),
+		assert_true(scream_switch > drifloon_switch,
+			"Switch-like handoffs should agree with send_out and keep attack ownership on Scream Tail in the weak-bench transition window (scream=%f drifloon=%f)" % [scream_switch, drifloon_switch]),
+	])
+
+
+func test_handoff_prefers_drifloon_owner_when_no_weak_bench_window_exists() -> String:
+	var gs := _build_online_shell_without_attacker_state()
+	var s := _new_strategy()
+	var scream_tail := _make_slot(_make_scream_tail_cd(), 0)
+	var drifloon := _make_slot(_require_card(DRIFLOON_SET, DRIFLOON_INDEX), 0)
+	var munkidori := _make_slot(_require_card(MUNKIDORI_SET, MUNKIDORI_INDEX), 0)
+	var drifloon_send_out: float = s.score_handoff_target(drifloon, {"id": "send_out"}, {"game_state": gs, "player_index": 0})
+	var scream_send_out: float = s.score_handoff_target(scream_tail, {"id": "send_out"}, {"game_state": gs, "player_index": 0})
+	var munkidori_send_out: float = s.score_handoff_target(munkidori, {"id": "send_out"}, {"game_state": gs, "player_index": 0})
+	return run_checks([
+		assert_true(drifloon_send_out > scream_send_out,
+			"Without a weak-bench prize window, send_out should hand off to Drifloon before Scream Tail (drifloon=%f scream=%f)" % [drifloon_send_out, scream_send_out]),
+		assert_true(drifloon_send_out > munkidori_send_out,
+			"Without a weak-bench prize window, send_out should hand off to Drifloon before Munkidori (drifloon=%f munkidori=%f)" % [drifloon_send_out, munkidori_send_out]),
+	])

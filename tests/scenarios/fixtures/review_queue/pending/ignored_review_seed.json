@@ -1,0 +1,5 @@
+{
+	"review_request_id": "ignored_review_seed",
+	"scenario_path": "res://tmp/scenario_extract_batch/deck_569061/example.json",
+	"notes": "This file should never be treated as a runnable scenario fixture."
+}

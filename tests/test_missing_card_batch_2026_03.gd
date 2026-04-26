@@ -9,6 +9,7 @@ const EffectEnergySwitch = preload("res://scripts/effects/trainer_effects/Effect
 const EffectNightStretcher = preload("res://scripts/effects/trainer_effects/EffectNightStretcher.gd")
 const EffectUnfairStamp = preload("res://scripts/effects/trainer_effects/EffectUnfairStamp.gd")
 const EffectCarmine = preload("res://scripts/effects/trainer_effects/EffectCarmine.gd")
+const EffectHandheldFan = preload("res://scripts/effects/tool_effects/EffectHandheldFan.gd")
 const AbilityMoveOpponentDamageCounters = preload("res://scripts/effects/pokemon_effects/AbilityMoveOpponentDamageCounters.gd")
 const AbilityBenchDamageOnPlay = preload("res://scripts/effects/pokemon_effects/AbilityBenchDamageOnPlay.gd")
 const AbilityPrizeCountColorlessReduction = preload("res://scripts/effects/pokemon_effects/AbilityPrizeCountColorlessReduction.gd")
@@ -79,6 +80,18 @@ func _make_energy_data(name: String, energy_type: String, card_type: String = "B
 	cd.energy_provides = energy_type
 	cd.effect_id = effect_id
 	return cd
+
+
+func _load_card_data(path: String) -> CardData:
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return null
+	var content := file.get_as_text()
+	file.close()
+	var json := JSON.new()
+	if json.parse(content) != OK or not (json.data is Dictionary):
+		return null
+	return CardData.from_dict(json.data)
 
 
 func _make_slot(card_data: CardData, owner_index: int) -> PokemonSlot:
@@ -315,6 +328,265 @@ func test_csv8c_173_unfair_stamp_requires_recent_knockout() -> String:
 		assert_eq(player.hand.size(), 5, "CSV8C_173 should draw 5 for the user"),
 		assert_eq(opponent.hand.size(), 2, "CSV8C_173 should draw 2 for the opponent"),
 		assert_false(fail_effect.can_execute(card, fail_state), "CSV8C_173 should not be playable without the knockout condition"),
+	])
+
+
+func test_cs5dc_085_darkrai_v_dark_void_applies_sleep() -> String:
+	var processor := EffectProcessor.new()
+	var state := _make_state()
+	var attacker_cd := _make_basic_pokemon_data("Darkrai V", "D", 210, "Basic", "V", "32ad0aabda779aea0420eed4505407be")
+	attacker_cd.attacks = [
+		{"name": "Dark Void", "cost": "DC", "damage": "50", "text": "", "is_vstar_power": false},
+		{"name": "Dark Void 2", "cost": "DDC", "damage": "130", "text": "Your opponent's Active Pokemon is now Asleep.", "is_vstar_power": false},
+	]
+	var attacker := _make_slot(attacker_cd, 0)
+	state.players[0].active_pokemon = attacker
+	var defender := state.players[1].active_pokemon
+	processor.register_pokemon_card(attacker_cd)
+
+	processor.execute_attack_effect(attacker, 1, defender, state)
+
+	return run_checks([
+		assert_true(processor.has_attack_effect(attacker_cd.effect_id), "CS5DC_085 should register a scripted attack effect"),
+		assert_true(defender.status_conditions.get("asleep", false), "CS5DC_085 second attack should make the opponent Active Pokemon Asleep"),
+	])
+
+
+func test_cs5dc_086_darkrai_vstar_star_abyss_recovers_two_items_and_marks_vstar_power() -> String:
+	var processor := EffectProcessor.new()
+	var state := _make_state()
+	var player: PlayerState = state.players[0]
+	player.hand.clear()
+	player.discard_pile.clear()
+	var darkrai_cd := _make_basic_pokemon_data("Darkrai VSTAR", "D", 270, "VSTAR", "V", "6d8bfccd0e05c3cfdea28540dce2deab")
+	darkrai_cd.abilities = [{"name": "Star Abyss", "text": "Put up to 2 Item cards from your discard pile into your hand."}]
+	darkrai_cd.attacks = [{"name": "Dark Pulse", "cost": "CC", "damage": "30+", "text": "This attack does 30 more damage for each Darkness Energy attached to all of your Pokemon.", "is_vstar_power": false}]
+	var darkrai := _make_slot(darkrai_cd, 0)
+	player.active_pokemon = darkrai
+	var item_a := CardInstance.create(_make_trainer_data("Item A", "Item"), 0)
+	var item_b := CardInstance.create(_make_trainer_data("Item B", "Item"), 0)
+	var supporter := CardInstance.create(_make_trainer_data("Supporter C", "Supporter"), 0)
+	player.discard_pile.append(item_a)
+	player.discard_pile.append(item_b)
+	player.discard_pile.append(supporter)
+	processor.register_pokemon_card(darkrai_cd)
+
+	var ability_ok := processor.execute_ability_effect(darkrai, 0, [{"recover_cards": [item_a, item_b]}], state)
+
+	return run_checks([
+		assert_true(ability_ok, "CS5DC_086 should execute Star Abyss"),
+		assert_true(item_a in player.hand and item_b in player.hand, "CS5DC_086 should recover up to 2 Item cards from discard to hand"),
+		assert_true(supporter in player.discard_pile, "CS5DC_086 should not recover non-Item cards"),
+		assert_true(state.vstar_power_used[0], "CS5DC_086 should mark VSTAR Power as used"),
+	])
+
+
+func test_cs5dc_086_darkrai_vstar_dark_pulse_counts_all_own_dark_energy() -> String:
+	var gsm := GameStateMachine.new()
+	gsm.game_state = _make_state()
+	var state := gsm.game_state
+	var player: PlayerState = state.players[0]
+	var darkrai_cd := _make_basic_pokemon_data("Darkrai VSTAR", "D", 270, "VSTAR", "V", "6d8bfccd0e05c3cfdea28540dce2deab")
+	darkrai_cd.attacks = [{"name": "Dark Pulse", "cost": "CC", "damage": "30+", "text": "This attack does 30 more damage for each Darkness Energy attached to all of your Pokemon.", "is_vstar_power": false}]
+	var darkrai := _make_slot(darkrai_cd, 0)
+	state.players[0].active_pokemon = darkrai
+	player.bench.clear()
+	player.bench.append(_make_slot(_make_basic_pokemon_data("Bench Dark", "D", 120), 0))
+	darkrai.attached_energy.clear()
+	darkrai.attached_energy.append(CardInstance.create(_make_energy_data("Dark 1", "D"), 0))
+	player.bench[0].attached_energy.append(CardInstance.create(_make_energy_data("Dark 2", "D"), 0))
+	player.bench[0].attached_energy.append(CardInstance.create(_make_energy_data("Dark 3", "D"), 0))
+	gsm.effect_processor.register_pokemon_card(darkrai_cd)
+
+	var damage := gsm._calculate_attack_damage(darkrai, state.players[1].active_pokemon, darkrai_cd.attacks[0], 0, [])
+
+	return run_checks([
+		assert_eq(damage, 120, "CS5DC_086 should do 30 plus 30 for each Darkness Energy attached to all of your Pokemon"),
+	])
+
+
+func test_csv8c_133_okidogi_ex_toxic_muscle_attaches_two_dark_then_self_poisons() -> String:
+	var processor := EffectProcessor.new()
+	var state := _make_state()
+	var player: PlayerState = state.players[0]
+	player.deck.clear()
+	var attacker_cd := _make_basic_pokemon_data("Okidogi ex", "D", 250, "Basic", "ex", "0da4be5989cece0719477261c8571fd9")
+	attacker_cd.attacks = [
+		{"name": "Toxic Muscle", "cost": "C", "damage": "", "text": "Attach up to 2 Basic Darkness Energy cards from your deck to this Pokemon. If you attached any Energy in this way, this Pokemon is now Poisoned.", "is_vstar_power": false},
+		{"name": "Chain-Crazed", "cost": "DDC", "damage": "130+", "text": "If this Pokemon is Poisoned, this attack does 130 more damage.", "is_vstar_power": false},
+	]
+	var attacker := _make_slot(attacker_cd, 0)
+	state.players[0].active_pokemon = attacker
+	var dark_a := CardInstance.create(_make_energy_data("Dark A", "D"), 0)
+	var dark_b := CardInstance.create(_make_energy_data("Dark B", "D"), 0)
+	player.deck.append(dark_a)
+	player.deck.append(dark_b)
+	processor.register_pokemon_card(attacker_cd)
+
+	var effects := processor.get_attack_effects_for_slot(attacker, 0)
+	var steps := effects[0].get_attack_interaction_steps(attacker.get_top_card(), attacker_cd.attacks[0], state)
+	effects[0].set_attack_interaction_context([{
+		"energy_assignments": [
+			{"source": dark_a, "target": attacker},
+			{"source": dark_b, "target": attacker},
+		],
+	}])
+	effects[0].execute_attack(attacker, state.players[1].active_pokemon, 0, state)
+	effects[0].clear_attack_interaction_context()
+
+	return run_checks([
+		assert_eq(steps.size(), 1, "CSV8C_133 first attack should provide energy assignment interaction"),
+		assert_eq(attacker.attached_energy.size(), 2, "CSV8C_133 first attack should attach up to 2 Basic Darkness Energy to itself"),
+		assert_true(attacker.status_conditions.get("poisoned", false), "CSV8C_133 should become Poisoned after attaching Energy to itself"),
+	])
+
+
+func test_csv8c_133_okidogi_ex_chain_crazed_gets_bonus_when_poisoned() -> String:
+	var gsm := GameStateMachine.new()
+	gsm.game_state = _make_state()
+	var state := gsm.game_state
+	var attacker_cd := _make_basic_pokemon_data("Okidogi ex", "D", 250, "Basic", "ex", "0da4be5989cece0719477261c8571fd9")
+	attacker_cd.attacks = [
+		{"name": "Toxic Muscle", "cost": "C", "damage": "", "text": "", "is_vstar_power": false},
+		{"name": "Chain-Crazed", "cost": "DDC", "damage": "130+", "text": "If this Pokemon is Poisoned, this attack does 130 more damage.", "is_vstar_power": false},
+	]
+	var attacker := _make_slot(attacker_cd, 0)
+	attacker.set_status("poisoned", true)
+	state.players[0].active_pokemon = attacker
+	gsm.effect_processor.register_pokemon_card(attacker_cd)
+
+	var damage := gsm._calculate_attack_damage(attacker, state.players[1].active_pokemon, attacker_cd.attacks[1], 1, [])
+
+	return run_checks([
+		assert_eq(damage, 260, "CSV8C_133 second attack should do 130 more damage when this Pokemon is Poisoned"),
+	])
+
+
+func test_csv8c_136_pecharunt_ex_subjugating_chains_switches_bench_dark_and_poisons_once_per_turn() -> String:
+	var gsm := GameStateMachine.new()
+	gsm.game_state = _make_state()
+	var state := gsm.game_state
+	var player: PlayerState = state.players[0]
+	var pecharunt_cd := _make_basic_pokemon_data("Pecharunt ex", "D", 190, "Basic", "ex", "e92d1881bfe5e0b957b87c93cd757fc7")
+	pecharunt_cd.name_en = "Pecharunt ex"
+	pecharunt_cd.abilities = [{"name": "Subjugating Chains", "text": "Switch 1 of your Benched Darkness Pokemon, except any Pecharunt ex, with your Active Pokemon. The new Active Pokemon is now Poisoned."}]
+	pecharunt_cd.attacks = [{"name": "Irritated Outburst", "cost": "DD", "damage": "60x", "text": "This attack does 60 damage for each Prize card your opponent has taken.", "is_vstar_power": false}]
+	var active := _make_slot(_make_basic_pokemon_data("Active", "C", 120), 0)
+	var dark_target := _make_slot(_make_basic_pokemon_data("Bench Dark", "D", 120), 0)
+	var pecharunt := _make_slot(pecharunt_cd, 0)
+	player.active_pokemon = active
+	player.bench.clear()
+	player.bench.append(pecharunt)
+	player.bench.append(dark_target)
+	gsm.effect_processor.register_pokemon_card(pecharunt_cd)
+
+	var first_ok := gsm.use_ability(0, pecharunt, 0, [{"subjugating_chains_target": [dark_target]}])
+	var second_ok := gsm.use_ability(0, pecharunt, 0, [{"subjugating_chains_target": [active]}])
+
+	return run_checks([
+		assert_true(first_ok, "CSV8C_136 should be usable from the Bench during your turn"),
+		assert_eq(player.active_pokemon, dark_target, "CSV8C_136 should switch the chosen Benched Darkness Pokemon into the Active Spot"),
+		assert_true(player.active_pokemon.status_conditions.get("poisoned", false), "CSV8C_136 should Poison the new Active Pokemon"),
+		assert_false(second_ok, "CSV8C_136 should not be usable more than once per turn across copies"),
+	])
+
+
+func test_csv8c_136_pecharunt_ex_can_use_ability_with_equivalent_bench_slot_reference() -> String:
+	var gsm := GameStateMachine.new()
+	gsm.game_state = _make_state()
+	var state := gsm.game_state
+	var player: PlayerState = state.players[0]
+	var pecharunt_cd := _make_basic_pokemon_data("Pecharunt ex", "D", 190, "Basic", "ex", "e92d1881bfe5e0b957b87c93cd757fc7")
+	pecharunt_cd.name_en = "Pecharunt ex"
+	pecharunt_cd.abilities = [{"name": "Subjugating Chains", "text": "Switch 1 of your Benched Darkness Pokemon, except any Pecharunt ex, with your Active Pokemon. The new Active Pokemon is now Poisoned."}]
+	var active := _make_slot(_make_basic_pokemon_data("Active", "C", 120), 0)
+	var dark_target := _make_slot(_make_basic_pokemon_data("Bench Dark", "D", 120), 0)
+	var pecharunt := _make_slot(pecharunt_cd, 0)
+	player.active_pokemon = active
+	player.bench.clear()
+	player.bench.append(pecharunt)
+	player.bench.append(dark_target)
+	gsm.effect_processor.register_pokemon_card(pecharunt_cd)
+
+	var equivalent_slot := PokemonSlot.new()
+	equivalent_slot.pokemon_stack.append(pecharunt.get_top_card())
+	var can_use := gsm.effect_processor.can_use_ability(equivalent_slot, state, 0)
+
+	return run_checks([
+		assert_true(can_use, "CSV8C_136 should remain usable when the caller passes an equivalent bench slot instead of the original reference"),
+	])
+
+
+func test_csv8c_136_pecharunt_ex_irritated_outburst_counts_taken_prizes() -> String:
+	var gsm := GameStateMachine.new()
+	gsm.game_state = _make_state()
+	var state := gsm.game_state
+	state.players[1].prizes.resize(4)
+	var attacker_cd := _make_basic_pokemon_data("Pecharunt ex", "D", 190, "Basic", "ex", "e92d1881bfe5e0b957b87c93cd757fc7")
+	attacker_cd.attacks = [{"name": "Irritated Outburst", "cost": "DD", "damage": "60x", "text": "This attack does 60 damage for each Prize card your opponent has taken.", "is_vstar_power": false}]
+	var attacker := _make_slot(attacker_cd, 0)
+	state.players[0].active_pokemon = attacker
+	gsm.effect_processor.register_pokemon_card(attacker_cd)
+
+	var damage := gsm._calculate_attack_damage(attacker, state.players[1].active_pokemon, attacker_cd.attacks[0], 0, [])
+
+	return run_checks([
+		assert_eq(damage, 180, "CSV8C_136 attack should do base 60 plus 60 damage for each Prize card the opponent has taken"),
+	])
+
+
+func test_csv8c_187_binding_mochi_boosts_poisoned_attacker_only() -> String:
+	var processor := EffectProcessor.new()
+	var state := _make_state()
+	var attacker := state.players[0].active_pokemon
+	attacker.damage_counters = 0
+	attacker.clear_all_status()
+	var tool_cd := _make_trainer_data("Binding Mochi", "Tool", "a77ef1e9df5b37e1d529682b2b38a4b8")
+	attacker.attached_tool = CardInstance.create(tool_cd, 0)
+	EffectRegistry.register_all(processor)
+
+	var no_poison_bonus := processor.get_attacker_modifier(attacker, state)
+	attacker.set_status("poisoned", true)
+	var poison_bonus := processor.get_attacker_modifier(attacker, state)
+
+	return run_checks([
+		assert_eq(no_poison_bonus, 0, "CSV8C_187 should not boost damage when the attached Pokemon is not Poisoned"),
+		assert_eq(poison_bonus, 40, "CSV8C_187 should add 40 damage when the attached Pokemon is Poisoned"),
+	])
+
+
+func test_csv8c_192_janines_secret_art_attaches_to_two_dark_and_poisons_active_if_attached() -> String:
+	var gsm := GameStateMachine.new()
+	gsm.game_state = _make_state()
+	var state := gsm.game_state
+	var player: PlayerState = state.players[0]
+	player.deck.clear()
+	player.hand.clear()
+	var active_cd := _make_basic_pokemon_data("Active Dark", "D", 130)
+	var bench_cd := _make_basic_pokemon_data("Bench Dark", "D", 120)
+	player.active_pokemon = _make_slot(active_cd, 0)
+	player.bench.clear()
+	player.bench.append(_make_slot(bench_cd, 0))
+	var dark_a := CardInstance.create(_make_energy_data("Dark A", "D"), 0)
+	var dark_b := CardInstance.create(_make_energy_data("Dark B", "D"), 0)
+	player.deck.append(dark_a)
+	player.deck.append(dark_b)
+	var card_data := _make_trainer_data("CSV8C_192 Janine's Secret Art", "Supporter", "050b081d65e7c3ccff3eed61107e17a5")
+	var card := CardInstance.create(card_data, 0)
+	player.hand.append(card)
+
+	var success := gsm.play_trainer(0, card, [{
+		"janine_assignments": [
+			{"source": dark_a, "target": player.active_pokemon},
+			{"source": dark_b, "target": player.bench[0]},
+		],
+	}])
+
+	return run_checks([
+		assert_true(success, "CSV8C_192 should be playable when deck and targets satisfy the effect"),
+		assert_eq(player.active_pokemon.attached_energy.size(), 1, "CSV8C_192 should attach a Basic Darkness Energy to the chosen Active Darkness Pokemon"),
+		assert_eq(player.bench[0].attached_energy.size(), 1, "CSV8C_192 should attach a Basic Darkness Energy to another chosen Darkness Pokemon"),
+		assert_true(player.active_pokemon.status_conditions.get("poisoned", false), "CSV8C_192 should Poison the Active Pokemon if Energy was attached to it"),
 	])
 
 
@@ -725,6 +997,89 @@ func test_csv8c_135_fezandipiti_ability_unlocks_after_real_knockout_flow() -> St
 	])
 
 
+func test_svp_067_charmander_spark_discards_selected_attached_energy() -> String:
+	var processor := EffectProcessor.new()
+	var state := _make_state()
+	var charmander_cd: CardData = CardDatabase.get_card("SVP", "067")
+	if charmander_cd == null:
+		return "SVP_067 cached fixture is missing"
+
+	processor.register_pokemon_card(charmander_cd)
+	var attacker := _make_slot(charmander_cd, 0)
+	state.players[0].active_pokemon = attacker
+	var fire := CardInstance.create(_make_energy_data("Fire", "R"), 0)
+	var psychic := CardInstance.create(_make_energy_data("Psychic", "P"), 0)
+	attacker.attached_energy.append(fire)
+	attacker.attached_energy.append(psychic)
+
+	var effects: Array[BaseEffect] = processor.get_attack_effects_for_slot(attacker, 0)
+	var steps: Array[Dictionary] = effects[0].get_attack_interaction_steps(attacker.get_top_card(), charmander_cd.attacks[0], state)
+	processor.execute_attack_effect(attacker, 0, state.players[1].active_pokemon, state, [{
+		"discard_attached_energy_from_self": [psychic],
+	}])
+
+	return run_checks([
+		assert_true(processor.has_attack_effect(charmander_cd.effect_id), "SVP_067 should register its scripted discard attack by effect_id"),
+		assert_eq(steps.size(), 1, "SVP_067 should expose one attached-energy discard step"),
+		assert_eq(attacker.attached_energy.size(), 1, "SVP_067 should leave exactly one attached Energy after Spark"),
+		assert_contains(attacker.attached_energy, fire, "SVP_067 should keep the unselected attached Energy"),
+		assert_false(psychic in attacker.attached_energy, "SVP_067 should remove the selected attached Energy"),
+		assert_contains(state.players[0].discard_pile, psychic, "SVP_067 should discard the selected attached Energy"),
+	])
+
+
+func test_cs6bc_058_dragapult_dragon_launcher_discards_selected_dreepy_and_hits_equal_targets() -> String:
+	var processor := EffectProcessor.new()
+	var state := _make_state()
+	var dragapult_cd: CardData = CardDatabase.get_card("CS6bC", "058")
+	var dreepy_cd: CardData = CardDatabase.get_card("CSV8C", "157")
+	if dragapult_cd == null or dreepy_cd == null:
+		return "CS6bC_058 / CSV8C_157 cached fixtures are missing"
+
+	processor.register_pokemon_card(dragapult_cd)
+	var attacker := _make_slot(dragapult_cd, 0)
+	state.players[0].active_pokemon = attacker
+	var dreepy_a := _make_slot(dreepy_cd, 0)
+	var dreepy_b := _make_slot(dreepy_cd, 0)
+	var non_dreepy := _make_slot(_make_basic_pokemon_data("Bench Filler", "C", 70), 0)
+	state.players[0].bench.clear()
+	state.players[0].bench.append(dreepy_a)
+	state.players[0].bench.append(dreepy_b)
+	state.players[0].bench.append(non_dreepy)
+
+	var opponent: PlayerState = state.players[1]
+	var target_active := opponent.active_pokemon
+	var target_bench := opponent.bench[0]
+	var untouched_bench := opponent.bench[1]
+
+	var effects: Array[BaseEffect] = processor.get_attack_effects_for_slot(attacker, 0)
+	var steps: Array[Dictionary] = effects[0].get_attack_interaction_steps(attacker.get_top_card(), dragapult_cd.attacks[0], state)
+	var followup: Array[Dictionary] = effects[0].get_followup_attack_interaction_steps(
+		attacker.get_top_card(),
+		dragapult_cd.attacks[0],
+		state,
+		{"dragon_launcher_dreepy": [dreepy_a, dreepy_b]}
+	)
+	processor.execute_attack_effect(attacker, 0, target_active, state, [{
+		"dragon_launcher_dreepy": [dreepy_a, dreepy_b],
+		"dragon_launcher_targets": [target_active, target_bench],
+	}])
+
+	return run_checks([
+		assert_true(processor.has_attack_effect(dragapult_cd.effect_id), "CS6bC_058 should register Dragon Launcher by effect_id"),
+		assert_eq(steps.size(), 1, "CS6bC_058 should first expose one Dreepy selection step"),
+		assert_eq(int(steps[0].get("max_select", -1)), 2, "CS6bC_058 should allow discarding up to the selected Dreepy cap"),
+		assert_eq(followup.size(), 1, "CS6bC_058 should inject one equal-count target selection follow-up step"),
+		assert_eq(int(followup[0].get("min_select", -1)), 2, "CS6bC_058 should require targeting as many opponent Pokemon as discarded Dreepy"),
+		assert_false(state.players[0].bench.has(dreepy_a), "CS6bC_058 should discard the first selected Dreepy from the Bench"),
+		assert_false(state.players[0].bench.has(dreepy_b), "CS6bC_058 should discard the second selected Dreepy from the Bench"),
+		assert_true(state.players[0].bench.has(non_dreepy), "CS6bC_058 should not discard non-Dreepy Bench Pokemon"),
+		assert_eq(target_active.damage_counters, 100, "CS6bC_058 should deal 100 to the selected Active target"),
+		assert_eq(target_bench.damage_counters, 100, "CS6bC_058 should deal 100 to the selected Benched target"),
+		assert_eq(untouched_bench.damage_counters, 0, "CS6bC_058 should not damage unselected targets"),
+	])
+
+
 func test_cs5bc_128_temple_of_sinnoh_turns_special_energy_into_one_colorless() -> String:
 	var processor := EffectProcessor.new()
 	var stadium_data := _make_trainer_data("CS5bC_128 Temple of Sinnoh", "Stadium", "53864b068a4a1e8dce3c53c884b67efa")
@@ -812,6 +1167,47 @@ func test_csv6c_121_sada_attaches_to_two_ancient_then_draws_three() -> String:
 		assert_eq(player.active_pokemon.attached_energy.size(), 1, "CSV6C_121 should attach to the first chosen Ancient Pokemon"),
 		assert_eq(player.bench[0].attached_energy.size(), 1, "CSV6C_121 should attach to the second chosen Ancient Pokemon"),
 		assert_eq(player.hand.size(), 3, "CSV6C_121 should draw 3 cards"),
+	])
+
+
+func test_csv6c_121_sada_cannot_attach_two_energy_to_same_ancient() -> String:
+	var gsm := GameStateMachine.new()
+	gsm.game_state = _make_state()
+	var state: GameState = gsm.game_state
+	var player: PlayerState = state.players[0]
+	player.hand.clear()
+	player.deck.clear()
+	player.discard_pile.clear()
+
+	var ancient_cd := _make_basic_pokemon_data("Ancient Single Target", "F", 120, "Basic", "", "ancient_single")
+	ancient_cd.is_tags = PackedStringArray([CardData.ANCIENT_TAG])
+	player.active_pokemon = _make_slot(ancient_cd, 0)
+	player.bench.clear()
+
+	var e1 := CardInstance.create(_make_energy_data("Sada Same Target Energy 1", "F"), 0)
+	var e2 := CardInstance.create(_make_energy_data("Sada Same Target Energy 2", "D"), 0)
+	player.discard_pile.append(e1)
+	player.discard_pile.append(e2)
+	for i: int in 6:
+		player.deck.append(CardInstance.create(_make_basic_pokemon_data("Sada Same Target Draw %d" % i, "C"), 0))
+
+	var card := CardInstance.create(_make_trainer_data("CSV6C_121 Professor Sada's Vitality", "Supporter", "651276c51911345aa091c1c7b87f3f4f"), 0)
+	player.hand.append(card)
+	var effect: BaseEffect = gsm.effect_processor.get_effect(card.card_data.effect_id)
+	var steps := effect.get_interaction_steps(card, state)
+	var success := gsm.play_trainer(0, card, [{
+		"sada_assignments": [
+			{"source": e1, "target": player.active_pokemon},
+			{"source": e2, "target": player.active_pokemon},
+		],
+	}])
+
+	return run_checks([
+		assert_true(success, "CSV6C_121 should still resolve when at least one legal assignment is present"),
+		assert_eq(int(steps[0].get("max_assignments_per_target", 0)), 1, "CSV6C_121 interaction should declare one assignment per target"),
+		assert_eq(player.active_pokemon.attached_energy.size(), 1, "CSV6C_121 must not attach two energy to the same Ancient Pokemon"),
+		assert_true(e2 in player.discard_pile, "CSV6C_121 should leave the illegal duplicate energy in discard"),
+		assert_eq(player.hand.size(), 3, "CSV6C_121 should still draw 3 cards after legal attachment"),
 	])
 
 
@@ -2107,6 +2503,87 @@ func test_cs6bc_108_giratina_vstar_lost_impact_discards_two_from_field() -> Stri
 		assert_eq(bench_slot.attached_energy.size(), 1, "CS6bC_108 should keep unselected energy on bench"),
 		assert_true(energy_c in bench_slot.attached_energy, "CS6bC_108 should not remove unselected energy"),
 	])
+
+
+func test_cs5bc_096_origin_forme_dialga_vstar_attack_effects_are_index_scoped() -> String:
+	var state := _make_state()
+	var player: PlayerState = state.players[0]
+	var defender := state.players[1].active_pokemon
+	var dialga_cd := _load_card_data("res://data/bundled_user/cards/CS5bC_096.json")
+	if dialga_cd == null:
+		return "CS5bC_096 card data should load"
+
+	var processor := EffectProcessor.new()
+	processor.register_pokemon_card(dialga_cd)
+	var dialga := _make_slot(dialga_cd, 0)
+	player.active_pokemon = dialga
+	dialga.attached_energy.clear()
+	dialga.attached_energy.append(CardInstance.create(_make_energy_data("Metal A", "M"), 0))
+	player.bench[0].attached_energy.append(CardInstance.create(_make_energy_data("Metal B", "M"), 0))
+
+	var first_attack_effects := processor.get_attack_effects_for_slot(dialga, 0)
+	var second_attack_effects := processor.get_attack_effects_for_slot(dialga, 1)
+	processor.execute_attack_effect(dialga, 0, defender, state)
+	var damage_after_first: int = defender.damage_counters
+	var vstar_after_first: bool = state.vstar_power_used[0]
+	var extra_turn_after_first: bool = dialga.effects.any(func(effect: Dictionary) -> bool:
+		return str(effect.get("type", "")) == "extra_turn"
+	)
+
+	defender.damage_counters = 0
+	dialga.effects.clear()
+	processor.execute_attack_effect(dialga, 1, defender, state)
+
+	return run_checks([
+		assert_eq(bool(dialga_cd.attacks[0].get("is_vstar_power", false)), false, "CS5bC_096 first attack must not be card-data VSTAR power"),
+		assert_eq(bool(dialga_cd.attacks[1].get("is_vstar_power", false)), true, "CS5bC_096 second attack must be card-data VSTAR power"),
+		assert_true(first_attack_effects.any(func(effect: BaseEffect) -> bool: return effect is AttackEnergyCountDamage), "CS5bC_096 first attack should receive Metal Blast bonus effect"),
+		assert_false(first_attack_effects.any(func(effect: BaseEffect) -> bool: return effect is AttackVSTARExtraTurn), "CS5bC_096 first attack should not receive VSTAR extra-turn effect"),
+		assert_true(second_attack_effects.any(func(effect: BaseEffect) -> bool: return effect is AttackVSTARExtraTurn), "CS5bC_096 second attack should receive VSTAR extra-turn effect"),
+		assert_false(second_attack_effects.any(func(effect: BaseEffect) -> bool: return effect is AttackEnergyCountDamage), "CS5bC_096 second attack should not receive Metal Blast bonus effect"),
+		assert_eq(damage_after_first, 80, "Metal Blast should add 40 damage for each own field Metal Energy"),
+		assert_false(vstar_after_first, "Metal Blast should not consume VSTAR power"),
+		assert_false(extra_turn_after_first, "Metal Blast should not schedule an extra turn"),
+		assert_true(state.vstar_power_used[0], "Star Chronos should consume VSTAR power"),
+		assert_true(dialga.effects.any(func(effect: Dictionary) -> bool: return str(effect.get("type", "")) == "extra_turn"), "Star Chronos should schedule an extra turn"),
+		assert_eq(defender.damage_counters, 0, "Star Chronos attack effect should not also apply Metal Blast bonus damage"),
+	])
+
+
+func test_cs5bc_096_origin_forme_dialga_vstar_star_chronos_keeps_next_turn() -> String:
+	var gsm := GameStateMachine.new()
+	gsm.game_state = _make_state()
+	var state: GameState = gsm.game_state
+	var player: PlayerState = state.players[0]
+	var dialga_cd := _load_card_data("res://data/bundled_user/cards/CS5bC_096.json")
+	if dialga_cd == null:
+		return "CS5bC_096 card data should load"
+
+	gsm.effect_processor.register_pokemon_card(dialga_cd)
+	var dialga := _make_slot(dialga_cd, 0)
+	player.active_pokemon = dialga
+	dialga.attached_energy.clear()
+	for i: int in 5:
+		dialga.attached_energy.append(CardInstance.create(_make_energy_data("Metal %d" % i, "M"), 0))
+
+	var defender_cd := _make_basic_pokemon_data("High HP Defender", "C", 400)
+	state.players[1].active_pokemon = _make_slot(defender_cd, 1)
+	var used := gsm.use_attack(0, 1)
+	var extra_turn_marker_present: bool = dialga.effects.any(func(effect: Dictionary) -> bool:
+		return str(effect.get("type", "")) == "extra_turn"
+	)
+
+	var result := run_checks([
+		assert_true(used, "Star Chronos should be usable with sufficient energy"),
+		assert_eq(state.current_player_index, 0, "Star Chronos should keep the same player for the next turn"),
+		assert_eq(state.phase, GameState.GamePhase.MAIN, "Extra turn should enter the same player's MAIN phase"),
+		assert_eq(state.turn_number, 3, "Extra turn should still advance the turn number"),
+		assert_true(state.vstar_power_used[0], "Star Chronos should consume VSTAR power"),
+		assert_eq(int(state.shared_turn_flags.get("pending_extra_turn_player_index", -1)), -1, "Pending extra-turn flag should be consumed"),
+		assert_false(extra_turn_marker_present, "Slot extra-turn marker should be cleared after the extra turn is consumed"),
+	])
+	gsm.prepare_for_disposal()
+	return result
 
 
 func test_cs6bc_107_giratina_v_abyss_seeking_player_chooses_cards() -> String:
@@ -3730,4 +4207,453 @@ func test_csv7c_123_greninja_ex_mirage_barrage_discards_two_energy_and_hits_two_
 		assert_eq(chosen_active.damage_counters, 120, "CSV7C_123 Mirage Barrage should deal 120 to the selected Active target"),
 		assert_eq(chosen_bench.damage_counters, 120, "CSV7C_123 Mirage Barrage should deal 120 to the selected Benched target"),
 		assert_eq(untouched_bench.damage_counters, 0, "CSV7C_123 Mirage Barrage should not damage unselected Pokemon"),
+	])
+
+
+func test_csv2c_118_erikas_invitation_brings_out_basic_from_opponent_hand() -> String:
+	var gsm := GameStateMachine.new()
+	gsm.game_state = _make_state()
+	var state := gsm.game_state
+	var player: PlayerState = state.players[0]
+	var opponent: PlayerState = state.players[1]
+	player.hand.clear()
+	opponent.hand.clear()
+
+	var erika_cd: CardData = CardDatabase.get_card("CSV2C", "118")
+	var erika := CardInstance.create(erika_cd, 0)
+	player.hand.append(erika)
+
+	var invited_basic := CardInstance.create(_make_basic_pokemon_data("Invited Basic", "C", 70), 1)
+	var non_basic_cd := _make_basic_pokemon_data("Bench Evolution", "C", 100, "Stage1")
+	var non_basic := CardInstance.create(non_basic_cd, 1)
+	opponent.hand.append_array([invited_basic, non_basic])
+	var original_active := opponent.active_pokemon
+
+	var played := gsm.play_trainer(0, erika, [{
+		"opponent_basic_in_hand": [invited_basic],
+	}])
+
+	return run_checks([
+		assert_not_null(erika_cd, "CSV2C_118 should exist in the card database"),
+		assert_true(played, "CSV2C_118 should be playable when the opponent has a Basic Pokemon in hand"),
+		assert_true(erika in player.discard_pile, "CSV2C_118 itself should go to the discard pile after use"),
+		assert_eq(opponent.active_pokemon.get_top_card(), invited_basic, "CSV2C_118 should bring the selected Basic Pokemon to the opponent Active Spot"),
+		assert_contains(opponent.bench, original_active, "CSV2C_118 should move the old opponent Active Pokemon to the Bench"),
+		assert_false(invited_basic in opponent.hand, "CSV2C_118 should remove the selected Basic Pokemon from the opponent hand"),
+		assert_contains(opponent.hand, non_basic, "CSV2C_118 should leave non-Basic Pokemon in the opponent hand"),
+	])
+
+
+func test_csv8c_195_xerosics_machinations_makes_opponent_discard_to_three() -> String:
+	var gsm := GameStateMachine.new()
+	gsm.game_state = _make_state()
+	var state := gsm.game_state
+	var player: PlayerState = state.players[0]
+	var opponent: PlayerState = state.players[1]
+	player.hand.clear()
+	opponent.hand.clear()
+
+	var xerosic_cd: CardData = CardDatabase.get_card("CSV8C", "195")
+	var xerosic := CardInstance.create(xerosic_cd, 0)
+	player.hand.append(xerosic)
+
+	var keep_a := CardInstance.create(_make_trainer_data("Keep A", "Item"), 1)
+	var keep_b := CardInstance.create(_make_trainer_data("Keep B", "Item"), 1)
+	var keep_c := CardInstance.create(_make_trainer_data("Keep C", "Supporter"), 1)
+	var discard_a := CardInstance.create(_make_trainer_data("Discard A", "Item"), 1)
+	var discard_b := CardInstance.create(_make_trainer_data("Discard B", "Supporter"), 1)
+	opponent.hand.append_array([keep_a, keep_b, keep_c, discard_a, discard_b])
+
+	var effect: BaseEffect = gsm.effect_processor.get_effect(xerosic_cd.effect_id)
+	var steps: Array[Dictionary] = effect.get_interaction_steps(xerosic, state)
+	var played := gsm.play_trainer(0, xerosic, [{
+		"opponent_discards_to_three": [discard_a, discard_b],
+	}])
+
+	return run_checks([
+		assert_not_null(xerosic_cd, "CSV8C_195 should exist in the card database"),
+		assert_eq(int(steps[0].get("chooser_player_index", -1)), 1, "CSV8C_195 should let the opponent choose which cards to discard"),
+		assert_true(played, "CSV8C_195 should be playable when the opponent has more than 3 cards in hand"),
+		assert_eq(opponent.hand.size(), 3, "CSV8C_195 should leave the opponent with exactly 3 cards in hand"),
+		assert_contains(opponent.discard_pile, discard_a, "CSV8C_195 should discard the first chosen card"),
+		assert_contains(opponent.discard_pile, discard_b, "CSV8C_195 should discard the second chosen card"),
+		assert_true(xerosic in player.discard_pile, "CSV8C_195 itself should go to the discard pile after use"),
+	])
+
+
+func test_csv3c_125_giacomo_discards_one_special_energy_from_each_opponent_pokemon() -> String:
+	var gsm := GameStateMachine.new()
+	gsm.game_state = _make_state()
+	var state := gsm.game_state
+	var player: PlayerState = state.players[0]
+	var opponent: PlayerState = state.players[1]
+	player.hand.clear()
+	opponent.discard_pile.clear()
+
+	var giacomo_cd: CardData = CardDatabase.get_card("CSV3C", "125")
+	var giacomo := CardInstance.create(giacomo_cd, 0)
+	player.hand.append(giacomo)
+
+	var active_special := CardInstance.create(_make_energy_data("Mist", "C", "Special Energy"), 1)
+	var active_basic := CardInstance.create(_make_energy_data("Water", "W"), 1)
+	var bench_special := CardInstance.create(_make_energy_data("Jet", "C", "Special Energy"), 1)
+	opponent.active_pokemon.attached_energy.clear()
+	opponent.active_pokemon.attached_energy.append_array([active_special, active_basic])
+	opponent.bench[0].attached_energy.clear()
+	opponent.bench[0].attached_energy.append(bench_special)
+
+	var played := gsm.play_trainer(0, giacomo, [{
+		"discard_special_energy": [
+			{"source": opponent.active_pokemon, "target": active_special},
+			{"source": opponent.bench[0], "target": bench_special},
+		],
+	}])
+
+	return run_checks([
+		assert_not_null(giacomo_cd, "CSV3C_125 should exist in the card database"),
+		assert_true(played, "CSV3C_125 should be playable when the opponent has attached Special Energy"),
+		assert_contains(opponent.discard_pile, active_special, "CSV3C_125 should discard the chosen Special Energy from the opponent Active Pokemon"),
+		assert_contains(opponent.discard_pile, bench_special, "CSV3C_125 should discard the chosen Special Energy from the opponent Benched Pokemon"),
+		assert_contains(opponent.active_pokemon.attached_energy, active_basic, "CSV3C_125 should leave Basic Energy attached"),
+		assert_true(giacomo in player.discard_pile, "CSV3C_125 itself should go to the discard pile after use"),
+	])
+
+
+func test_cs6ac_129_miss_fortune_sisters_discards_selected_items_from_opponent_top_five() -> String:
+	var gsm := GameStateMachine.new()
+	gsm.game_state = _make_state()
+	var state := gsm.game_state
+	var player: PlayerState = state.players[0]
+	var opponent: PlayerState = state.players[1]
+	player.hand.clear()
+	opponent.deck.clear()
+	opponent.discard_pile.clear()
+
+	var sisters_cd: CardData = CardDatabase.get_card("CS6aC", "129")
+	var sisters := CardInstance.create(sisters_cd, 0)
+	player.hand.append(sisters)
+
+	var top_item_a := CardInstance.create(_make_trainer_data("Top Item A", "Item"), 1)
+	var top_supporter := CardInstance.create(_make_trainer_data("Top Supporter", "Supporter"), 1)
+	var top_item_b := CardInstance.create(_make_trainer_data("Top Item B", "Item"), 1)
+	var top_pokemon := CardInstance.create(_make_basic_pokemon_data("Top Pokemon", "C"), 1)
+	var top_energy := CardInstance.create(_make_energy_data("Top Energy", "W"), 1)
+	var deep_item := CardInstance.create(_make_trainer_data("Deep Item", "Item"), 1)
+	opponent.deck.append_array([top_item_a, top_supporter, top_item_b, top_pokemon, top_energy, deep_item])
+
+	var played := gsm.play_trainer(0, sisters, [{
+		"discard_item_cards": [top_item_a, top_item_b],
+	}])
+
+	return run_checks([
+		assert_not_null(sisters_cd, "CS6aC_129 should exist in the card database"),
+		assert_true(played, "CS6aC_129 should be playable when the opponent deck is not empty"),
+		assert_contains(opponent.discard_pile, top_item_a, "CS6aC_129 should discard selected Item cards from the revealed top five"),
+		assert_contains(opponent.discard_pile, top_item_b, "CS6aC_129 should discard all selected Item cards from the revealed top five"),
+		assert_true(deep_item in opponent.deck, "CS6aC_129 should not touch Item cards outside the revealed top five"),
+		assert_eq(opponent.deck.size(), 4, "CS6aC_129 should only remove the discarded Item cards from the opponent deck"),
+		assert_true(sisters in player.discard_pile, "CS6aC_129 itself should go to the discard pile after use"),
+	])
+
+
+func test_csv8c_190_handheld_fan_moves_attacker_energy_to_attackers_bench_after_damage() -> String:
+	var gsm := GameStateMachine.new()
+	gsm.game_state = _make_state()
+	var state := gsm.game_state
+	var player: PlayerState = state.players[0]
+	var opponent: PlayerState = state.players[1]
+
+	var handheld_fan_cd: CardData = CardDatabase.get_card("CSV8C", "190")
+	var attacker_cd := _make_basic_pokemon_data("Attacker", "C", 130)
+	var defender_cd := _make_basic_pokemon_data("Defender", "C", 130)
+	player.active_pokemon = _make_slot(attacker_cd, 0)
+	opponent.active_pokemon = _make_slot(defender_cd, 1)
+	player.active_pokemon.attached_energy.clear()
+	player.bench[0].attached_energy.clear()
+	player.bench[1].attached_energy.clear()
+	var energy_a := CardInstance.create(_make_energy_data("Colorless A", "C"), 0)
+	var energy_b := CardInstance.create(_make_energy_data("Colorless B", "C"), 0)
+	var energy_c := CardInstance.create(_make_energy_data("Colorless C", "C"), 0)
+	player.active_pokemon.attached_energy.append_array([energy_a, energy_b, energy_c])
+	opponent.active_pokemon.attached_tool = CardInstance.create(handheld_fan_cd, 1)
+
+	var attacked := gsm.use_attack(0, 0)
+
+	return run_checks([
+		assert_not_null(handheld_fan_cd, "CSV8C_190 should exist in the card database"),
+		assert_true(attacked, "CSV8C_190 scenario should still resolve the attack successfully"),
+		assert_false(energy_a in player.active_pokemon.attached_energy, "CSV8C_190 should move an Energy off the attacker after damage"),
+		assert_contains(player.bench[0].attached_energy, energy_a, "CSV8C_190 should move that Energy onto one of the attacker's Benched Pokemon"),
+	])
+
+
+func test_csv8c_190_handheld_fan_exposes_trigger_assignment_ui_and_honors_selected_target() -> String:
+	var gsm := GameStateMachine.new()
+	gsm.game_state = _make_state()
+	var state := gsm.game_state
+	var player: PlayerState = state.players[0]
+	var opponent: PlayerState = state.players[1]
+
+	var handheld_fan_cd: CardData = CardDatabase.get_card("CSV8C", "190")
+	var attacker_cd := _make_basic_pokemon_data("Attacker", "C", 130)
+	var defender_cd := _make_basic_pokemon_data("Defender", "C", 130)
+	player.active_pokemon = _make_slot(attacker_cd, 0)
+	opponent.active_pokemon = _make_slot(defender_cd, 1)
+	player.active_pokemon.attached_energy.clear()
+	player.bench[0].attached_energy.clear()
+	player.bench[1].attached_energy.clear()
+	var energy_a := CardInstance.create(_make_energy_data("Colorless A", "C"), 0)
+	var energy_b := CardInstance.create(_make_energy_data("Colorless B", "C"), 0)
+	var energy_c := CardInstance.create(_make_energy_data("Colorless C", "C"), 0)
+	player.active_pokemon.attached_energy.append_array([energy_a, energy_b, energy_c])
+	opponent.active_pokemon.attached_tool = CardInstance.create(handheld_fan_cd, 1)
+
+	var effect: BaseEffect = gsm.effect_processor.get_effect(handheld_fan_cd.effect_id)
+	var steps: Array[Dictionary] = gsm.get_post_damage_defender_interaction_steps(player.active_pokemon, opponent.active_pokemon)
+	var attacked := gsm.use_attack(0, 0, [{
+		EffectHandheldFan.STEP_ID: [{
+			"source": energy_b,
+			"target": player.bench[1],
+		}],
+	}])
+
+	return run_checks([
+		assert_not_null(handheld_fan_cd, "CSV8C_190 should exist in the card database"),
+		assert_true(effect is EffectHandheldFan, "CSV8C_190 should resolve to EffectHandheldFan"),
+		assert_eq(steps.size(), 1, "CSV8C_190 should expose exactly one triggered interaction step"),
+		assert_eq(str(steps[0].get("ui_mode", "")), "card_assignment", "CSV8C_190 should request assignment UI instead of auto-picking"),
+		assert_eq(int(steps[0].get("chooser_player_index", -1)), 1, "CSV8C_190 should let the Tool owner choose the moved Energy and destination"),
+		assert_true(attacked, "CSV8C_190 should still resolve the attack when a specific assignment is supplied"),
+		assert_true(energy_a in player.active_pokemon.attached_energy, "CSV8C_190 should leave unselected Energy attached to the attacker"),
+		assert_false(energy_b in player.active_pokemon.attached_energy, "CSV8C_190 should move the selected Energy off the attacker"),
+		assert_contains(player.bench[1].attached_energy, energy_b, "CSV8C_190 should honor the selected bench destination"),
+		assert_false(player.bench[0].attached_energy.has(energy_b), "CSV8C_190 should not keep forcing the first bench target"),
+	])
+
+
+func test_cs4dac_388_team_yells_cheer_returns_selected_pokemon_and_supporters() -> String:
+	var gsm := GameStateMachine.new()
+	gsm.game_state = _make_state()
+	var state := gsm.game_state
+	var player: PlayerState = state.players[0]
+	player.hand.clear()
+	player.discard_pile.clear()
+	player.deck.clear()
+
+	var cheer_cd: CardData = CardDatabase.get_card("CS4DaC", "388")
+	var cheer := CardInstance.create(cheer_cd, 0)
+	player.hand.append(cheer)
+
+	var pokemon_a := CardInstance.create(_make_basic_pokemon_data("Discard Pokemon A", "C"), 0)
+	var pokemon_b := CardInstance.create(_make_basic_pokemon_data("Discard Pokemon B", "C"), 0)
+	var supporter := CardInstance.create(_make_trainer_data("Discard Supporter", "Supporter"), 0)
+	var other_cheer := CardInstance.create(cheer_cd, 0)
+	player.discard_pile.append_array([pokemon_a, pokemon_b, supporter, other_cheer])
+
+	var played := gsm.play_trainer(0, cheer, [{
+		"return_cards": [pokemon_a, pokemon_b, supporter],
+	}])
+
+	return run_checks([
+		assert_not_null(cheer_cd, "CS4DaC_388 should exist in the card database"),
+		assert_true(played, "CS4DaC_388 should be playable when the discard pile has Pokemon or valid Supporters"),
+		assert_true(pokemon_a in player.deck and pokemon_b in player.deck and supporter in player.deck, "CS4DaC_388 should return the selected Pokemon and Supporter cards to the deck"),
+		assert_true(other_cheer in player.discard_pile, "CS4DaC_388 should not return copies of Team Yell's Cheer from the discard pile"),
+		assert_true(cheer in player.discard_pile, "CS4DaC_388 itself should go to the discard pile after use"),
+	])
+
+
+func test_csv8c_175_accompanying_flute_benches_selected_basic_pokemon_from_opponent_top_five() -> String:
+	var gsm := GameStateMachine.new()
+	gsm.game_state = _make_state()
+	var state := gsm.game_state
+	var player: PlayerState = state.players[0]
+	var opponent: PlayerState = state.players[1]
+	player.hand.clear()
+	opponent.deck.clear()
+
+	var flute_cd: CardData = CardDatabase.get_card("CSV8C", "175")
+	var flute := CardInstance.create(flute_cd, 0)
+	player.hand.append(flute)
+
+	var basic_a := CardInstance.create(_make_basic_pokemon_data("Top Basic A", "C"), 1)
+	var support := CardInstance.create(_make_trainer_data("Top Support", "Supporter"), 1)
+	var basic_b := CardInstance.create(_make_basic_pokemon_data("Top Basic B", "C"), 1)
+	var stage_one := CardInstance.create(_make_basic_pokemon_data("Top Stage1", "C", 90, "Stage1"), 1)
+	var energy := CardInstance.create(_make_energy_data("Top Energy", "W"), 1)
+	var deep_basic := CardInstance.create(_make_basic_pokemon_data("Deep Basic", "C"), 1)
+	opponent.deck.append_array([basic_a, support, basic_b, stage_one, energy, deep_basic])
+	var original_bench_size := opponent.bench.size()
+
+	var played := gsm.play_trainer(0, flute, [{
+		"bench_basic_pokemon": [basic_a, basic_b],
+	}])
+
+	return run_checks([
+		assert_not_null(flute_cd, "CSV8C_175 should exist in the card database"),
+		assert_true(played, "CSV8C_175 should be playable when the opponent deck is not empty"),
+		assert_eq(opponent.bench.size(), original_bench_size + 2, "CSV8C_175 should put the selected revealed Basic Pokemon onto the opponent Bench"),
+		assert_false(basic_a in opponent.deck or basic_b in opponent.deck, "CSV8C_175 should remove benched Basic Pokemon from the opponent deck"),
+		assert_true(deep_basic in opponent.deck, "CSV8C_175 should not bench Basic Pokemon outside the revealed top five"),
+		assert_true(flute in player.discard_pile, "CSV8C_175 itself should go to the discard pile after use"),
+	])
+
+
+func test_csv3c_062_mimikyu_mysterious_guard_blocks_damage_from_ex_and_ghost_eye_places_counters() -> String:
+	var gsm := GameStateMachine.new()
+	gsm.game_state = _make_state()
+	var state := gsm.game_state
+	var player: PlayerState = state.players[0]
+	var opponent: PlayerState = state.players[1]
+
+	var mimikyu_cd: CardData = CardDatabase.get_card("CSV3C", "062")
+	var attacker_ex_cd := _make_basic_pokemon_data("Basic ex", "C", 220, "Basic", "ex")
+	gsm.effect_processor.register_pokemon_card(mimikyu_cd)
+
+	opponent.active_pokemon = _make_slot(mimikyu_cd, 1)
+	player.active_pokemon = _make_slot(attacker_ex_cd, 0)
+	player.active_pokemon.attached_energy.clear()
+	player.active_pokemon.attached_energy.append_array([
+		CardInstance.create(_make_energy_data("A", "C"), 0),
+		CardInstance.create(_make_energy_data("B", "C"), 0),
+		CardInstance.create(_make_energy_data("C", "C"), 0),
+	])
+
+	var blocked := gsm.use_attack(0, 0)
+	var blocked_damage := opponent.active_pokemon.damage_counters
+
+	state.current_player_index = 0
+	state.phase = GameState.GamePhase.MAIN
+	player.active_pokemon = _make_slot(mimikyu_cd, 0)
+	player.active_pokemon.attached_energy.clear()
+	player.active_pokemon.attached_energy.append_array([
+		CardInstance.create(_make_energy_data("Psychic", "P"), 0),
+		CardInstance.create(_make_energy_data("Colorless", "C"), 0),
+	])
+	opponent.active_pokemon = _make_slot(_make_basic_pokemon_data("Defender", "C", 130), 1)
+
+	var placed := gsm.use_attack(0, 0)
+
+	return run_checks([
+		assert_not_null(mimikyu_cd, "CSV3C_062 should exist in the card database"),
+		assert_true(blocked, "CSV3C_062 immunity scenario should still resolve the attack flow"),
+		assert_eq(blocked_damage, 0, "CSV3C_062 Mysterious Guard should block damage from Pokemon ex and Pokemon V"),
+		assert_true(placed, "CSV3C_062 should use Ghost Eye successfully"),
+		assert_eq(opponent.active_pokemon.damage_counters, 70, "CSV3C_062 Ghost Eye should place 7 damage counters on the opponent Active Pokemon"),
+	])
+
+
+func test_cs6bc_112_pidgeot_v_vanishing_wings_and_attack_bonus_with_own_stadium() -> String:
+	var gsm := GameStateMachine.new()
+	gsm.game_state = _make_state()
+	var state := gsm.game_state
+	var player: PlayerState = state.players[0]
+	var opponent: PlayerState = state.players[1]
+
+	var pidgeot_cd: CardData = CardDatabase.get_card("CS6bC", "112")
+	var artazon_cd: CardData = CardDatabase.get_card("CSV2C", "127")
+	gsm.effect_processor.register_pokemon_card(pidgeot_cd)
+
+	var pidgeot_slot := _make_slot(pidgeot_cd, 0)
+	var attached_energy := CardInstance.create(_make_energy_data("Colorless Bench", "C"), 0)
+	pidgeot_slot.attached_energy.append(attached_energy)
+	player.bench.clear()
+	player.bench.append(pidgeot_slot)
+	player.deck.clear()
+	var can_use_ability := gsm.effect_processor.can_use_ability(pidgeot_slot, state, 0)
+	var used_ability := gsm.use_ability(0, pidgeot_slot, 0)
+
+	player.active_pokemon = _make_slot(pidgeot_cd, 0)
+	player.active_pokemon.attached_energy.clear()
+	player.active_pokemon.attached_energy.append_array([
+		CardInstance.create(_make_energy_data("A", "C"), 0),
+		CardInstance.create(_make_energy_data("B", "C"), 0),
+		CardInstance.create(_make_energy_data("C", "C"), 0),
+	])
+	state.stadium_card = CardInstance.create(artazon_cd, 0)
+	state.stadium_owner_index = 0
+	opponent.active_pokemon = _make_slot(_make_basic_pokemon_data("Target", "C", 200), 1)
+	var attacked := gsm.use_attack(0, 0)
+
+	return run_checks([
+		assert_not_null(pidgeot_cd, "CS6bC_112 should exist in the card database"),
+		assert_true(can_use_ability, "CS6bC_112 Vanishing Wings should be usable from the Bench during your turn"),
+		assert_true(used_ability, "CS6bC_112 Vanishing Wings should shuffle Pidgeot V and attached cards into the deck"),
+		assert_true(pidgeot_slot not in player.bench, "CS6bC_112 Vanishing Wings should remove Pidgeot V from the Bench"),
+		assert_true(attached_energy in player.deck, "CS6bC_112 Vanishing Wings should return attached cards to the deck"),
+		assert_true(attacked, "CS6bC_112 should attack successfully"),
+		assert_eq(opponent.active_pokemon.damage_counters, 160, "CS6bC_112 should gain +80 damage when its owner has a Stadium in play"),
+	])
+
+
+func test_cs5bc_045_mantine_attack_puts_basic_from_any_discard_onto_owners_bench() -> String:
+	var gsm := GameStateMachine.new()
+	gsm.game_state = _make_state()
+	var state := gsm.game_state
+	var player: PlayerState = state.players[0]
+	var opponent: PlayerState = state.players[1]
+
+	var mantine_cd: CardData = CardDatabase.get_card("CS5bC", "045")
+	gsm.effect_processor.register_pokemon_card(mantine_cd)
+	player.active_pokemon = _make_slot(mantine_cd, 0)
+	player.active_pokemon.attached_energy.clear()
+	player.active_pokemon.attached_energy.append(CardInstance.create(_make_energy_data("Colorless", "C"), 0))
+	opponent.discard_pile.clear()
+	var revived := CardInstance.create(_make_basic_pokemon_data("Opponent Basic", "W"), 1)
+	opponent.discard_pile.append(revived)
+	var original_bench_size := opponent.bench.size()
+
+	var attacked := gsm.use_attack(0, 0, [{
+		"revive_basic_from_any_discard": [revived],
+	}])
+
+	return run_checks([
+		assert_not_null(mantine_cd, "CS5bC_045 should exist in the card database"),
+		assert_true(attacked, "CS5bC_045 should use Mantine Wave successfully"),
+		assert_eq(opponent.bench.size(), original_bench_size + 1, "CS5bC_045 should place the chosen Basic Pokemon onto its owner's Bench"),
+		assert_false(revived in opponent.discard_pile, "CS5bC_045 should remove the chosen Basic Pokemon from the discard pile"),
+		assert_eq(opponent.bench.back().get_top_card(), revived, "CS5bC_045 should bench the selected Basic Pokemon card"),
+	])
+
+
+func test_cs5ac_093_snorlax_blocks_opponent_retreat_and_self_sleep_attack() -> String:
+	var gsm := GameStateMachine.new()
+	gsm.game_state = _make_state()
+	gsm.coin_flipper = RiggedCoinFlipper.new([false])
+	gsm.effect_processor.coin_flipper = gsm.coin_flipper
+	var state := gsm.game_state
+	var player: PlayerState = state.players[0]
+	var opponent: PlayerState = state.players[1]
+
+	var snorlax_cd: CardData = CardDatabase.get_card("CS5aC", "093")
+	gsm.effect_processor.register_pokemon_card(snorlax_cd)
+	var snorlax_effect := gsm.effect_processor.get_effect(snorlax_cd.effect_id)
+	player.active_pokemon = _make_slot(snorlax_cd, 0)
+	state.current_player_index = 1
+	state.phase = GameState.GamePhase.MAIN
+	var retreat_blocked := gsm.rule_validator.can_retreat(state, 1, gsm.effect_processor)
+
+	player.active_pokemon = _make_slot(_make_basic_pokemon_data("Other Active", "C", 130), 0)
+	player.bench.clear()
+	player.bench.append(_make_slot(snorlax_cd, 0))
+	var retreat_unblocked := gsm.rule_validator.can_retreat(state, 1, gsm.effect_processor)
+
+	state.current_player_index = 0
+	player.active_pokemon = _make_slot(snorlax_cd, 0)
+	player.active_pokemon.attached_energy.clear()
+	player.active_pokemon.attached_energy.append_array([
+		CardInstance.create(_make_energy_data("A", "C"), 0),
+		CardInstance.create(_make_energy_data("B", "C"), 0),
+		CardInstance.create(_make_energy_data("C", "C"), 0),
+		CardInstance.create(_make_energy_data("D", "C"), 0),
+	])
+	var attacked := gsm.use_attack(0, 0)
+
+	return run_checks([
+		assert_not_null(snorlax_cd, "CS5aC_093 should exist in the card database"),
+		assert_true(snorlax_effect is AbilityActiveRetreatLock, "CS5aC_093 should register 挡道 from its effect_id even when cached names are malformed"),
+		assert_false(retreat_blocked, "CS5aC_093 挡道 should stop the opponent Active Pokemon from retreating"),
+		assert_true(retreat_unblocked, "CS5aC_093 should stop applying the retreat lock once it is no longer Active"),
+		assert_true(attacked, "CS5aC_093 should use Collapse successfully"),
+		assert_true(player.active_pokemon.status_conditions.get("asleep", false), "CS5aC_093 should put itself to Sleep after using Collapse"),
 	])

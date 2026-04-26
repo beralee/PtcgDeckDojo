@@ -46,6 +46,43 @@ func test_copy_missing_files_recursive_copies_nested_files_without_overwriting()
 	])
 
 
+func test_supported_ai_deck_ignores_user_override_and_reads_bundled_source() -> String:
+	var db := CardDatabaseScript.new()
+	db._ensure_directories()
+	db._deck_cache = {}
+	db._ai_deck_cache = {}
+	var bundled_ai: DeckData = db._load_bundled_ai_deck(575720)
+	if bundled_ai == null:
+		return "Expected bundled AI deck 575720 to exist"
+	var fake_ai := DeckData.new()
+	fake_ai.id = 575720
+	fake_ai.deck_name = "Fake Override Miraidon"
+	fake_ai.total_cards = 60
+	db.save_ai_deck(fake_ai)
+	var resolved: DeckData = db.get_ai_deck(575720)
+	return run_checks([
+		assert_not_null(resolved, "Supported AI deck should still resolve"),
+		assert_eq(str(resolved.deck_name if resolved != null else ""), str(bundled_ai.deck_name), "Supported AI decks should resolve from bundled source, not user overrides"),
+	])
+
+
+func test_get_all_ai_decks_returns_supported_bundled_shortlist() -> String:
+	var db := CardDatabaseScript.new()
+	db._ensure_directories()
+	db._deck_cache = {}
+	db._ai_deck_cache = {}
+	var ai_decks: Array[DeckData] = db.get_all_ai_decks()
+	var ids: Array[int] = []
+	for deck: DeckData in ai_decks:
+		ids.append(deck.id)
+	ids.sort()
+	var expected_ids := [569061, 575657, 575716, 575718, 575720, 575723, 578647, 579502]
+	return run_checks([
+		assert_eq(ai_decks.size(), expected_ids.size(), "AI deck list should expose exactly the backed-up AI deck set"),
+		assert_eq(ids, expected_ids, "AI deck list should match the backed-up AI deck set"),
+	])
+
+
 func _write_text(path: String, content: String) -> void:
 	var parent_dir := path.get_base_dir()
 	if not DirAccess.dir_exists_absolute(parent_dir):

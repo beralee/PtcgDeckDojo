@@ -1,4 +1,4 @@
-﻿# GitHub Repo Metadata
+# GitHub Repo Metadata
 
 这份文档整理了适合当前项目的 GitHub 仓库展示元信息。
 

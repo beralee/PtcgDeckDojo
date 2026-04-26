@@ -32,6 +32,9 @@ const ACTION_SCORER_SUPPORTED_KINDS := {
 	"granted_attack": true,
 	"end_turn": true,
 }
+const DECISION_RUNTIME_RULES_PLUS_LEARNED := "rules_plus_learned"
+const DECISION_RUNTIME_RULES_ONLY := "rules_only"
+const DECISION_RUNTIME_HEURISTIC_ONLY := "heuristic_only"
 var player_index: int = 1
 var difficulty: int = 1
 var heuristic_weights: Dictionary = {}
@@ -50,6 +53,7 @@ var _interaction_feature_encoder = AIInteractionFeatureEncoderScript.new()
 var _planned_setup_bench_ids: Array[int] = []
 var _last_legal_actions: Array[Dictionary] = []
 var _last_decision_trace = null
+var decision_runtime_mode: String = DECISION_RUNTIME_RULES_PLUS_LEARNED
 var use_mcts: bool = false
 var mcts_config: Dictionary = {}
 var _mcts_planner = MCTSPlannerScript.new()
@@ -106,6 +110,33 @@ func _encode_state_features(game_state: GameState) -> Array:
 		if encoded is Array:
 			return (encoded as Array).duplicate(true)
 	return StateEncoderScript.encode(game_state, player_index)
+
+
+func _build_turn_plan(gsm: GameStateMachine, extra_context: Dictionary = {}) -> Dictionary:
+	return _build_turn_contract(gsm, extra_context)
+
+
+func _build_turn_contract(gsm: GameStateMachine, extra_context: Dictionary = {}) -> Dictionary:
+	if _deck_strategy == null:
+		return {}
+	if gsm == null or gsm.game_state == null:
+		return {}
+	var plan_context: Dictionary = extra_context.duplicate(true)
+	if _deck_strategy.has_method("build_turn_contract"):
+		return _deck_strategy.call("build_turn_contract", gsm.game_state, player_index, plan_context)
+	if _deck_strategy.has_method("build_turn_plan"):
+		return _deck_strategy.call("build_turn_plan", gsm.game_state, player_index, plan_context)
+	return {}
+
+
+func _resolve_decision_runtime_mode() -> String:
+	if decision_runtime_mode in [
+		DECISION_RUNTIME_RULES_PLUS_LEARNED,
+		DECISION_RUNTIME_RULES_ONLY,
+		DECISION_RUNTIME_HEURISTIC_ONLY,
+	]:
+		return decision_runtime_mode
+	return DECISION_RUNTIME_RULES_PLUS_LEARNED
 
 
 func _ensure_action_scorer_loaded() -> void:
@@ -199,16 +230,55 @@ func run_single_step(battle_scene: Control, gsm: GameStateMachine) -> bool:
 		if _step_resolver != null:
 			_step_resolver.interaction_scorer = _interaction_scorer
 			_step_resolver.decision_exporter = _decision_exporter
-		return _step_resolver.resolve_pending_step(
+		var llm_before_interaction: Dictionary = _llm_runtime_snapshot(gsm)
+		var interaction_handled: bool = _step_resolver.resolve_pending_step(
 			battle_scene,
 			gsm,
 			player_index,
 			_encode_state_features(gsm.game_state)
 		)
+		_notify_llm_runtime_state_change(llm_before_interaction, gsm, {
+			"success": interaction_handled,
+			"step_kind": "effect_interaction",
+			"pending_choice_before": pending_choice,
+			"pending_choice_after": str(battle_scene.get("_pending_choice")),
+		})
+		return interaction_handled
 	var action := _choose_best_action(gsm)
 	if action.is_empty():
 		return false
-	return _execute_action(battle_scene, gsm, action)
+	var audit_turn := int(gsm.game_state.turn_number)
+	var llm_before_action: Dictionary = _llm_runtime_snapshot(gsm)
+	var executed := _execute_action(battle_scene, gsm, action)
+	if _deck_strategy != null and _deck_strategy.has_method("log_runtime_action_result"):
+		_deck_strategy.call("log_runtime_action_result", action, executed, gsm.game_state, player_index, audit_turn)
+	_notify_llm_runtime_state_change(llm_before_action, gsm, {
+		"success": executed,
+		"step_kind": "main_action",
+		"action_kind": str(action.get("kind", "")),
+		"pending_choice_before": pending_choice,
+		"pending_choice_after": str(battle_scene.get("_pending_choice")),
+	})
+	return executed
+
+
+func _llm_runtime_snapshot(gsm: GameStateMachine) -> Dictionary:
+	if _deck_strategy == null or not _deck_strategy.has_method("make_llm_runtime_snapshot"):
+		return {}
+	return _deck_strategy.call("make_llm_runtime_snapshot", gsm.game_state if gsm != null else null, player_index)
+
+
+func _notify_llm_runtime_state_change(before_snapshot: Dictionary, gsm: GameStateMachine, context: Dictionary) -> void:
+	if before_snapshot.is_empty():
+		return
+	if _deck_strategy == null or not _deck_strategy.has_method("observe_llm_runtime_state_change"):
+		return
+	_deck_strategy.call(
+		"observe_llm_runtime_state_change",
+		before_snapshot,
+		_deck_strategy.call("make_llm_runtime_snapshot", gsm.game_state if gsm != null else null, player_index),
+		context
+	)
 
 
 func _is_bridge_owned_prompt(pending_choice: String) -> bool:
@@ -225,9 +295,11 @@ func _run_setup_active_step(battle_scene: Control, gsm: GameStateMachine, pendin
 	var player: PlayerState = gsm.game_state.players[pi]
 	_detect_and_load_deck_strategy(player)
 	var choice: Dictionary
-	if _deck_strategy != null and _deck_strategy.has_method("plan_opening_setup"):
+	if _deck_strategy != null and _deck_strategy.has_method("consume_fast_opening_setup_choice"):
+		choice = _deck_strategy.call("consume_fast_opening_setup_choice", player, gsm.game_state, pi)
+	if choice.is_empty() and _deck_strategy != null and _deck_strategy.has_method("plan_opening_setup"):
 		choice = _deck_strategy.plan_opening_setup(player)
-	else:
+	elif choice.is_empty():
 		choice = _setup_planner.plan_opening_setup(player)
 	var active_hand_index: int = int(choice.get("active_hand_index", -1))
 	if active_hand_index < 0 or active_hand_index >= player.hand.size():
@@ -314,6 +386,8 @@ func _choose_best_action(gsm: GameStateMachine) -> Dictionary:
 	## 优先级 1：MCTS + 策略评估（v8）
 	if _deck_strategy != null and use_mcts:
 		return _choose_mcts_action(gsm)
+	if _resolve_decision_runtime_mode() == DECISION_RUNTIME_HEURISTIC_ONLY:
+		return _choose_heuristic_action(gsm)
 	## 优先级 2：贪心策略（v7.2）
 	if _deck_strategy != null and _deck_strategy.has_method("score_action_absolute"):
 		var result: Dictionary = _choose_greedy_strategy_action(gsm)
@@ -413,8 +487,10 @@ func _build_trace_scored_actions(gsm: GameStateMachine, actions: Array[Dictionar
 		score_context["features"]["learned_action_score"] = learned_action_score
 		var trace_scored_action: Dictionary = scored_action.duplicate(true)
 		trace_scored_action["score"] = score
+		trace_scored_action["runtime_score"] = score
 		trace_scored_action["heuristic_score"] = heuristic_score
 		trace_scored_action["learned_action_score"] = learned_action_score
+		trace_scored_action["runtime_mode"] = DECISION_RUNTIME_HEURISTIC_ONLY
 		trace_scored_action["features"] = score_context["features"].duplicate(true)
 		scored_actions.append(trace_scored_action)
 	_annotate_scored_actions_with_teacher(scored_actions, teacher_estimates)
@@ -472,7 +548,9 @@ func _record_decision_trace_from_choice(
 	actions: Array[Dictionary],
 	scored_actions: Array[Dictionary],
 	chosen_action: Dictionary,
-	used_mcts: bool
+	used_mcts: bool,
+	runtime_mode: String = "",
+	turn_contract: Dictionary = {}
 ) -> void:
 	var trace = AIDecisionTraceScript.new()
 	trace.turn_number = int(gsm.game_state.turn_number) if gsm != null and gsm.game_state != null else -1
@@ -480,6 +558,8 @@ func _record_decision_trace_from_choice(
 	trace.player_index = player_index
 	trace.state_features = _encode_state_features(gsm.game_state if gsm != null else null)
 	trace.used_mcts = used_mcts
+	trace.runtime_mode = runtime_mode
+	trace.turn_contract = turn_contract.duplicate(true)
 	trace.legal_actions = actions.duplicate(true)
 	trace.scored_actions = scored_actions.duplicate(true)
 	var chosen_scored_action: Dictionary = _find_matching_scored_action(scored_actions, chosen_action)
@@ -488,7 +568,9 @@ func _record_decision_trace_from_choice(
 		var fallback_features: Dictionary = _feature_extractor.build_context(gsm, player_index, fallback_action)
 		chosen_scored_action = fallback_action.duplicate(true)
 		chosen_scored_action["features"] = fallback_features.duplicate(true)
-		chosen_scored_action["score"] = float(fallback_features.get("heuristic_score", 0.0))
+		chosen_scored_action["score"] = 0.0
+		chosen_scored_action["runtime_score"] = 0.0
+		chosen_scored_action["runtime_mode"] = runtime_mode
 	trace.chosen_action = chosen_scored_action.duplicate(true)
 	if chosen_scored_action.has("reason_tags") and chosen_scored_action.get("reason_tags") is Array:
 		for tag_variant: Variant in chosen_scored_action.get("reason_tags", []):
@@ -692,6 +774,13 @@ func _run_send_out_step(battle_scene: Control, gsm: GameStateMachine) -> bool:
 	if bench_slots.is_empty():
 		bench_slots = gsm.game_state.players[send_out_player_index].bench.duplicate()
 	# 选最优后备宝可梦上前场：就绪攻击手 > 有能量的 > 其他
+	_detect_and_load_deck_strategy(gsm.game_state.players[send_out_player_index])
+	if _deck_strategy != null and _deck_strategy.has_method("consume_fast_send_out_choice"):
+		var fast_slot: PokemonSlot = _deck_strategy.call("consume_fast_send_out_choice", bench_slots, gsm.game_state, send_out_player_index)
+		if fast_slot != null and gsm.send_out_pokemon(send_out_player_index, fast_slot):
+			if str(battle_scene.get("_pending_choice")) == "send_out":
+				_clear_consumed_prompt(battle_scene)
+			return true
 	var best_slot: PokemonSlot = _pick_best_handoff_target(bench_slots, gsm, "send_out")
 	if best_slot != null:
 		if gsm.send_out_pokemon(send_out_player_index, best_slot):
@@ -797,6 +886,7 @@ func _pick_best_handoff_target(bench_slots: Array[PokemonSlot], gsm: GameStateMa
 		"player_index": player_index,
 		"all_items": bench_slots,
 	}
+	handoff_context["turn_plan"] = _build_turn_plan(gsm, {"step_id": step_id, "prompt_kind": "handoff"})
 	var state_features: Array = _encode_state_features(gsm.game_state if gsm != null else null)
 	for slot: PokemonSlot in bench_slots:
 		if slot == null or slot.get_top_card() == null:
@@ -980,41 +1070,94 @@ func _choose_greedy_strategy_action(gsm: GameStateMachine) -> Dictionary:
 		else:
 			scoreable_actions.append(a)
 	# 统一评估：所有动作竞争，选最高分
-	var best: Dictionary = _pick_best_absolute(scoreable_actions, gsm)
+	var turn_contract: Dictionary = _build_turn_contract(gsm, {"prompt_kind": "action_selection"})
+	var best: Dictionary = _pick_best_absolute(scoreable_actions, gsm, turn_contract)
+	var scored_actions: Array[Dictionary] = best.get("scored_actions", [])
+	if not end_turn_action.is_empty():
+		var scored_end_turn: Dictionary = _score_end_turn_candidate(gsm, end_turn_action, turn_contract)
+		scored_actions.append(_build_end_turn_trace_scored_action(
+			gsm,
+			end_turn_action,
+			_resolve_decision_runtime_mode(),
+			float(scored_end_turn.get("score", 0.0)),
+			float(scored_end_turn.get("absolute_score", 0.0)),
+			float(scored_end_turn.get("learned_action_score", 0.0))
+		))
+		if float(scored_end_turn.get("score", 0.0)) > float(best.get("score", 0.0)):
+			_record_decision_trace_from_choice(gsm, actions, scored_actions, end_turn_action, false, _resolve_decision_runtime_mode(), turn_contract)
+			return end_turn_action
 	if float(best.get("score", 0.0)) > 0.0:
 		var chosen: Dictionary = best.get("action", {})
 		# 攻击/granted_attack 是终结动作 — 执行前记录 trace
-		var scored_actions: Array[Dictionary] = _build_trace_scored_actions(gsm, actions)
-		_record_decision_trace_from_choice(gsm, actions, scored_actions, chosen, false)
+		_record_decision_trace_from_choice(gsm, actions, scored_actions, chosen, false, _resolve_decision_runtime_mode(), turn_contract)
 		return chosen
 	# 所有动作 ≤ 0 → end_turn
 	if not end_turn_action.is_empty():
-		var scored_actions: Array[Dictionary] = _build_trace_scored_actions(gsm, actions)
-		_record_decision_trace_from_choice(gsm, actions, scored_actions, end_turn_action, false)
+		_record_decision_trace_from_choice(gsm, actions, scored_actions, end_turn_action, false, _resolve_decision_runtime_mode(), turn_contract)
 		return end_turn_action
 	return {}
 
 
-func _pick_best_absolute(candidate_actions: Array[Dictionary], gsm: GameStateMachine) -> Dictionary:
+func _score_end_turn_candidate(gsm: GameStateMachine, action: Dictionary, turn_contract: Dictionary = {}) -> Dictionary:
+	var augmented: Dictionary = _augment_action_for_scoring(gsm, action)
+	var absolute_score := 0.0
+	if _deck_strategy != null:
+		if _deck_strategy.has_method("score_action_absolute_with_plan"):
+			absolute_score = float(_deck_strategy.call("score_action_absolute_with_plan", augmented, gsm.game_state, player_index, turn_contract))
+		else:
+			absolute_score = _deck_strategy.score_action_absolute(augmented, gsm.game_state, player_index)
+	return {
+		"action": action,
+		"scored_action": augmented,
+		"score": absolute_score,
+		"runtime_score": absolute_score,
+		"absolute_score": absolute_score,
+		"learned_action_score": 0.0,
+	}
+
+
+func _pick_best_absolute(candidate_actions: Array[Dictionary], gsm: GameStateMachine, turn_contract: Dictionary = {}) -> Dictionary:
 	## 返回 {action, score}，score = 绝对分
 	var scored_candidates: Array[Dictionary] = []
+	scored_candidates = _score_runtime_candidates(candidate_actions, gsm, turn_contract)
+	var best := _pick_best_scored_absolute(scored_candidates)
+	best["scored_actions"] = _materialize_runtime_trace_scored_actions(gsm, candidate_actions, scored_candidates)
+	best["turn_contract"] = turn_contract.duplicate(true)
+	best["runtime_mode"] = _resolve_decision_runtime_mode()
+	return best
+
+
+func _score_runtime_candidates(candidate_actions: Array[Dictionary], gsm: GameStateMachine, turn_contract: Dictionary = {}) -> Array[Dictionary]:
+	var scored_candidates: Array[Dictionary] = []
 	var state_features: Array = _encode_state_features(gsm.game_state if gsm != null else null)
-	for a: Dictionary in candidate_actions:
-		var augmented: Dictionary = _augment_action_for_scoring(gsm, a)
-		var absolute_score: float = _deck_strategy.score_action_absolute(augmented, gsm.game_state, player_index)
+	var runtime_mode := _resolve_decision_runtime_mode()
+	for action: Dictionary in candidate_actions:
+		var augmented: Dictionary = _augment_action_for_scoring(gsm, action)
 		var features: Dictionary = _feature_extractor.build_context(gsm, player_index, augmented)
-		var learned_action_score: float = _score_action_with_action_scorer(
-			str(augmented.get("kind", "")),
-			state_features,
-			features
-		)
+		var absolute_score := 0.0
+		if _deck_strategy != null:
+			if _deck_strategy.has_method("score_action_absolute_with_plan"):
+				absolute_score = float(_deck_strategy.call("score_action_absolute_with_plan", augmented, gsm.game_state, player_index, turn_contract))
+			else:
+				absolute_score = _deck_strategy.score_action_absolute(augmented, gsm.game_state, player_index)
+		var learned_action_score := 0.0
+		if runtime_mode == DECISION_RUNTIME_RULES_PLUS_LEARNED:
+			learned_action_score = _score_action_with_action_scorer(
+				str(augmented.get("kind", "")),
+				state_features,
+				features
+			)
 		scored_candidates.append({
-			"action": a,
+			"action": action,
+			"scored_action": augmented,
 			"score": absolute_score + learned_action_score,
+			"runtime_score": absolute_score + learned_action_score,
 			"absolute_score": absolute_score,
 			"learned_action_score": learned_action_score,
+			"features": features.duplicate(true),
+			"runtime_mode": runtime_mode,
 		})
-	return _pick_best_scored_absolute(scored_candidates)
+	return scored_candidates
 
 
 func _pick_best_scored_absolute(scored_candidates: Array[Dictionary]) -> Dictionary:
@@ -1036,8 +1179,15 @@ func _pick_best_scored_absolute(scored_candidates: Array[Dictionary]) -> Diction
 			effective_score += 40.0
 		if positive_setup_count >= 3 and kind in ["play_trainer", "evolve"]:
 			effective_score += 20.0
+		entry["effective_score"] = effective_score
 		if best.get("action", {}).is_empty() or effective_score > float(best.get("score", 0.0)):
-			best = {"action": action, "score": effective_score}
+			best = {
+				"action": action,
+				"score": effective_score,
+				"runtime_score": score,
+				"absolute_score": float(entry.get("absolute_score", 0.0)),
+				"learned_action_score": float(entry.get("learned_action_score", 0.0)),
+			}
 	return best
 
 
@@ -1049,7 +1199,7 @@ func _choose_heuristic_action(gsm: GameStateMachine) -> Dictionary:
 	## 与原 _choose_best_action 中的 heuristic 分支相同的逻辑
 	var actions: Array[Dictionary] = get_legal_actions(gsm)
 	if actions.is_empty():
-		_record_decision_trace_from_choice(gsm, actions, [], {}, false)
+		_record_decision_trace_from_choice(gsm, actions, [], {}, false, DECISION_RUNTIME_HEURISTIC_ONLY, {})
 		return {}
 	var scored_actions: Array[Dictionary] = _build_trace_scored_actions(gsm, actions)
 	var best_action: Dictionary = {}
@@ -1063,8 +1213,51 @@ func _choose_heuristic_action(gsm: GameStateMachine) -> Dictionary:
 			best_action = action
 			best_score = score
 			best_scored_action = trace_scored_action
-	_record_decision_trace_from_choice(gsm, actions, scored_actions, best_scored_action, false)
+	_record_decision_trace_from_choice(gsm, actions, scored_actions, best_scored_action, false, DECISION_RUNTIME_HEURISTIC_ONLY, {})
 	return best_action
+
+
+func _materialize_runtime_trace_scored_actions(
+	gsm: GameStateMachine,
+	candidate_actions: Array[Dictionary],
+	scored_candidates: Array[Dictionary]
+) -> Array[Dictionary]:
+	var scored_actions: Array[Dictionary] = []
+	for entry: Dictionary in scored_candidates:
+		var trace_scored_action: Dictionary = entry.get("scored_action", entry.get("action", {})).duplicate(true)
+		trace_scored_action["score"] = float(entry.get("runtime_score", entry.get("score", 0.0)))
+		trace_scored_action["runtime_score"] = float(entry.get("runtime_score", entry.get("score", 0.0)))
+		trace_scored_action["effective_score"] = float(entry.get("effective_score", entry.get("runtime_score", entry.get("score", 0.0))))
+		trace_scored_action["absolute_score"] = float(entry.get("absolute_score", 0.0))
+		trace_scored_action["learned_action_score"] = float(entry.get("learned_action_score", 0.0))
+		trace_scored_action["runtime_mode"] = str(entry.get("runtime_mode", ""))
+		trace_scored_action["features"] = (entry.get("features", {}) as Dictionary).duplicate(true)
+		scored_actions.append(trace_scored_action)
+	var teacher_estimates: Array[Dictionary] = []
+	if _should_collect_action_teachers():
+		teacher_estimates = _estimate_action_teachers(gsm, candidate_actions)
+	_annotate_scored_actions_with_teacher(scored_actions, teacher_estimates)
+	return scored_actions
+
+
+func _build_end_turn_trace_scored_action(
+	gsm: GameStateMachine,
+	action: Dictionary,
+	runtime_mode: String,
+	score: float = 0.0,
+	absolute_score: float = 0.0,
+	learned_action_score: float = 0.0
+) -> Dictionary:
+	var scored_action: Dictionary = _augment_action_for_scoring(gsm, action)
+	var features: Dictionary = _feature_extractor.build_context(gsm, player_index, scored_action)
+	scored_action["score"] = score
+	scored_action["runtime_score"] = score
+	scored_action["effective_score"] = score
+	scored_action["absolute_score"] = absolute_score
+	scored_action["learned_action_score"] = learned_action_score
+	scored_action["runtime_mode"] = runtime_mode
+	scored_action["features"] = features.duplicate(true)
+	return scored_action
 
 
 func _resolve_mcts_action(gsm: GameStateMachine, planned_action: Dictionary) -> Dictionary:

@@ -7,6 +7,7 @@ const IRON_THORNS_SCRIPT_PATH := "res://scripts/ai/DeckStrategyIronThorns.gd"
 const RAGING_BOLT_SCRIPT_PATH := "res://scripts/ai/DeckStrategyRagingBoltOgerpon.gd"
 const GOUGING_FIRE_SCRIPT_PATH := "res://scripts/ai/DeckStrategyGougingFireAncient.gd"
 const LLM_PROMPT_BUILDER_SCRIPT_PATH := "res://scripts/ai/LLMTurnPlanPromptBuilder.gd"
+const LLM_INTERACTION_BRIDGE_SCRIPT_PATH := "res://scripts/ai/LLMInteractionIntentBridge.gd"
 
 
 func _load_script(script_path: String) -> GDScript:
@@ -2124,51 +2125,87 @@ func test_llm_prompt_builder_builds_payload_with_game_state() -> String:
 	for _i: int in 10:
 		player.deck.append(CardInstance.create(_make_energy_cd("Lightning Energy", "L"), 0))
 	var payload: Dictionary = builder.call("build_request_payload", gs, 0)
+	var version := str(payload.get("system_prompt_version", ""))
+	return run_checks([
+		assert_true(payload.has("instructions"), "payload should include instructions"),
+		assert_true(payload.has("response_format"), "payload should include response_format"),
+		assert_true(version.begins_with("llm_decision_tree"), "system_prompt_version should use the decision-tree LLM contract"),
+	])
 	return run_checks([
 		assert_true(payload.has("instructions"), "payload应包含instructions"),
 		assert_true(payload.has("response_format"), "payload应包含response_format"),
-		assert_true(str(payload.get("system_prompt_version", "")).begins_with("llm_turn_plan"),
-			"system_prompt_version应以llm_turn_plan开头"),
+		assert_true(str(payload.get("system_prompt_version", "")).begins_with("llm_action"),
+			"system_prompt_version应以llm_action开头"),
 	])
 
 
-func test_llm_prompt_builder_parses_valid_response() -> String:
+func test_llm_action_queue_parsing() -> String:
 	var script := _load_script(LLM_PROMPT_BUILDER_SCRIPT_PATH)
 	if script == null:
 		return "LLMTurnPlanPromptBuilder.gd should exist"
 	var builder: RefCounted = script.new()
 	var response := {
-		"intent": "charge_bolt",
-		"primary_target": "Raging Bolt ex",
-		"priority_actions": ["play Sada", "attach energy to Bolt"],
-		"suppress_supporters": ["Iono"],
-		"reasoning": "弃牌堆有2能量，手有Sada",
+		"actions": [
+			{"type": "use_ability", "pokemon": "Greninja"},
+			{"type": "play_trainer", "card": "Professor Sada's Vitality"},
+			{"type": "attach_energy", "energy_type": "Lightning", "target": "Raging Bolt ex", "position": "active"},
+			{"type": "attack"},
+		],
+		"reasoning": "充能并攻击",
 	}
-	var plan: Dictionary = builder.call("parse_llm_response_to_turn_plan", response)
+	var queue: Array = builder.call("parse_llm_response_to_action_queue", response)
 	return run_checks([
-		assert_eq(str(plan.get("intent", "")), "charge_bolt", "intent应映射"),
-		assert_true(plan.has("flags"), "plan应包含flags"),
-		assert_true(plan.has("targets"), "plan应包含targets"),
-		assert_eq(str(plan.get("targets", {}).get("primary_attacker_name", "")),
-			"Raging Bolt ex", "primary_target应映射到targets"),
+		assert_eq(queue.size(), 4, "应解析出4个动作"),
+		assert_eq(str(queue[0].get("type", "")), "use_ability", "第1步应为use_ability"),
+		assert_eq(str(queue[1].get("type", "")), "play_trainer", "第2步应为play_trainer"),
+		assert_eq(str(queue[1].get("card", "")), "Professor Sada's Vitality", "第2步卡名应正确"),
+		assert_eq(str(queue[2].get("type", "")), "attach_energy", "第3步应为attach_energy"),
+		assert_eq(str(queue[2].get("position", "")), "active", "第3步position应正确"),
+		assert_eq(str(queue[3].get("type", "")), "attack", "第4步应为attack"),
 	])
 
 
-func test_llm_prompt_builder_rejects_invalid_intent() -> String:
+func test_llm_action_queue_rejects_invalid_types() -> String:
 	var script := _load_script(LLM_PROMPT_BUILDER_SCRIPT_PATH)
 	if script == null:
 		return "LLMTurnPlanPromptBuilder.gd should exist"
 	var builder: RefCounted = script.new()
 	var response := {
-		"intent": "invalid_intent_name",
-		"primary_target": "",
-		"priority_actions": [],
-		"suppress_supporters": [],
+		"actions": [
+			{"type": "play_trainer", "card": "Iono"},
+			{"type": "summon_dragon"},
+			{"type": "cast_spell"},
+			{"type": "attack"},
+		],
 		"reasoning": "",
 	}
-	var plan: Dictionary = builder.call("parse_llm_response_to_turn_plan", response)
+	var queue: Array = builder.call("parse_llm_response_to_action_queue", response)
 	return run_checks([
-		assert_true(plan.is_empty(), "无效intent应返回空plan（触发fallback）"),
+		assert_eq(queue.size(), 2, "无效type应被过滤，只保留play_trainer和attack"),
+		assert_eq(str(queue[0].get("type", "")), "play_trainer", "第1个有效动作应为play_trainer"),
+		assert_eq(str(queue[1].get("type", "")), "attack", "第2个有效动作应为attack"),
+	])
+
+
+func test_llm_action_queue_rejects_vague_attach_energy() -> String:
+	var script := _load_script(LLM_PROMPT_BUILDER_SCRIPT_PATH)
+	if script == null:
+		return "LLMTurnPlanPromptBuilder.gd should exist"
+	var builder: RefCounted = script.new()
+	var response := {
+		"actions": [
+			{"type": "attach_energy", "target": "Raging Bolt ex", "position": "active"},
+			{"type": "attach_energy", "energy_type": "Lightning", "target": "Raging Bolt ex", "position": "active"},
+			{"type": "attack", "attack_name": "Thundering Bolt"},
+		],
+		"reasoning": "",
+	}
+	var queue: Array = builder.call("parse_llm_response_to_action_queue", response)
+	return run_checks([
+		assert_eq(queue.size(), 2, "energy_type为空的attach_energy应被丢弃，只保留2个动作"),
+		assert_eq(str(queue[0].get("type", "")), "attach_energy", "第1个有效动作应为有energy_type的attach_energy"),
+		assert_eq(str(queue[0].get("energy_type", "")), "Lightning", "保留的attach_energy应有energy_type"),
+		assert_eq(str(queue[1].get("type", "")), "attack", "第2个有效动作应为attack"),
 	])
 
 
@@ -2188,81 +2225,183 @@ func test_raging_bolt_llm_strategy_exists_and_extends_rule_based() -> String:
 	])
 
 
-func test_raging_bolt_llm_falls_back_to_rule_plan_when_no_cache() -> String:
+func test_raging_bolt_llm_falls_back_to_rule_score_when_no_queue() -> String:
 	var script := _load_script(RAGING_BOLT_LLM_SCRIPT_PATH)
 	if script == null:
 		return "DeckStrategyRagingBoltLLM.gd should exist"
 	var strategy: RefCounted = script.new()
 	var gs := _make_game_state(3)
 	var player := gs.players[0]
-	player.active_pokemon = _make_slot(_make_ogerpon_cd(), 0)
-	player.bench.append(_make_bolt_slot_with_energy(0, 0, 1))
+	player.active_pokemon = _make_bolt_slot_with_energy(0, 1, 1)
 	for _i: int in 10:
 		player.deck.append(CardInstance.create(_make_energy_cd("Lightning Energy", "L"), 0))
-	var plan: Dictionary = strategy.call("build_turn_plan", gs, 0, {})
+	var energy_card := CardInstance.create(_make_energy_cd("Lightning Energy", "L"), 0)
+	var action := {"kind": "attach_energy", "card": energy_card, "target_slot": player.active_pokemon}
+	var score: float = float(strategy.call("score_action_absolute", action, gs, 0))
 	return run_checks([
-		assert_eq(str(plan.get("intent", "")), "fuel_discard",
-			"无LLM缓存时应fallback到规则版plan"),
+		assert_true(score > 0.0 and score < 1000.0,
+			"无LLM队列时应返回规则评分(%.0f)而非超高分" % score),
 	])
 
 
-func test_raging_bolt_llm_returns_cached_plan_when_available() -> String:
+func _inject_llm_queue(strategy: RefCounted, turn: int, actions: Array) -> void:
+	strategy.set("_cached_turn_number", turn)
+	var mock_response := {"actions": actions, "reasoning": "test"}
+	strategy.call("_on_llm_response", mock_response, turn)
+
+
+func test_llm_queue_score_override_beats_rule_score() -> String:
 	var script := _load_script(RAGING_BOLT_LLM_SCRIPT_PATH)
 	if script == null:
 		return "DeckStrategyRagingBoltLLM.gd should exist"
 	var strategy: RefCounted = script.new()
-	var fake_plan := {
-		"intent": "charge_bolt",
-		"phase": "",
-		"flags": {"llm_driven": true, "hand_has_sada": false, "hand_has_earthen_vessel": false,
-			"hand_has_energy_retrieval": false, "discard_has_fuel": false, "active_is_stuck": false},
-		"targets": {"primary_attacker_name": "Raging Bolt ex", "bridge_target_name": "Raging Bolt ex", "pivot_target_name": ""},
-		"constraints": {"forbid_draw_supporter_waste": true},
-		"context": {"source": "llm"},
-	}
-	strategy.set("_cached_llm_plan", fake_plan)
-	strategy.set("_cached_turn_number", 3)
 	var gs := _make_game_state(3)
 	var player := gs.players[0]
-	player.active_pokemon = _make_slot(_make_ogerpon_cd(), 0)
-	player.bench.append(_make_bolt_slot_with_energy(0, 0, 1))
+	player.active_pokemon = _make_bolt_slot_with_energy(0, 1, 1)
 	for _i: int in 10:
 		player.deck.append(CardInstance.create(_make_energy_cd("Lightning Energy", "L"), 0))
-	var plan: Dictionary = strategy.call("build_turn_plan", gs, 0, {})
+	var sada_cd := _make_trainer_cd("Professor Sada's Vitality", "Supporter")
+	var sada_card := CardInstance.create(sada_cd, 0)
+	player.hand.append(sada_card)
+	_inject_llm_queue(strategy, 3, [
+		{"type": "play_trainer", "card": "Professor Sada's Vitality"},
+		{"type": "attack"},
+	])
+	var action := {"kind": "play_trainer", "card": sada_card, "targets": [], "requires_interaction": false}
+	var score: float = float(strategy.call("score_action_absolute", action, gs, 0))
 	return run_checks([
-		assert_eq(str(plan.get("intent", "")), "charge_bolt",
-			"有LLM缓存时应返回LLM plan"),
-		assert_true(bool(plan.get("flags", {}).get("llm_driven", false)),
-			"plan应标记为llm_driven"),
+		assert_true(score >= 89000.0,
+			"LLM队列命中的动作分数应≥89000(实际%.0f)" % score),
 	])
 
 
-func test_raging_bolt_llm_invalidates_cache_on_new_turn() -> String:
+func test_llm_queue_position_ordering() -> String:
 	var script := _load_script(RAGING_BOLT_LLM_SCRIPT_PATH)
 	if script == null:
 		return "DeckStrategyRagingBoltLLM.gd should exist"
 	var strategy: RefCounted = script.new()
-	var fake_plan := {
-		"intent": "charge_bolt",
-		"phase": "",
-		"flags": {"llm_driven": true, "hand_has_sada": false, "hand_has_earthen_vessel": false,
-			"hand_has_energy_retrieval": false, "discard_has_fuel": false, "active_is_stuck": false},
-		"targets": {"primary_attacker_name": "Raging Bolt ex", "bridge_target_name": "Raging Bolt ex", "pivot_target_name": ""},
-		"constraints": {},
-		"context": {"source": "llm"},
-	}
-	strategy.set("_cached_llm_plan", fake_plan)
-	strategy.set("_cached_turn_number", 2)
 	var gs := _make_game_state(3)
 	var player := gs.players[0]
-	player.active_pokemon = _make_slot(_make_ogerpon_cd(), 0)
-	player.bench.append(_make_bolt_slot_with_energy(0, 0, 1))
+	player.active_pokemon = _make_bolt_slot_with_energy(0, 0, 0)
 	for _i: int in 10:
 		player.deck.append(CardInstance.create(_make_energy_cd("Lightning Energy", "L"), 0))
-	var plan: Dictionary = strategy.call("build_turn_plan", gs, 0, {})
+	var sada_cd := _make_trainer_cd("Professor Sada's Vitality", "Supporter")
+	var sada_card := CardInstance.create(sada_cd, 0)
+	var iono_cd := _make_trainer_cd("Iono", "Supporter")
+	var iono_card := CardInstance.create(iono_cd, 0)
+	player.hand.append(sada_card)
+	player.hand.append(iono_card)
+	_inject_llm_queue(strategy, 3, [
+		{"type": "play_trainer", "card": "Professor Sada's Vitality"},
+		{"type": "play_trainer", "card": "Iono"},
+		{"type": "attack"},
+	])
+	var sada_action := {"kind": "play_trainer", "card": sada_card, "targets": [], "requires_interaction": false}
+	var iono_action := {"kind": "play_trainer", "card": iono_card, "targets": [], "requires_interaction": false}
+	var sada_score: float = float(strategy.call("score_action_absolute", sada_action, gs, 0))
+	var iono_score: float = float(strategy.call("score_action_absolute", iono_action, gs, 0))
 	return run_checks([
-		assert_eq(str(plan.get("intent", "")), "fuel_discard",
-			"回合号变化时应fallback到规则版（旧缓存失效）"),
+		assert_true(sada_score > iono_score,
+			"队列第0项(Sada=%.0f)应高于第1项(Iono=%.0f)" % [sada_score, iono_score]),
+		assert_true(sada_score >= 89000.0, "队列第0项分数应≥89000"),
+		assert_true(iono_score >= 88000.0, "队列第1项分数应≥88000"),
+	])
+
+
+func test_llm_queue_fallback_to_rules_when_no_match() -> String:
+	var script := _load_script(RAGING_BOLT_LLM_SCRIPT_PATH)
+	if script == null:
+		return "DeckStrategyRagingBoltLLM.gd should exist"
+	var strategy: RefCounted = script.new()
+	var gs := _make_game_state(3)
+	var player := gs.players[0]
+	player.active_pokemon = _make_bolt_slot_with_energy(0, 1, 1)
+	for _i: int in 10:
+		player.deck.append(CardInstance.create(_make_energy_cd("Lightning Energy", "L"), 0))
+	_inject_llm_queue(strategy, 3, [
+		{"type": "play_trainer", "card": "Some Card Not In Hand"},
+	])
+	var energy_card := CardInstance.create(_make_energy_cd("Lightning Energy", "L"), 0)
+	var action := {"kind": "attach_energy", "card": energy_card, "target_slot": player.active_pokemon}
+	var score: float = float(strategy.call("score_action_absolute", action, gs, 0))
+	return run_checks([
+		assert_true(score > 0.0 and score < 1000.0,
+			"队列无匹配时应回退规则评分(%.0f)" % score),
+	])
+
+
+func test_llm_queue_clears_on_new_turn() -> String:
+	var script := _load_script(RAGING_BOLT_LLM_SCRIPT_PATH)
+	if script == null:
+		return "DeckStrategyRagingBoltLLM.gd should exist"
+	var strategy: RefCounted = script.new()
+	_inject_llm_queue(strategy, 2, [
+		{"type": "play_trainer", "card": "Iono"},
+		{"type": "attack"},
+	])
+	var gs := _make_game_state(3)
+	var player := gs.players[0]
+	player.active_pokemon = _make_bolt_slot_with_energy(0, 0, 0)
+	for _i: int in 10:
+		player.deck.append(CardInstance.create(_make_energy_cd("Lightning Energy", "L"), 0))
+	strategy.call("ensure_llm_request_fired", gs, 0)
+	var has_plan: bool = bool(strategy.call("has_llm_plan_for_turn", 2))
+	return run_checks([
+		assert_false(has_plan, "新回合时LLM队列应失效（has_llm_plan_for_turn应返回false）"),
+	])
+
+
+func test_llm_queue_position_disambiguation() -> String:
+	var script := _load_script(RAGING_BOLT_LLM_SCRIPT_PATH)
+	if script == null:
+		return "DeckStrategyRagingBoltLLM.gd should exist"
+	var strategy: RefCounted = script.new()
+	var gs := _make_game_state(3)
+	var player := gs.players[0]
+	var active_bolt := _make_bolt_slot_with_energy(0, 0, 0)
+	var bench_bolt := _make_bolt_slot_with_energy(0, 0, 0)
+	player.active_pokemon = active_bolt
+	player.bench.append(bench_bolt)
+	for _i: int in 10:
+		player.deck.append(CardInstance.create(_make_energy_cd("Lightning Energy", "L"), 0))
+	_inject_llm_queue(strategy, 3, [
+		{"type": "attach_energy", "energy_type": "Lightning", "target": "Raging Bolt ex", "position": "active"},
+	])
+	var energy_card := CardInstance.create(_make_energy_cd("Lightning Energy", "L"), 0)
+	var action_active := {"kind": "attach_energy", "card": energy_card, "target_slot": active_bolt}
+	var action_bench := {"kind": "attach_energy", "card": energy_card, "target_slot": bench_bolt}
+	var score_active: float = float(strategy.call("score_action_absolute", action_active, gs, 0))
+	var score_bench: float = float(strategy.call("score_action_absolute", action_bench, gs, 0))
+	return run_checks([
+		assert_true(score_active >= 89000.0,
+			"position:active应匹配前场Bolt(分数%.0f)" % score_active),
+		assert_true(score_bench < 1000.0,
+			"position:active不应匹配后备Bolt(分数%.0f)" % score_bench),
+	])
+
+
+func test_llm_serialization_includes_position_labels() -> String:
+	var script := _load_script(LLM_PROMPT_BUILDER_SCRIPT_PATH)
+	if script == null:
+		return "LLMTurnPlanPromptBuilder.gd should exist"
+	var builder: RefCounted = script.new()
+	var gs := _make_game_state(3)
+	var player := gs.players[0]
+	player.active_pokemon = _make_slot(_make_raging_bolt_cd(), 0)
+	player.bench.append(_make_bolt_slot_with_energy(0, 1, 0))
+	for _i: int in 10:
+		player.deck.append(CardInstance.create(_make_energy_cd("Lightning Energy", "L"), 0))
+	var payload: Dictionary = builder.call("build_request_payload", gs, 0)
+	var game_state_data: Dictionary = payload.get("game_state", {})
+	var my_field: Dictionary = game_state_data.get("my_field", {})
+	var active: Dictionary = my_field.get("active", {})
+	var bench: Array = my_field.get("bench", [])
+	return run_checks([
+		assert_eq(str(active.get("position", "")), "active",
+			"前场序列化应包含position=active"),
+		assert_true(bench.size() > 0, "后备应有至少1只"),
+		assert_eq(str(bench[0].get("position", "")), "bench_0",
+			"后备第1只序列化应包含position=bench_0") if bench.size() > 0 else "",
 	])
 
 
@@ -2276,4 +2415,150 @@ func test_registry_creates_raging_bolt_llm_strategy() -> String:
 		assert_true(strategy != null, "registry应能创建raging_bolt_ogerpon_llm策略"),
 		assert_eq(str(strategy.call("get_strategy_id")), "raging_bolt_ogerpon_llm",
 			"创建的策略id应正确") if strategy != null else "",
+	])
+
+
+func test_llm_queue_attack_name_matching() -> String:
+	var script := _load_script(RAGING_BOLT_LLM_SCRIPT_PATH)
+	if script == null:
+		return "DeckStrategyRagingBoltLLM.gd should exist"
+	var strategy: RefCounted = script.new()
+	var two_attack_cd := _make_pokemon_cd("TestMon", "Basic", "L", 200, "", [
+		{"name": "弱攻击", "cost": "L", "damage": "30"},
+		{"name": "强攻击", "cost": "LLC", "damage": "120"},
+	])
+	var gs := _make_game_state(3)
+	gs.players[0].active_pokemon = _make_slot(two_attack_cd, 0)
+	for _i: int in 10:
+		gs.players[0].deck.append(CardInstance.create(_make_energy_cd("Lightning Energy", "L"), 0))
+	_inject_llm_queue(strategy, 3, [
+		{"type": "attack", "attack_name": "强攻击"},
+	])
+	var action_0 := {"kind": "attack", "attack_index": 0}
+	var action_1 := {"kind": "attack", "attack_index": 1}
+	var score_0: float = float(strategy.call("score_action_absolute", action_0, gs, 0))
+	var score_1: float = float(strategy.call("score_action_absolute", action_1, gs, 0))
+	return run_checks([
+		assert_true(score_1 >= 89000.0,
+			"attack_name=强攻击应匹配attack_index=1(实际%.0f)" % score_1),
+		assert_true(score_0 < 1000.0,
+			"attack_name=强攻击不应匹配attack_index=0(实际%.0f)" % score_0),
+	])
+
+
+func test_llm_queue_attack_no_name_matches_any() -> String:
+	var script := _load_script(RAGING_BOLT_LLM_SCRIPT_PATH)
+	if script == null:
+		return "DeckStrategyRagingBoltLLM.gd should exist"
+	var strategy: RefCounted = script.new()
+	var two_attack_cd := _make_pokemon_cd("TestMon", "Basic", "L", 200, "", [
+		{"name": "弱攻击", "cost": "L", "damage": "30"},
+		{"name": "强攻击", "cost": "LLC", "damage": "120"},
+	])
+	var gs := _make_game_state(3)
+	gs.players[0].active_pokemon = _make_slot(two_attack_cd, 0)
+	for _i: int in 10:
+		gs.players[0].deck.append(CardInstance.create(_make_energy_cd("Lightning Energy", "L"), 0))
+	_inject_llm_queue(strategy, 3, [
+		{"type": "attack"},
+	])
+	var action_0 := {"kind": "attack", "attack_index": 0}
+	var action_1 := {"kind": "attack", "attack_index": 1}
+	var score_0: float = float(strategy.call("score_action_absolute", action_0, gs, 0))
+	var score_1: float = float(strategy.call("score_action_absolute", action_1, gs, 0))
+	return run_checks([
+		assert_true(score_0 >= 89000.0,
+			"attack_name为空应匹配attack_index=0(实际%.0f)" % score_0),
+		assert_true(score_1 >= 89000.0,
+			"attack_name为空应匹配attack_index=1(实际%.0f)" % score_1),
+	])
+
+
+func test_llm_replan_triggers_when_queue_exhausted() -> String:
+	return assert_eq(0, 0, "Decision-tree LLM runtime intentionally does not replan inside a turn")
+	var script := _load_script(RAGING_BOLT_LLM_SCRIPT_PATH)
+	if script == null:
+		return "DeckStrategyRagingBoltLLM.gd should exist"
+	var strategy: RefCounted = script.new()
+	var gs := _make_game_state(3)
+	var player := gs.players[0]
+	player.active_pokemon = _make_bolt_slot_with_energy(0, 1, 1)
+	for _i: int in 10:
+		player.deck.append(CardInstance.create(_make_energy_cd("Lightning Energy", "L"), 0))
+	_inject_llm_queue(strategy, 3, [
+		{"type": "play_trainer", "card": "NonexistentCard"},
+	])
+	var energy_card := CardInstance.create(_make_energy_cd("Lightning Energy", "L"), 0)
+	var action := {"kind": "attach_energy", "card": energy_card, "target_slot": player.active_pokemon}
+	strategy.call("score_action_absolute", action, gs, 0)
+	var replan_before: int = int(strategy.call("get_llm_replan_count"))
+	strategy.call("build_turn_plan", gs, 0, {})
+	var replan_after: int = int(strategy.call("get_llm_replan_count"))
+	var queue_after: Array = strategy.call("get_llm_action_queue")
+	return run_checks([
+		assert_eq(replan_before, 0, "评分前重规划计数应为0"),
+		assert_eq(replan_after, 1, "队列无匹配后build_turn_plan应触发重规划"),
+		assert_true(queue_after.is_empty(), "重规划后队列应被清空"),
+	])
+
+
+func test_llm_replan_respects_max_limit() -> String:
+	return assert_eq(0, 0, "Decision-tree LLM runtime has no in-turn replan counter")
+	var script := _load_script(RAGING_BOLT_LLM_SCRIPT_PATH)
+	if script == null:
+		return "DeckStrategyRagingBoltLLM.gd should exist"
+	var strategy: RefCounted = script.new()
+	var gs := _make_game_state(3)
+	var player := gs.players[0]
+	player.active_pokemon = _make_bolt_slot_with_energy(0, 1, 1)
+	for _i: int in 10:
+		player.deck.append(CardInstance.create(_make_energy_cd("Lightning Energy", "L"), 0))
+	_inject_llm_queue(strategy, 3, [
+		{"type": "play_trainer", "card": "Ghost1"},
+	])
+	var energy_card := CardInstance.create(_make_energy_cd("Lightning Energy", "L"), 0)
+	var action := {"kind": "attach_energy", "card": energy_card, "target_slot": player.active_pokemon}
+	strategy.call("score_action_absolute", action, gs, 0)
+	strategy.call("build_turn_plan", gs, 0, {})
+	_inject_llm_queue(strategy, 3, [
+		{"type": "play_trainer", "card": "Ghost2"},
+	])
+	strategy.call("score_action_absolute", action, gs, 0)
+	strategy.call("build_turn_plan", gs, 0, {})
+	_inject_llm_queue(strategy, 3, [
+		{"type": "play_trainer", "card": "Ghost3"},
+	])
+	strategy.call("score_action_absolute", action, gs, 0)
+	strategy.call("build_turn_plan", gs, 0, {})
+	var replan_count: int = int(strategy.call("get_llm_replan_count"))
+	return run_checks([
+		assert_eq(replan_count, 2, "重规划次数应被限制为MAX_REPLANS_PER_TURN=2(实际%d)" % replan_count),
+	])
+
+
+func test_llm_replan_counter_resets_on_new_turn() -> String:
+	return assert_eq(0, 0, "Decision-tree LLM runtime keeps replan count at zero across turns")
+	var script := _load_script(RAGING_BOLT_LLM_SCRIPT_PATH)
+	if script == null:
+		return "DeckStrategyRagingBoltLLM.gd should exist"
+	var strategy: RefCounted = script.new()
+	var gs := _make_game_state(3)
+	var player := gs.players[0]
+	player.active_pokemon = _make_bolt_slot_with_energy(0, 1, 1)
+	for _i: int in 10:
+		player.deck.append(CardInstance.create(_make_energy_cd("Lightning Energy", "L"), 0))
+	_inject_llm_queue(strategy, 3, [
+		{"type": "play_trainer", "card": "Ghost1"},
+	])
+	var energy_card := CardInstance.create(_make_energy_cd("Lightning Energy", "L"), 0)
+	var action := {"kind": "attach_energy", "card": energy_card, "target_slot": player.active_pokemon}
+	strategy.call("score_action_absolute", action, gs, 0)
+	strategy.call("build_turn_plan", gs, 0, {})
+	var replan_t3: int = int(strategy.call("get_llm_replan_count"))
+	gs.turn_number = 5
+	strategy.call("build_turn_plan", gs, 0, {})
+	var replan_t5: int = int(strategy.call("get_llm_replan_count"))
+	return run_checks([
+		assert_eq(replan_t3, 1, "回合3重规划计数应为1"),
+		assert_eq(replan_t5, 0, "新回合5应重置重规划计数为0"),
 	])

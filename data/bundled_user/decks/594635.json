@@ -1,0 +1,282 @@
+{
+	"cards": [
+		{
+			"card_index": "118",
+			"card_type": "Supporter",
+			"count": 1,
+			"effect_id": "0176c179359368cdb84ff754e0bbd701",
+			"name": "莉佳的邀请",
+			"name_en": "Erika's Invitation",
+			"set_code": "CSV2C"
+		},
+		{
+			"card_index": "114",
+			"card_type": "Item",
+			"count": 4,
+			"effect_id": "06bc00d5dcec33898dc6db2e4c4d10ec",
+			"name": "反击捕捉器",
+			"name_en": "Counter Catcher",
+			"set_code": "CSV6C"
+		},
+		{
+			"card_index": "195",
+			"card_type": "Supporter",
+			"count": 1,
+			"effect_id": "15f9d5ea244ceaa819ecafc18644be17",
+			"name": "库瑟洛斯奇的企图",
+			"name_en": "Xerosic's Machinations",
+			"set_code": "CSV8C"
+		},
+		{
+			"card_index": "043",
+			"card_type": "Item",
+			"count": 4,
+			"effect_id": "1af63a7e2cb7a79215474ad8db8fd8fd",
+			"name": "巢穴球",
+			"name_en": "Nest Ball",
+			"set_code": "CSVH1C"
+		},
+		{
+			"card_index": "190",
+			"card_type": "Tool",
+			"count": 2,
+			"effect_id": "1bc2bed91258ca0ecfb69e5ee8dc0c79",
+			"name": "手持循环扇",
+			"name_en": "Handheld Fan",
+			"set_code": "CSV8C"
+		},
+		{
+			"card_index": "060",
+			"card_type": "Item",
+			"count": 1,
+			"effect_id": "2f68195255c863293be4fad262bf23d2",
+			"name": "洗翠的沉重球",
+			"name_en": "Hisuian Heavy Ball",
+			"set_code": "CS5.5C"
+		},
+		{
+			"card_index": "062",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "4ba364fe554ffe8577561515bc8b5979",
+			"name": "谜拟丘",
+			"name_en": "Mimikyu",
+			"set_code": "CSV3C"
+		},
+		{
+			"card_index": "121",
+			"card_type": "Pokemon",
+			"count": 2,
+			"effect_id": "4f25f668ee0ab45c68f6954324c73003",
+			"name": "厄诡椪 础石面具ex",
+			"name_en": "Cornerstone Mask Ogerpon ex",
+			"set_code": "CSV8C"
+		},
+		{
+			"card_index": "128",
+			"card_type": "Stadium",
+			"count": 3,
+			"effect_id": "53864b068a4a1e8dce3c53c884b67efa",
+			"name": "神奥神殿",
+			"name_en": "Temple of Sinnoh",
+			"set_code": "CS5bC"
+		},
+		{
+			"card_index": "123",
+			"card_type": "Supporter",
+			"count": 4,
+			"effect_id": "5bdbc985f9aa2e6f248b53f6f35d1d37",
+			"name": "派帕",
+			"name_en": "Arven",
+			"set_code": "CSV1C"
+		},
+		{
+			"card_index": "125",
+			"card_type": "Supporter",
+			"count": 1,
+			"effect_id": "69c6f343fad1310d0008894c15bd6388",
+			"name": "皮拿",
+			"name_en": "Giacomo",
+			"set_code": "CSV3C"
+		},
+		{
+			"card_index": "113",
+			"card_type": "Item",
+			"count": 4,
+			"effect_id": "768b545a38fccd5e265093b5adce10af",
+			"name": "宝可装置3.0",
+			"name_en": "Pokégear 3.0",
+			"set_code": "CSV2C"
+		},
+		{
+			"card_index": "116",
+			"card_type": "Item",
+			"count": 1,
+			"effect_id": "8342fe3eeec6f897f3271be1aa26a412",
+			"name": "交替推车",
+			"name_en": "Switch Cart",
+			"set_code": "CS5DC"
+		},
+		{
+			"card_index": "023",
+			"card_type": "Supporter",
+			"count": 1,
+			"effect_id": "8e1fa2c9018db938084c94c7c970d419",
+			"name": "老大的指令",
+			"name_en": "Boss's Orders",
+			"set_code": "CSVH1aC"
+		},
+		{
+			"card_index": "023",
+			"card_type": "Pokemon",
+			"count": 2,
+			"effect_id": "8ef5ff61fd97838af568f00fe3b0e3ea",
+			"name": "洛托姆V",
+			"name_en": "Rotom V",
+			"set_code": "CS6.5C"
+		},
+		{
+			"card_index": "066",
+			"card_type": "Tool",
+			"count": 1,
+			"effect_id": "9fa9943ccda36f417ac3cb675177c216",
+			"name": "森林封印石",
+			"name_en": "Forest Seal Stone",
+			"set_code": "CS6.5C"
+		},
+		{
+			"card_index": "124",
+			"card_type": "Supporter",
+			"count": 3,
+			"effect_id": "9fb5f53c9952d10b4fe26508ecbc644a",
+			"name": "牡丹",
+			"name_en": "Penny",
+			"set_code": "CSV1C"
+		},
+		{
+			"card_index": "111",
+			"card_type": "Item",
+			"count": 3,
+			"effect_id": "a47d5a8ed00e14a2146fc511745d23b5",
+			"name": "朋友手册",
+			"name_en": "Pal Pad",
+			"set_code": "CSV1C"
+		},
+		{
+			"card_index": "112",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "a9bc714c7706f85490f9566db2460c4b",
+			"name": "大比鸟V",
+			"name_en": "Pidgeot V",
+			"set_code": "CS6bC"
+		},
+		{
+			"card_index": "197",
+			"card_type": "Supporter",
+			"count": 2,
+			"effect_id": "aaf64ab87ad571cdf40cc78538c9c0b4",
+			"name": "枇琶",
+			"name_en": "Eri",
+			"set_code": "CSV7C"
+		},
+		{
+			"card_index": "093",
+			"card_type": "Pokemon",
+			"count": 4,
+			"effect_id": "abf4ae7b5adf11b9d4f46ffda1417ac2",
+			"name": "卡比兽",
+			"name_en": "Snorlax",
+			"set_code": "CS5aC"
+		},
+		{
+			"card_index": "129",
+			"card_type": "Supporter",
+			"count": 3,
+			"effect_id": "b8e6d6a0e1cd50214902a5cbf7b6b7c4",
+			"name": "野贼三姐妹",
+			"name_en": "Miss Fortune Sisters",
+			"set_code": "CS6aC"
+		},
+		{
+			"card_index": "127",
+			"card_type": "Stadium",
+			"count": 1,
+			"effect_id": "c117bea3cc758d46430d6bef11062a56",
+			"name": "深钵镇",
+			"name_en": "Artazon",
+			"set_code": "CSV2C"
+		},
+		{
+			"card_index": "388",
+			"card_type": "Supporter",
+			"count": 1,
+			"effect_id": "c982e26b140aa1c9230fb1018b62ef1e",
+			"name": "呐喊队的应援",
+			"name_en": "Team Yell's Cheer",
+			"set_code": "CS4DaC"
+		},
+		{
+			"card_index": "045",
+			"card_type": "Pokemon",
+			"count": 1,
+			"effect_id": "ca76ce7dc5236e870eccf6bfafbc1f59",
+			"name": "巨翅飞鱼",
+			"name_en": "Mantine",
+			"set_code": "CS5bC"
+		},
+		{
+			"card_index": "118",
+			"card_type": "Tool",
+			"count": 2,
+			"effect_id": "d1c2f018a644e662f2b6895fdfc29281",
+			"name": "勇气护符",
+			"name_en": "Bravery Charm",
+			"set_code": "CSV1C"
+		},
+		{
+			"card_index": "140",
+			"card_type": "Supporter",
+			"count": 1,
+			"effect_id": "e5c317e428f0cfd885b53d4d058b5d5b",
+			"name": "星月",
+			"name_en": "Cyllene",
+			"set_code": "CS5DC"
+		},
+		{
+			"card_index": "176",
+			"card_type": "Item",
+			"count": 1,
+			"effect_id": "e92a86246f44351d023bd4fa271089aa",
+			"name": "秘密箱",
+			"name_en": "Secret Box",
+			"set_code": "CSV8C"
+		},
+		{
+			"card_index": "175",
+			"card_type": "Item",
+			"count": 3,
+			"effect_id": "e9bd0b4b3d97716a9757e6bccb1446ac",
+			"name": "配乐之笛",
+			"name_en": "Accompanying Flute",
+			"set_code": "CSV8C"
+		},
+		{
+			"card_index": "204",
+			"card_type": "Special Energy",
+			"count": 1,
+			"effect_id": "fb0948c721db1f31767aa6cf0c2ea692",
+			"name": "薄雾能量",
+			"name_en": "Mist Energy",
+			"set_code": "CSV7C"
+		}
+	],
+	"deck_code": "wu3G_OFxf2c2pnXBWv",
+	"deck_name": "卡比兽",
+	"id": 594635,
+	"import_date": "2026-04-18T19:08:33",
+	"source_url": "https://tcg.mik.moe/decks/list/594635",
+	"strategy": "",
+	"total_cards": 60,
+	"variant_name": "卡比兽"
+}

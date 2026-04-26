@@ -42,6 +42,8 @@ static func get_default_weights() -> Dictionary:
 		# 共享调整
 		"bench_dev_bonus": 70.0,
 		"stage2_bonus": 140.0,
+		"rare_candy_stage2_engine": 520.0,
+		"rare_candy_baxcalibur_engine": 760.0,
 		"attack_readiness_bonus": 80.0,
 		"bench_attack_readiness_bonus": 65.0,
 		"dead_trainer_penalty": 30.0,
@@ -118,6 +120,11 @@ func _apply_shared_adjustments(action: Dictionary, context: Dictionary, features
 	if kind == "evolve" and _advances_stage2_line(action, context):
 		score_delta += _w("stage2_bonus", 140.0)
 		_add_reason_tag(action, "stage2_progress")
+
+	var rare_candy_engine_score := _score_rare_candy_engine(action, context)
+	if rare_candy_engine_score != 0.0:
+		score_delta += rare_candy_engine_score
+		_add_reason_tag(action, "rare_candy_engine")
 
 	## 卡组策略：贴能 / 贴道具由专属策略全权控制，跳过通用评分
 	var _strategy_controls_attach: bool = _strategy_controls_attach_or_tool(kind)
@@ -373,6 +380,59 @@ func _has_ability_named(card_data: CardData, ability_name: String) -> bool:
 		if str(ability.get("name", "")) == ability_name:
 			return true
 	return false
+
+
+func _score_rare_candy_engine(action: Dictionary, context: Dictionary) -> float:
+	if str(action.get("kind", "")) != "play_trainer":
+		return 0.0
+	var card: CardInstance = action.get("card")
+	if not _is_card_named(card, ["Rare Candy", "神奇糖果"]):
+		return 0.0
+	var stage2_card := _selected_rare_candy_stage2(action)
+	if stage2_card == null:
+		stage2_card = _first_stage2_in_hand(context)
+	if stage2_card == null or stage2_card.card_data == null:
+		return 0.0
+	var name := str(stage2_card.card_data.name)
+	var name_en := str(stage2_card.card_data.name_en)
+	if name == "戟脊龙" or name_en == "Baxcalibur":
+		return _w("rare_candy_baxcalibur_engine", 760.0)
+	if not stage2_card.card_data.abilities.is_empty() or stage2_card.card_data.mechanic == "ex" or stage2_card.card_data.hp >= 150:
+		return _w("rare_candy_stage2_engine", 520.0)
+	return 0.0
+
+
+func _selected_rare_candy_stage2(action: Dictionary) -> CardInstance:
+	var targets_variant: Variant = action.get("targets", [])
+	if not targets_variant is Array:
+		return null
+	for target_variant: Variant in targets_variant:
+		if not target_variant is Dictionary:
+			continue
+		var stage2_variant: Variant = (target_variant as Dictionary).get("stage2_card", [])
+		if not stage2_variant is Array or (stage2_variant as Array).is_empty():
+			continue
+		var selected: CardInstance = (stage2_variant as Array)[0] as CardInstance
+		if selected != null and selected.card_data != null and str(selected.card_data.stage) == "Stage 2":
+			return selected
+	return null
+
+
+func _first_stage2_in_hand(context: Dictionary) -> CardInstance:
+	var game_state: GameState = context.get("game_state")
+	var player_index: int = int(context.get("player_index", -1))
+	if game_state == null or player_index < 0 or player_index >= game_state.players.size():
+		return null
+	for hand_card: CardInstance in game_state.players[player_index].hand:
+		if hand_card != null and hand_card.card_data != null and str(hand_card.card_data.stage) == "Stage 2":
+			return hand_card
+	return null
+
+
+func _is_card_named(card: CardInstance, names: Array[String]) -> bool:
+	if card == null or card.card_data == null:
+		return false
+	return str(card.card_data.name) in names or str(card.card_data.name_en) in names
 
 
 func _instantiate_strategy_from_path(script_path: String) -> RefCounted:

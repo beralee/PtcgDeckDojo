@@ -29,6 +29,9 @@ var card_instance: CardInstance = null
 var card_data: CardData = null
 var display_mode: String = MODE_HAND
 var _selected: bool = false
+var _selectable_hint: bool = false
+var _selectable_hint_text: String = "可选"
+var _selected_badge_text: String = "已选"
 var _disabled: bool = false
 var _face_down: bool = false
 var _clickable: bool = true
@@ -59,6 +62,9 @@ var _status_energy_panel: PanelContainer
 var _status_energy_row: HBoxContainer
 var _status_tool_panel: PanelContainer
 var _status_tool_label: Label
+var _selection_overlay: PanelContainer
+var _selection_badge_panel: PanelContainer
+var _selection_badge: Label
 
 
 func _ready() -> void:
@@ -78,6 +84,8 @@ func setup_from_instance(inst: CardInstance = null, mode: String = MODE_HAND) ->
 	card_instance = inst
 	card_data = inst.card_data if inst != null else null
 	display_mode = mode
+	_selected = false
+	_selectable_hint = false
 	clear_battle_status()
 	_refresh()
 
@@ -87,6 +95,8 @@ func setup_from_card_data(data: CardData, mode: String = MODE_CHOICE) -> void:
 	card_instance = null
 	card_data = data
 	display_mode = mode
+	_selected = false
+	_selectable_hint = false
 	clear_battle_status()
 	_refresh()
 
@@ -94,6 +104,24 @@ func setup_from_card_data(data: CardData, mode: String = MODE_CHOICE) -> void:
 func set_selected(selected: bool) -> void:
 	_ensure_ui()
 	_selected = selected
+	_update_style()
+
+
+func set_selectable_hint(selectable_hint: bool) -> void:
+	_ensure_ui()
+	_selectable_hint = selectable_hint
+	_update_style()
+
+
+func set_selectable_hint_text(text: String) -> void:
+	_ensure_ui()
+	_selectable_hint_text = text.strip_edges() if text.strip_edges() != "" else "可选"
+	_update_style()
+
+
+func set_selected_badge_text(text: String) -> void:
+	_ensure_ui()
+	_selected_badge_text = text.strip_edges() if text.strip_edges() != "" else "已选"
 	_update_style()
 
 
@@ -360,6 +388,69 @@ func _build_ui() -> void:
 
 	_status_hud.visible = false
 	_info_panel.visible = false
+
+	_selection_overlay = PanelContainer.new()
+	_make_passthrough(_selection_overlay)
+	_selection_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_selection_overlay.visible = false
+	_art_frame.add_child(_selection_overlay)
+
+	var selection_margin := MarginContainer.new()
+	_make_passthrough(selection_margin)
+	selection_margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	selection_margin.add_theme_constant_override("margin_left", 8)
+	selection_margin.add_theme_constant_override("margin_top", 7)
+	selection_margin.add_theme_constant_override("margin_right", 8)
+	selection_margin.add_theme_constant_override("margin_bottom", 7)
+	_selection_overlay.add_child(selection_margin)
+
+	var selection_box := VBoxContainer.new()
+	_make_passthrough(selection_box)
+	selection_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	selection_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	selection_margin.add_child(selection_box)
+
+	var selection_row := HBoxContainer.new()
+	_make_passthrough(selection_row)
+	selection_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	selection_box.add_child(selection_row)
+
+	var selection_spacer := Control.new()
+	_make_passthrough(selection_spacer)
+	selection_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	selection_row.add_child(selection_spacer)
+
+	_selection_badge_panel = PanelContainer.new()
+	_make_passthrough(_selection_badge_panel)
+	_selection_badge_panel.add_theme_stylebox_override("panel", _make_selection_badge_style(true))
+	selection_row.add_child(_selection_badge_panel)
+
+	var badge_margin := MarginContainer.new()
+	_make_passthrough(badge_margin)
+	badge_margin.add_theme_constant_override("margin_left", 10)
+	badge_margin.add_theme_constant_override("margin_top", 3)
+	badge_margin.add_theme_constant_override("margin_right", 10)
+	badge_margin.add_theme_constant_override("margin_bottom", 3)
+	_selection_badge_panel.add_child(badge_margin)
+
+	_selection_badge = Label.new()
+	_make_passthrough(_selection_badge)
+	_selection_badge.text = "已选"
+	_selection_badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_selection_badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_selection_badge.add_theme_font_size_override("font_size", 12)
+	_selection_badge.add_theme_color_override("font_color", Color(0.10, 0.06, 0.00, 1.0))
+	var selection_font := FontVariation.new()
+	selection_font.base_font = ThemeDB.fallback_font
+	selection_font.variation_embolden = 1.4
+	_selection_badge.add_theme_font_override("font", selection_font)
+	badge_margin.add_child(_selection_badge)
+
+	var selection_grow := Control.new()
+	_make_passthrough(selection_grow)
+	selection_grow.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	selection_box.add_child(selection_grow)
+
 	set_badges()
 	_update_layout()
 	_update_style()
@@ -404,6 +495,23 @@ func _make_status_margin(left: int, top: int, right: int, bottom: int) -> Margin
 	margin.add_theme_constant_override("margin_right", right)
 	margin.add_theme_constant_override("margin_bottom", bottom)
 	return margin
+
+
+func _make_selection_badge_style(selected: bool = true) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	if selected:
+		style.bg_color = Color(1.0, 0.78, 0.08, 0.96)
+		style.border_color = Color(1.0, 0.96, 0.48, 1.0)
+		style.shadow_color = Color(1.0, 0.66, 0.08, 0.55)
+	else:
+		style.bg_color = Color(0.36, 0.95, 1.0, 0.72)
+		style.border_color = Color(0.78, 1.0, 1.0, 0.78)
+		style.shadow_color = Color(0.12, 0.72, 1.0, 0.24)
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(999)
+	style.shadow_size = 8
+	style.shadow_offset = Vector2(0, 2)
+	return style
 
 
 func _make_passthrough(control: Control) -> void:
@@ -482,12 +590,10 @@ func _load_texture(data: CardData) -> Texture2D:
 	if data == null:
 		return null
 
-	var local_path := data.image_local_path
-	if local_path == "":
-		return null
-
-	var file_path := ProjectSettings.globalize_path(local_path)
-	if not FileAccess.file_exists(file_path):
+	var file_path := CardData.resolve_existing_image_path(
+		CardData.get_image_candidate_paths(data.set_code, data.card_index, data.image_local_path)
+	)
+	if file_path == "":
 		return null
 
 	if _texture_cache.has(file_path):
@@ -598,8 +704,23 @@ func _update_style() -> void:
 	style.corner_radius_bottom_left = 14
 	style.set_border_width_all(2)
 	style.border_color = Color(0.24, 0.3, 0.4)
+	style.set_content_margin_all(2)
 	if _selected:
-		style.border_color = Color(0.96, 0.78, 0.2)
+		style.bg_color = Color(0.13, 0.11, 0.05, 1.0)
+		style.border_color = Color(1.0, 0.78, 0.10, 0.82)
+		style.set_border_width_all(4)
+		style.set_content_margin_all(4)
+		style.shadow_color = Color(1.0, 0.70, 0.08, 0.32)
+		style.shadow_size = 8
+		style.shadow_offset = Vector2.ZERO
+	elif _selectable_hint:
+		style.bg_color = Color(0.04, 0.12, 0.16, 1.0)
+		style.border_color = Color(0.28, 0.88, 1.0, 0.32)
+		style.set_border_width_all(2)
+		style.set_content_margin_all(2)
+		style.shadow_color = Color(0.18, 0.78, 1.0, 0.10)
+		style.shadow_size = 4
+		style.shadow_offset = Vector2.ZERO
 	if _disabled:
 		style.border_color = Color(0.35, 0.35, 0.35)
 	add_theme_stylebox_override("panel", StyleBoxEmpty.new())
@@ -615,6 +736,29 @@ func _update_style() -> void:
 	if _placeholder != null:
 		_placeholder.modulate = Color(0.14, 0.15, 0.18) if _missing_art_panel != null and _missing_art_panel.visible else Color(0.92, 0.94, 0.98)
 		_placeholder.add_theme_font_size_override("font_size", 14 if _missing_art_panel != null and _missing_art_panel.visible else 12)
+	if _selection_overlay != null:
+		_selection_overlay.visible = (_selected or _selectable_hint) and not _disabled
+		var selection_style := StyleBoxFlat.new()
+		if _selected:
+			selection_style.bg_color = Color(1.0, 0.74, 0.08, 0.06)
+			selection_style.border_color = Color(1.0, 0.88, 0.22, 0.72)
+			selection_style.shadow_color = Color(1.0, 0.62, 0.02, 0.30)
+			selection_style.set_border_width_all(3)
+		else:
+			selection_style.bg_color = Color(0.08, 0.86, 1.0, 0.025)
+			selection_style.border_color = Color(0.25, 0.92, 1.0, 0.58)
+			selection_style.shadow_color = Color(0.10, 0.74, 1.0, 0.16)
+			selection_style.set_border_width_all(3)
+		selection_style.set_corner_radius_all(14)
+		selection_style.shadow_size = 10
+		selection_style.shadow_offset = Vector2.ZERO
+		_selection_overlay.add_theme_stylebox_override("panel", selection_style)
+	if _selection_badge_panel != null:
+		_selection_badge_panel.modulate = Color(1, 1, 1, 0.92 if _selected else 0.78)
+		_selection_badge_panel.add_theme_stylebox_override("panel", _make_selection_badge_style(_selected))
+	if _selection_badge != null:
+		_selection_badge.text = _selected_badge_text if _selected else _selectable_hint_text
+		_selection_badge.add_theme_color_override("font_color", Color(0.10, 0.06, 0.00, 1.0) if _selected else Color(0.01, 0.10, 0.14, 1.0))
 
 	var overlay_style := StyleBoxFlat.new()
 	overlay_style.bg_color = Color(0.05, 0.07, 0.11, 0.78)
@@ -684,7 +828,7 @@ func _apply_status_styles() -> void:
 
 func _apply_tilt() -> void:
 	rotation_degrees = 0.0
-	z_index = 0
+	z_index = 20 if _selected else (10 if _selectable_hint else 0)
 	if _art_frame == null:
 		return
 	_art_frame.rotation_degrees = 0.0

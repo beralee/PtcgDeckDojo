@@ -53,6 +53,7 @@ static func parse_runner_args(args: PackedStringArray) -> Dictionary:
 		"games_per_matchup": DEFAULT_GAMES_PER_MATCHUP,
 		"max_steps": DEFAULT_MAX_STEPS,
 		"seed_base": DEFAULT_SEED_BASE,
+		"seed_bases": [],
 		"exclude_deck_ids": [],
 		"explicit_deck_ids": [],
 		"json_output": "",
@@ -63,9 +64,11 @@ static func parse_runner_args(args: PackedStringArray) -> Dictionary:
 		"tracked_value_net_path": "",
 		"tracked_action_scorer_path": "",
 		"tracked_interaction_scorer_path": "",
+		"tracked_decision_mode": "",
 		"anchor_value_net_path": "",
 		"anchor_action_scorer_path": "",
 		"anchor_interaction_scorer_path": "",
+		"anchor_decision_mode": "",
 	}
 	for raw_arg: String in args:
 		if raw_arg == "--mode=miraidon_baseline_regression":
@@ -88,6 +91,8 @@ static func parse_runner_args(args: PackedStringArray) -> Dictionary:
 			options["max_steps"] = max(1, _parse_int_suffix(raw_arg, "--max-steps=", DEFAULT_MAX_STEPS))
 		elif raw_arg.begins_with("--seed-base="):
 			options["seed_base"] = _parse_int_suffix(raw_arg, "--seed-base=", DEFAULT_SEED_BASE)
+		elif raw_arg.begins_with("--seed-bases="):
+			options["seed_bases"] = _parse_int_list_suffix(raw_arg, "--seed-bases=")
 		elif raw_arg.begins_with("--exclude-decks="):
 			options["exclude_deck_ids"] = _parse_int_list_suffix(raw_arg, "--exclude-decks=")
 		elif raw_arg.begins_with("--deck-ids="):
@@ -110,12 +115,16 @@ static func parse_runner_args(args: PackedStringArray) -> Dictionary:
 			options["tracked_action_scorer_path"] = raw_arg.trim_prefix("--tracked-action-scorer=")
 		elif raw_arg.begins_with("--tracked-interaction-scorer="):
 			options["tracked_interaction_scorer_path"] = raw_arg.trim_prefix("--tracked-interaction-scorer=")
+		elif raw_arg.begins_with("--tracked-decision-mode="):
+			options["tracked_decision_mode"] = raw_arg.trim_prefix("--tracked-decision-mode=")
 		elif raw_arg.begins_with("--anchor-value-net="):
 			options["anchor_value_net_path"] = raw_arg.trim_prefix("--anchor-value-net=")
 		elif raw_arg.begins_with("--anchor-action-scorer="):
 			options["anchor_action_scorer_path"] = raw_arg.trim_prefix("--anchor-action-scorer=")
 		elif raw_arg.begins_with("--anchor-interaction-scorer="):
 			options["anchor_interaction_scorer_path"] = raw_arg.trim_prefix("--anchor-interaction-scorer=")
+		elif raw_arg.begins_with("--anchor-decision-mode="):
+			options["anchor_decision_mode"] = raw_arg.trim_prefix("--anchor-decision-mode=")
 	return options
 
 
@@ -138,6 +147,13 @@ static func resolve_matchup_sweep_deck_ids(options: Dictionary) -> Array[int]:
 		resolved.append(deck_id)
 	resolved.sort()
 	return resolved
+
+
+static func resolve_seed_bases(options: Dictionary) -> Array[int]:
+	var explicit_seed_bases: Array[int] = _variant_to_int_array(options.get("seed_bases", []))
+	if not explicit_seed_bases.is_empty():
+		return explicit_seed_bases
+	return [int(options.get("seed_base", DEFAULT_SEED_BASE))]
 
 
 static func truncate_name(name: String, limit: int) -> String:

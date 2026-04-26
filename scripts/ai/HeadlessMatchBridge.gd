@@ -2,6 +2,7 @@ class_name HeadlessMatchBridge
 extends Control
 
 const AISetupPlannerScript = preload("res://scripts/ai/AISetupPlanner.gd")
+const DeckStrategyRegistryScript = preload("res://scripts/ai/DeckStrategyRegistry.gd")
 
 var _gsm: GameStateMachine = null
 var _pending_choice: String = ""
@@ -10,6 +11,7 @@ var _setup_done: Array[bool] = [false, false]
 var _setup_order: Array[int] = [0, 1]
 var _setup_order_index: int = 0
 var _setup_planner = AISetupPlannerScript.new()
+var _deck_strategy_registry = DeckStrategyRegistryScript.new()
 var _planned_setup_bench_ids: Array[int] = []
 
 ## 效果交互状态（与 BattleScene 同名以兼容 AIStepResolver）
@@ -589,6 +591,9 @@ func _handle_field_assignment_target_index(target_index: int) -> void:
 	var excluded: Array = exclude_map.get(_field_interaction_assignment_selected_source_index, [])
 	if target_index in excluded:
 		return
+	var max_per_target: int = int(_field_interaction_data.get("max_assignments_per_target", 0))
+	if max_per_target > 0 and _count_assignments_for_target_index(_field_interaction_assignment_entries, target_index) >= max_per_target:
+		return
 	_field_interaction_assignment_entries.append({
 		"source_index": _field_interaction_assignment_selected_source_index,
 		"source": source_items[_field_interaction_assignment_selected_source_index],
@@ -695,6 +700,9 @@ func _on_assignment_target_chosen(target_index: int) -> void:
 	var excluded: Array = exclude_map.get(_dialog_assignment_selected_source_index, [])
 	if target_index in excluded:
 		return
+	var max_per_target: int = int(_dialog_data.get("max_assignments_per_target", 0))
+	if max_per_target > 0 and _count_assignments_for_target_index(_dialog_assignment_assignments, target_index) >= max_per_target:
+		return
 	_dialog_assignment_assignments.append({
 		"source_index": _dialog_assignment_selected_source_index,
 		"source": source_items[_dialog_assignment_selected_source_index],
@@ -798,6 +806,16 @@ func _find_field_assignment_index_for_source(source_index: int) -> int:
 	return -1
 
 
+func _count_assignments_for_target_index(assignments: Array, target_index: int) -> int:
+	var count := 0
+	for assignment_variant: Variant in assignments:
+		if not (assignment_variant is Dictionary):
+			continue
+		if int((assignment_variant as Dictionary).get("target_index", -1)) == target_index:
+			count += 1
+	return count
+
+
 func _find_dialog_assignment_index_for_source(source_index: int) -> int:
 	for i: int in _dialog_assignment_assignments.size():
 		if int(_dialog_assignment_assignments[i].get("source_index", -1)) == source_index:
@@ -857,7 +875,7 @@ func _resolve_setup_active(dialog_data: Dictionary) -> bool:
 	if pi < 0 or pi >= _gsm.game_state.players.size():
 		return false
 	var player: PlayerState = _gsm.game_state.players[pi]
-	var choice: Dictionary = _setup_planner.plan_opening_setup(player)
+	var choice: Dictionary = _plan_opening_setup(player)
 	var active_hand_index: int = int(choice.get("active_hand_index", -1))
 	if active_hand_index < 0 or active_hand_index >= player.hand.size():
 		return false
@@ -948,7 +966,7 @@ func _deprecated_resolve_send_out_fallback(dialog_data: Dictionary) -> bool:
 
 func _find_next_planned_bench_card(player: PlayerState, available_cards: Array[CardInstance]) -> CardInstance:
 	if _planned_setup_bench_ids.is_empty():
-		var fallback_choice: Dictionary = _setup_planner.plan_opening_setup(player)
+		var fallback_choice: Dictionary = _plan_opening_setup(player)
 		for hand_index: int in fallback_choice.get("bench_hand_indices", []):
 			if hand_index >= 0 and hand_index < player.hand.size():
 				_planned_setup_bench_ids.append(player.hand[hand_index].instance_id)
@@ -961,6 +979,16 @@ func _find_next_planned_bench_card(player: PlayerState, available_cards: Array[C
 			if card.instance_id == planned_id:
 				return card
 	return null
+
+
+func _plan_opening_setup(player: PlayerState) -> Dictionary:
+	if player != null:
+		var strategy := _deck_strategy_registry.create_strategy_for_player(player)
+		if strategy != null and strategy.has_method("plan_opening_setup"):
+			var choice: Variant = strategy.call("plan_opening_setup", player)
+			if choice is Dictionary:
+				return (choice as Dictionary).duplicate(true)
+	return _setup_planner.plan_opening_setup(player)
 
 
 func _get_setup_resume_player_index() -> int:

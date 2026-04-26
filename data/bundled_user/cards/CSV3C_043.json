@@ -1,0 +1,49 @@
+{
+	"abilities": [
+		{
+			"name": "战栗冷气",
+			"text": "如果这只宝可梦在战斗场上的话，则在自己的回合可以使用1次。选择自己牌库中最多2张「基本【水】能量」，在给对手看过之后，加入手牌。并重洗牌库。"
+		}
+	],
+	"ancient_trait": "",
+	"artist": "aky CG Works",
+	"attacks": [
+		{
+			"cost": "WW",
+			"damage": "60×",
+			"is_vstar_power": false,
+			"name": "冰雹利刃",
+			"text": "将自己场上宝可梦身上附着的任意数量的【水】能量放于弃牌区，造成其张数×60伤害。"
+		}
+	],
+	"card_index": "043",
+	"card_index_en": "30",
+	"card_type": "Pokemon",
+	"description": "特性: 战栗冷气\n如果这只宝可梦在战斗场上的话，则在自己的回合可以使用1次。选择自己牌库中最多2张「基本【水】能量」，在给对手看过之后，加入手牌。并重洗牌库。\n\n【水】【水】 冰雹利刃 60×\n将自己场上宝可梦身上附着的任意数量的【水】能量放于弃牌区，造成其张数×60伤害。\n\n",
+	"effect_id": "1ffc5951ba805342e6fa071781d03452",
+	"energy_provides": "",
+	"energy_type": "W",
+	"evolves_from": "",
+	"hp": 220,
+	"image_local_path": "user://cards/images/CSV3C/043.png",
+	"image_url": "https://tcg.mik.moe/static/img/CSV3C/043.png",
+	"is_tags": [],
+	"label": "",
+	"mechanic": "ex",
+	"name": "古剑豹ex",
+	"name_en": "Chien-Pao ex",
+	"rarity": "RR",
+	"regulation_expanded": true,
+	"regulation_mark": "G",
+	"regulation_standard": true,
+	"release_date": "2025-05-16T00:00:00+08:00",
+	"resistance_energy": "",
+	"resistance_value": "",
+	"retreat_cost": 2,
+	"set_code": "CSV3C",
+	"set_code_en": "SVP",
+	"stage": "Basic",
+	"weakness_energy": "M",
+	"weakness_value": "×2",
+	"yoren_code": "Y1277"
+}

@@ -1,0 +1,27 @@
+{
+  "deck_id": 575718,
+  "deck_name": "猛雷鼓",
+  "description": "后攻T1奥琳博士开局：先手牌含猛雷鼓ex+厄诡椪+光辉甲贺忍蛙+奥琳博士+3草能量；T1行动：忍蛙弃草能量→碧草之舞贴草→手动贴雷能量→奥琳博士补能；T2贴斗能量→碧草之舞→极雷轰消耗3草210伤害",
+  "top_to_bottom": [
+    { "set_code": "CSV7C", "card_index": "154" },
+    { "set_code": "CSV8C", "card_index": "028" },
+    { "set_code": "CS6.5C", "card_index": "020" },
+    { "set_code": "CSV6C", "card_index": "121" },
+    { "set_code": "CSVE1C", "card_index": "GRA" },
+    { "set_code": "CSVE1C", "card_index": "GRA" },
+    { "set_code": "CSVE1C", "card_index": "GRA" },
+    { "set_code": "CSV8C", "card_index": "183" },
+    { "set_code": "CS6.5C", "card_index": "063" },
+    { "set_code": "CS5.5C", "card_index": "060" },
+    { "set_code": "CSV6C", "card_index": "042" },
+    { "set_code": "CSV6C", "card_index": "082" },
+    { "set_code": "CSVH1C", "card_index": "034" },
+    { "set_code": "CSVE1C", "card_index": "LIG" },
+    { "set_code": "CSVE1C", "card_index": "FIG" },
+    { "set_code": "CSVE1C", "card_index": "GRA" },
+    { "set_code": "CSVE1C", "card_index": "GRA" },
+    { "set_code": "CSV6C", "card_index": "115" },
+    { "set_code": "CSV6C", "card_index": "121" },
+    { "set_code": "CSV8C", "card_index": "028" }
+  ]
+}

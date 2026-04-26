@@ -187,6 +187,12 @@ func _abs_play_basic(action: Dictionary, player: PlayerState, phase: String) -> 
 	if pname == SQUAWKABILLY_EX:
 		return 200.0 if phase == "early" else 80.0
 
+	# 霓虹鱼V — 从手牌放下触发亮鳞搜支援者（强力 combo 起点）
+	if pname == LUMINEON_V:
+		if bench_size < 4:
+			return 250.0  # 亮鳞搜派帕→派帕搜电枪+道具，combo 价值高
+		return 100.0  # 板位紧张时低一些
+
 	# 辅助型
 	if pname in SUPPORT_NAMES:
 		return 100.0
@@ -206,127 +212,117 @@ func _abs_attach_energy(action: Dictionary, game_state: GameState, player: Playe
 	var target_name: String = target_slot.get_pokemon_name()
 	var energy_type: String = str(energy_card.card_data.energy_provides)
 
-	# 双重涡轮能量 — 只给差2能即可攻击的攻击手
+	# 双重涡轮能量 — 铁臂膀ex 专属加速
+	# 双涡轮 = 2 无色能，正好填充铁臂膀的 LLC→LCCC 缺口
+	# 其他宝可梦不贴双涡轮（浪费特殊能量且-20伤害惩罚）
 	if str(energy_card.card_data.name) == DOUBLE_TURBO_ENERGY:
-		var early_engine_setup: bool = game_state != null \
-			and int(game_state.turn_number) <= 2 \
-			and _count_pokemon_on_field(player, MIRAIDON_EX) == 0
-		if early_engine_setup and target_name == RAICHU_V:
-			return -150.0
-		if _is_opening_shell_turn(game_state, player):
-			if target_name == IRON_HANDS_EX and _count_pokemon_on_field(player, RAIKOU_V) >= 1:
-				var opener_gap: int = _get_attack_energy_gap(target_slot)
-				if opener_gap > 0 and opener_gap <= 3:
-					return 480.0
-			if target_name == RAIKOU_V and _count_pokemon_on_field(player, IRON_HANDS_EX) >= 1 and _hand_has_energy_type(player, "L"):
-				return 120.0
-		if target_name in ALL_ATTACKER_NAMES or target_name in NON_RULE_ATTACKER:
-			var gap: int = _get_attack_energy_gap(target_slot)
-			if gap <= 2 and gap > 0:
-				return 350.0  # 贴上去就能攻击
-			if gap == 0:
-				return 30.0  # 已能攻击，无意义
-			return 150.0  # 差太多，应急用
-		return 50.0  # 非攻击手不值得贴双涡轮
-
-	# 雷能量贴给雷系攻击手
-	if energy_type == "L":
-		# 密勒顿ex 特殊处理：后备时低优先级，前场或无其他好目标时可以贴
-		if target_name == MIRAIDON_EX:
-			# 在前场时（被拉出来了）：需要能量撤退或打 220
-			if target_slot == player.active_pokemon:
-				var gap: int = _get_attack_energy_gap(target_slot)
-				if gap == 1:
-					return 380.0  # 差1能打 220，极高价值
-				if gap <= 2:
-					return 250.0  # 蓄力中
-				# 差太多但需要撤退
-				var retreat_gap: int = _get_retreat_energy_gap(target_slot)
-				if retreat_gap > 0 and retreat_gap <= 1:
-					return 200.0
-				return 100.0
-			# 后备时：有其他攻击手优先贴给它们，没有则给密勒顿蓄力
-			if _has_better_energy_target(player, target_slot):
-				return -50.0  # 有更好目标，暂不贴给密勒顿
-			return 150.0  # 无其他好目标，蓄力密勒顿也行
-		# --- 按角色分层的能量路由 ---
-		# 充能优先级：雷公V（灵活前期）> 铁臂膀ex（稳定主攻）> 闪电鸟（副攻）> 月月熊（后期）> 雷丘V（终结者，最后贴）
-
-		# 雷公V — LC 仅2能就能打 20+后备×20，撤退1费，最灵活的前期打手
-		if target_name == RAIKOU_V:
-			var gap: int = _get_attack_energy_gap(target_slot)
-			if gap == 1:
-				return 420.0  # 差1能就能打，最高优先
-			if gap == 0:
-				return 40.0  # 已满，不再贴
-			return 300.0
-
-		# 铁臂膀ex — LLC=160 稳定输出，LCCC=120+多拿1奖品
 		if target_name == IRON_HANDS_EX:
 			var gap: int = _get_attack_energy_gap(target_slot)
-			if gap == 1:
-				return 400.0  # 差1能解锁160伤害
-			if gap == 2:
-				return 300.0
+			if gap > 0 and gap <= 2:
+				return 480.0  # 贴上去铁臂膀马上或差1能就能攻击
 			if gap == 0:
-				# 已能用第一招（LLC），继续贴能解锁第二招（LCCC 多拿奖品）
+				# 已能用第一招（LLC），贴双涡轮解锁第二招（LCCC 多拿奖品）
 				var total_energy: int = _count_attached_energy_units(target_slot)
 				if total_energy < 4:
-					return 150.0  # 蓄力第二招
-				return 30.0  # 4能已满
-			return 250.0
+					return 350.0
+				return 20.0  # 4能已满
+			return 300.0  # 差较多但铁臂膀值得蓄力
+		# 非铁臂膀极低优先（紧急情况兜底）
+		if target_name in ALL_ATTACKER_NAMES or target_name in NON_RULE_ATTACKER:
+			var other_gap: int = _get_attack_energy_gap(target_slot)
+			if other_gap > 0 and other_gap <= 2:
+				return 80.0  # 应急能让别人出拳
+		return -50.0
 
-		# 闪电鸟 — LLC=110，后备时+10 buff，副攻手
-		if target_name == ZAPDOS:
-			var gap: int = _get_attack_energy_gap(target_slot)
+	# 雷能量 — 核心原则：快速出拳
+	# 1. 差1能就能攻击的攻击手永远最高（谁差1能谁拿能量）
+	# 2. 已经能攻击（gap=0）的不再贴（把能量留给还没准备好的）
+	# 3. 密勒顿ex 除非被拉到前场否则不贴
+	if energy_type == "L":
+		var gap: int = _get_attack_energy_gap(target_slot)
+
+		# 能量上限检查：已达到最贵招式费用的不再贴
+		if _is_energy_full(target_slot):
+			return 10.0
+
+		# 密勒顿ex — 引擎不贴能（除非被拉到前场需要撤退/攻击）
+		if target_name == MIRAIDON_EX:
+			if target_slot == player.active_pokemon:
+				if gap == 1:
+					return 380.0  # 前场差1能打 220
+				var retreat_gap: int = _get_retreat_energy_gap(target_slot)
+				if retreat_gap > 0 and retreat_gap <= 1:
+					return 200.0  # 差1能可撤退
+				return 100.0
+			if _has_better_energy_target(player, target_slot):
+				return -50.0
+			return 80.0  # 后备密勒顿蓄力兜底
+
+		# --- 出拳优先的能量路由 ---
+		# 核心逻辑：gap=1 谁高谁拿，gap=0 极低，gap>=2 中等蓄力
+		# 雷公V 第一回合做出来最重要（LC=2能）
+
+		if target_name == RAIKOU_V:
 			if gap == 1:
-				return 380.0
+				return 550.0  # 差1能出拳！手贴优先于电枪（电枪500）
 			if gap == 0:
-				return 30.0
-			return 250.0
+				return 80.0   # 已满，低优先但不拒绝
+			return 350.0      # gap>=2，蓄力中
 
-		# 雷丘V — LL 弃全部雷能×60，只在最后一击时贴能
-		# 过早贴能 = 浪费（能量会被弃掉），且雷丘被打倒 = 能量全失
+		if target_name == IRON_HANDS_EX:
+			if gap == 1:
+				return 530.0  # 差1能出拳，手贴优先于电枪
+			if gap == 0:
+				var total_energy: int = _count_attached_energy_units(target_slot)
+				if total_energy < 4:
+					return 250.0  # 蓄力第二招 LCCC（多拿奖品），对高HP对手关键
+				return 60.0
+			if gap == 2:
+				return 320.0
+			return 260.0
+
+		if target_name == ZAPDOS:
+			if gap == 1:
+				return 520.0  # 差1能出拳，手贴优先于电枪
+			if gap == 0:
+				return 70.0
+			return 280.0
+
 		if target_name == RAICHU_V:
 			var opponent_index: int = 1 - player_index
 			var opp_prizes: int = 6
 			if opponent_index >= 0 and opponent_index < game_state.players.size():
 				opp_prizes = game_state.players[opponent_index].prizes.size()
-			# 对手只剩1-2张奖品 = 接近结束，可以给雷丘蓄力
 			if opp_prizes <= 2:
-				var gap: int = _get_attack_energy_gap(target_slot)
 				if gap <= 1:
-					return 350.0  # 终结时刻
-				return 250.0
-			# 还早，不急着给雷丘
-			return 20.0
+					return 400.0  # 终结时刻
+				return 280.0
+			return 30.0  # 非终结期低优先
 
-		# 月月熊·赫月ex — 后期非规则打手
 		if target_name == URSALUNA_EX:
-			var gap: int = _get_attack_energy_gap(target_slot)
-			if gap == 1:
-				return 350.0
-			if gap == 0:
-				return 30.0
-			return 200.0
-
-		# 其他雷系宝可梦（通用）
-		if target_name in ALL_ATTACKER_NAMES:
-			var gap: int = _get_attack_energy_gap(target_slot)
 			if gap == 1:
 				return 400.0
 			if gap == 0:
-				return 50.0
+				return 70.0
+			return 220.0
+
+		# 通用雷系
+		if target_name in ALL_ATTACKER_NAMES:
+			if gap == 1:
+				return 450.0
+			if gap == 0:
+				return 80.0
 			return 250.0
-		# 非攻击手但在前场需要撤退费
+
+		# 非攻击手但在前场需要撤退
 		if target_slot == player.active_pokemon:
 			var retreat_gap: int = _get_retreat_energy_gap(target_slot)
 			if retreat_gap > 0 and retreat_gap <= 1:
 				return 200.0
-		return 100.0
+		return 60.0
 
 	# 非雷能量
-	return 50.0
+	return 40.0
 
 
 func _abs_attach_tool(action: Dictionary, player: PlayerState, phase: String = "mid") -> float:
@@ -342,6 +338,11 @@ func _abs_attach_tool(action: Dictionary, player: PlayerState, phase: String = "
 			return 200.0
 		return 50.0
 	if tool_name == EMERGENCY_BOARD:
+		if phase == "early" and target_slot == player.active_pokemon \
+			and target_name in [MIRAIDON_EX, MEW_EX]:
+			var bench_raikou: PokemonSlot = _find_bench_slot_by_name(player, RAIKOU_V)
+			if bench_raikou != null and _get_attack_energy_gap(bench_raikou) <= 1:
+				return 320.0
 		# 紧急滑板贴给重撤退费宝可梦
 		var cd: CardData = target_slot.get_card_data()
 		if cd != null and cd.retreat_cost >= 3:
@@ -350,6 +351,10 @@ func _abs_attach_tool(action: Dictionary, player: PlayerState, phase: String = "
 	if tool_name == HEAVY_BATON:
 		# 沉重接力棒只贴给铁臂膀ex（撤退费4，被KO后转移能量给下一只）
 		if target_name == IRON_HANDS_EX:
+			if phase == "early" and player.active_pokemon != null \
+				and player.active_pokemon.get_pokemon_name() == RAICHU_V \
+				and _count_pokemon_on_field(player, MIRAIDON_EX) == 0:
+				return 120.0
 			return 300.0
 		return -100.0
 	if tool_name == FOREST_SEAL_STONE:
@@ -491,30 +496,39 @@ func _abs_play_trainer(action: Dictionary, game_state: GameState, player: Player
 
 	# 老大的指令 — 拉弱目标 KO 拿奖品
 	if tname == BOSSS_ORDERS:
-		if _can_ko_bench_target(game_state, player, player_index):
-			return 800.0
+		var boss_ko_score: float = _score_boss_ko(game_state, player, player_index)
+		if boss_ko_score > 0:
+			return boss_ko_score
 		if phase == "late":
 			return 300.0  # 后期干扰
-		return 200.0
+		return 150.0  # 不能 KO 时不急用
 
 	# 顶尖捕捉器 — 同老大但不占支援者，更灵活
 	if tname == PRIME_CATCHER:
-		if _can_ko_bench_target(game_state, player, player_index):
-			return 800.0
-		return 300.0
+		var catcher_ko_score: float = _score_boss_ko(game_state, player, player_index)
+		if catcher_ko_score > 0:
+			return catcher_ko_score + 50.0  # 不占支援者，额外+50
+		return 250.0
 
 	# 派帕 — 搜物品+道具（决策链评估）
 	if tname == PAIPA:
 		return _abs_paipa(game_state, player, player_index, phase)
 
-	# 暗码迷解读 — 手牌刷新（手牌质量评估）
+	# 暗码迷解读 — 手牌刷新 + 干扰对手
 	if tname == CRYPTO_DECODE:
 		var hand_size: int = player.hand.size()
+		var base_score: float = 150.0
 		if hand_size <= 2:
-			return 400.0  # 手牌极少，急需刷新
-		if hand_size <= 4:
-			return 300.0
-		return 150.0  # 手牌多时不急
+			base_score = 400.0
+		elif hand_size <= 4:
+			base_score = 300.0
+		# 对手奖品多（=刚开局）时干扰价值更高（打乱对手进化计划）
+		var opponent_index: int = 1 - player_index
+		if opponent_index >= 0 and opponent_index < game_state.players.size():
+			var opp_prizes: int = game_state.players[opponent_index].prizes.size()
+			if opp_prizes >= 5:
+				base_score = maxf(base_score, 350.0)  # 对手还没展开，干扰很有价值
+		return base_score
 
 	# 巢穴球 — 铺板（考虑核心缺口）
 	if tname == NEST_BALL:
@@ -533,7 +547,12 @@ func _abs_play_trainer(action: Dictionary, game_state: GameState, player: Player
 
 	# 交替推车 — 换前场（评估换谁上来能不能 KO）
 	if tname == SWITCH_CART:
-		return _abs_switch_cart(game_state, player, player_index)
+		var cart_score: float = _abs_switch_cart(game_state, player, player_index)
+		# 前场不能攻击 + 后备有就绪攻击手 → 交替推车极高价值
+		if player.active_pokemon != null and not _can_slot_attack(player.active_pokemon):
+			if _has_ready_attacker_on_bench(player):
+				cart_score = maxf(cart_score, 650.0)
+		return cart_score
 
 	# 沉重球 — 搜重撤退宝可梦
 	if tname == HEAVY_BALL:
@@ -590,36 +609,70 @@ func _abs_retreat(action: Dictionary, game_state: GameState, player: PlayerState
 	if bench_target == null:
 		return 0.0
 	var bench_name: String = bench_target.get_pokemon_name()
-	var handoff_context := {"game_state": game_state, "player_index": player_index}
-	var pivot_score: float = _score_handoff_target(bench_target, "pivot_target", handoff_context)
-	if active_name == MEW_EX and bench_name == RAIKOU_V and _can_slot_attack(bench_target):
-		return maxf(600.0, pivot_score)
+	var bench_can_attack: bool = _can_slot_attack(bench_target)
+	var bench_gap: int = _get_attack_energy_gap(bench_target)
+	var bench_is_attacker: bool = bench_name in ALL_ATTACKER_NAMES or bench_name in NON_RULE_ATTACKER
 
-	# 前场是能攻击的攻击手 → 不撤退
-	if active_name in ALL_ATTACKER_NAMES or active_name in NON_RULE_ATTACKER:
-		if _can_slot_attack(active):
-			return -200.0
-		if _can_slot_attack(bench_target):
-			return maxf(420.0, pivot_score - 120.0)
-		if _get_attack_energy_gap(active) >= 1 and _get_attack_energy_gap(bench_target) <= 1 and bench_name != active_name:
-			return maxf(220.0, pivot_score - 220.0)
+	# === 核心原则：只在有接班人时才撤退 ===
+	# 撤退到不能攻击的宝可梦 = 白送一回合节奏
+	# 不如让当前前场被 KO → 触发 send_out（上梦幻中转）→ 多一回合充能
 
-	# 前场是引擎/辅助 + 后备有就绪攻击手 → 撤退
+	# 梦幻ex 0费撤退 → 切到就绪攻击手（完美中转）
+	if active_name == MEW_EX:
+		if bench_can_attack and bench_is_attacker:
+			return 700.0  # 免费切到打手，极高价值
+		# 梦幻撤退到不能攻击的目标没有意义（梦幻在前场至少0费不亏）
+		return -50.0
+
+	# 前场能攻击 → 不撤退（打出伤害更重要）
+	if _can_slot_attack(active):
+		return -200.0
+
+	# === 前场不能攻击时的撤退评估 ===
+
+	# 后备能直接攻击 → 撤退切换
+	if bench_can_attack and bench_is_attacker:
+		# 铁臂膀撤退费4，代价极高，只有后备能 KO 对手时才值得
+		if active_name == IRON_HANDS_EX:
+			var opp_hp: int = _get_opponent_active_hp(game_state, player_index)
+			var bench_dmg: int = _best_attack_damage(bench_target)
+			if bench_dmg >= opp_hp:
+				return 500.0  # 换上去能报仇，值得付4费
+			return 100.0  # 不能报仇，铁臂膀4费太贵不如等
+		return 550.0  # 其他宝可梦撤退到就绪打手
+
+	# 后备差1能就能攻击 → 考虑撤退（梦幻可以中转再电枪）
+	if bench_gap == 1 and bench_is_attacker:
+		if bench_name == MEW_EX:
+			return -100.0  # 梦幻不算攻击手
+		# 如果前场是引擎/辅助（0-1费撤退），切到差1能的打手还行
+		if active_name in ENGINE_NAMES or active_name in SUPPORT_NAMES:
+			return 200.0
+		return 50.0  # 勉强可以
+
+	# === 后备没有就绪或差1能的攻击手 → 不撤退 ===
+	# 核心洞察：让前场被 KO 比撤退到无能量的挡板更好
+	# 被 KO 后：send_out 上梦幻 → 电枪充能 → 免费切打手
+	# 撤退后：无能量的挡板挨打 → 下回合还是没法攻击
+
+	# 引擎/辅助在前场 + 没有好接班人 → 也不撤退（省撤退费能量）
 	if active_name in ENGINE_NAMES or active_name in SUPPORT_NAMES:
-		if _can_slot_attack(bench_target):
-			return maxf(350.0, pivot_score - 120.0)
-		if _count_attached_energy_units(bench_target) >= 1:
-			return maxf(250.0, pivot_score - 220.0)
+		if bench_can_attack:
+			return 300.0  # 后备虽然不是攻击手但能打
+		return -100.0  # 没有好目标，不撤退
 
-	# 铁臂膀ex 撤退费4 → 极力避免手动撤退
-	if active_name == IRON_HANDS_EX:
-		return -100.0
+	# 默认：没有好接班人就不撤退（送掉比空手接更好）
+	return -150.0
 
-	# 前场快被击倒
-	if active.get_remaining_hp() < 40:
-		return 200.0
 
-	return 0.0
+func _get_opponent_active_hp(game_state: GameState, player_index: int) -> int:
+	var opponent_index: int = 1 - player_index
+	if opponent_index < 0 or opponent_index >= game_state.players.size():
+		return 999
+	var opp_active: PokemonSlot = game_state.players[opponent_index].active_pokemon
+	if opp_active == null:
+		return 999
+	return opp_active.get_remaining_hp()
 
 
 func _abs_attack(action: Dictionary, game_state: GameState, player_index: int) -> float:
@@ -676,8 +729,17 @@ func _abs_attack(action: Dictionary, game_state: GameState, player_index: int) -
 
 	# --- 通用攻击评估 ---
 	if damage >= defender_hp:
-		return 1000.0 if defender_is_ex else 800.0
+		# 能 KO：优先击杀 ex/V（拿2奖品），尤其是拿到最后奖品时
+		var my_prizes_left: int = player.prizes.size()
+		var ko_prize_bonus: float = 0.0
+		if defender_is_ex and my_prizes_left <= 2:
+			ko_prize_bonus = 200.0  # 这一击可能直接赢
+		return (1000.0 if defender_is_ex else 800.0) + ko_prize_bonus
 	if damage > 0:
+		# 打不死时根据伤害比例给分
+		var damage_ratio: float = float(damage) / maxf(float(defender_hp), 1.0)
+		if damage_ratio >= 0.5:
+			return 400.0 + float(damage)  # 打掉一半以上HP，价值不错
 		return 300.0 + float(damage)
 	return 0.0
 
@@ -812,23 +874,35 @@ func plan_opening_setup(player: PlayerState) -> Dictionary:
 		return int(a["priority"]) > int(b["priority"])
 	)
 
-	# 前场选择：铁臂膀ex > 闪电鸟 > 雷丘V > 雷公V > 月月熊
+	# 前场选择：梦幻ex > 低撤退费中转 > 攻击手
+	# 梦幻ex 最优开场（0费撤退中转，后备雷系可被电气发生器充能）
+	# 电气发生器只能贴给后备雷系，所以攻击手留后备更好
 	# 绝不把密勒顿ex 放前场
 	var active_index: int = -1
+	# 梦幻ex 优先（0费撤退 + 再起动抽牌）
 	for b: Dictionary in basics:
 		if str(b["name"]) == MEW_EX:
 			active_index = int(b["index"])
 			break
-	for b: Dictionary in basics:
-		if active_index != -1:
-			break
-		var bname: String = str(b["name"])
-		if bname == MIRAIDON_EX:
-			continue  # 密勒顿必须后备
-		if bname == MEW_EX or bname == LUMINEON_V:
-			continue  # 辅助不上前场
-		active_index = int(b["index"])
-		break
+	# 没有梦幻：低撤退费的攻击手上前场（雷公V=1费，闪电鸟=2费）
+	if active_index == -1:
+		var active_priority_order: Array[String] = [
+			RAIKOU_V, ZAPDOS, RAICHU_V, URSALUNA_EX,
+			SQUAWKABILLY_EX, KILOWATTREL_EX, IRON_HANDS_EX,
+		]
+		for preferred: String in active_priority_order:
+			for b: Dictionary in basics:
+				if str(b["name"]) == preferred:
+					active_index = int(b["index"])
+					break
+			if active_index != -1:
+				break
+	# 都没有则选第一个非密勒顿
+	if active_index == -1:
+		for b: Dictionary in basics:
+			if str(b["name"]) != MIRAIDON_EX:
+				active_index = int(b["index"])
+				break
 	if active_index == -1:
 		active_index = int(basics[0]["index"])
 
@@ -844,24 +918,20 @@ func plan_opening_setup(player: PlayerState) -> Dictionary:
 
 
 func _get_setup_priority(pokemon_name: String) -> int:
-	if pokemon_name == MEW_EX:
-		return 100
-	if pokemon_name == RAIKOU_V:
-		return 96
-	if pokemon_name == MIRAIDON_EX:
-		return 94
+	## 后备放置优先级（用于开局 mulligan 排序）
+	## 密勒顿ex 后备最高（引擎必须后备），然后攻击手
 	match pokemon_name:
-		IRON_HANDS_EX: return 95
-		ZAPDOS: return 90
-		RAICHU_V: return 85
-		RAIKOU_V: return 80
-		URSALUNA_EX: return 75
-		SQUAWKABILLY_EX: return 70
-		MIRAIDON_EX: return 65  # 后备最高但不上前场
+		MIRAIDON_EX: return 100   # 引擎，后备最高
+		IRON_HANDS_EX: return 95  # 主攻手
+		RAIKOU_V: return 90       # 灵活前期打手
+		ZAPDOS: return 85         # buff + 副攻
+		RAICHU_V: return 70       # 终结者，中后期
+		URSALUNA_EX: return 65    # 后期非规则
+		SQUAWKABILLY_EX: return 80  # 首回合引擎
+		MEW_EX: return 60         # 0费中转
 		KILOWATTREL_EX: return 50
-		MEW_EX: return 40
-		LUMINEON_V: return 35
-		RADIANT_GRENINJA: return 30
+		LUMINEON_V: return 45
+		RADIANT_GRENINJA: return 40
 		_: return 20
 
 
@@ -1019,6 +1089,117 @@ func _find_bench_slot_by_name(player: PlayerState, pokemon_name: String) -> Poke
 		if slot != null and slot.get_pokemon_name() == pokemon_name:
 			return slot
 	return null
+
+
+func _max_useful_energy(slot: PokemonSlot) -> int:
+	## 这只宝可梦最多需要几个能量（最贵招式的费用）
+	## 超过这个数的能量就是浪费
+	if slot == null:
+		return 0
+	var sname: String = slot.get_pokemon_name()
+	# 硬编码各宝可梦最大有用能量（按最贵攻击费用）
+	match sname:
+		RAIKOU_V: return 2       # LC
+		IRON_HANDS_EX: return 4  # LCCC
+		ZAPDOS: return 3         # LLC
+		MIRAIDON_EX: return 3    # LLC
+		RAICHU_V: return 99      # LL 弃全部×60，能量越多越好
+		URSALUNA_EX: return 5    # CCCCC（会随对手奖品减少）
+		_:
+			# 通用：取最贵招式费用
+			var cd: CardData = slot.get_card_data()
+			if cd == null:
+				return 3
+			var max_cost: int = 0
+			for attack: Dictionary in cd.attacks:
+				var cost_len: int = str(attack.get("cost", "")).length()
+				if cost_len > max_cost:
+					max_cost = cost_len
+			return maxi(max_cost, 1)
+
+
+func _find_revenge_target_name(game_state: GameState, player: PlayerState, player_index: int) -> String:
+	## 找出后备中谁最适合报仇（KO 对手前场），返回名字
+	## 优先级：能直接 KO 的 > 差1能 KO 的；铁臂膀 LCCC 多拿奖品 > 其他
+	if game_state == null or player == null:
+		return ""
+	var opponent_index: int = 1 - player_index
+	if opponent_index < 0 or opponent_index >= game_state.players.size():
+		return ""
+	var opp_active: PokemonSlot = game_state.players[opponent_index].active_pokemon
+	if opp_active == null:
+		return ""
+	var opp_hp: int = opp_active.get_remaining_hp()
+
+	var best_name: String = ""
+	var best_score: float = -1.0
+	for slot: PokemonSlot in player.bench:
+		if slot == null or slot.get_top_card() == null:
+			continue
+		var sname: String = slot.get_pokemon_name()
+		if sname in SUPPORT_NAMES or sname == MIRAIDON_EX:
+			continue
+		var gap: int = _get_attack_energy_gap(slot)
+		var dmg: int = _best_attack_damage(slot) if gap == 0 else _predicted_damage_with_extra(slot, gap)
+		var can_ko: bool = dmg >= opp_hp
+		if not can_ko and gap > 2:
+			continue  # 差太多能量，没法报仇
+		var s: float = 0.0
+		if can_ko and gap == 0:
+			s = 1000.0
+		elif can_ko and gap == 1:
+			s = 800.0
+		elif gap == 0:
+			s = 400.0 + float(dmg)
+		elif gap == 1:
+			s = 200.0 + float(dmg)
+		else:
+			continue
+		# 铁臂膀 LCCC 多拿奖品加成
+		if sname == IRON_HANDS_EX and _count_attached_energy_units(slot) >= 3:
+			s += 300.0
+		# 有沉重接力棒加成
+		if _has_tool(slot, HEAVY_BATON):
+			s += 150.0
+		if s > best_score:
+			best_score = s
+			best_name = sname
+	return best_name
+
+
+func _predicted_damage_with_extra(slot: PokemonSlot, gap: int) -> int:
+	## 预测加 gap 个能量后能打出的最高伤害
+	if slot == null:
+		return 0
+	var cd: CardData = slot.get_card_data()
+	if cd == null:
+		return 0
+	var best: int = 0
+	for attack: Dictionary in cd.attacks:
+		var cost: String = str(attack.get("cost", ""))
+		if _get_attack_gap_for_cost(slot, cost, gap) == 0:
+			var dmg: int = int(str(attack.get("damage", "0")).strip_edges())
+			if dmg > best:
+				best = dmg
+	return best
+
+
+func _has_tool(slot: PokemonSlot, tool_name: String) -> bool:
+	if slot == null:
+		return false
+	for card: CardInstance in slot.attached_energy:
+		if card != null and card.card_data != null and str(card.card_data.name) == tool_name:
+			return true
+	if slot.has_method("get_attached_tool"):
+		var tool: Variant = slot.get_attached_tool()
+		if tool is CardInstance and (tool as CardInstance).card_data != null:
+			return str((tool as CardInstance).card_data.name) == tool_name
+	return false
+
+
+func _is_energy_full(slot: PokemonSlot) -> bool:
+	## 这只宝可梦的能量已经达到上限（贴更多是浪费）
+	return _count_attached_energy_units(slot) >= _max_useful_energy(slot)
 
 
 func _count_attached_energy_units(slot: PokemonSlot) -> int:
@@ -1337,6 +1518,46 @@ func _has_ready_attacker_on_bench(player: PlayerState) -> bool:
 	return false
 
 
+func _score_boss_ko(game_state: GameState, player: PlayerState, player_index: int) -> float:
+	## Boss/捕捉器的 KO 价值评估：优先拉 ex/V 拿2奖品
+	var active: PokemonSlot = player.active_pokemon
+	if active == null or not _can_slot_attack(active):
+		return 0.0
+	var my_damage: int = 0
+	var cd: CardData = active.get_card_data()
+	if cd != null:
+		for attack: Dictionary in cd.attacks:
+			var dmg: int = int(str(attack.get("damage", "0")).strip_edges())
+			if dmg > my_damage:
+				my_damage = dmg
+	if my_damage <= 0:
+		return 0.0
+	var opponent_index: int = 1 - player_index
+	if opponent_index < 0 or opponent_index >= game_state.players.size():
+		return 0.0
+	var best_score: float = 0.0
+	for slot: PokemonSlot in game_state.players[opponent_index].bench:
+		if slot == null or slot.get_top_card() == null:
+			continue
+		if slot.get_remaining_hp() > my_damage:
+			continue  # 打不死
+		var target_cd: CardData = slot.get_card_data()
+		var is_ex_v: bool = target_cd != null and (target_cd.mechanic == "ex" or target_cd.mechanic == "V")
+		var prize_value: float = 2.0 if is_ex_v else 1.0
+		var opp_prizes_left: int = game_state.players[opponent_index].prizes.size()
+		# 拿了这个 KO 后对手还剩几张奖品（越少越值得）
+		var urgency_bonus: float = 0.0
+		if opp_prizes_left <= 2:
+			urgency_bonus = 200.0  # 快赢了，极高价值
+		elif opp_prizes_left <= 4:
+			urgency_bonus = 100.0
+		var target_score: float = 600.0 + prize_value * 150.0 + urgency_bonus
+		# 拉 ex/V 拿2张 > 拉非规则拿1张
+		if target_score > best_score:
+			best_score = target_score
+	return best_score
+
+
 func _can_ko_bench_target(game_state: GameState, player: PlayerState, player_index: int) -> bool:
 	var active: PokemonSlot = player.active_pokemon
 	if active == null:
@@ -1410,7 +1631,7 @@ func score_interaction_target(item: Variant, step: Dictionary, context: Dictiona
 	# --- PokemonSlot: 贴能目标选择（电气发生器等）---
 	if item is PokemonSlot:
 		var slot: PokemonSlot = item as PokemonSlot
-		return _score_energy_attach_target(slot)
+		return _score_energy_attach_target(slot, context)
 
 	return 0.0
 
@@ -1450,94 +1671,125 @@ func _score_handoff_target(slot: PokemonSlot, step_id: String, context: Dictiona
 	var attack_gap: int = _get_attack_energy_gap(slot)
 	var retreat_gap: int = _get_retreat_energy_gap(slot)
 	var total_energy: int = _count_attached_energy_units(slot)
-	var opening_shell: bool = player != null and _is_opening_shell_turn(game_state, player)
-	var ready_attacker_on_bench: bool = player != null and _has_ready_attacker_on_bench(player)
 	var opponent_prizes: int = 6
+	var opp_active_hp: int = 999
 	if game_state != null and player_index >= 0:
 		var opponent_index: int = 1 - player_index
 		if opponent_index >= 0 and opponent_index < game_state.players.size():
 			opponent_prizes = game_state.players[opponent_index].prizes.size()
+			var opp_active: PokemonSlot = game_state.players[opponent_index].active_pokemon
+			if opp_active != null:
+				opp_active_hp = opp_active.get_remaining_hp()
 
-	var score: float = float(slot.get_remaining_hp()) * 0.4
-	score -= float(retreat_gap) * 20.0
-	score += float(total_energy) * 12.0
-	if step_id in ["self_switch_target", "switch_target", "own_bench_target", "pivot_target"]:
-		score += 30.0
+	# ========== send_out: 被 KO 后选谁上场 ==========
+	if step_id == "send_out":
+		# 核心策略：永远先上梦幻ex（0费撤退中转）
+		# 梦幻上场后可以：用电枪充能 → 免费撤退切到打手
+		if name == MEW_EX:
+			return 2000.0  # 绝对优先
+
+		# 如果没有梦幻，找能直接报仇的攻击手
+		if can_attack_now:
+			var revenge_dmg: int = _best_attack_damage(slot)
+			if revenge_dmg >= opp_active_hp:
+				# 能直接 KO 对手前场 = 报仇
+				var revenge_score: float = 1200.0
+				# 铁臂膀 LCCC 多拿奖品加成
+				if name == IRON_HANDS_EX and total_energy >= 4:
+					revenge_score += 300.0
+				return revenge_score
+			# 能打但不能 KO
+			return 800.0 + float(revenge_dmg)
+
+		# 不能攻击的攻击手（差能量）
+		if name in ALL_ATTACKER_NAMES or name in NON_RULE_ATTACKER:
+			if attack_gap == 1:
+				return 500.0 - float(retreat_gap) * 30.0
+			return 300.0 - float(retreat_gap) * 30.0
+
+		# 引擎/辅助不上前场（除非没别的）
+		if name == MIRAIDON_EX:
+			return 50.0
+		if name in SUPPORT_NAMES:
+			return 30.0
+		return 100.0
+
+	# ========== heavy_baton_target: 能量转移目标 ==========
 	if step_id == "heavy_baton_target":
-		score += float(total_energy) * 20.0
-
-	if can_attack_now:
-		score += 360.0
+		# 计算谁拿到能量后最能报仇
+		var base: float = 100.0
 		match name:
-			RAIKOU_V:
-				score += 300.0
-				if opening_shell:
-					score += 90.0
 			IRON_HANDS_EX:
-				score += 260.0
+				base = 500.0  # 主攻手，接力棒最佳目标
+			RAIKOU_V:
+				base = 400.0
 			ZAPDOS:
-				score += 220.0
+				base = 350.0
 			RAICHU_V:
-				score += 260.0 if opponent_prizes <= 2 else 90.0
-			URSALUNA_EX:
-				score += 240.0
+				base = 300.0 if opponent_prizes <= 2 else 100.0
 			MIRAIDON_EX:
-				score += 120.0
-			_:
-				score += 160.0
-	elif attack_gap == 1:
-		match name:
-			RAIKOU_V:
-				score += 190.0
-			IRON_HANDS_EX:
-				score += 140.0
-			ZAPDOS:
-				score += 110.0
-			URSALUNA_EX:
-				score += 90.0
-			RAICHU_V:
-				score += 40.0 if opponent_prizes <= 2 else -40.0
-			MIRAIDON_EX:
-				score -= 120.0
-			_:
-				score += 40.0
-	else:
-		match name:
-			IRON_HANDS_EX:
-				score += 30.0
-			RAIKOU_V:
-				score += 20.0
-			ZAPDOS:
-				score += 10.0
-
-	if name == MIRAIDON_EX and not can_attack_now:
-		score -= 260.0
-
-	if name in SUPPORT_NAMES:
-		score -= 320.0
-		if name == MEW_EX and not ready_attacker_on_bench:
-			score += 120.0
-
-	if ready_attacker_on_bench and name in SUPPORT_NAMES:
-		score -= 180.0
-
-	if step_id == "heavy_baton_target":
-		match name:
-			IRON_HANDS_EX:
-				score += 220.0
-			RAIKOU_V:
-				score += 170.0
-			ZAPDOS:
-				score += 120.0
-			RAICHU_V:
-				score += 140.0 if opponent_prizes <= 2 else 20.0
-			MIRAIDON_EX:
-				score -= 80.0
+				base = 50.0  # 引擎不接能量
 			_:
 				if name in SUPPORT_NAMES:
-					score -= 120.0
+					base = 20.0
+		# 拿到能量后能不能直接攻击
+		if attack_gap <= 1:
+			base += 200.0
+		return base
+
+	# ========== 其他 handoff（pivot/switch/self_switch）==========
+	var score: float = float(slot.get_remaining_hp()) * 0.3
+	score -= float(retreat_gap) * 25.0
+	score += float(total_energy) * 10.0
+
+	if can_attack_now:
+		score += 400.0
+		# 能报仇的加成
+		var revenge_dmg: int = _best_attack_damage(slot)
+		if revenge_dmg >= opp_active_hp:
+			score += 300.0
+			if name == IRON_HANDS_EX and total_energy >= 4:
+				score += 200.0  # LCCC 多拿奖品
+		match name:
+			RAIKOU_V: score += 200.0
+			IRON_HANDS_EX: score += 180.0
+			ZAPDOS: score += 150.0
+			URSALUNA_EX: score += 160.0
+			RAICHU_V: score += 180.0 if opponent_prizes <= 2 else 60.0
+			MIRAIDON_EX: score += 80.0
+	elif attack_gap == 1:
+		match name:
+			RAIKOU_V: score += 150.0
+			IRON_HANDS_EX: score += 120.0
+			ZAPDOS: score += 100.0
+			_: score += 40.0
+
+	if name == MIRAIDON_EX and not can_attack_now:
+		score -= 300.0
+	if name in SUPPORT_NAMES:
+		if name == MEW_EX:
+			score += 100.0  # 梦幻 0 费撤退，作为中转还行
+		else:
+			score -= 400.0
 
 	return score
+
+
+func _best_attack_damage(slot: PokemonSlot) -> int:
+	## 返回这只宝可梦当前能打出的最高伤害（需要能量满足）
+	if slot == null:
+		return 0
+	var cd: CardData = slot.get_card_data()
+	if cd == null:
+		return 0
+	var best: int = 0
+	for attack: Dictionary in cd.attacks:
+		var cost: String = str(attack.get("cost", ""))
+		if _get_attack_gap_for_cost(slot, cost) == 0:
+			var dmg: int = int(str(attack.get("damage", "0")).strip_edges())
+			if dmg > best:
+				best = dmg
+	return best
 
 
 func _score_search_pokemon_with_context(cname: String, step: Dictionary = {}, context: Dictionary = {}) -> float:
@@ -1561,8 +1813,9 @@ func _score_search_pokemon_with_context(cname: String, step: Dictionary = {}, co
 		if _count_pokemon_on_field(player, RAIKOU_V) == 0 and cname == RAIKOU_V:
 			return 880.0
 	## 串联装置/巢穴球搜索宝可梦优先级
-	## 前期核心：铁臂膀ex > 雷公V > 闪电鸟 > 密勒顿ex(第2只)
-	## 不搜：雷丘V（前中期不拍）、辅助型（低优先）
+	## 核心攻击手：铁臂膀ex > 雷公V > 闪电鸟 > 密勒顿ex(第2只)
+	## 霓虹鱼V 绝不搜（亮鳞特性只在从手牌放下时触发，搜出来不触发）
+	## 霓虹鱼应该留在手牌自然摸到，手放→亮鳞搜派帕→派帕搜电枪+森林石 才是正确combo
 	if cname == IRON_HANDS_EX: return 500.0  # 主攻手，必搜
 	if cname == RAIKOU_V: return 450.0       # 前期灵活打手
 	if cname == ZAPDOS: return 400.0         # buff + 副攻
@@ -1571,57 +1824,96 @@ func _score_search_pokemon_with_context(cname: String, step: Dictionary = {}, co
 	if cname == SQUAWKABILLY_EX: return 180.0
 	if cname == KILOWATTREL_EX: return 150.0
 	if cname == MEW_EX: return 120.0
-	if cname == LUMINEON_V: return 100.0
+	if cname == LUMINEON_V: return -100.0    # 绝不搜！亮鳞只在手放时触发
 	if cname == RADIANT_GRENINJA: return 80.0
 	# 雷丘V — 终结者，前中期不搜
 	if cname == RAICHU_V: return 50.0
 	return 50.0
 
 
-func _score_energy_attach_target(slot: PokemonSlot) -> float:
-	## 电气发生器贴能目标优先级
-	## 原则：需要能量打伤害的攻击手 > 已满的 > 引擎/辅助
+func _score_energy_attach_target(slot: PokemonSlot, context: Dictionary = {}) -> float:
+	## 电气发生器贴能目标优先级（只贴后备雷系）
+	## 核心原则：
+	## 1. 电枪是额外加速手段，应该优先给手动贴能搞不定的目标（gap>=2）
+	## 2. 如果手里有雷能量，gap=1 的目标留给手动贴，电枪去加速 gap>=2 的
+	## 3. 没有 gap>=2 目标时，gap=1 仍然可以用电枪
 	if slot == null or slot.get_top_card() == null:
 		return 0.0
 	var sname: String = slot.get_pokemon_name()
 	var gap: int = _get_attack_energy_gap(slot)
 
-	# 雷公V — 前期最灵活，LC=2能，差1能打100+
+	# 能量上限检查：已达到最贵招式费用，不再用电枪贴
+	if _is_energy_full(slot):
+		return 5.0
+
+	# 防止超贴靠 _is_energy_full（上面已检查）。
+	# gap=1 是最高价值场景（差1能出拳），不额外惩罚。
+	# 电枪同批两张能量：第一张贴完后 board 更新，第二张自然看到 gap=0 → 5 分。
+
+	# 检查手里是否有雷能量（决定 gap=1 目标是否应该留给手贴）
+	var player: PlayerState = _get_context_player(context)
+	var game_state: GameState = context.get("game_state")
+	var player_index: int = int(context.get("player_index", -1))
+	var hand_has_lightning: bool = player != null and _hand_has_energy_type(player, "L")
+	# 检查场上是否有 gap>=2 的攻击手（电枪更应该去帮它们）
+	var has_bigger_gap_target: bool = false
+	if player != null:
+		for check_slot: PokemonSlot in _get_all_slots(player):
+			if check_slot == slot:
+				continue
+			var cs_name: String = check_slot.get_pokemon_name()
+			if cs_name in ALL_ATTACKER_NAMES and _get_attack_energy_gap(check_slot) >= 2:
+				has_bigger_gap_target = true
+				break
+
+	# 报仇计划加成：如果这只宝可梦是报仇最佳目标，电枪优先充它
+	var revenge_bonus: float = 0.0
+	if player != null and game_state != null and player_index >= 0:
+		var revenge_name: String = _find_revenge_target_name(game_state, player, player_index)
+		if revenge_name != "" and sname == revenge_name and gap >= 1:
+			revenge_bonus = 200.0  # 报仇目标大幅加成
+
+	# gap=1 且手里有雷能量且有 gap>=2 的目标 → 电枪小幅让步给它们
+	# 注意：不能惩罚太重（-300会导致谁也打不出来），只让 gap>=2 稍微优先
+	var gap1_penalty: float = 0.0
+	if gap == 1 and hand_has_lightning and has_bigger_gap_target:
+		gap1_penalty = -150.0  # 温和降低，让手贴优先处理 gap=1
+
+	# 雷公V — LC=2能最快出拳
 	if sname == RAIKOU_V:
-		if gap == 1: return 600.0   # 贴1能就能打！
-		if gap > 1: return 400.0
-		return 50.0                  # 已满
+		if gap == 1: return 700.0 + gap1_penalty + revenge_bonus
+		if gap > 1: return 450.0 + revenge_bonus
+		return 50.0
 
-	# 铁臂膀ex — 主攻手 LLC=160
+	# 铁臂膀ex — LLC=160 主攻
 	if sname == IRON_HANDS_EX:
-		if gap == 1: return 550.0
-		if gap == 2: return 400.0
+		if gap == 1: return 650.0 + gap1_penalty + revenge_bonus
+		if gap == 2: return 500.0 + revenge_bonus  # 电枪最佳目标！差2能
 		if gap == 0:
-			# 已能用第一招，继续贴解锁第二招（LCCC 多拿奖品）
 			var total: int = _count_attached_energy_units(slot)
-			if total < 4: return 200.0
-			return 30.0              # 4能已满
-		return 350.0
+			if total < 4: return 180.0
+			return 40.0
+		return 450.0 + revenge_bonus  # gap>=3
 
-	# 闪电鸟 — buff + 副攻 LLC=110
+	# 闪电鸟 — LLC=110 副攻
 	if sname == ZAPDOS:
-		if gap == 1: return 500.0
-		if gap > 1: return 300.0
-		return 30.0
-
-	# 密勒顿ex — 引擎，一般不贴能给它（电枪只贴后备）
-	if sname == MIRAIDON_EX:
-		return 10.0  # 极低优先
-
-	# 雷丘V — 终结者，前中期不贴
-	if sname == RAICHU_V:
-		return 20.0  # 极低
+		if gap == 1: return 600.0 + gap1_penalty + revenge_bonus
+		if gap > 1: return 400.0 + revenge_bonus
+		return 40.0
 
 	# 月月熊·赫月ex
 	if sname == URSALUNA_EX:
-		if gap == 1: return 350.0
-		if gap > 1: return 200.0
-		return 30.0
+		if gap == 1: return 500.0 + gap1_penalty + revenge_bonus
+		if gap > 1: return 300.0 + revenge_bonus
+		return 40.0
+
+	# 密勒顿ex — 引擎不贴
+	if sname == MIRAIDON_EX:
+		return 10.0
+
+	# 雷丘V — 终结者，前中期不贴
+	if sname == RAICHU_V:
+		return 15.0
 
 	# 辅助型/其他
 	return 10.0

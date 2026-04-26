@@ -106,7 +106,9 @@ func resolve_strategy_for_deck(deck: DeckData) -> RefCounted:
 	var strategy_id: String = resolve_strategy_id_for_deck(deck)
 	if strategy_id == "":
 		return null
-	return create_strategy_by_id(strategy_id)
+	var strategy := create_strategy_by_id(strategy_id)
+	_configure_strategy_from_deck(strategy, deck)
+	return strategy
 
 
 func apply_strategy_for_deck(ai: RefCounted, deck: DeckData) -> RefCounted:
@@ -144,6 +146,13 @@ func _best_strategy_id_for_visible_names(visible_names: Dictionary) -> String:
 	if best_match_count > 0:
 		return best_strategy_id
 	return ""
+
+
+func _configure_strategy_from_deck(strategy: RefCounted, deck: DeckData) -> void:
+	if strategy == null or deck == null:
+		return
+	if strategy.has_method("set_deck_strategy_text"):
+		strategy.call("set_deck_strategy_text", str(deck.strategy))
 
 
 func _instantiate_strategy_from_path(script_path: String) -> RefCounted:
