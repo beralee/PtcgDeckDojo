@@ -2,7 +2,7 @@
 
 <p align="center">
   <a href="https://ptcg.skillserver.cn/">
-    <img src="assets/ui/title.png" alt="PTCG Deck Agent - 宝可梦卡牌智能练牌器" width="100%" />
+    <img src="assets/ui/title1.png" alt="PTCG Deck Agent - 宝可梦卡牌智能练牌器" width="100%" />
   </a>
 </p>
 
